@@ -1,6 +1,6 @@
 # Deep learning for single-cell transcript counts #
 
-Model implementation for master thesis at [DTU Compute][] for [Christopher Heje Grønbech][Chris] and [Maximillian Fornitz Vording][Max] with [Ole Winther][Ole] as supervisor and in collaboration with [Pers Lab][].
+Model implementation for master thesis by [Christopher Heje Grønbech][Chris] and [Maximillian Fornitz Vording][Max] at [DTU Compute][] with [Ole Winther][Ole] as supervisor and [Pers Lab][] as collaborators.
 
 [DTU Compute]: http://compute.dtu.dk
 [Chris]: https://github.com/chgroenbech
