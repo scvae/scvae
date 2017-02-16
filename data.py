@@ -36,12 +36,12 @@ class BaseDataSet(object):
             assert M_counts == M_cells
             assert F_counts == F_genes
             
-            self.number_of_cells = M_cells
-            self.number_of_genes = F_genes
+            self.number_of_examples = M_cells
+            self.number_of_features = F_genes
         
         else:
-            self.number_of_cells = None
-            self.number_of_genes = None
+            self.number_of_examples = None
+            self.number_of_features = None
         
         self.counts = counts
         self.cells = cells
@@ -139,7 +139,7 @@ class DataSet(BaseDataSet):
     
     def splitAndCollectInDictionary(self, method, fraction):
         
-        M = self.number_of_cells
+        M = self.number_of_examples
         
         if method == "random":
             

@@ -2,7 +2,7 @@
 
 import data
 import modeling
-import analysis
+# import analysis
 
 import argparse
 
@@ -21,35 +21,35 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     # Data
     
     data_set = data.DataSet(data_set_name, data_directory)
-    
+
     training_set, validation_set, test_set = data_set.split(
         splitting_method, splitting_fraction)
-    
-    feature_size = data_set.feature_size
 
+    feature_size = data_set.number_of_features
+    
     # Modeling
 
-    model = modeling.VaritationalAutoEncoder(
+    model = modeling.VariationalAutoEncoder(
         feature_size, latent_size, hidden_sizes,
-        reconstruction_distribution, number_of_reconstruction_classes,
+        reconstruction_distribution,
+        # number_of_reconstruction_classes,
     )
-
-    log_directory += "/" + model.name
-
+    
     model.train(training_set, validation_set,
         number_of_epochs, batch_size, learning_rate,
+        # number_of_warm_up_epochs,
         log_directory, reset_training)
-
-    # Analysis
-
-    results_directory += "/" + model.name
-
-    analysis.analyseModel(model, model.name, results_directory)
-
-    reconstructed_test_set, latent_set, test_metrics = model.evaluate(test_set)
-
-    analysis.analyseResults(test_set, reconstructed_test_set, latent_set,
-        model.name, results_directory)
+    
+    # # Analysis
+    #
+    # results_directory += "/" + model.name
+    #
+    # analysis.analyseModel(model, model.name, results_directory)
+    #
+    # reconstructed_test_set, latent_set, test_metrics = model.evaluate(test_set)
+    #
+    # analysis.analyseResults(test_set, reconstructed_test_set, latent_set,
+    #     model.name, results_directory)
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',
