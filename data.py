@@ -10,7 +10,7 @@ from scipy.sparse import csr_matrix
 
 preprocess_suffix = "preprocessed"
 
-data_sets = {
+data_set_details = {
     "mouse retina": {
         "file name": "GSE63472_P14Retina_merged_digital_expression",
         "extension": ".txt.gz",
@@ -23,6 +23,10 @@ class BaseDataSet(object):
     def __init__(self, counts = None, cells = None, genes = None):
         super(BaseDataSet, self).__init__()
         
+        self.update(counts, cells, genes)
+    
+    def update(self, counts = None, cells = None, genes = None):
+        
         if counts is not None and cells is not None and genes is not None:
             
             M_counts, F_counts = counts.shape
@@ -31,6 +35,13 @@ class BaseDataSet(object):
             
             assert M_counts == M_cells
             assert F_counts == F_genes
+            
+            self.number_of_cells = M_cells
+            self.number_of_genes = F_genes
+        
+        else:
+            self.number_of_cells = None
+            self.number_of_genes = None
         
         self.counts = counts
         self.cells = cells
@@ -45,73 +56,90 @@ class DataSet(BaseDataSet):
         
         self.preprocess_directory = os.path.join(directory, preprocess_suffix)
         
-        self.file_name = data_sets[self.name]["file name"]
+        self.file_name = data_set_details[self.name]["file name"]
         
         self.path = os.path.join(self.directory, self.file_name) \
-            + data_sets[name]["extension"]
+            + data_set_details[name]["extension"]
         
         self.preprocessPath = lambda additions: \
-            os.path.join(self.preprocess_directory, self.file_name) \
-                + "_" + "_".join(additions) + data_sets[name]["sparse extension"]
+            os.path.join(self.preprocess_directory, self.file_name) + "_" \
+                + "_".join(additions) + data_set_details[name]["sparse extension"]
         
         self.sparse_path = self.preprocessPath(["sparse"])
-        
-        print(self.path)
-        print(self.sparse_path)
         
         self.load()
     
     def load(self):
         if os.path.isfile(self.sparse_path):
-            data_set = loadSparseDataSets(self.sparse_path)
+            print(self.sparse_path)
+            data_dictionary = loadFromSparseData(self.sparse_path)
         else:
             if not os.path.isfile(self.path):
                 self.download()
-            data_set = self.loadOriginalDataSet()
+            print(self.path)
+            data_dictionary = self.loadOriginalData()
             if not os.path.exists(self.preprocess_directory):
                 os.makedirs(self.preprocess_directory)
-            saveSparseDataSets(data_set, self.sparse_path)
+            print(self.sparse_path)
+            saveAsSparseData(data_dictionary, self.sparse_path)
         
-        self.counts = data_set.counts
-        self.cells = data_set.cells
-        self.genes = data_set.genes
+        self.update(
+            data_dictionary["counts"],
+            data_dictionary["cells"],
+            data_dictionary["genes"]
+        )
     
-    def loadOriginalDataSet(self):
+    def loadOriginalData(self):
         
         data_frame = read_csv(self.path, sep='\s+', index_col = 0,
             compression = "gzip", engine = "python")
         
-        data_set = BaseDataSet(
-            counts = data_frame.values.T,
-            cells = array(data_frame.columns.tolist()),
-            genes = array(data_frame.index.tolist()),
-        )
+        data_dictionary = {
+            "counts": data_frame.values.T,
+            "cells": array(data_frame.columns.tolist()),
+            "genes": array(data_frame.index.tolist())
+        }
         
-        return data_set
+        return data_dictionary
     
     def download(self):
-        pass
+        raise NotImplementedError
     
     def split(self, method, fraction):
         
-        split_data_sets_path = self.preprocessPath(["split", method, str(fraction)])
+        split_data_sets_path = self.preprocessPath(["split", method,
+            str(fraction)])
         
         print(split_data_sets_path)
         
         if os.path.isfile(split_data_sets_path):
-            training_set, validation_set, test_set = \
-                 loadSparseDataSets(split_data_sets_path)
+            data_dictionary = loadFromSparseData(split_data_sets_path)
         else:
-            training_set, validation_set, test_set = \
-                self.splitIntoSets(method, fraction)
-            saveSparseDataSets([training_set, validation_set, test_set],
-                split_data_sets_path)
+            data_dictionary = self.splitAndCollectInDictionary(method,
+                fraction)
+            saveAsSparseData(data_dictionary, split_data_sets_path)
+        
+        training_set = BaseDataSet(
+            counts = data_dictionary["training_set"]["counts"],
+            cells = data_dictionary["training_set"]["cells"],
+            genes = data_dictionary["genes"]
+        )
+        validation_set = BaseDataSet(
+            counts = data_dictionary["validation_set"]["counts"],
+            cells = data_dictionary["validation_set"]["cells"],
+            genes = data_dictionary["genes"]
+        )
+        test_set = BaseDataSet(
+            counts = data_dictionary["test_set"]["counts"],
+            cells = data_dictionary["test_set"]["cells"],
+            genes = data_dictionary["genes"]
+        )
         
         return training_set, validation_set, test_set
     
-    def splitIntoSets(self, method, fraction):
+    def splitAndCollectInDictionary(self, method, fraction):
         
-        M, F = self.counts.shape
+        M = self.number_of_cells
         
         if method == "random":
             
@@ -124,62 +152,58 @@ class DataSet(BaseDataSet):
             validation_indices = shuffled_indices[T:V]
             test_indices = shuffled_indices[V:]
         
-        training_set = BaseDataSet(
-            counts = self.counts[training_indices],
-            cells = self.cells[training_indices],
-            genes = self.genes
-        )
-        validation_set = BaseDataSet(
-            counts = self.counts[validation_indices],
-            cells = self.cells[validation_indices],
-            genes = self.genes
-        )
-        test_set = BaseDataSet(
-            counts = self.counts[test_indices],
-            cells = self.cells[test_indices],
-            genes = self.genes
-        )
+        data_dictionary = {
+            "training_set": {
+                "counts": self.counts[training_indices],
+                "cells": self.cells[training_indices],
+            },
+            "validation_set": {
+                "counts": self.counts[validation_indices],
+                "cells": self.cells[validation_indices],
+            },
+            "test_set": {
+                "counts": self.counts[test_indices],
+                "cells": self.cells[test_indices],
+            },
+            "genes": self.genes
+        }
         
-        return training_set, validation_set, test_set
+        return data_dictionary
 
-def loadSparseDataSets(path):
+def loadFromSparseData(path):
     
-    converter = lambda sparse_data: sparse_data.todense().A
+    def converter(data):
+        if data.ndim == 2:
+            return data.todense().A
+        else:
+            return data
     
     with gzip.open(path, "rb") as data_file:
-        sparse_data_sets = pickle.load(data_file)
+        data_dictionary = pickle.load(data_file)
     
-    data_sets = []
+    for key in data_dictionary:
+        if "set" in key:
+            for key2 in data_dictionary[key]:
+                data_dictionary[key][key2] = converter(data_dictionary[key][key2])
+        else:
+            data_dictionary[key] = converter(data_dictionary[key])
     
-    for sparse_data_set in sparse_data_sets:
-        data_set = BaseDataSet(
-            counts = converter(sparse_data_set.counts),
-            cells = sparse_data_set.cells,
-            genes = sparse_data_set.genes
-        )
-        data_sets.append(data_set)
-    
-    if len(data_sets) == 1:
-        data_sets = data_sets[0]
-    
-    return data_sets
+    return data_dictionary
 
-def saveSparseDataSets(data_sets, path):
+def saveAsSparseData(data_dictionary, path):
     
-    converter = lambda data: csr_matrix(data)
+    def converter(data):
+        if data.ndim == 2:
+            return csr_matrix(data)
+        else:
+            return data
     
-    if type(data_sets) != list:
-        data_sets = [data_sets]
-    
-    sparse_data_sets = []
-    
-    for data_set in data_sets:
-        sparse_data_set = BaseDataSet(
-            counts = converter(data_set.counts),
-            cells = data_set.cells,
-            genes = data_set.genes
-        )
-        sparse_data_sets.append(sparse_data_set)
+    for key in data_dictionary:
+        if "set" in key:
+            for key2 in data_dictionary[key]:
+                data_dictionary[key][key2] = converter(data_dictionary[key][key2])
+        else:
+            data_dictionary[key] = converter(data_dictionary[key])
     
     with gzip.open(path, "wb") as data_file:
-        pickle.dump(sparse_data_sets, data_file)
+        pickle.dump(data_dictionary, data_file)
