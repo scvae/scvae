@@ -25,7 +25,11 @@ class VariationalAutoEncoder(object):
         
         self.use_batch_norm = use_batch_norm
     
-        
+        # Define graph
+        self.graph = tf.Graph()
+
+        self.model_name = reconstruction_distribution
+
     
     def name(self):
         pass
@@ -161,7 +165,7 @@ class VariationalAutoEncoder(object):
     
     def train(self, train_data, valid_data, number_of_epochs=50, batch_size=100, learning_rate=1e-3, log_directory = None, reset_training = False):
         
-        with tf.Graph().as_default():
+        with self.graph.as_default():
             
             self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
     
@@ -184,12 +188,16 @@ class VariationalAutoEncoder(object):
         
             saver = tf.train.Saver()
         
-            session = tf.Session()
+            session = tf.Session(graph=self.graph)
         
-            summary_writer = tf.summary.FileWriter(log_directory, session.graph)
+            summary_writer = tf.summary.FileWriter(log_directory+'/'+self.model_name, session.graph)
         
             session.run(tf.global_variables_initializer())
-        
+            
+            # Print out the defined graph
+            print("The inference graph:")        
+            print(tf.get_default_graph().as_graph_def())
+
             #train_losses, valid_losses = [], []
             feed_dict_train = {self.x: train_data.counts, self.phase: False}
             feed_dict_valid = {self.x: valid_data.counts, self.phase: False}
@@ -239,7 +247,7 @@ def sample_layer(mean, log_var, scope='sample_layer'):
 # Wrapper layer for inserting batch normalization in between linear and nonlinear activation layers. 
 def dense_layer(inputs, num_outputs, is_training, scope, activation_fn=None, use_batch_norm=False, decay=0.999, center=True, scale=False):
     with tf.variable_scope(scope):
-        outputs = fully_connected(inputs, num_outputs=num_outputs, activation_fn=None, scope=scope+'/DENSE')
+        outputs = fully_connected(inputs, num_outputs=num_outputs, activation_fn=None, scope='DENSE')
         if use_batch_norm:
             outputs = batch_norm(outputs, center=center, scale=scale, is_training=is_training, scope='BATCH_NORM')
         if activation_fn is not None:
