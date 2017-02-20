@@ -4,7 +4,8 @@ from tensorflow.python.ops.nn import relu
 from tensorflow import sigmoid
 from tensorflow.contrib.distributions import Bernoulli, Normal, Poisson
 from ZeroInflatedPoisson import ZeroInflatedPoisson
-
+from NegativeBinomial import NegativeBinomial
+from ZeroInflatedNegativeBinomial import ZeroInflatedNegativeBinomial
 import os
 import numpy
 
@@ -105,8 +106,16 @@ class VariationalAutoEncoder(object):
         elif self.reconstruction_distribution == 'zero inflated poisson':
             l_dec_out_lambda = tf.exp(tf.clip_by_value(dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZIP_LAMBDA'), -10, 10))
             l_dec_out_pi = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZIP_PI')
-            self.recon_dist = ZeroInflatedPoisson(lambd=tf.clip_by_value(l_dec_out_lambda, eps, l_dec_out_lambda), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))            
-    
+            self.recon_dist = ZeroInflatedPoisson(lambd=tf.clip_by_value(l_dec_out_lambda, eps, l_dec_out_lambda), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))
+        elif self.reconstruction_distribution == 'negative binomial':
+            l_dec_out_r = tf.exp(tf.clip_by_value(dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_NEGATIVE_BINOMIAL_R'), -10, 10))
+            l_dec_out_p = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_NEGATIVE_BINOMIAL_P')
+            self.recon_dist = NegativeBinomial(r=tf.clip_by_value(l_dec_out_r, eps, l_dec_out_r), p=tf.clip_by_value(l_dec_out_p, eps, 1-eps))
+        elif self.reconstruction_distribution == 'zero inflated negative binomial':
+            l_dec_out_r = tf.exp(tf.clip_by_value(dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZINB_R'), -10, 10))
+            l_dec_out_p = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZINB_P')
+            l_dec_out_pi = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZINB_PI')
+            self.recon_dist = ZeroInflatedNegativeBinomial(r=tf.clip_by_value(l_dec_out_r, eps, l_dec_out_r), p=tf.clip_by_value(l_dec_out_p, eps, 1-eps), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))
     def loss(self):
         # Loss
         # Reconstruction error. (all log(p) are in [-\infty, 0]). 
