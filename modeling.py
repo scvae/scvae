@@ -182,7 +182,7 @@ class VariationalAutoEncoder(object):
             self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
     
             self.is_training = tf.placeholder(tf.bool, [], 'phase')
-            
+
             self.inference()
             self.loss()
             self.training()
@@ -194,13 +194,14 @@ class VariationalAutoEncoder(object):
             
             # Train 
             # OBS: Changed epoch size for quick runs.
-            M = 1000 #train_data.number_of_examples
+            M = 2000 #train_data.number_of_examples
         
+            log_directory += '/' + self.name
             saver = tf.train.Saver()
             checkpoint_file = os.path.join(log_directory, 'model.ckpt')
             session = tf.Session(graph=self.graph)
         
-            summary_writer = tf.summary.FileWriter(log_directory+'/'+self.name, session.graph)
+            summary_writer = tf.summary.FileWriter(log_directory, session.graph)
         
             session.run(tf.global_variables_initializer())
             
@@ -215,7 +216,7 @@ class VariationalAutoEncoder(object):
                 shuffled_indices = numpy.random.permutation(M)
                 for i in range(0, M, batch_size):
                 
-                    step = i / batch_size
+                    step = session.run(self.global_step)
                 
                     start_time = time()
                 
@@ -232,7 +233,8 @@ class VariationalAutoEncoder(object):
                         summary_writer.add_summary(summary_str, step)
                         summary_writer.flush()
                 
-                saver.save(session, checkpoint_file, global_step=step)
+                print('Checkpoint reached: Saving model')
+                saver.save(session, checkpoint_file, global_step=self.global_step)
                 print('Done saving model')
 
                 print('Evaluating epoch {:d}'.format(epoch))
