@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 
+import os
+import sys
+import urllib.request
 import gzip
 import pickle
-import os
 
 from pandas import read_csv
 from numpy import random, array#, zeros, nonzero, sort, argsort, where, arange
 from scipy.sparse import csr_matrix
 
 preprocess_suffix = "preprocessed"
+sparse_extension = ".pkl.gz"
 
-data_set_details = {
-    "mouse retina": {
-        "file name": "GSE63472_P14Retina_merged_digital_expression",
-        "extension": ".txt.gz",
-        "sparse extension": ".pkl.gz",
-        "base_url": "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE63nnn/GSE63472/suppl/"
-    }
+data_set_URLs = {
+    "mouse retina": "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE63nnn/GSE63472/suppl/GSE63472_P14Retina_merged_digital_expression.txt.gz",
 }
 
 class BaseDataSet(object):
@@ -56,15 +54,18 @@ class DataSet(BaseDataSet):
         
         self.preprocess_directory = os.path.join(directory, preprocess_suffix)
         
-        self.file_name = data_set_details[self.name]["file name"]
+        self.URL = data_set_URLs[self.name]
         
-        self.path = os.path.join(self.directory, self.file_name) \
-            + data_set_details[name]["extension"]
+        file_name_with_extension = os.path.split(self.URL)[-1]
         
+        self.file_name, extension = file_name_with_extension.split(os.extsep, 1)
+        
+        self.path = os.path.join(self.directory, self.file_name) + extension
+
         self.preprocessPath = lambda additions: \
             os.path.join(self.preprocess_directory, self.file_name) + "_" \
-                + "_".join(additions) + data_set_details[name]["sparse extension"]
-        
+                + "_".join(additions) + sparse_extension
+
         self.sparse_path = self.preprocessPath(["sparse"])
         
         self.load()
@@ -103,7 +104,8 @@ class DataSet(BaseDataSet):
         return data_dictionary
     
     def download(self):
-        raise NotImplementedError
+        urllib.request.urlretrieve(self.URL, self.path,
+            download_report_hook)
     
     def split(self, method, fraction):
         
@@ -138,6 +140,8 @@ class DataSet(BaseDataSet):
         return training_set, validation_set, test_set
     
     def splitAndCollectInDictionary(self, method, fraction):
+        
+        random.seed(42)
         
         M = self.number_of_examples
         
@@ -207,3 +211,13 @@ def saveAsSparseData(data_dictionary, path):
     
     with gzip.open(path, "wb") as data_file:
         pickle.dump(data_dictionary, data_file)
+
+def download_report_hook(block_num, block_size, total_size):
+    bytes_read = block_num * block_size
+    if total_size > 0:
+        percent = bytes_read / total_size * 100
+        sys.stderr.write("\rDownloading: {:3.0f}%.".format(percent))
+        if bytes_read >= total_size:
+            sys.stderr.write("\n")
+    else:
+        sys.stderr.write("Downloaded: {:d} bytes.".format(bytes_read))

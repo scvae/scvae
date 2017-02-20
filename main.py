@@ -6,10 +6,6 @@ import modeling
 
 import argparse
 
-from numpy import random
-
-random.seed(42)
-
 def main(data_set_name, data_directory, log_directory, results_directory,
     splitting_method, splitting_fraction,
     latent_size, hidden_sizes, reconstruction_distribution,
