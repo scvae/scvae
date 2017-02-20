@@ -36,16 +36,16 @@ def main(data_set_name, data_directory, log_directory, results_directory,
         # number_of_warm_up_epochs,
         log_directory, reset_training)
     
-    # # Analysis
+    # Analysis
+    
+    results_directory += "/" + model.name
+    
+    analysis.analyseModel(model, model.name, results_directory)
     #
-    # results_directory += "/" + model.name
+    reconstructed_test_set, latent_set, test_metrics = model.evaluate(test_set)
     #
-    # analysis.analyseModel(model, model.name, results_directory)
-    #
-    # reconstructed_test_set, latent_set, test_metrics = model.evaluate(test_set)
-    #
-    # analysis.analyseResults(test_set, reconstructed_test_set, latent_set,
-    #     model.name, results_directory)
+    analysis.analyseResults(test_set, reconstructed_test_set, latent_set,
+        model.name, results_directory)
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',

@@ -3,10 +3,14 @@ from tensorflow.contrib.layers import fully_connected, batch_norm
 from tensorflow.python.ops.nn import relu
 from tensorflow import sigmoid
 from tensorflow.contrib.distributions import Bernoulli, Normal, Poisson
+from ZeroInflatedPoisson import ZeroInflatedPoisson
 
+import os
 import numpy
 
 from time import time
+
+eps = 1e-6
 
 class VariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
@@ -28,38 +32,38 @@ class VariationalAutoEncoder(object):
         # Define graph
         self.graph = tf.Graph()
 
-        self.model_name = reconstruction_distribution
+        self.name = self.reconstruction_distribution.replace(" ", "_")
+        self.name += "_l_" + str(self.latent_size) + "_h_" + "_".join(map(str,self.hidden_sizes))
+        if self.use_batch_norm:
+            self.name += "_bn"
 
     
-    def name(self):
-        pass
-        # model_name = base_name + "_" + \
-        #     dataSetBaseName(splitting_method, splitting_fraction,
-        #     filtering_method, feature_selection, feature_size)
-        #
-        # model_name += "_r_" + reconstruction_distribution.replace(" ", "_")
-        #
-        # if number_of_reconstruction_classes:
-        #     model_name += "_c_" + str(reconstruction_classes)
-        #
-        # if use_count_sum:
-        #     model_name += "_sum"
-        #
-        # model_name += "_l_" + str(latent_size) + "_h_" + "_".join(map(str,
-        #     hidden_structure))
-        #
-        # if use_batch_norm:
-        #     model_name += "_bn"
-        #
-        # model_name += "_lr_{:.1g}".format(learning_rate)
-        # model_name += "_b_" + str(batch_size) + "_wu_" + str(number_of_warm_up_epochs)
-        #
-        # if use_gpu:
-        #     model_name += "_gpu"
-        #
-        # model_name += "_e_" + str(number_of_epochs)
-        #
-        # return model_name
+    # def name(self):
+    #     #model_name = dataSetBaseName(splitting_method, splitting_fraction,
+    #         #filtering_method, feature_selection, feature_size)
+        
+    #     model_name = self.reconstruction_distribution.replace(" ", "_")
+        
+    #     # if number_of_reconstruction_classes:
+    #     #     model_name += "_c_" + str(reconstruction_classes)
+        
+    #     # if use_count_sum:
+    #     #     model_name += "_sum"
+        
+    #     model_name += "_l_" + str(self.latent_size) + "_h_" + "_".join(map(str,self.hidden_sizes))
+        
+    #     if self.use_batch_norm:
+    #         model_name += "_bn"
+        
+    #     # model_name += "_lr_{:.1g}".format(self.learning_rate)
+    #     # model_name += "_b_" + str(self.batch_size) + "_wu_" + str(number_of_warm_up_epochs)
+        
+    #     # if self.use_gpu:
+    #     #     model_name += "_gpu"
+        
+    #     # model_name += "_e_" + str(number_of_epochs)
+        
+    #     return model_name
     
     def inference(self):
         # initialize placeholders, symbolics, with shape (batchsize, features)
@@ -69,10 +73,10 @@ class VariationalAutoEncoder(object):
         l_enc = self.x
         # Encoder - Recognition Model, q(z|x)
         for i, hidden_size in enumerate(self.hidden_sizes):
-            l_enc = dense_layer(inputs=l_enc, num_outputs=hidden_size, activation_fn=relu, use_batch_norm=self.use_batch_norm, decay=batch_norm_decay,is_training=self.phase, scope='ENCODER{:d}'.format(i + 1))
+            l_enc = dense_layer(inputs=l_enc, num_outputs=hidden_size, activation_fn=relu, use_batch_norm=self.use_batch_norm, decay=batch_norm_decay,is_training=self.is_training, scope='ENCODER{:d}'.format(i + 1))
 
-        self.l_mu_z = dense_layer(inputs=l_enc, num_outputs=self.latent_size, activation_fn=None, use_batch_norm=False, is_training=self.phase, scope='ENCODER_MU_Z')
-        self.l_logvar_z = tf.clip_by_value(dense_layer(inputs=l_enc, num_outputs=self.latent_size, activation_fn=None, use_batch_norm=False, is_training=self.phase, scope='ENCODER_LOGVAR_Z'), -10, 10)
+        self.l_mu_z = dense_layer(inputs=l_enc, num_outputs=self.latent_size, activation_fn=None, use_batch_norm=False, is_training=self.is_training, scope='ENCODER_MU_Z')
+        self.l_logvar_z = tf.clip_by_value(dense_layer(inputs=l_enc, num_outputs=self.latent_size, activation_fn=None, use_batch_norm=False, is_training=self.is_training, scope='ENCODER_LOGVAR_Z'), -10, 10)
 
         # Stochastic layer
         ## Sample latent variable: z = mu + sigma*epsilon
@@ -81,22 +85,27 @@ class VariationalAutoEncoder(object):
         # Decoder - Generative model, p(x|z)
         l_dec = l_z
         for i, hidden_size in enumerate(reversed(self.hidden_sizes)):
-            l_dec = dense_layer(inputs=l_dec, num_outputs=hidden_size, activation_fn=relu, use_batch_norm=self.use_batch_norm, decay=batch_norm_decay, is_training=self.phase, scope='DECODER{:d}'.format(i + 1))
+            l_dec = dense_layer(inputs=l_dec, num_outputs=hidden_size, activation_fn=relu, use_batch_norm=self.use_batch_norm, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER{:d}'.format(i + 1))
 
         # Reconstruction Distribution Parameterization
         if self.reconstruction_distribution == 'bernoulli':
-            l_dec_out_p = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, is_training=self.phase, scale=True, scope='DECODER_BERNOULLI_P')
+            l_dec_out_p = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, is_training=self.is_training, scale=True, scope='DECODER_BERNOULLI_P')
             self.recon_dist = Bernoulli(p = l_dec_out_p)
 
         elif self.reconstruction_distribution == 'normal':
-            l_dec_out_mu = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.phase, scope='DECODER_NORMAL_MU')
-            l_dec_out_log_sigma = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.phase, scope='DECODER_NORMAL_LOG_SIGMA')
+            l_dec_out_mu = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_NORMAL_MU')
+            l_dec_out_log_sigma = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_NORMAL_LOG_SIGMA')
             self.recon_dist = Normal(mu=l_dec_out_mu, 
                 sigma=tf.exp(tf.clip_by_value(l_dec_out_log_sigma, -3, 3)))
 
         elif self.reconstruction_distribution == 'poisson':
-            l_dec_out_log_lambda = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.phase, scope='DECODER_POISSON_LOG_LAMBDA')
+            l_dec_out_log_lambda = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_POISSON_LOG_LAMBDA')
             self.recon_dist = Poisson(lam=tf.exp(tf.clip_by_value(l_dec_out_log_lambda, -10, 10)))
+
+        elif self.reconstruction_distribution == 'zero inflated poisson':
+            l_dec_out_lambda = tf.exp(tf.clip_by_value(dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZIP_LAMBDA'), -10, 10))
+            l_dec_out_pi = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZIP_PI')
+            self.recon_dist = ZeroInflatedPoisson(lambd=tf.clip_by_value(l_dec_out_lambda, eps, l_dec_out_lambda), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))            
     
     def loss(self):
         # Loss
@@ -172,7 +181,7 @@ class VariationalAutoEncoder(object):
             self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
             self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
     
-            self.phase = tf.placeholder(tf.bool, [], 'phase')
+            self.is_training = tf.placeholder(tf.bool, [], 'phase')
             
             self.inference()
             self.loss()
@@ -184,23 +193,23 @@ class VariationalAutoEncoder(object):
                 print(parameter.name, parameter.get_shape())
             
             # Train
-            M = train_data.number_of_examples
+            M = 1000 #train_data.number_of_examples
         
             saver = tf.train.Saver()
         
             session = tf.Session(graph=self.graph)
         
-            summary_writer = tf.summary.FileWriter(log_directory+'/'+self.model_name, session.graph)
+            summary_writer = tf.summary.FileWriter(log_directory+'/'+self.name, session.graph)
         
             session.run(tf.global_variables_initializer())
             
             # Print out the defined graph
-            print("The inference graph:")        
-            print(tf.get_default_graph().as_graph_def())
+            # print("The inference graph:")        
+            # print(tf.get_default_graph().as_graph_def())
 
             #train_losses, valid_losses = [], []
-            feed_dict_train = {self.x: train_data.counts, self.phase: False}
-            feed_dict_valid = {self.x: valid_data.counts, self.phase: False}
+            feed_dict_train = {self.x: train_data.counts, self.is_training: False}
+            feed_dict_valid = {self.x: valid_data.counts, self.is_training: False}
             for epoch in range(number_of_epochs):
                 shuffled_indices = numpy.random.permutation(M)
                 for i in range(0, M, batch_size):
@@ -211,12 +220,12 @@ class VariationalAutoEncoder(object):
                 
                     subset = shuffled_indices[i:(i + batch_size)]
                     batch = train_data.counts[subset]
-                    feed_dict = {self.x: batch, self.phase: True, self.learning_rate: learning_rate}
+                    feed_dict = {self.x: batch, self.is_training: True, self.learning_rate: learning_rate}
                     _, batch_loss = session.run([self.train_op, self.loss_op], feed_dict=feed_dict)
                 
                     duration = time() - start_time
                 
-                    if step % 10:
+                    if step % 10 == 0:
                         print('Step {:d}: loss = {:.2f} ({:.3f} sec)'.format(int(step), batch_loss, duration))
                         summary_str = session.run(self.summary, feed_dict=feed_dict)
                         summary_writer.add_summary(summary_str, step)
@@ -231,6 +240,16 @@ class VariationalAutoEncoder(object):
                 print("Epoch %d: ELBO: %g (Train), %g (Valid)"%(epoch+1, train_loss, valid_loss))
                 
 
+    def evaluate(self, test_set):
+        feed_dict_test = {self.x: test_set.counts, self.is_training: False}
+        with self.graph.as_default():
+            session = tf.Session(graph=self.graph)
+            recon_mean_test, z_mu_test, lower_bound_test = session.run([self.recon_dist.mean(), self.l_mu_z, self.loss_op], feed_dict=feed_dict_test)
+
+        metrics_test = {
+            "LL_test": lower_bound_test
+        }
+        return recon_mean_test, z_mu_test, metrics_test
 
 
 # Layer for sampling latent variables using the reparameterization trick 
