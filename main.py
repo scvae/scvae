@@ -4,6 +4,7 @@ import data
 import modeling
 # import analysis
 
+import os
 import argparse
 
 def main(data_set_name, data_directory, log_directory, results_directory,
@@ -13,11 +14,6 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     number_of_warm_up_epochs,
     number_of_epochs, batch_size, learning_rate,
     reset_training):
-    
-    # Setup
-    
-    log_directory = os.path.join(log_directory, self.name)
-    results_directory = os.path.join(results_directory, self.name)
     
     # Data
     
@@ -36,12 +32,16 @@ def main(data_set_name, data_directory, log_directory, results_directory,
         # number_of_reconstruction_classes,
     )
     
+    log_directory = os.path.join(log_directory, model.name)
+    
     model.train(training_set, validation_set,
         number_of_epochs, batch_size, learning_rate,
         # number_of_warm_up_epochs,
         log_directory, reset_training)
     
     # Analysis
+    
+    results_directory = os.path.join(results_directory, model.name)
     
     analysis.analyseModel(log_directory, results_directory)
     
