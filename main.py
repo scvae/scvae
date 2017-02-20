@@ -14,6 +14,11 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     number_of_epochs, batch_size, learning_rate,
     reset_training):
     
+    # Setup
+    
+    log_directory = os.path.join(log_directory, self.name)
+    results_directory = os.path.join(results_directory, self.name)
+    
     # Data
     
     data_set = data.DataSet(data_set_name, data_directory)
@@ -38,14 +43,12 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     
     # Analysis
     
-    results_directory += "/" + model.name
+    analysis.analyseModel(log_directory, results_directory)
     
-    analysis.analyseModel(model, model.name, results_directory)
-    #
     reconstructed_test_set, latent_set, test_metrics = model.evaluate(test_set)
-    #
+    
     analysis.analyseResults(test_set, reconstructed_test_set, latent_set,
-        model.name, results_directory)
+        results_directory)
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',
