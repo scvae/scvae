@@ -192,11 +192,12 @@ class VariationalAutoEncoder(object):
             for parameter in tf.trainable_variables():
                 print(parameter.name, parameter.get_shape())
             
-            # Train
+            # Train 
+            # OBS: Changed epoch size for quick runs.
             M = 1000 #train_data.number_of_examples
         
             saver = tf.train.Saver()
-        
+            checkpoint_file = os.path.join(log_directory, 'model.ckpt')
             session = tf.Session(graph=self.graph)
         
             summary_writer = tf.summary.FileWriter(log_directory+'/'+self.name, session.graph)
@@ -230,13 +231,17 @@ class VariationalAutoEncoder(object):
                         summary_str = session.run(self.summary, feed_dict=feed_dict)
                         summary_writer.add_summary(summary_str, step)
                         summary_writer.flush()
-                    
-                train_loss = session.run(self.loss_op, feed_dict=feed_dict_train)
-                valid_loss = session.run(self.loss_op, feed_dict=feed_dict_valid)
                 
-                checkpoint_file = os.path.join(log_directory, 'model.ckpt')
                 saver.save(session, checkpoint_file, global_step=step)
+                print('Done saving model')
+
+                print('Evaluating epoch {:d}'.format(epoch))
+                train_loss = session.run(self.loss_op, feed_dict=feed_dict_train)
+                print('Done evaluating training set')
+                valid_loss = session.run(self.loss_op, feed_dict=feed_dict_valid)
+                print('Done evaluating validation set')
                 
+
                 print("Epoch %d: ELBO: %g (Train), %g (Valid)"%(epoch+1, train_loss, valid_loss))
                 
 
