@@ -243,7 +243,7 @@ class VariationalAutoEncoder(object):
                         summary_writer.flush()
                 
                 print('Checkpoint reached: Saving model')
-                saver.save(session, checkpoint_file, global_step=self.global_step)
+                saver.save(session, checkpoint_file)
                 print('Done saving model')
 
                 print('Evaluating epoch {:d}'.format(epoch))
