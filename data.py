@@ -7,7 +7,7 @@ import gzip
 import pickle
 
 from pandas import read_csv
-from numpy import random, array#, zeros, nonzero, sort, argsort, where, arange
+from numpy import random, array, arange, zeros#, nonzero, sort, argsort, where
 from scipy.sparse import csr_matrix
 
 preprocess_suffix = "preprocessed"
@@ -52,37 +52,42 @@ class DataSet(BaseDataSet):
         self.name = name
         self.directory = directory
         
-        self.preprocess_directory = os.path.join(directory, preprocess_suffix)
+        if self.name != "sample":
+            self.preprocess_directory = os.path.join(directory, preprocess_suffix)
         
-        self.URL = data_set_URLs[self.name]
+            self.URL = data_set_URLs[self.name]
         
-        file_name_with_extension = os.path.split(self.URL)[-1]
+            file_name_with_extension = os.path.split(self.URL)[-1]
         
-        self.file_name, extension = file_name_with_extension.split(os.extsep, 1)
+            self.file_name, extension = file_name_with_extension.split(os.extsep, 1)
         
-        self.path = os.path.join(self.directory, self.file_name) + os.extsep + extension
+            self.path = os.path.join(self.directory, self.file_name) + os.extsep + extension
 
-        self.preprocessPath = lambda additions: \
-            os.path.join(self.preprocess_directory, self.file_name) + "_" \
-                + "_".join(additions) + sparse_extension
+            self.preprocessPath = lambda additions: \
+                os.path.join(self.preprocess_directory, self.file_name) + "_" \
+                    + "_".join(additions) + sparse_extension
 
-        self.sparse_path = self.preprocessPath(["sparse"])
+            self.sparse_path = self.preprocessPath(["sparse"])
         
         self.load()
     
     def load(self):
-        if os.path.isfile(self.sparse_path):
-            print(self.sparse_path)
-            data_dictionary = loadFromSparseData(self.sparse_path)
+        
+        if self.name == "sample":
+            data_dictionary = self.createSamples()
         else:
-            if not os.path.isfile(self.path):
-                self.download()
-            print(self.path)
-            data_dictionary = self.loadOriginalData()
-            if not os.path.exists(self.preprocess_directory):
-                os.makedirs(self.preprocess_directory)
-            print(self.sparse_path)
-            saveAsSparseData(data_dictionary, self.sparse_path)
+            if os.path.isfile(self.sparse_path):
+                print(self.sparse_path)
+                data_dictionary = loadFromSparseData(self.sparse_path)
+            else:
+                if not os.path.isfile(self.path):
+                    self.download()
+                print(self.path)
+                data_dictionary = self.loadOriginalData()
+                if not os.path.exists(self.preprocess_directory):
+                    os.makedirs(self.preprocess_directory)
+                print(self.sparse_path)
+                saveAsSparseData(data_dictionary, self.sparse_path)
         
         self.update(
             data_dictionary["counts"],
@@ -109,19 +114,54 @@ class DataSet(BaseDataSet):
         urllib.request.urlretrieve(self.URL, self.path,
             download_report_hook)
     
+    def createSamples(self, number_of_examples = 2000, number_of_features = 20,
+        scale = 2, update_probability = 0.5):
+        
+        m = number_of_examples
+        n = number_of_features
+        
+        samples = zeros((m, n))
+    
+        row = scale * random.rand(n)
+        k = 0
+        for i in range(m):
+            u = random.rand()
+            if u > 1 - update_probability:
+                row = scale * random.rand(n)
+                k += 1
+            samples[i] = row
+    
+        random.shuffle(samples)
+    
+        for i in range(m):
+            for j in range(n):
+                samples[i, j] = random.poisson(samples[i, j])
+        
+        data_dictionary = {
+            "counts": samples,
+            "cells": arange(m),
+            "genes": arange(n)
+        }
+        
+        return data_dictionary
+    
     def split(self, method, fraction):
         
-        split_data_sets_path = self.preprocessPath(["split", method,
-            str(fraction)])
-        
-        print(split_data_sets_path)
-        
-        if os.path.isfile(split_data_sets_path):
-            data_dictionary = loadFromSparseData(split_data_sets_path)
-        else:
+        if self.name == "sample":
             data_dictionary = self.splitAndCollectInDictionary(method,
                 fraction)
-            saveAsSparseData(data_dictionary, split_data_sets_path)
+        else:
+            split_data_sets_path = self.preprocessPath(["split", method,
+                str(fraction)])
+        
+            print(split_data_sets_path)
+        
+            if os.path.isfile(split_data_sets_path):
+                data_dictionary = loadFromSparseData(split_data_sets_path)
+            else:
+                data_dictionary = self.splitAndCollectInDictionary(method,
+                    fraction)
+                saveAsSparseData(data_dictionary, split_data_sets_path)
         
         training_set = BaseDataSet(
             counts = data_dictionary["training_set"]["counts"],
