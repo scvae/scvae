@@ -17,7 +17,7 @@ eps = 1e-6
 class VariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         reconstruction_distribution = None, number_of_reconstruction_classes = None,
-        use_batch_norm = False):
+        use_batch_norm = True, use_count_sum=True):
     
         # Setup
     
@@ -30,7 +30,7 @@ class VariationalAutoEncoder(object):
         self.reconstruction_distribution = reconstruction_distribution
         
         self.use_batch_norm = use_batch_norm
-    
+        self.use_count_sum = use_count_sum
         # Define graph
         self.graph = tf.Graph()
 
@@ -82,10 +82,15 @@ class VariationalAutoEncoder(object):
 
         # Stochastic layer
         ## Sample latent variable: z = mu + sigma*epsilon
-        l_z = sample_layer(self.l_mu_z, self.l_logvar_z, 'SAMPLE_LAYER')
+        self.l_z = sample_layer(self.l_mu_z, self.l_logvar_z, 'SAMPLE_LAYER')
 
         # Decoder - Generative model, p(x|z)
-        l_dec = l_z
+        if self.use_count_sum:
+            self.l_n = tf.placeholder(tf.float32, [None, 1], 'n_sum') # total counts sum
+            l_dec = tf.concat([self.l_z, self.l_n], axis=1, name='DECODER_MERGE')
+        else:
+            l_dec = l_z
+
         for i, hidden_size in enumerate(reversed(self.hidden_sizes)):
             l_dec = dense_layer(inputs=l_dec, num_outputs=hidden_size, activation_fn=relu, use_batch_norm=self.use_batch_norm, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER{:d}'.format(i + 1))
 
@@ -184,8 +189,12 @@ class VariationalAutoEncoder(object):
     
     def train(self, train_data, valid_data, number_of_epochs=50, batch_size=100, learning_rate=1e-3, log_directory = None, reset_training = False):
         
+        if self.use_count_sum:
+            n_train = train_data.counts.sum(axis = 1).reshape(-1, 1)
+            n_valid = valid_data.counts.sum(axis = 1).reshape(-1, 1)
+
         with self.graph.as_default():
-            
+
             self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
     
             self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
@@ -204,7 +213,7 @@ class VariationalAutoEncoder(object):
             
             # Train 
             # OBS: Changed epoch size for quick runs.
-            M = 2000 #train_data.number_of_examples
+            M = train_data.number_of_examples
         
             saver = tf.train.Saver()
             checkpoint_file = os.path.join(log_directory, 'model.ckpt')
@@ -221,6 +230,10 @@ class VariationalAutoEncoder(object):
             #train_losses, valid_losses = [], []
             feed_dict_train = {self.x: train_data.counts, self.is_training: False}
             feed_dict_valid = {self.x: valid_data.counts, self.is_training: False}
+            if self.use_count_sum:
+                feed_dict_train[self.l_n] = n_train
+                feed_dict_valid[self.l_n] = n_valid
+
             for epoch in range(number_of_epochs):
                 shuffled_indices = numpy.random.permutation(M)
                 for i in range(0, M, batch_size):
@@ -228,31 +241,40 @@ class VariationalAutoEncoder(object):
                     step = session.run(self.global_step)
                 
                     start_time = time()
-                
+                    
+                    # Feeding in batch to model 
                     subset = shuffled_indices[i:(i + batch_size)]
                     batch = train_data.counts[subset]
-                    feed_dict = {self.x: batch, self.is_training: True, self.learning_rate: learning_rate}
-                    _, batch_loss = session.run([self.train_op, self.loss_op], feed_dict=feed_dict)
-                
+                    feed_dict_batch = {self.x: batch, self.is_training: True, self.learning_rate: learning_rate}
+                    
+                    # Adding the sum of counts per cell to the generator after the sample layer. 
+                    if self.use_count_sum:
+                        feed_dict_batch[self.l_n] = n_train[subset]
+
+                    # Run the stochastic batch training operation. 
+                    _, batch_loss = session.run([self.train_op, self.loss_op], feed_dict=feed_dict_batch)
+                    
+                    # Duration of one training step.
                     duration = time() - start_time
-                
+                    
+                    # Evaluation printout and TensorBoard summary
                     if step % 10 == 0:
                         print('Step {:d}: loss = {:.2f} ({:.3f} sec)'.format(int(step), batch_loss, duration))
-                        summary_str = session.run(self.summary, feed_dict=feed_dict)
+                        summary_str = session.run(self.summary, feed_dict=feed_dict_batch)
                         summary_writer.add_summary(summary_str, step)
                         summary_writer.flush()
                 
+                # Saving model parameters
                 print('Checkpoint reached: Saving model')
                 saver.save(session, checkpoint_file)
                 print('Done saving model')
 
+                # Evaluation
                 print('Evaluating epoch {:d}'.format(epoch))
                 train_loss = session.run(self.loss_op, feed_dict=feed_dict_train)
                 print('Done evaluating training set')
                 valid_loss = session.run(self.loss_op, feed_dict=feed_dict_valid)
                 print('Done evaluating validation set')
-                
-
                 print("Epoch %d: ELBO: %g (Train), %g (Valid)"%(epoch+1, train_loss, valid_loss))
                 
 
