@@ -60,7 +60,7 @@ class DataSet(BaseDataSet):
         
         self.file_name, extension = file_name_with_extension.split(os.extsep, 1)
         
-        self.path = os.path.join(self.directory, self.file_name) + extension
+        self.path = os.path.join(self.directory, self.file_name) + os.extsep + extension
 
         self.preprocessPath = lambda additions: \
             os.path.join(self.preprocess_directory, self.file_name) + "_" \
@@ -104,6 +104,8 @@ class DataSet(BaseDataSet):
         return data_dictionary
     
     def download(self):
+        if not os.path.exists(self.directory):
+            os.makedirs(self.directory)
         urllib.request.urlretrieve(self.URL, self.path,
             download_report_hook)
     
