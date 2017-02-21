@@ -4,7 +4,7 @@ from tensorflow.python.ops.nn import relu
 from tensorflow import sigmoid
 from tensorflow.contrib.distributions import Bernoulli, Normal, Poisson
 from distributions import (
-    ZeroInflatedPoisson, NegativeBinomial, ZeroInflatedNegativeBinomial
+    ZeroInflatedPoisson, NegativeBinomial, ZeroInflatedNegativeBinomial, ZeroInflated
 )
 
 import os
@@ -112,7 +112,7 @@ class VariationalAutoEncoder(object):
         elif self.reconstruction_distribution == 'zero inflated poisson':
             l_dec_out_lambda = tf.exp(tf.clip_by_value(dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZIP_LAMBDA'), -10, 10))
             l_dec_out_pi = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZIP_PI')
-            self.recon_dist = ZeroInflatedPoisson(lambd=tf.clip_by_value(l_dec_out_lambda, eps, l_dec_out_lambda), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))
+            self.recon_dist = ZeroInflated(Poisson(lam=tf.clip_by_value(l_dec_out_lambda, eps, l_dec_out_lambda)), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))
         elif self.reconstruction_distribution == 'negative binomial':
             l_dec_out_r = tf.exp(tf.clip_by_value(dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_NEGATIVE_BINOMIAL_R'), -10, 10))
             l_dec_out_p = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_NEGATIVE_BINOMIAL_P')
@@ -121,7 +121,7 @@ class VariationalAutoEncoder(object):
             l_dec_out_r = tf.exp(tf.clip_by_value(dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZINB_R'), -10, 10))
             l_dec_out_p = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZINB_P')
             l_dec_out_pi = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZINB_PI')
-            self.recon_dist = ZeroInflatedNegativeBinomial(r=tf.clip_by_value(l_dec_out_r, eps, l_dec_out_r), p=tf.clip_by_value(l_dec_out_p, eps, 1-eps), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))
+            self.recon_dist = ZeroInflated(NegativeBinomial(r=tf.clip_by_value(l_dec_out_r, eps, l_dec_out_r), p=tf.clip_by_value(l_dec_out_p, eps, 1-eps)), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))
     def loss(self):
         # Loss
         # Reconstruction error. (all log(p) are in [-\infty, 0]). 
@@ -264,7 +264,7 @@ class VariationalAutoEncoder(object):
                         summary_writer.add_summary(summary_str, step)
                         summary_writer.flush()
                 
-                # Saving model parameters
+                Saving model parameters
                 print('Checkpoint reached: Saving model')
                 saver.save(session, checkpoint_file)
                 print('Done saving model')
@@ -278,8 +278,11 @@ class VariationalAutoEncoder(object):
                 print("Epoch %d: ELBO: %g (Train), %g (Valid)"%(epoch+1, train_loss, valid_loss))
                 
 
-    def evaluate(self, test_set):
+    def evaluate(self, test_set):        
         feed_dict_test = {self.x: test_set.counts, self.is_training: False}
+        if self.use_count_sum:
+            feed_dict_test[self.l_n] = test_set.counts.sum(axis = 1).reshape(-1, 1)
+
         with self.graph.as_default():
             session = tf.Session(graph=self.graph)
             recon_mean_test, z_mu_test, lower_bound_test = session.run([self.recon_dist.mean(), self.l_mu_z, self.loss_op], feed_dict=feed_dict_test)

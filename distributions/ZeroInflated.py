@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""The zero-inflated Poisson distribution class."""
+"""The zero-inflated distribution class."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -32,17 +32,10 @@ from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import math_ops
 
 
-_poisson_prob_note = """
-Note thet the input value must be a non-negative floating point tensor with
-dtype `dtype` and whose shape can be broadcast with `self.lambd`. `x` is only
-legal if it is non-negative and its components are equal to integer values.
-"""
-
-
 class ZeroInflated(distribution.Distribution):
   """Zero-inflated distribution.
 
-  The zero-inflated Poisson distribution is parameterized by `lambd`, the rate parameter, and by 'pi', the zero-inflation parameter.
+  The zero-inflated distribution is parameterized by `lambd`, the rate parameter, and by 'pi', the zero-inflation parameter.
 
   The pmf of this distribution is:
 
@@ -87,7 +80,7 @@ class ZeroInflated(distribution.Distribution):
     static_event_shape = dist.get_event_shape()
     static_batch_shape = pi.get_shape()
 
-    with ops.name_scope(name, values=pi) as ns:
+    with ops.name_scope(name, values=[pi] + dist._graph_parents) as ns:
       with ops.control_dependencies([check_ops.assert_positive(pi)] if
                                     validate_args else []):
         self._dist = dist
