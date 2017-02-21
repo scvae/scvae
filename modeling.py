@@ -3,9 +3,10 @@ from tensorflow.contrib.layers import fully_connected, batch_norm
 from tensorflow.python.ops.nn import relu
 from tensorflow import sigmoid
 from tensorflow.contrib.distributions import Bernoulli, Normal, Poisson
-from ZeroInflatedPoisson import ZeroInflatedPoisson
-from NegativeBinomial import NegativeBinomial
-from ZeroInflatedNegativeBinomial import ZeroInflatedNegativeBinomial
+from distributions import (
+    ZeroInflatedPoisson, NegativeBinomial, ZeroInflatedNegativeBinomial
+)
+
 import os
 import numpy
 
@@ -205,7 +206,6 @@ class VariationalAutoEncoder(object):
             # OBS: Changed epoch size for quick runs.
             M = 2000 #train_data.number_of_examples
         
-            log_directory += '/' + self.name
             saver = tf.train.Saver()
             checkpoint_file = os.path.join(log_directory, 'model.ckpt')
             session = tf.Session(graph=self.graph)
