@@ -39,8 +39,8 @@ legal if it is non-negative and its components are equal to integer values.
 """
 
 
-class ZeroInflatedPoisson(distribution.Distribution):
-  """Zero-inflated Poisson distribution.
+class ZeroInflated(distribution.Distribution):
+  """Zero-inflated distribution.
 
   The zero-inflated Poisson distribution is parameterized by `lambd`, the rate parameter, and by 'pi', the zero-inflation parameter.
 
@@ -53,17 +53,16 @@ class ZeroInflatedPoisson(distribution.Distribution):
 
   """
 
-  def __init__(self,
-               lambd, 
+  def __init__(self, 
+               dist,
                pi,
                validate_args=False,
                allow_nan_stats=True,
-               name="ZeroInflatedPoisson"):
-    """Construct zero-inflated Poisson distributions.
+               name="ZeroInflated"):
+    """Construct zero-inflated distributions.
 
     Args:
-      lambd: Floating point tensor, the rate parameter of the
-        distribution(s). `lambd` must be positive.
+      dist: A 'Distribution' instance.
       pi: Floating point tensor, the zero-inflation parameter of the
         distribution(s). `pi` must be in the interval [0, 1].
       validate_args: `Boolean`, default `False`.  Whether to assert that
@@ -78,26 +77,41 @@ class ZeroInflatedPoisson(distribution.Distribution):
     """
     parameters = locals()
     parameters.pop("self")
-    with ops.name_scope(name, values=[lambd, pi]) as ns:
-      with ops.control_dependencies([check_ops.assert_positive(lambd), check_ops.assert_positive(pi)] if
+
+    if not isinstance(dist, distribution.Distribution):
+      raise TypeError(
+          "dist must be Distribution instance"
+          " but saw: %s" % dist)
+    is_continuous = dist.is_continuous
+    
+    static_event_shape = dist.get_event_shape()
+    static_batch_shape = pi.get_shape()
+
+    with ops.name_scope(name, values=pi) as ns:
+      with ops.control_dependencies([check_ops.assert_positive(pi)] if
                                     validate_args else []):
-        self._lambd = array_ops.identity(lambd, name="lambd")
+        self._dist = dist
         self._pi = array_ops.identity(pi, name="pi")
-        contrib_tensor_util.assert_same_float_dtype((self._lambd, self._pi))
-    super(ZeroInflatedPoisson, self).__init__(
-        dtype=self._lambd.dtype,
-        is_continuous=False,
+        self._static_event_shape = static_event_shape
+        self._static_batch_shape = static_batch_shape
+        #contrib_tensor_util.assert_same_float_dtype((self._lambd, self._pi))
+    graph_parents = [self._pi]
+    graph_parents += self._dist._graph_parents
+
+    super(ZeroInflated, self).__init__(
+        dtype=self._pi.dtype,
+        is_continuous=is_continuous,
         is_reparameterized=False,
         validate_args=validate_args,
         allow_nan_stats=allow_nan_stats,
         parameters=parameters,
-        graph_parents=[self._lambd, self._pi],
+        graph_parents=graph_parents,
         name=ns)
 
   @property
-  def lambd(self):
-    """Rate parameter."""
-    return self._lambd
+  def dist(self):
+    """Distribution."""
+    return self._dist
 
   @property
   def pi(self):
@@ -105,41 +119,43 @@ class ZeroInflatedPoisson(distribution.Distribution):
     return self._pi
 
   def _batch_shape(self):
-    return array_ops.shape(self.lambd + self.pi)
+    return array_ops.shape(self._pi)
 
   def _get_batch_shape(self):
-    return common_shapes.broadcast_shape(
-        self.lambd.get_shape(), self._pi.get_shape())
+    return self._static_batch_shape
 
   def _event_shape(self):
-    return constant_op.constant([], dtype=dtypes.int32)
+    return self._dist.event_shape()
 
   def _get_event_shape(self):
-    return tensor_shape.scalar()
+    return self._static_event_shape
 
-  @distribution_util.AppendDocstring(_poisson_prob_note)
   def _log_prob(self, x):
     x = self._assert_valid_sample(x, check_integer=self._is_continuous)
-    y_0 = math_ops.log(self.pi + (1 - self.pi) * math_ops.exp(-self.lambd))
-    y_1 = math_ops.log(1 - self.pi) + x * math_ops.log(self.lambd) - self.lambd - math_ops.lgamma(x + 1)
+    y_0 = math_ops.log(self.pi + (1 - self.pi) * self._dist.prob(x))
+    y_1 = math_ops.log(1 - self.pi) + self._dist.log_prob(x)
     return where(x > 0, y_1, y_0)
 
-  @distribution_util.AppendDocstring(_poisson_prob_note)
   def _prob(self, x):
     return math_ops.exp(self._log_prob(x))
 
   def _log_cdf(self, x):
     return math_ops.log(self.cdf(x))
 
+  # TODO: Implement the cumulative distribution function
   def _cdf(self, x):
     x = self._assert_valid_sample(x, check_integer=False)
     return math_ops.igammac(math_ops.floor(x + 1), self.lambd)
 
+
   def _mean(self):
-    return (1-self.pi)*array_ops.identity(self.lambd)
+    # mu = (1 - pi) * E[dist]
+    return (1-self._pi) * self._dist.mean() 
 
   def _variance(self):
-    return self.lambd * (1-self.pi)*(1+self.lambd*self.pi)
+    # sigma^2 = mu + (pi/(1 - pi)) * mu^2
+    mu = self._mean()
+    return mu + (self._pi / (1 - self._pi)) * math_ops.square(mu)
 
   def _std(self):
     return math_ops.sqrt(self.variance())
