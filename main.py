@@ -143,7 +143,8 @@ parser.add_argument(
 )
 parser.add_argument(
     "--reset-training",
-    action = "store_true",
+    action = "store_false",
+    # action = "store_true",
     help = "reset already trained model"
 )
 

@@ -192,7 +192,12 @@ class VariationalAutoEncoder(object):
         if self.use_count_sum:
             n_train = train_data.counts.sum(axis = 1).reshape(-1, 1)
             n_valid = valid_data.counts.sum(axis = 1).reshape(-1, 1)
-
+        
+        if reset_training and os.path.exists(log_directory):
+            for f in os.listdir(log_directory):
+                os.remove(os.path.join(log_directory, f))
+            os.rmdir(log_directory)
+        
         with self.graph.as_default():
 
             self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
@@ -264,7 +269,7 @@ class VariationalAutoEncoder(object):
                         summary_writer.add_summary(summary_str, step)
                         summary_writer.flush()
                 
-                Saving model parameters
+                # Saving model parameters
                 print('Checkpoint reached: Saving model')
                 saver.save(session, checkpoint_file)
                 print('Done saving model')
@@ -278,13 +283,21 @@ class VariationalAutoEncoder(object):
                 print("Epoch %d: ELBO: %g (Train), %g (Valid)"%(epoch+1, train_loss, valid_loss))
                 
 
-    def evaluate(self, test_set):        
+    def evaluate(self, test_set):
+        
+        self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
+        
+        self.is_training = tf.placeholder(tf.bool, [], 'phase')
+        
+        self.inference()
+        self.loss()
+        
         feed_dict_test = {self.x: test_set.counts, self.is_training: False}
         if self.use_count_sum:
             feed_dict_test[self.l_n] = test_set.counts.sum(axis = 1).reshape(-1, 1)
 
         with self.graph.as_default():
-            session = tf.Session(graph=self.graph)
+            session = tf.Session()
             recon_mean_test, z_mu_test, lower_bound_test = session.run([self.recon_dist.mean(), self.l_mu_z, self.loss_op], feed_dict=feed_dict_test)
 
         metrics_test = {
