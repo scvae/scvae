@@ -32,7 +32,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
         # number_of_reconstruction_classes,
     )
     
-    log_directory = os.path.join(log_directory, model.name)
+    log_directory = os.path.join(log_directory, data_set_name, model.name)
     
     model.train(training_set, validation_set,
         number_of_epochs, batch_size, learning_rate,

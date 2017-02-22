@@ -18,56 +18,52 @@ class VariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         reconstruction_distribution = None, number_of_reconstruction_classes = None,
         use_batch_norm = True, use_count_sum=True):
-    
+
         # Setup
-    
+
         super(VariationalAutoEncoder, self).__init__()
-    
+
         self.feature_size = feature_size
         self.latent_size = latent_size
         self.hidden_sizes = hidden_sizes
-        
+
         self.reconstruction_distribution = reconstruction_distribution
-        
+        self.k_max = number_of_reconstruction_classes
+
         self.use_batch_norm = use_batch_norm
         self.use_count_sum = use_count_sum
-        # Define graph
+
         self.graph = tf.Graph()
+    
+    @property
+    def name(self):
 
-        self.name = self.reconstruction_distribution.replace(" ", "_")
-        self.name += "_l_" + str(self.latent_size) + "_h_" + "_".join(map(str,self.hidden_sizes))
+        #model_name = dataSetBaseName(splitting_method, splitting_fraction,
+            #filtering_method, feature_selection, feature_size)
+        
+        model_name = self.reconstruction_distribution.replace(" ", "_")
+        
+        # if self.k_max:
+        #     model_name += "_c_" + str(self.k_max)
+        
+        if self.use_count_sum:
+            model_name += "_sum"
+        
+        model_name += "_l_" + str(self.latent_size) + "_h_" + "_".join(map(str,self.hidden_sizes))
+        
         if self.use_batch_norm:
-            self.name += "_bn"
+            model_name += "_bn"
+        
+        # model_name += "_lr_{:.1g}".format(self.learning_rate)
+        # model_name += "_b_" + str(self.batch_size)
+        # model_name += "_wu_" + str(number_of_warm_up_epochs)
+        
+        # model_name += "_e_" + str(number_of_epochs)
+        
+        return model_name
 
-    
-    # def name(self):
-    #     #model_name = dataSetBaseName(splitting_method, splitting_fraction,
-    #         #filtering_method, feature_selection, feature_size)
-        
-    #     model_name = self.reconstruction_distribution.replace(" ", "_")
-        
-    #     # if number_of_reconstruction_classes:
-    #     #     model_name += "_c_" + str(reconstruction_classes)
-        
-    #     # if use_count_sum:
-    #     #     model_name += "_sum"
-        
-    #     model_name += "_l_" + str(self.latent_size) + "_h_" + "_".join(map(str,self.hidden_sizes))
-        
-    #     if self.use_batch_norm:
-    #         model_name += "_bn"
-        
-    #     # model_name += "_lr_{:.1g}".format(self.learning_rate)
-    #     # model_name += "_b_" + str(self.batch_size) + "_wu_" + str(number_of_warm_up_epochs)
-        
-    #     # if self.use_gpu:
-    #     #     model_name += "_gpu"
-        
-    #     # model_name += "_e_" + str(number_of_epochs)
-        
-    #     return model_name
-    
     def inference(self):
+        
         # initialize placeholders, symbolics, with shape (batchsize, features)
         
         batch_norm_decay = 0.999
@@ -102,7 +98,7 @@ class VariationalAutoEncoder(object):
         elif self.reconstruction_distribution == 'normal':
             l_dec_out_mu = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_NORMAL_MU')
             l_dec_out_log_sigma = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_NORMAL_LOG_SIGMA')
-            self.recon_dist = Normal(mu=l_dec_out_mu, 
+            self.recon_dist = Normal(mu=l_dec_out_mu,
                 sigma=tf.exp(tf.clip_by_value(l_dec_out_log_sigma, -3, 3)))
 
         elif self.reconstruction_distribution == 'poisson':
@@ -124,17 +120,17 @@ class VariationalAutoEncoder(object):
             self.recon_dist = ZeroInflated(NegativeBinomial(r=tf.clip_by_value(l_dec_out_r, eps, l_dec_out_r), p=tf.clip_by_value(l_dec_out_p, eps, 1-eps)), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))
     def loss(self):
         # Loss
-        # Reconstruction error. (all log(p) are in [-\infty, 0]). 
+        # Reconstruction error. (all log(p) are in [-\infty, 0]).
         log_px_given_z = tf.reduce_mean(tf.reduce_sum(self.recon_dist.log_prob(self.x), axis = 1), name='reconstruction_error')
         # Regularization: Kulback-Leibler divergence between approximate posterior, q(z|x), and isotropic gauss prior p(z)=N(z,mu,sigma*I).
         KL_qp = tf.reduce_mean(kl_normal2_stdnormal(self.l_mu_z, self.l_logvar_z, eps=1e-6), name='kl_divergence')
 
-        # Averaging over samples.  
+        # Averaging over samples.
         self.loss_op = tf.subtract(log_px_given_z, KL_qp, name='lower_bound')
-        
+
         tf.add_to_collection('losses', KL_qp)
         tf.add_to_collection('losses', log_px_given_z)
-    
+
     def training(self):
         """Sets up the training Ops.
 
@@ -171,7 +167,7 @@ class VariationalAutoEncoder(object):
 
                 # Create a variable to track the global step.
                 self.global_step = tf.Variable(0, name='global_step', trainable=False)
-            
+
                 # Use the optimizer to apply the gradients that minimize the loss
                 # (and also increment the global step counter) as a single training step.
                 self.train_op = optimizer.minimize(-self.loss_op, global_step=self.global_step)
@@ -181,55 +177,55 @@ class VariationalAutoEncoder(object):
 
             # Create a variable to track the global step.
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
-        
+
             # Use the optimizer to apply the gradients that minimize the loss
             # (and also increment the global step counter) as a single training step.
             self.train_op = optimizer.minimize(-self.loss_op, global_step=self.global_step)
-        
-    
+
+
     def train(self, train_data, valid_data, number_of_epochs=50, batch_size=100, learning_rate=1e-3, log_directory = None, reset_training = False):
-        
+
         if self.use_count_sum:
             n_train = train_data.counts.sum(axis = 1).reshape(-1, 1)
             n_valid = valid_data.counts.sum(axis = 1).reshape(-1, 1)
-        
+
         if reset_training and os.path.exists(log_directory):
             for f in os.listdir(log_directory):
                 os.remove(os.path.join(log_directory, f))
             os.rmdir(log_directory)
-        
+
         with self.graph.as_default():
 
             self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
-    
+
             self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
             self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
-    
+
             self.is_training = tf.placeholder(tf.bool, [], 'phase')
 
             self.inference()
             self.loss()
             self.training()
-        
+
             self.summary = tf.summary.merge_all()
-        
+
             for parameter in tf.trainable_variables():
                 print(parameter.name, parameter.get_shape())
-            
-            # Train 
+
+            # Train
             # OBS: Changed epoch size for quick runs.
             M = train_data.number_of_examples
-        
+
             saver = tf.train.Saver()
             checkpoint_file = os.path.join(log_directory, 'model.ckpt')
             session = tf.Session(graph=self.graph)
-        
+
             summary_writer = tf.summary.FileWriter(log_directory, session.graph)
-        
+
             session.run(tf.global_variables_initializer())
-            
+
             # Print out the defined graph
-            # print("The inference graph:")        
+            # print("The inference graph:")
             # print(tf.get_default_graph().as_graph_def())
 
             #train_losses, valid_losses = [], []
@@ -242,33 +238,33 @@ class VariationalAutoEncoder(object):
             for epoch in range(number_of_epochs):
                 shuffled_indices = numpy.random.permutation(M)
                 for i in range(0, M, batch_size):
-                
+
                     step = session.run(self.global_step)
-                
+
                     start_time = time()
-                    
-                    # Feeding in batch to model 
+
+                    # Feeding in batch to model
                     subset = shuffled_indices[i:(i + batch_size)]
                     batch = train_data.counts[subset]
                     feed_dict_batch = {self.x: batch, self.is_training: True, self.learning_rate: learning_rate}
-                    
-                    # Adding the sum of counts per cell to the generator after the sample layer. 
+
+                    # Adding the sum of counts per cell to the generator after the sample layer.
                     if self.use_count_sum:
                         feed_dict_batch[self.l_n] = n_train[subset]
 
-                    # Run the stochastic batch training operation. 
+                    # Run the stochastic batch training operation.
                     _, batch_loss = session.run([self.train_op, self.loss_op], feed_dict=feed_dict_batch)
-                    
+
                     # Duration of one training step.
                     duration = time() - start_time
-                    
+
                     # Evaluation printout and TensorBoard summary
                     if step % 10 == 0:
                         print('Step {:d}: loss = {:.2f} ({:.3f} sec)'.format(int(step), batch_loss, duration))
                         summary_str = session.run(self.summary, feed_dict=feed_dict_batch)
                         summary_writer.add_summary(summary_str, step)
                         summary_writer.flush()
-                
+
                 # Saving model parameters
                 print('Checkpoint reached: Saving model')
                 saver.save(session, checkpoint_file)
@@ -281,17 +277,17 @@ class VariationalAutoEncoder(object):
                 valid_loss = session.run(self.loss_op, feed_dict=feed_dict_valid)
                 print('Done evaluating validation set')
                 print("Epoch %d: ELBO: %g (Train), %g (Valid)"%(epoch+1, train_loss, valid_loss))
-                
+
 
     def evaluate(self, test_set):
-        
+
         self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
-        
+
         self.is_training = tf.placeholder(tf.bool, [], 'phase')
-        
+
         self.inference()
         self.loss()
-        
+
         feed_dict_test = {self.x: test_set.counts, self.is_training: False}
         if self.use_count_sum:
             feed_dict_test[self.l_n] = test_set.counts.sum(axis = 1).reshape(-1, 1)
@@ -306,7 +302,7 @@ class VariationalAutoEncoder(object):
         return recon_mean_test, z_mu_test, metrics_test
 
 
-# Layer for sampling latent variables using the reparameterization trick 
+# Layer for sampling latent variables using the reparameterization trick
 def sample_layer(mean, log_var, scope='sample_layer'):
     with tf.variable_scope(scope):
         input_shape  = tf.shape(mean)
@@ -317,7 +313,7 @@ def sample_layer(mean, log_var, scope='sample_layer'):
         return mean + tf.exp(0.5 * log_var) * eps
 
 
-# Wrapper layer for inserting batch normalization in between linear and nonlinear activation layers. 
+# Wrapper layer for inserting batch normalization in between linear and nonlinear activation layers.
 def dense_layer(inputs, num_outputs, is_training, scope, activation_fn=None, use_batch_norm=False, decay=0.999, center=True, scale=False):
     with tf.variable_scope(scope):
         outputs = fully_connected(inputs, num_outputs=num_outputs, activation_fn=None, scope='DENSE')
@@ -330,11 +326,11 @@ def dense_layer(inputs, num_outputs, is_training, scope, activation_fn=None, use
 
 def kl_normal2_stdnormal(mean, log_var, eps=0.0):
     """
-    Compute analytically integrated KL-divergence between a diagonal covariance Gaussian and 
+    Compute analytically integrated KL-divergence between a diagonal covariance Gaussian and
     a standard Gaussian.
 
-    In the setting of the variational autoencoder, when a Gaussian prior and diagonal Gaussian 
-    approximate posterior is used, this analytically integrated KL-divergence term yields a lower variance 
+    In the setting of the variational autoencoder, when a Gaussian prior and diagonal Gaussian
+    approximate posterior is used, this analytically integrated KL-divergence term yields a lower variance
     estimate of the likelihood lower bound compared to computing the term by Monte Carlo approximation.
 
         .. math:: D_{KL}[q_{\phi}(z|x) || p_{\theta}(z)]
