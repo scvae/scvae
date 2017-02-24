@@ -118,6 +118,11 @@ class VariationalAutoEncoder(object):
             l_dec_out_p = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZINB_P')
             l_dec_out_pi = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZINB_PI')
             self.recon_dist = ZeroInflated(NegativeBinomial(r=tf.clip_by_value(l_dec_out_r, eps, l_dec_out_r), p=tf.clip_by_value(l_dec_out_p, eps, 1-eps)), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))
+        elif self.reconstruction_distribution == 'categorical poisson':
+            l_dec_out_lambda = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=lambda x: tf.exp(tf.clip_by_value(x, -10, 10)), use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_CAT_POISSON_LAMBDA'))
+            num_classes = 5
+            l_dec_out_logits = tf.reshape(dense_layer(inputs=l_dec, num_outputs=self.feature_size * num_classes, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_CAT_POISSON_PI'),[-1, self.feature_size, num_classes])
+            self.recon_dist = CountCategories(Poisson(lam=tf.clip_by_value(l_dec_out_lambda, eps, l_dec_out_lambda)), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))
     def loss(self):
         # Loss
         # Reconstruction error. (all log(p) are in [-\infty, 0]).
