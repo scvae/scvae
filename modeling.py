@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.contrib.layers import fully_connected, batch_norm
 from tensorflow.python.ops.nn import relu
 from tensorflow import sigmoid
-from tensorflow.contrib.distributions import Bernoulli, Normal, Poisson, Categorical
+from tensorflow.contrib.distributions import Bernoulli, Normal, Poisson, Categorical, kl
 from distributions import (
     ZeroInflatedPoisson, NegativeBinomial, ZeroInflatedNegativeBinomial, ZeroInflated, Categorized
 )
@@ -66,8 +66,8 @@ class VariationalAutoEncoder(object):
         
         # initialize placeholders, symbolics, with shape (batchsize, features)
         
-        p_z_mu = tf.Constant(0.0, dtype=tf.float32)
-        p_z_sigma = tf.Constant(1.0, dtype=tf.float32)
+        p_z_mu = tf.constant(0.0, dtype=tf.float32)
+        p_z_sigma = tf.constant(1.0, dtype=tf.float32)
         self.p_z = Normal(p_z_mu, p_z_sigma) 
 
         batch_norm_decay = 0.999
@@ -88,7 +88,7 @@ class VariationalAutoEncoder(object):
         self.q_z_given_x = Normal(mu=l_enc_out_mu,
                 sigma=l_enc_out_sigma)
 
-        self.l_z = self.q_z_given_x.sample_n(1)
+        self.l_z = self.q_z_given_x.sample()
 
         # Decoder - Generative model, p(x|z)
         if self.use_count_sum:
@@ -142,8 +142,9 @@ class VariationalAutoEncoder(object):
         # Reconstruction error. (all log(p) are in [-\infty, 0]).
         log_px_given_z = tf.reduce_mean(tf.reduce_sum(self.recon_dist.log_prob(self.x), axis = 1), name='reconstruction_error')
         # Regularization: Kulback-Leibler divergence between approximate posterior, q(z|x), and isotropic gauss prior p(z)=N(z,mu,sigma*I).
-        KL_qp = tf.reduce_mean(kl_normal2_stdnormal(self.l_mu_z, self.l_logvar_z, eps=1e-6), name='kl_divergence')
-        # KL_qp = kl_
+        #KL_qp = tf.reduce_mean(kl_normal2_stdnormal(self.l_mu_z, self.l_logvar_z, eps=1e-6), name='kl_divergence')
+        KL_qp = tf.reduce_mean(kl(self.q_z_given_x, self.p_z), name='kl_divergence')
+
         # Averaging over samples.
         self.loss_op = tf.subtract(log_px_given_z, KL_qp, name='lower_bound')
 
@@ -313,7 +314,7 @@ class VariationalAutoEncoder(object):
 
         with self.graph.as_default():
             session = tf.Session()
-            recon_mean_test, z_mu_test, lower_bound_test = session.run([self.recon_dist.mean(), self.l_mu_z, self.loss_op], feed_dict=feed_dict_test)
+            recon_mean_test, z_mu_test, lower_bound_test = session.run([self.recon_dist.mean(), self.q_z_given_x.mean(), self.loss_op], feed_dict=feed_dict_test)
 
         metrics_test = {
             "LL_test": lower_bound_test
