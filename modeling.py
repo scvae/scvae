@@ -2,9 +2,9 @@ import tensorflow as tf
 from tensorflow.contrib.layers import fully_connected, batch_norm
 from tensorflow.python.ops.nn import relu
 from tensorflow import sigmoid
-from tensorflow.contrib.distributions import Bernoulli, Normal, Poisson
+from tensorflow.contrib.distributions import Bernoulli, Normal, Poisson, Categorical
 from distributions import (
-    ZeroInflatedPoisson, NegativeBinomial, ZeroInflatedNegativeBinomial, ZeroInflated
+    ZeroInflatedPoisson, NegativeBinomial, ZeroInflatedNegativeBinomial, ZeroInflated, Categorized
 )
 
 import os
@@ -66,6 +66,10 @@ class VariationalAutoEncoder(object):
         
         # initialize placeholders, symbolics, with shape (batchsize, features)
         
+        p_z_mu = tf.Constant(0.0, dtype=tf.float32)
+        p_z_sigma = tf.Constant(1.0, dtype=tf.float32)
+        self.p_z = Normal(p_z_mu, p_z_sigma) 
+
         batch_norm_decay = 0.999
         
         l_enc = self.x
@@ -73,12 +77,18 @@ class VariationalAutoEncoder(object):
         for i, hidden_size in enumerate(self.hidden_sizes):
             l_enc = dense_layer(inputs=l_enc, num_outputs=hidden_size, activation_fn=relu, use_batch_norm=self.use_batch_norm, decay=batch_norm_decay,is_training=self.is_training, scope='ENCODER{:d}'.format(i + 1))
 
-        self.l_mu_z = dense_layer(inputs=l_enc, num_outputs=self.latent_size, activation_fn=None, use_batch_norm=False, is_training=self.is_training, scope='ENCODER_MU_Z')
-        self.l_logvar_z = tf.clip_by_value(dense_layer(inputs=l_enc, num_outputs=self.latent_size, activation_fn=None, use_batch_norm=False, is_training=self.is_training, scope='ENCODER_LOGVAR_Z'), -10, 10)
+        # self.l_mu_z = dense_layer(inputs=l_enc, num_outputs=self.latent_size, activation_fn=None, use_batch_norm=False, is_training=self.is_training, scope='ENCODER_MU_Z')
+        # self.l_logvar_z = tf.clip_by_value(dense_layer(inputs=l_enc, num_outputs=self.latent_size, activation_fn=None, use_batch_norm=False, is_training=self.is_training, scope='ENCODER_LOGVAR_Z'), -10, 10)
 
         # Stochastic layer
         ## Sample latent variable: z = mu + sigma*epsilon
-        self.l_z = sample_layer(self.l_mu_z, self.l_logvar_z, 'SAMPLE_LAYER')
+        # self.l_z = sample_layer(self.l_mu_z, self.l_logvar_z, 'SAMPLE_LAYER')
+        l_enc_out_mu = dense_layer(inputs=l_enc, num_outputs=self.latent_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='ENCODER_NORMAL_MU')
+        l_enc_out_sigma = dense_layer(inputs=l_enc, num_outputs=self.latent_size, activation_fn=lambda x: tf.exp(tf.clip_by_value(x, -3, 3)), use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='ENCODER_NORMAL_SIGMA')
+        self.q_z_given_x = Normal(mu=l_enc_out_mu,
+                sigma=l_enc_out_sigma)
+
+        self.l_z = self.q_z_given_x.sample_n(1)
 
         # Decoder - Generative model, p(x|z)
         if self.use_count_sum:
@@ -118,18 +128,22 @@ class VariationalAutoEncoder(object):
             l_dec_out_p = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZINB_P')
             l_dec_out_pi = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=sigmoid, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_ZINB_PI')
             self.recon_dist = ZeroInflated(NegativeBinomial(r=tf.clip_by_value(l_dec_out_r, eps, l_dec_out_r), p=tf.clip_by_value(l_dec_out_p, eps, 1-eps)), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))
-        elif self.reconstruction_distribution == 'categorical poisson':
-            l_dec_out_lambda = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=lambda x: tf.exp(tf.clip_by_value(x, -10, 10)), use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_CAT_POISSON_LAMBDA'))
+        elif self.reconstruction_distribution == 'categorized poisson':
+            l_dec_out_lambda = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=lambda x: tf.exp(tf.clip_by_value(x, -10, 10)), use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_CAT_POISSON_LAMBDA')
             num_classes = 5
-            l_dec_out_logits = tf.reshape(dense_layer(inputs=l_dec, num_outputs=self.feature_size * num_classes, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_CAT_POISSON_PI'),[-1, self.feature_size, num_classes])
-            self.recon_dist = CountCategories(Poisson(lam=tf.clip_by_value(l_dec_out_lambda, eps, l_dec_out_lambda)), pi=tf.clip_by_value(l_dec_out_pi, eps, 1-eps))
+            l_dec_out_logits = dense_layer(inputs=l_dec, num_outputs=self.feature_size * num_classes, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_CAT_POISSON_PI')
+            self.recon_dist = Categorized(dist=Poisson(lam=l_dec_out_lambda), cat=Categorical(logits=tf.reshape(l_dec_out_logits,[-1, self.feature_size, num_classes])))
+        else:
+            l_dec_out_log_lambda = dense_layer(inputs=l_dec, num_outputs=self.feature_size, activation_fn=None, use_batch_norm=False, decay=batch_norm_decay, is_training=self.is_training, scope='DECODER_POISSON_LOG_LAMBDA')
+            self.recon_dist = Poisson(lam=tf.exp(tf.clip_by_value(l_dec_out_log_lambda, -10, 10)))            
+
     def loss(self):
         # Loss
         # Reconstruction error. (all log(p) are in [-\infty, 0]).
         log_px_given_z = tf.reduce_mean(tf.reduce_sum(self.recon_dist.log_prob(self.x), axis = 1), name='reconstruction_error')
         # Regularization: Kulback-Leibler divergence between approximate posterior, q(z|x), and isotropic gauss prior p(z)=N(z,mu,sigma*I).
         KL_qp = tf.reduce_mean(kl_normal2_stdnormal(self.l_mu_z, self.l_logvar_z, eps=1e-6), name='kl_divergence')
-
+        # KL_qp = kl_
         # Averaging over samples.
         self.loss_op = tf.subtract(log_px_given_z, KL_qp, name='lower_bound')
 

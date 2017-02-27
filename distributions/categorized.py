@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""The zero-inflated distribution class."""
+"""The categorized class."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 from tensorflow import where
+from tensorflow.contrib.distributions.python.ops import categorical
 from tensorflow.contrib.distributions.python.ops import distribution
 from tensorflow.contrib.distributions.python.ops import distribution_util
 from tensorflow.contrib.framework.python.framework import tensor_util as contrib_tensor_util
@@ -30,20 +31,21 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import check_ops
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import math_ops
+from tensorflow.python.ops import clip_ops
 
 
-class CountCategories(distribution.Distribution):
-  """Zero-inflated distribution.
+class Categorized(distribution.Distribution):
+  """A categorized distribution.
 
-  The zero-inflated distribution is parameterized by `lambd`, the rate parameter, and by 'pi', the zero-inflation parameter.
+  The categorized distribution is parameterized by the parameters in `dist` for the last bin in the `cat` distribution parameterized by k 'pi_k', the class probability parameter.
 
   The pmf of this distribution is:
 
   ```
-  pmf(k) = pi + (1-pi) * e^(-lambd),        for k = 0
-  pmf(k) = (1-pi) * e^(-lambd) * lambd^k / k!,   for k > 0
+  pmf(x = k)  = pi_k                      for x = k
+  pmf(x >= K) = pi_K * pmf_D(x - K)       for x > 0
   ```
-
+  where, k \in [0, K], pmf_D(x-K) is the pmf of the distribution shifted by the K classes in the categorical. 
   """
 
   def __init__(self, 
@@ -51,13 +53,12 @@ class CountCategories(distribution.Distribution):
                cat,
                validate_args=False,
                allow_nan_stats=True,
-               name="CountCategories"):
-    """Construct zero-inflated distributions.
+               name="categorized"):
+    """Construct categorized distributions.
 
     Args:
       dist: A 'Distribution' instance.
-      pi: Floating point tensor, the zero-inflation parameter of the
-        distribution(s). `pi` must be in the interval [0, 1].
+      cat: A `Categorical` instance.
       validate_args: `Boolean`, default `False`.  Whether to assert that
         `lambd > 0` as well as inputs to pmf computations are non-negative
         integers. If validate_args is `False`, then `pmf` computations might
@@ -113,7 +114,7 @@ class CountCategories(distribution.Distribution):
 
       self._dist = dist
       self._cat = cat
-      self._num_classes = cat.num_classes
+      self._num_cat_classes = math_ops.cast(cat.num_classes-1, dtypes.float32)
       self._static_event_shape = static_event_shape
       self._static_batch_shape = static_batch_shape
     
@@ -121,7 +122,7 @@ class CountCategories(distribution.Distribution):
     graph_parents = self._cat._graph_parents
     graph_parents += self._dist._graph_parents
 
-    super(CountCategories, self).__init__(
+    super(Categorized, self).__init__(
         dtype=dist.dtype,
         is_continuous=is_continuous,
         is_reparameterized=False,
@@ -142,9 +143,9 @@ class CountCategories(distribution.Distribution):
     return self._cat
 
   @property
-  def num_classes(self):
-    """Scalar `int32` tensor: the number of classes."""
-    return self._num_classes
+  def num_cat_classes(self):
+    """K, Scalar `float32` tensor: the number of categorical classes without distribution."""
+    return self._num_cat_classes
 
   def _batch_shape(self):
     return self._cat.batch_shape()
@@ -162,9 +163,10 @@ class CountCategories(distribution.Distribution):
     with ops.control_dependencies(self._assertions):
       x = ops.convert_to_tensor(x, name='x')
       x = self._assert_valid_sample(x, check_integer=self._is_continuous)
-      cat_log_prob = self._cat.log_prob(x)
-      dist_log_prob = 
-      return where(x < self.num_classes, self._cat.log_prob(x), self._cat.log_prob(tf.clip_by_value(x, 0, self.num_classes)) + self._dist.log_prob(x - self.num_classes))
+      cat_log_prob = self._cat.log_prob(math_ops.cast(clip_ops.clip_by_value(x, 0, self.num_cat_classes), dtypes.int32))
+      #dist_log_prob = 
+      return where(x < self.num_cat_classes, cat_log_prob, 
+        cat_log_prob + self._dist.log_prob(x - self.num_cat_classes))
 
   def _prob(self, x):
     return math_ops.exp(self._log_prob(x))
@@ -179,8 +181,8 @@ class CountCategories(distribution.Distribution):
 
 
   def _mean(self):
-    cat_mode = self._cat.mode()    
-    return where(cat_mode < self.num_classes, cat_mode, self._cat.prob(self.num_classes) * (self._dist.mean() + self.num_classes))
+    cat_mode = math_ops.cast(self._cat.mode(), dtypes.float32)   
+    return where(cat_mode < self.num_cat_classes, cat_mode, self._cat.prob(math_ops.cast(self.num_cat_classes,dtypes.int32)) * (self._dist.mean() + self.num_cat_classes))
 
   def _variance(self):
     # sigma^2 = mu + (pi/(1 - pi)) * mu^2
