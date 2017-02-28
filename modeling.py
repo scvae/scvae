@@ -329,20 +329,42 @@ class VariationalAutoEncoder(object):
 
             # Evaluation
             print('Evaluating epoch {:d}'.format(epoch))
-            train_loss = session.run(self.loss_op, feed_dict = feed_dict_train)
+            
+            train_loss = 0
+            for i in range(0, M, batch_size):
+                subset = slice(i, (i + batch_size))
+                batch = train_data.counts[subset]
+                feed_dict_batch = {self.x: batch, self.is_training: False}
+                if self.use_count_sum:
+                    feed_dict_batch[self.n] = n_train[subset]
+                train_loss += session.run(self.loss_op, feed_dict = feed_dict_batch)
+            train_loss /= M / batch_size
             print('Done evaluating training set')
-            valid_loss = session.run(self.loss_op, feed_dict = feed_dict_valid)
+            
+            valid_loss = 0
+            for i in range(0, valid_data.number_of_examples, batch_size):
+                subset = slice(i, (i + batch_size))
+                batch = valid_data.counts[subset]
+                feed_dict_batch = {self.x: batch, self.is_training: False}
+                if self.use_count_sum:
+                    feed_dict_batch[self.n] = n_valid[subset]
+                valid_loss += session.run(self.loss_op, feed_dict = feed_dict_batch)
+            valid_loss /= valid_data.number_of_examples / batch_size
             print('Done evaluating validation set')
+            
             print("Epoch %d: ELBO: %g (Train), %g (Valid)"%(epoch+1, train_loss, valid_loss))
 
 
-    def evaluate(self, test_set, log_directory = None):
+    def evaluate(self, test_set, batch_size = 100, log_directory = None):
 
         checkpoint = tf.train.get_checkpoint_state(log_directory)
         
+        if self.use_count_sum:
+            n_test = test_set.counts.sum(axis = 1).reshape(-1, 1)
+        
         feed_dict_test = {self.x: test_set.counts, self.is_training: False}
         if self.use_count_sum:
-            feed_dict_test[self.n] = test_set.counts.sum(axis = 1).reshape(-1, 1)
+            feed_dict_test[self.n] = n_test
         
         # with self.graph.as_default():
         session = tf.Session()
@@ -350,7 +372,19 @@ class VariationalAutoEncoder(object):
         if checkpoint and checkpoint.model_checkpoint_path:
             self.saver.restore(session, checkpoint.model_checkpoint_path)
         
-        recon_mean_test, z_mu_test, lower_bound_test = session.run([self.p_x_given_z.mean(), self.q_z_given_x.mean(), self.loss_op], feed_dict = feed_dict_test)
+        lower_bound_test = session.run([self.p_x_given_z.mean(), self.q_z_given_x.mean(), self.loss_op], feed_dict = feed_dict_test)
+        
+        lower_bound_test = 0
+        for i in range(0, test_set.number_of_examples, batch_size):
+            subset = slice(i, (i + batch_size))
+            batch = test_set.counts[subset]
+            feed_dict_batch = {self.x: batch, self.is_training: False}
+            if self.use_count_sum:
+                feed_dict_batch[self.n] = n_test[subset]
+            lower_bound_test += session.run(self.loss_op, feed_dict = feed_dict_batch)
+        lower_bound_test /= test_set.number_of_examples / batch_size
+        
+        recon_mean_test, z_mu_test = session.run([self.p_x_given_z.mean(), self.q_z_given_x.mean()], feed_dict = feed_dict_test)
 
         metrics_test = {
             "LL_test": lower_bound_test

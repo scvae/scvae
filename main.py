@@ -45,7 +45,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     
     analysis.analyseModel(log_directory, results_directory)
     
-    reconstructed_test_set, latent_set, test_metrics = model.evaluate(test_set, log_directory)
+    reconstructed_test_set, latent_set, test_metrics = model.evaluate(test_set, batch_size, log_directory)
     
     analysis.analyseResults(test_set, reconstructed_test_set, latent_set,
         results_directory)
