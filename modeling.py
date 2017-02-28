@@ -172,12 +172,23 @@ class VariationalAutoEncoder(object):
         
             self.p_x_given_z = self.reconstruction_distribution["class"](x_theta)
         
-        # elif self.reconstruction_distribution == 'categorized poisson':
-        #     l_dec_out_lambda = dense_layer(inputs = decoder, num_outputs = self.feature_size, activation_fn = lambda x: tf.exp(tf.clip_by_value(x, -10, 10)), use_batch_norm = False,  is_training = self.is_training, scope = 'DECODER_CAT_POISSON_LAMBDA')
-        #     num_classes = 5
-        #     l_dec_out_logits = dense_layer(inputs = decoder, num_outputs = self.feature_size * num_classes, activation_fn = None, use_batch_norm = False,  is_training = self.is_training, scope = 'DECODER_CAT_POISSON_PI')
-        #     self.recon_dist = Categorized(dist = Poisson(lam = l_dec_out_lambda), cat = Categorical(logits = tf.reshape(l_dec_out_logits,[-1, self.feature_size, num_classes])))
-
+            if self.k_max:
+                
+                x_logits = dense_layer(
+                    inputs = decoder,
+                    num_outputs = self.feature_size * self.k_max,
+                    activation_fn = None,
+                    is_training = self.is_training,
+                    scope = "P_K"
+                )
+                
+                x_logits = tf.reshape(x_logits, [-1, self.feature_size, self.k_max])
+                
+                self.p_x_given_z = Categorized(
+                    dist = self.p_x_given_z,
+                    cat = Categorical(logits = x_logits)
+                )
+    
     def loss(self):
         
         # Recognition prior

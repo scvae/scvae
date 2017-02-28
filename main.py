@@ -29,7 +29,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     model = modeling.VariationalAutoEncoder(
         feature_size, latent_size, hidden_sizes,
         reconstruction_distribution,
-        # number_of_reconstruction_classes,
+        number_of_reconstruction_classes,
     )
     
     log_directory = os.path.join(log_directory, data_set_name, model.name)
