@@ -53,7 +53,7 @@ class Categorized(distribution.Distribution):
                cat,
                validate_args=False,
                allow_nan_stats=True,
-               name="categorized"):
+               name="Categorized"):
     """Construct categorized distributions.
 
     Args:
