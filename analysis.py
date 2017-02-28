@@ -2,6 +2,8 @@
 
 import os
 
+import numpy
+
 from matplotlib import pyplot
 import seaborn
 
@@ -17,9 +19,9 @@ def analyseModel(log_directory, results_directory):
 
 def analyseResults(test_set, reconstructed_test_set, latent_set, results_directory):
     
-    plotProfileComparison(test_set.counts[0], results_directory[0],
+    plotProfileComparison(test_set.counts[0], reconstructed_test_set[0],
         x_label = "Genes sorted by original counts", y_label = "Counts",
-        scale = "loc", name = test_set.cells[0], results_directory = results_directory)
+        scale = "log", name = str(test_set.cells[0]), results_directory = results_directory)
 
 def plotProfileComparison(original_series, reconstructed_series, x_label, y_label,
     scale = "linear", name = None, results_directory = ""):
@@ -31,12 +33,12 @@ def plotProfileComparison(original_series, reconstructed_series, x_label, y_labe
     
     D = original_series.shape[0]
     
-    sort_indices = argsort(original_series)[::-1]
+    sort_indices = numpy.argsort(original_series)[::-1]
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
-    x = linspace(0, D, D)
+    x = numpy.linspace(0, D, D)
     axis.plot(x, original_series[sort_indices], label = 'Original', zorder = 1)
     axis.plot(x, reconstructed_series[sort_indices], label = 'Reconstruction',
         zorder = 0)
@@ -49,15 +51,15 @@ def plotProfileComparison(original_series, reconstructed_series, x_label, y_labe
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
     
-    saveFigure(figure, figure_name, result_directory)
+    saveFigure(figure, figure_name, results_directory)
 
-def saveFigure(figure, figure_name, result_directory, no_spine = True):
+def saveFigure(figure, figure_name, results_directory, no_spine = True):
     
-    if not os.path.exists(result_directory):
-        os.makedirs(result_directory)
+    if not os.path.exists(results_directory):
+        os.makedirs(results_directory)
     
     if no_spine:
         seaborn.despine()
     
-    figure_path = os.join.path(result_directory, figure_name) + figure_extension
+    figure_path = os.path.join(results_directory, figure_name) + figure_extension
     figure.savefig(figure_path, bbox_inches = 'tight')
