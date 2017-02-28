@@ -43,9 +43,9 @@ class Categorized(distribution.Distribution):
 
   ```
   pmf(x = k)  = pi_k                      for x = k
-  pmf(x >= K) = pi_K * pmf_D(x - K)       for x > 0
+  pmf(x >= K) = pi_K * pmf_D(x - K)       for x >= K
   ```
-  where, k \in [0, K], pmf_D(x-K) is the pmf of the distribution shifted by the K classes in the categorical. 
+  where, k is \in [0, K], pmf_D(x-K) is the pmf of the distribution shifted by the K classes in the categorical. 
   """
 
   def __init__(self, 
