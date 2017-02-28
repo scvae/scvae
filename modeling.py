@@ -286,84 +286,86 @@ class VariationalAutoEncoder(object):
 
         self.saver = tf.train.Saver()
         checkpoint_file = os.path.join(log_directory, 'model.ckpt')
-        session = tf.Session()
+        
+        
+        with tf.Session() as session:
+        
+            summary_writer = tf.summary.FileWriter(log_directory, session.graph)
+        
+            session.run(tf.global_variables_initializer())
 
-        summary_writer = tf.summary.FileWriter(log_directory, session.graph)
+            # Print out the defined graph
+            # print("The inference graph:")
+            # print(tf.get_default_graph().as_graph_def())
 
-        session.run(tf.global_variables_initializer())
+            #train_losses, valid_losses = [], []
+            feed_dict_train = {self.x: train_data.counts, self.is_training: False}
+            feed_dict_valid = {self.x: valid_data.counts, self.is_training: False}
+            if self.use_count_sum:
+                feed_dict_train[self.n] = n_train
+                feed_dict_valid[self.n] = n_valid
 
-        # Print out the defined graph
-        # print("The inference graph:")
-        # print(tf.get_default_graph().as_graph_def())
+            for epoch in range(number_of_epochs):
+                shuffled_indices = numpy.random.permutation(M)
+                for i in range(0, M, batch_size):
 
-        #train_losses, valid_losses = [], []
-        feed_dict_train = {self.x: train_data.counts, self.is_training: False}
-        feed_dict_valid = {self.x: valid_data.counts, self.is_training: False}
-        if self.use_count_sum:
-            feed_dict_train[self.n] = n_train
-            feed_dict_valid[self.n] = n_valid
+                    step = session.run(self.global_step)
 
-        for epoch in range(number_of_epochs):
-            shuffled_indices = numpy.random.permutation(M)
-            for i in range(0, M, batch_size):
+                    start_time = time()
 
-                step = session.run(self.global_step)
+                    # Feeding in batch to model
+                    subset = shuffled_indices[i:(i + batch_size)]
+                    batch = train_data.counts[subset]
+                    feed_dict_batch = {self.x: batch, self.is_training: True, self.learning_rate: learning_rate}
 
-                start_time = time()
+                    # Adding the sum of counts per cell to the generator after the sample layer.
+                    if self.use_count_sum:
+                        feed_dict_batch[self.n] = n_train[subset]
 
-                # Feeding in batch to model
-                subset = shuffled_indices[i:(i + batch_size)]
-                batch = train_data.counts[subset]
-                feed_dict_batch = {self.x: batch, self.is_training: True, self.learning_rate: learning_rate}
+                    # Run the stochastic batch training operation.
+                    _, batch_loss = session.run([self.train_op, self.loss_op], feed_dict = feed_dict_batch)
 
-                # Adding the sum of counts per cell to the generator after the sample layer.
-                if self.use_count_sum:
-                    feed_dict_batch[self.n] = n_train[subset]
+                    # Duration of one training step.
+                    duration = time() - start_time
 
-                # Run the stochastic batch training operation.
-                _, batch_loss = session.run([self.train_op, self.loss_op], feed_dict = feed_dict_batch)
+                    # Evaluation printout and TensorBoard summary
+                    if step % 10 == 0:
+                        print('Step {:d}: loss = {:.2f} ({:.3f} sec)'.format(int(step), batch_loss, duration))
+                        summary_str = session.run(self.summary, feed_dict = feed_dict_batch)
+                        summary_writer.add_summary(summary_str, step)
+                        summary_writer.flush()
 
-                # Duration of one training step.
-                duration = time() - start_time
+                # Saving model parameters
+                print('Checkpoint reached: Saving model')
+                self.saver.save(session, checkpoint_file)
+                print('Done saving model')
 
-                # Evaluation printout and TensorBoard summary
-                if step % 10 == 0:
-                    print('Step {:d}: loss = {:.2f} ({:.3f} sec)'.format(int(step), batch_loss, duration))
-                    summary_str = session.run(self.summary, feed_dict = feed_dict_batch)
-                    summary_writer.add_summary(summary_str, step)
-                    summary_writer.flush()
-
-            # Saving model parameters
-            print('Checkpoint reached: Saving model')
-            self.saver.save(session, checkpoint_file)
-            print('Done saving model')
-
-            # Evaluation
-            print('Evaluating epoch {:d}'.format(epoch))
+                # Evaluation
+                print('Evaluating epoch {:d}'.format(epoch))
             
-            train_loss = 0
-            for i in range(0, M, batch_size):
-                subset = slice(i, (i + batch_size))
-                batch = train_data.counts[subset]
-                feed_dict_batch = {self.x: batch, self.is_training: False}
-                if self.use_count_sum:
-                    feed_dict_batch[self.n] = n_train[subset]
-                train_loss += session.run(self.loss_op, feed_dict = feed_dict_batch)
-            train_loss /= M / batch_size
-            print('Done evaluating training set')
+                train_loss = 0
+                for i in range(0, M, batch_size):
+                    subset = slice(i, (i + batch_size))
+                    batch = train_data.counts[subset]
+                    feed_dict_batch = {self.x: batch, self.is_training: False}
+                    if self.use_count_sum:
+                        feed_dict_batch[self.n] = n_train[subset]
+                    train_loss += session.run(self.loss_op, feed_dict = feed_dict_batch)
+                train_loss /= M / batch_size
+                print('Done evaluating training set')
             
-            valid_loss = 0
-            for i in range(0, valid_data.number_of_examples, batch_size):
-                subset = slice(i, (i + batch_size))
-                batch = valid_data.counts[subset]
-                feed_dict_batch = {self.x: batch, self.is_training: False}
-                if self.use_count_sum:
-                    feed_dict_batch[self.n] = n_valid[subset]
-                valid_loss += session.run(self.loss_op, feed_dict = feed_dict_batch)
-            valid_loss /= valid_data.number_of_examples / batch_size
-            print('Done evaluating validation set')
+                valid_loss = 0
+                for i in range(0, valid_data.number_of_examples, batch_size):
+                    subset = slice(i, (i + batch_size))
+                    batch = valid_data.counts[subset]
+                    feed_dict_batch = {self.x: batch, self.is_training: False}
+                    if self.use_count_sum:
+                        feed_dict_batch[self.n] = n_valid[subset]
+                    valid_loss += session.run(self.loss_op, feed_dict = feed_dict_batch)
+                valid_loss /= valid_data.number_of_examples / batch_size
+                print('Done evaluating validation set')
             
-            print("Epoch %d: ELBO: %g (Train), %g (Valid)"%(epoch+1, train_loss, valid_loss))
+                print("Epoch %d: ELBO: %g (Train), %g (Valid)"%(epoch+1, train_loss, valid_loss))
 
 
     def evaluate(self, test_set, batch_size = 100, log_directory = None):
@@ -378,32 +380,32 @@ class VariationalAutoEncoder(object):
             feed_dict_test[self.n] = n_test
         
         # with self.graph.as_default():
-        session = tf.Session()
+        with tf.Session() as session:
         
-        if checkpoint and checkpoint.model_checkpoint_path:
-            self.saver.restore(session, checkpoint.model_checkpoint_path)
+            if checkpoint and checkpoint.model_checkpoint_path:
+                self.saver.restore(session, checkpoint.model_checkpoint_path)
         
-        lower_bound_test = session.run([self.p_x_given_z.mean(), self.q_z_given_x.mean(), self.loss_op], feed_dict = feed_dict_test)
+            lower_bound_test = session.run([self.p_x_given_z.mean(), self.q_z_given_x.mean(), self.loss_op], feed_dict = feed_dict_test)
         
-        lower_bound_test = 0
-        for i in range(0, test_set.number_of_examples, batch_size):
-            subset = slice(i, (i + batch_size))
-            batch = test_set.counts[subset]
-            feed_dict_batch = {self.x: batch, self.is_training: False}
-            if self.use_count_sum:
-                feed_dict_batch[self.n] = n_test[subset]
-            lower_bound_test += session.run(self.loss_op, feed_dict = feed_dict_batch)
-        lower_bound_test /= test_set.number_of_examples / batch_size
+            lower_bound_test = 0
+            for i in range(0, test_set.number_of_examples, batch_size):
+                subset = slice(i, (i + batch_size))
+                batch = test_set.counts[subset]
+                feed_dict_batch = {self.x: batch, self.is_training: False}
+                if self.use_count_sum:
+                    feed_dict_batch[self.n] = n_test[subset]
+                lower_bound_test += session.run(self.loss_op, feed_dict = feed_dict_batch)
+            lower_bound_test /= test_set.number_of_examples / batch_size
         
-        recon_mean_test, z_mu_test = session.run([self.p_x_given_z.mean(), self.q_z_given_x.mean()], feed_dict = feed_dict_test)
+            recon_mean_test, z_mu_test = session.run([self.p_x_given_z.mean(), self.q_z_given_x.mean()], feed_dict = feed_dict_test)
 
-        metrics_test = {
-            "LL_test": lower_bound_test
-        }
+            metrics_test = {
+                "LL_test": lower_bound_test
+            }
         
-        print(metrics_test)
+            print(metrics_test)
         
-        return recon_mean_test, z_mu_test, metrics_test
+            return recon_mean_test, z_mu_test, metrics_test
 
 distributions = {
     "bernoulli": {
