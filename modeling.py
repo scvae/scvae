@@ -374,30 +374,27 @@ class VariationalAutoEncoder(object):
         
         if self.use_count_sum:
             n_test = test_set.counts.sum(axis = 1).reshape(-1, 1)
-        
-        feed_dict_test = {self.x: test_set.counts, self.is_training: False}
-        if self.use_count_sum:
-            feed_dict_test[self.n] = n_test
-        
+                
         # with self.graph.as_default():
         with tf.Session() as session:
         
             if checkpoint and checkpoint.model_checkpoint_path:
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
         
-            lower_bound_test = session.run([self.p_x_given_z.mean(), self.q_z_given_x.mean(), self.loss_op], feed_dict = feed_dict_test)
-        
             lower_bound_test = 0
+            recon_mean_test = numpy.empty([test_set.number_of_examples, test_set.number_of_features])
+            z_mu_test = numpy.empty([test_set.number_of_examples, self.latent_size])
             for i in range(0, test_set.number_of_examples, batch_size):
                 subset = slice(i, (i + batch_size))
                 batch = test_set.counts[subset]
                 feed_dict_batch = {self.x: batch, self.is_training: False}
                 if self.use_count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
-                lower_bound_test += session.run(self.loss_op, feed_dict = feed_dict_batch)
+                lower_bound_batch, recon_mean_batch, z_mu_batch = session.run([self.loss_op, self.p_x_given_z.mean(), self.q_z_given_x.mean()], feed_dict = feed_dict_batch)
+                lower_bound_test += lower_bound_batch
+                recon_mean_test[subset] = recon_mean_batch
+                z_mu_test[subset] = z_mu_batch
             lower_bound_test /= test_set.number_of_examples / batch_size
-        
-            recon_mean_test, z_mu_test = session.run([self.p_x_given_z.mean(), self.q_z_given_x.mean()], feed_dict = feed_dict_test)
 
             metrics_test = {
                 "LL_test": lower_bound_test
