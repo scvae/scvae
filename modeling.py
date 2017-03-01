@@ -111,7 +111,7 @@ class VariationalAutoEncoder(object):
                 use_batch_norm = False,
                 is_training = self.is_training,
                 scope = 'MU')
-    
+            
             z_sigma = dense_layer(
                 inputs = encoder,
                 num_outputs = self.latent_size,
@@ -121,10 +121,13 @@ class VariationalAutoEncoder(object):
                 scope = 'SIGMA')
             
             self.q_z_given_x = Normal(mu = z_mu, sigma = z_sigma)
-
-        # Stochastic layer
-        self.z = self.q_z_given_x.sample()
-
+            
+            # Mean of z
+            self.z_mean = self.q_z_given_x.mean()
+        
+            # Stochastic layer
+            self.z = self.q_z_given_x.sample()
+        
         # Decoder - Generative model, p(x|z)
         
         if self.use_count_sum:
@@ -188,13 +191,15 @@ class VariationalAutoEncoder(object):
                     dist = self.p_x_given_z,
                     cat = Categorical(logits = x_logits)
                 )
+            
+            self.x_tilde_mean = self.p_x_given_z.mean()
     
     def loss(self):
         
         # Recognition prior
         p_z_mu = tf.constant(0.0, dtype = tf.float32)
         p_z_sigma = tf.constant(1.0, dtype = tf.float32)
-        p_z = Normal(p_z_mu, p_z_sigma) 
+        p_z = Normal(p_z_mu, p_z_sigma)
         
         # Loss
         # Reconstruction error. (all log(p) are in [-\infty, 0]).
@@ -277,16 +282,12 @@ class VariationalAutoEncoder(object):
                 os.remove(os.path.join(log_directory, f))
             os.rmdir(log_directory)
 
-        # with self.graph.as_default():
-
-        
         # Train
         
         M = train_data.number_of_examples
 
         self.saver = tf.train.Saver()
         checkpoint_file = os.path.join(log_directory, 'model.ckpt')
-        
         
         with tf.Session() as session:
         
@@ -304,7 +305,7 @@ class VariationalAutoEncoder(object):
             if self.use_count_sum:
                 feed_dict_train[self.n] = n_train
                 feed_dict_valid[self.n] = n_valid
-
+            
             for epoch in range(number_of_epochs):
                 shuffled_indices = numpy.random.permutation(M)
                 for i in range(0, M, batch_size):
@@ -375,7 +376,6 @@ class VariationalAutoEncoder(object):
         if self.use_count_sum:
             n_test = test_set.counts.sum(axis = 1).reshape(-1, 1)
                 
-        # with self.graph.as_default():
         with tf.Session() as session:
         
             if checkpoint and checkpoint.model_checkpoint_path:
@@ -390,7 +390,7 @@ class VariationalAutoEncoder(object):
                 feed_dict_batch = {self.x: batch, self.is_training: False}
                 if self.use_count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
-                lower_bound_batch, recon_mean_batch, z_mu_batch = session.run([self.loss_op, self.p_x_given_z.mean(), self.q_z_given_x.mean()], feed_dict = feed_dict_batch)
+                lower_bound_batch, recon_mean_batch, z_mu_batch = session.run([self.loss_op, self.x_tilde_mean, self.z_mean], feed_dict = feed_dict_batch)
                 lower_bound_test += lower_bound_batch
                 recon_mean_test[subset] = recon_mean_batch
                 z_mu_test[subset] = z_mu_batch
