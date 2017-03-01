@@ -193,6 +193,10 @@ class VariationalAutoEncoder(object):
                 )
             
             self.x_tilde_mean = self.p_x_given_z.mean()
+        
+        # Add histogram summaries for the trainable parameters
+        for parameter in tf.trainable_variables():
+            tf.summary.histogram(parameter.name, parameter)
     
     def loss(self):
         
@@ -202,74 +206,60 @@ class VariationalAutoEncoder(object):
         p_z = Normal(p_z_mu, p_z_sigma)
         
         # Loss
-        # Reconstruction error. (all log(p) are in [-\infty, 0]).
-        log_px_given_z = tf.reduce_mean(tf.reduce_sum(self.p_x_given_z.log_prob(self.x), axis = 1), name = 'reconstruction_error')
-        # Regularization: Kulback-Leibler divergence between approximate posterior, q(z|x), and isotropic gauss prior p(z) = N(z,mu,sigma*I).
-        #KL_qp = tf.reduce_mean(kl_normal2_stdnormal(self.l_mu_z, self.l_logvar_z, eps = 1e-6), name = 'kl_divergence')
+        
+        ## Reconstruction error
+        log_p_x_given_z = tf.reduce_mean(
+            tf.reduce_sum(self.p_x_given_z.log_prob(self.x), axis = 1),
+            name = 'reconstruction_error'
+        )
+        tf.add_to_collection('losses', log_p_x_given_z)
+        
+        ## Regularisation
         KL_qp = tf.reduce_mean(
-            tf.reduce_sum(
-                kl(self.q_z_given_x, p_z), axis = 1
-            ),
+            tf.reduce_sum(kl(self.q_z_given_x, p_z), axis = 1),
             name = "kl_divergence"
         )
+        tf.add_to_collection('losses', KL_qp)
 
         # Averaging over samples.
-        self.loss_op = tf.subtract(log_px_given_z, KL_qp, name = 'lower_bound')
-
-        tf.add_to_collection('losses', KL_qp)
-        tf.add_to_collection('losses', log_px_given_z)
-
-    def training(self):
-        """Sets up the training Ops.
-
-        Creates a summarizer to track the loss over time in TensorBoard.
-
-        Creates an optimizer and applies the gradients to all trainable variables.
-
-        The Op returned by this function is what must be passed to the
-        `session.run()` call to cause the model to train.
-
-        Args:
-        loss: Loss tensor, from loss().
-        learning_rate: The learning rate to use for gradient descent.
-
-        Returns:
-        train_op: The Op for training.
-        """
-        # Add a scalar summary for the snapshot loss.
-        for l in tf.get_collection('losses') + [self.loss_op]:
-            # Name each loss as '(raw)' and name the moving average version of the loss
-            # as the original loss name.
+        self.loss_op = tf.subtract(log_p_x_given_z, KL_qp, name = 'lower_bound')
+        tf.add_to_collection('losses', self.loss_op)
+        
+        # Add scalar summaries for the losses
+        for l in tf.get_collection('losses'):
             tf.summary.scalar(l.op.name, l)
-        for parameter in tf.trainable_variables():
-            tf.summary.histogram(parameter.name, parameter)
-        # Create the gradient descent optimizer with the given learning rate.
-        # Make sure that the Updates of the moving_averages in batch_norm layers
-        # are performed before the train_step.
+    
+    def training(self):
+        
+        # Create the gradient descent optimiser with the given learning rate.
+        def setupTraining():
+            
+            # Optimizer and training objective of negative loss
+            optimiser = tf.train.AdamOptimizer(self.learning_rate)
+            
+            # Create a variable to track the global step.
+            self.global_step = tf.Variable(0, name = 'global_step',
+                trainable = False)
+            
+            # Use the optimiser to apply the gradients that minimize the loss
+            # (and also increment the global step counter) as a single training
+            # step.
+            self.train_op = optimiser.minimize(
+                -self.loss_op,
+                global_step = self.global_step
+            )
+        
+        # Make sure that the updates of the moving_averages in batch_norm
+        # layers are performed before the train_step.
+        
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        
         if update_ops:
             updates = tf.group(*update_ops)
             with tf.control_dependencies([updates]):
-                # Optimizer and training objective of negative loss
-                optimizer = tf.train.AdamOptimizer(self.learning_rate)
-
-                # Create a variable to track the global step.
-                self.global_step = tf.Variable(0, name = 'global_step', trainable = False)
-
-                # Use the optimizer to apply the gradients that minimize the loss
-                # (and also increment the global step counter) as a single training step.
-                self.train_op = optimizer.minimize(-self.loss_op, global_step = self.global_step)
+                setupTraining()
         else:
-            # Optimizer and training objective of negative loss
-            optimizer = tf.train.AdamOptimizer(self.learning_rate)
-
-            # Create a variable to track the global step.
-            self.global_step = tf.Variable(0, name = 'global_step', trainable = False)
-
-            # Use the optimizer to apply the gradients that minimize the loss
-            # (and also increment the global step counter) as a single training step.
-            self.train_op = optimizer.minimize(-self.loss_op, global_step = self.global_step)
-
+            setupTraining()
 
     def train(self, train_data, valid_data, number_of_epochs = 50, batch_size = 100, learning_rate = 1e-3, log_directory = None, reset_training = False):
 
