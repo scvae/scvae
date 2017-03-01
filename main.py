@@ -41,7 +41,8 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     
     # Analysis
     
-    results_directory = os.path.join(results_directory, model.name)
+    results_directory = os.path.join(results_directory, data_set_name,
+        model.name)
     
     analysis.analyseModel(log_directory, results_directory)
     
@@ -58,8 +59,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "--data-set-name",
     type = str,
-    default = "mouse retina",
-    # default = "sample",
+    default = "sample",
     help = "name of data set"
 )
 parser.add_argument(
@@ -102,13 +102,13 @@ parser.add_argument(
     "--hidden-sizes",
     type = int,
     nargs = '+',
-    default = [5000, 500],
+    default = [500],
     help = "sizes of hidden layers"
 )
 parser.add_argument(
     "--reconstruction-distribution",
     type = str,
-    default = None,
+    default = "poisson",
     help = "distribution for the reconstructions"
 )
 parser.add_argument(
