@@ -3,3 +3,4 @@ from distributions.negative_binomial import NegativeBinomial
 from distributions.zero_inflated_negative_binomial import ZeroInflatedNegativeBinomial
 from distributions.zero_inflated import ZeroInflated
 from distributions.categorized import Categorized
+from distributions.pareto import Pareto
