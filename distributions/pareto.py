@@ -99,10 +99,10 @@ class Pareto(distribution.Distribution):
     return self._alpha
 
   def _batch_shape(self):
-    return array_ops.shape(self.alpha + self.sigma)
+    return array_ops.broadcast_dynamic_shape(array_ops.shape(self.alpha) + array_ops.shape(self.sigma))
 
   def _get_batch_shape(self):
-    return common_shapes.broadcast_shape(
+    return array_ops.broadcast_static_shape(
         self.alpha.get_shape(), self._sigma.get_shape())
 
   def _event_shape(self):

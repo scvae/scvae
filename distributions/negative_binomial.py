@@ -104,10 +104,10 @@ class NegativeBinomial(distribution.Distribution):
     return self._p
 
   def _batch_shape(self):
-    return array_ops.shape(self.p + self.r)
+    return array_ops.broadcast_dynamic_shape(array_ops.shape(self.p) + array_ops.shape(self.r))
 
   def _get_batch_shape(self):
-    return common_shapes.broadcast_shape(
+    return array_ops.broadcast_static_shape(
         self.p.get_shape(), self._r.get_shape())
 
   def _event_shape(self):

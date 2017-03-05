@@ -4,7 +4,7 @@ from tensorflow.python.ops.nn import relu
 from tensorflow import sigmoid, identity
 from tensorflow.contrib.distributions import Bernoulli, Normal, Poisson, Categorical, kl
 from distributions import (
-    ZeroInflatedPoisson, NegativeBinomial, ZeroInflatedNegativeBinomial, ZeroInflated, Categorized
+    ZeroInflatedPoisson, NegativeBinomial, ZeroInflatedNegativeBinomial, ZeroInflated, Categorized, Pareto
 )
 
 import os
@@ -433,6 +433,23 @@ distributions = {
         },
         "class": lambda theta: Poisson(
             lam = tf.exp(theta["log_lambda"])
+        )
+    },
+
+    "pareto": {
+        "parameters": {
+            "log_sigma": {
+                "support": [-10, 10],
+                "activation function": identity
+            },
+            "log_alpha": {
+                "support": [-10, 10],
+                "activation function": identity
+            }
+        },
+        "class": lambda theta: Pareto(
+            sigma = tf.exp(theta["log_sigma"]),
+            alpha = tf.exp(theta["log_alpha"])
         )
     },
     
