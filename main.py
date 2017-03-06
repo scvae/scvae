@@ -24,6 +24,8 @@ def main(data_set_name, data_directory, log_directory, results_directory,
 
     feature_size = data_set.number_of_features
     
+    print()
+    
     # Modeling
 
     model = modeling.VariationalAutoEncoder(
@@ -32,12 +34,16 @@ def main(data_set_name, data_directory, log_directory, results_directory,
         number_of_reconstruction_classes,
     )
     
+    print()
+    
     log_directory = os.path.join(log_directory, data_set_name, model.name)
     
     model.train(training_set, validation_set,
         number_of_epochs, batch_size, learning_rate,
         # number_of_warm_up_epochs,
         log_directory, reset_training)
+    
+    print()
     
     # Analysis
     
@@ -143,8 +149,8 @@ parser.add_argument(
 )
 parser.add_argument(
     "--reset-training",
-    action = "store_false",
-    # action = "store_true",
+    # action = "store_false",
+    action = "store_true",
     help = "reset already trained model"
 )
 
