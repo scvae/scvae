@@ -86,9 +86,9 @@ class VariationalAutoEncoder(object):
         
         model_name = self.reconstruction_distribution_name.replace(" ", "_")
         
-        # if self.k_max:
-        #     model_name += "_c_" + str(self.k_max)
-        
+        if self.k_max:
+            model_name += "_c_" + str(self.k_max)
+
         if self.count_sum:
             model_name += "_sum"
         
@@ -96,12 +96,6 @@ class VariationalAutoEncoder(object):
         
         if self.batch_normalisation:
             model_name += "_bn"
-        
-        # model_name += "_lr_{:.1g}".format(self.learning_rate)
-        # model_name += "_b_" + str(self.batch_size)
-        # model_name += "_wu_" + str(number_of_warm_up_epochs)
-        
-        # model_name += "_e_" + str(number_of_epochs)
         
         return model_name
 
@@ -289,6 +283,12 @@ class VariationalAutoEncoder(object):
         learning_rate = 1e-3, log_directory = None, reset_training = False):
         
         # Logging
+        
+        # parameter_values = "lr_{:.1g}".format(self.learning_rate)
+        # parameter_values += "_b_" + str(self.batch_size)
+        # parameter_values += "_wu_" + str(number_of_warm_up_epochs)
+        
+        # log_directory = os.path.join(log_directory, parameter_values)
         
         if reset_training and os.path.exists(log_directory):
             shutil.rmtree(log_directory)
