@@ -23,6 +23,20 @@ class VariationalAutoEncoder(object):
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True, epsilon = 1e-6):
         
+        print("Model setup:")
+        print("    feature size: {}".format(feature_size))
+        print("    latent size: {}".format(latent_size))
+        print("    hidden sizes: {}".format(", ".join(map(str, hidden_sizes))))
+        print("    reconstruction distribution: " + reconstruction_distribution)
+        if number_of_reconstruction_classes > 0:
+            print("    reconstruction classes: {}".format(number_of_reconstruction_classes),
+                  " (including 0s)")
+        if batch_normalisation:
+            print("    using batch normalisation")
+        if count_sum:
+            print("    using count sums")
+        print("")
+        
         # Setup
         
         super(VariationalAutoEncoder, self).__init__()
@@ -41,35 +55,31 @@ class VariationalAutoEncoder(object):
         
         self.epsilon = epsilon
         
-        self.graph = tf.Graph()
+        self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
+    
+        if self.count_sum:
+            self.n = tf.placeholder(tf.float32, [None, 1], 'N') # total counts sum
+    
+        self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
+        self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
         
-        with self.graph.as_default():
+        self.is_training = tf.placeholder(tf.bool, [], 'phase')
         
-            self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
+        self.inference()
+        self.loss()
+        self.training()
         
-            if self.count_sum:
-                self.n = tf.placeholder(tf.float32, [None, 1], 'N') # total counts sum
+        self.saver = tf.train.Saver()
         
-            self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
-            self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
-            
-            self.is_training = tf.placeholder(tf.bool, [], 'phase')
-            
-            self.inference()
-            self.loss()
-            self.training()
-            
-            self.saver = tf.train.Saver()
-            
-            print("Trainable parameters:")
-        
-            trainable_parameters = tf.trainable_variables()
-        
-            width = max(map(len, [p.name for p in trainable_parameters]))
-        
-            for parameter in trainable_parameters:
-                print("    {:{}}  {}".format(
-                    parameter.name, width, parameter.get_shape()))
+        print("Trainable parameters:")
+    
+        trainable_parameters = tf.trainable_variables()
+    
+        width = max(map(len, [p.name for p in trainable_parameters]))
+    
+        for parameter in trainable_parameters:
+            print("    {:{}}  {}".format(
+                parameter.name, width, parameter.get_shape()))
     
     @property
     def name(self):
@@ -297,7 +307,7 @@ class VariationalAutoEncoder(object):
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
         
-        with tf.Session(graph = self.graph) as session:
+        with tf.Session() as session:
             
             parameter_summary_writer = tf.summary.FileWriter(log_directory)
             training_summary_writer = tf.summary.FileWriter(
@@ -483,7 +493,7 @@ class VariationalAutoEncoder(object):
         
         checkpoint = tf.train.get_checkpoint_state(log_directory)
         
-        with tf.Session(graph = self.graph) as session:
+        with tf.Session() as session:
         
             if checkpoint:
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
