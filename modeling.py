@@ -7,7 +7,7 @@ from distributions import (
     ZeroInflatedPoisson, NegativeBinomial, ZeroInflatedNegativeBinomial, ZeroInflated, Categorized, Pareto
 )
 
-import os
+import os, shutil
 
 import numpy
 
@@ -40,32 +40,38 @@ class VariationalAutoEncoder(object):
         
         self.epsilon = epsilon
         
-        # self.graph = tf.Graph()
+        self.graph = tf.Graph()
         
-        self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
-
-        if self.use_count_sum:
-            self.n = tf.placeholder(tf.float32, [None, 1], 'N') # total counts sum
-
-        self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
-        self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
-
-        self.is_training = tf.placeholder(tf.bool, [], 'phase')
-
-        self.inference()
-        self.loss()
-        self.training()
-
-        self.summary = tf.summary.merge_all()
-
-        for parameter in tf.trainable_variables():
-            print(parameter.name, parameter.get_shape())
+        with self.graph.as_default():
+        
+            self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
+        
+            if self.use_count_sum:
+                self.n = tf.placeholder(tf.float32, [None, 1], 'N') # total counts sum
+        
+            self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
+            self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
+            
+            self.is_training = tf.placeholder(tf.bool, [], 'phase')
+            
+            self.inference()
+            self.loss()
+            self.training()
+            
+            self.saver = tf.train.Saver()
+            
+            print("Trainable parameters:")
+        
+            trainable_parameters = tf.trainable_variables()
+        
+            width = max(map(len, [p.name for p in trainable_parameters]))
+        
+            for parameter in trainable_parameters:
+                print("    {:{}}  {}".format(
+                    parameter.name, width, parameter.get_shape()))
     
     @property
     def name(self):
-
-        #model_name = dataSetBaseName(splitting_method, splitting_fraction,
-            #filtering_method, feature_selection, feature_size)
         
         model_name = self.reconstruction_distribution_name.replace(" ", "_")
         
@@ -185,7 +191,8 @@ class VariationalAutoEncoder(object):
                     scope = "P_K"
                 )
                 
-                x_logits = tf.reshape(x_logits, [-1, self.feature_size, self.k_max])
+                x_logits = tf.reshape(x_logits,
+                    [-1, self.feature_size, self.k_max])
                 
                 self.p_x_given_z = Categorized(
                     dist = self.p_x_given_z,
@@ -195,8 +202,11 @@ class VariationalAutoEncoder(object):
             self.x_tilde_mean = self.p_x_given_z.mean()
         
         # Add histogram summaries for the trainable parameters
+        parameter_summary_list = []
         for parameter in tf.trainable_variables():
-            tf.summary.histogram(parameter.name, parameter)
+            parameter_summary = tf.summary.histogram(parameter.name, parameter)
+            parameter_summary_list.append(parameter_summary)
+        self.parameter_summary = tf.summary.merge(parameter_summary_list)
     
     def loss(self):
         
@@ -213,6 +223,7 @@ class VariationalAutoEncoder(object):
             name = 'reconstruction_error'
         )
         tf.add_to_collection('losses', log_p_x_given_z)
+        self.ENRE = log_p_x_given_z
         
         ## Regularisation
         KL_qp = tf.reduce_mean(
@@ -220,14 +231,16 @@ class VariationalAutoEncoder(object):
             name = "kl_divergence"
         )
         tf.add_to_collection('losses', KL_qp)
-
+        self.KL = KL_qp
+        
         # Averaging over samples.
-        self.loss_op = tf.subtract(log_p_x_given_z, KL_qp, name = 'lower_bound')
-        tf.add_to_collection('losses', self.loss_op)
+        self.lower_bound = tf.subtract(log_p_x_given_z, KL_qp, name = 'lower_bound')
+        tf.add_to_collection('losses', self.lower_bound)
+        self.ELBO = self.lower_bound
         
         # Add scalar summaries for the losses
-        for l in tf.get_collection('losses'):
-            tf.summary.scalar(l.op.name, l)
+        # for l in tf.get_collection('losses'):
+        #     tf.summary.scalar(l.op.name, l)
     
     def training(self):
         
@@ -245,7 +258,7 @@ class VariationalAutoEncoder(object):
             # (and also increment the global step counter) as a single training
             # step.
             self.train_op = optimiser.minimize(
-                -self.loss_op,
+                -self.lower_bound,
                 global_step = self.global_step
             )
         
@@ -261,112 +274,213 @@ class VariationalAutoEncoder(object):
         else:
             setupTraining()
 
-    def train(self, train_data, valid_data, number_of_epochs = 50, batch_size = 100, learning_rate = 1e-3, log_directory = None, reset_training = False):
-
-        if self.use_count_sum:
-            n_train = train_data.counts.sum(axis = 1).reshape(-1, 1)
-            n_valid = valid_data.counts.sum(axis = 1).reshape(-1, 1)
-
-        if reset_training and os.path.exists(log_directory):
-            for f in os.listdir(log_directory):
-                os.remove(os.path.join(log_directory, f))
-            os.rmdir(log_directory)
-
-        # Train
+    def train(self, x_train, x_valid, number_of_epochs = 100, batch_size = 100,
+        learning_rate = 1e-3, log_directory = None, reset_training = False):
         
-        M = train_data.number_of_examples
-
-        self.saver = tf.train.Saver()
+        # Logging
+        
+        if reset_training and os.path.exists(log_directory):
+            shutil.rmtree(log_directory)
+        
         checkpoint_file = os.path.join(log_directory, 'model.ckpt')
         
-        with tf.Session() as session:
+        # Extra setup
         
-            summary_writer = tf.summary.FileWriter(log_directory, session.graph)
+        if self.use_count_sum:
+            n_train = x_train.counts.sum(axis = 1).reshape(-1, 1)
+            n_valid = x_valid.counts.sum(axis = 1).reshape(-1, 1)
         
-            session.run(tf.global_variables_initializer())
-
-            # Print out the defined graph
-            # print("The inference graph:")
-            # print(tf.get_default_graph().as_graph_def())
-
-            #train_losses, valid_losses = [], []
-            feed_dict_train = {self.x: train_data.counts, self.is_training: False}
-            feed_dict_valid = {self.x: valid_data.counts, self.is_training: False}
-            if self.use_count_sum:
-                feed_dict_train[self.n] = n_train
-                feed_dict_valid[self.n] = n_valid
+        M_train = x_train.number_of_examples
+        M_valid = x_valid.number_of_examples
+        
+        steps_per_epoch = numpy.ceil(M_train / batch_size)
+        
+        output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
+        
+        with tf.Session(graph = self.graph) as session:
             
-            for epoch in range(number_of_epochs):
-                shuffled_indices = numpy.random.permutation(M)
-                for i in range(0, M, batch_size):
-
+            parameter_summary_writer = tf.summary.FileWriter(log_directory)
+            training_summary_writer = tf.summary.FileWriter(
+                os.path.join(log_directory, "training"))
+            validation_summary_writer = tf.summary.FileWriter(
+                os.path.join(log_directory, "validation"))
+            
+            # Initialisation
+            
+            checkpoint = tf.train.get_checkpoint_state(log_directory)
+            
+            if checkpoint:
+                self.saver.restore(session, checkpoint.model_checkpoint_path)
+                epoch_start = int(os.path.split(
+                    checkpoint.model_checkpoint_path)[-1].split('-')[-1])
+            else:
+                session.run(tf.global_variables_initializer())
+                epoch_start = 0
+                parameter_summary_writer.add_graph(session.graph)
+            
+            # Training loop
+            
+            for epoch in range(epoch_start, number_of_epochs):
+                
+                epoch_time_start = time()
+                epoch_steps = 0
+                
+                shuffled_indices = numpy.random.permutation(M_train)
+                
+                for i in range(0, M_train, batch_size):
+                    
+                    # Internal setup
+                    
+                    step_time_start = time()
+                    
                     step = session.run(self.global_step)
-
-                    start_time = time()
-
-                    # Feeding in batch to model
-                    subset = shuffled_indices[i:(i + batch_size)]
-                    batch = train_data.counts[subset]
-                    feed_dict_batch = {self.x: batch, self.is_training: True, self.learning_rate: learning_rate}
-
-                    # Adding the sum of counts per cell to the generator after the sample layer.
+                    
+                    # Prepare batch
+                    
+                    batch_indices = shuffled_indices[i:(i + batch_size)]
+                    
+                    feed_dict_batch = {
+                        self.x: x_train.counts[batch_indices],
+                        self.is_training: True,
+                        self.learning_rate: learning_rate
+                    }
+                    
                     if self.use_count_sum:
-                        feed_dict_batch[self.n] = n_train[subset]
+                        feed_dict_batch[self.n] = n_train[batch_indices]
+                    
+                    # Run the stochastic batch training operation
+                    _, batch_loss = session.run(
+                        [self.train_op, self.lower_bound],
+                        feed_dict = feed_dict_batch
+                    )
 
-                    # Run the stochastic batch training operation.
-                    _, batch_loss = session.run([self.train_op, self.loss_op], feed_dict = feed_dict_batch)
+                    # Compute step duration
+                    step_duration = time() - step_time_start
+                    
+                    # Print evaluation and output summaries
+                    if (step + 1 - steps_per_epoch * epoch) in output_at_step:
 
-                    # Duration of one training step.
-                    duration = time() - start_time
-
-                    # Evaluation printout and TensorBoard summary
-                    if step % 10 == 0:
-                        print('Step {:d}: loss = {:.2f} ({:.3f} sec)'.format(int(step), batch_loss, duration))
-                        summary_str = session.run(self.summary, feed_dict = feed_dict_batch)
-                        summary_writer.add_summary(summary_str, step)
-                        summary_writer.flush()
-
+                        print('Step {:d} ({:.3g} s): {:.5g}'.format(
+                            int(step + 1), step_duration, batch_loss))
+                    
+                    epoch_steps += 1
+                
+                print()
+                
+                epoch_duration = time() - epoch_time_start
+                
+                print("Epoch {} ({:.3g} s):".format(epoch + 1, epoch_duration))
+                
                 # Saving model parameters
-                print('Checkpoint reached: Saving model')
-                self.saver.save(session, checkpoint_file)
-                print('Done saving model')
-
+                print('    Saving model.')
+                saving_time_start = time()
+                self.saver.save(session, checkpoint_file,
+                    global_step = epoch + 1)
+                saving_duration = time() - saving_time_start
+                print('    Model saved ({:.3g} s).'.format(saving_duration))
+                
+                # Export parameter summaries
+                parameter_summary_string = session.run(self.parameter_summary)
+                parameter_summary_writer.add_summary(
+                    parameter_summary_string, global_step = epoch + 1)
+                parameter_summary_writer.flush()
+                
                 # Evaluation
-                print('Evaluating epoch {:d}'.format(epoch))
-            
-                train_loss = 0
-                for i in range(0, M, batch_size):
+                print('    Evaluating model.')
+                
+                ## Training
+                
+                evaluating_time_start = time()
+                
+                ELBO_train = 0
+                KL_train = 0
+                ENRE_train = 0
+                
+                for i in range(0, M_train, batch_size):
                     subset = slice(i, (i + batch_size))
-                    batch = train_data.counts[subset]
+                    batch = x_train.counts[subset]
                     feed_dict_batch = {self.x: batch, self.is_training: False}
                     if self.use_count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
-                    train_loss += session.run(self.loss_op, feed_dict = feed_dict_batch)
-                train_loss /= M / batch_size
-                print('Done evaluating training set')
-            
-                valid_loss = 0
-                for i in range(0, valid_data.number_of_examples, batch_size):
+                    ELBO_i, KL_i, ENRE_i = session.run(
+                        [self.ELBO, self.KL, self.ENRE],
+                        feed_dict = feed_dict_batch
+                    )
+                    ELBO_train += ELBO_i
+                    KL_train += KL_i
+                    ENRE_train += ENRE_i
+                
+                ELBO_train /= M_train / batch_size
+                KL_train /= M_train / batch_size
+                ENRE_train /= M_train / batch_size
+                
+                evaluating_duration = time() - evaluating_time_start
+                
+                summary = tf.Summary()
+                summary.value.add(tag="lower_bound", simple_value = ELBO_train)
+                summary.value.add(tag="reconstruction_error",
+                    simple_value = ENRE_train)
+                summary.value.add(tag="kl_divergence", simple_value = KL_train)
+                training_summary_writer.add_summary(summary,
+                    global_step = epoch + 1)
+                training_summary_writer.flush()
+                
+                print("    Training set ({:.3g} s): ".format(
+                    evaluating_duration) + \
+                    "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
+                    ELBO_train, ENRE_train, KL_train))
+                
+                ## Validation
+                
+                evaluating_time_start = time()
+                
+                ELBO_valid = 0
+                KL_valid = 0
+                ENRE_valid = 0
+                
+                for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
-                    batch = valid_data.counts[subset]
+                    batch = x_valid.counts[subset]
                     feed_dict_batch = {self.x: batch, self.is_training: False}
                     if self.use_count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
-                    valid_loss += session.run(self.loss_op, feed_dict = feed_dict_batch)
-                valid_loss /= valid_data.number_of_examples / batch_size
-                print('Done evaluating validation set')
-            
-                print("Epoch %d: ELBO: %g (Train), %g (Valid)"%(epoch+1, train_loss, valid_loss))
-
-
+                    ELBO_i, KL_i, ENRE_i = session.run(
+                        [self.ELBO, self.KL, self.ENRE],
+                        feed_dict = feed_dict_batch
+                    )
+                    ELBO_valid += ELBO_i
+                    KL_valid += KL_i
+                    ENRE_valid += ENRE_i
+                
+                ELBO_valid /= M_valid / batch_size
+                KL_valid /= M_valid / batch_size
+                ENRE_valid /= M_valid / batch_size
+                
+                summary = tf.Summary()
+                summary.value.add(tag="lower_bound", simple_value = ELBO_valid)
+                summary.value.add(tag="reconstruction_error",
+                    simple_value = ENRE_valid)
+                summary.value.add(tag="kl_divergence", simple_value = KL_valid)
+                validation_summary_writer.add_summary(summary,
+                    global_step = epoch + 1)
+                validation_summary_writer.flush()
+                
+                evaluating_duration = time() - evaluating_time_start
+                print("    Validation set ({:.3g} s): ".format(
+                    evaluating_duration) + \
+                    "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
+                    ELBO_valid, ENRE_valid, KL_valid))
+               
+                print()
+    
     def evaluate(self, test_set, batch_size = 100, log_directory = None):
-
+        
         checkpoint = tf.train.get_checkpoint_state(log_directory)
         
         if self.use_count_sum:
             n_test = test_set.counts.sum(axis = 1).reshape(-1, 1)
                 
-        with tf.Session() as session:
+        with tf.Session(graph = self.graph) as session:
         
             if checkpoint and checkpoint.model_checkpoint_path:
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
@@ -380,7 +494,7 @@ class VariationalAutoEncoder(object):
                 feed_dict_batch = {self.x: batch, self.is_training: False}
                 if self.use_count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
-                lower_bound_batch, recon_mean_batch, z_mu_batch = session.run([self.loss_op, self.x_tilde_mean, self.z_mean], feed_dict = feed_dict_batch)
+                lower_bound_batch, recon_mean_batch, z_mu_batch = session.run([self.lower_bound, self.x_tilde_mean, self.z_mean], feed_dict = feed_dict_batch)
                 lower_bound_test += lower_bound_batch
                 recon_mean_test[subset] = recon_mean_batch
                 z_mu_test[subset] = z_mu_batch
