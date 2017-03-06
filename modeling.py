@@ -19,8 +19,9 @@ eps = 1e-6
 
 class VariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
-        reconstruction_distribution = None, number_of_reconstruction_classes = None,
-        use_batch_norm = True, use_count_sum = True, epsilon = 1e-6):
+        reconstruction_distribution = None,
+        number_of_reconstruction_classes = None,
+        batch_normalisation = True, count_sum = True, epsilon = 1e-6):
         
         # Setup
         
@@ -35,8 +36,8 @@ class VariationalAutoEncoder(object):
         
         self.k_max = number_of_reconstruction_classes
         
-        self.use_batch_norm = use_batch_norm
-        self.use_count_sum = use_count_sum
+        self.batch_normalisation = batch_normalisation
+        self.count_sum = count_sum
         
         self.epsilon = epsilon
         
@@ -46,7 +47,7 @@ class VariationalAutoEncoder(object):
         
             self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
         
-            if self.use_count_sum:
+            if self.count_sum:
                 self.n = tf.placeholder(tf.float32, [None, 1], 'N') # total counts sum
         
             self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
@@ -78,12 +79,12 @@ class VariationalAutoEncoder(object):
         # if self.k_max:
         #     model_name += "_c_" + str(self.k_max)
         
-        if self.use_count_sum:
+        if self.count_sum:
             model_name += "_sum"
         
         model_name += "_l_" + str(self.latent_size) + "_h_" + "_".join(map(str,self.hidden_sizes))
         
-        if self.use_batch_norm:
+        if self.batch_normalisation:
             model_name += "_bn"
         
         # model_name += "_lr_{:.1g}".format(self.learning_rate)
@@ -104,7 +105,7 @@ class VariationalAutoEncoder(object):
                     inputs = encoder,
                     num_outputs = hidden_size,
                     activation_fn = relu,
-                    use_batch_norm = self.use_batch_norm, 
+                    batch_normalisation = self.batch_normalisation, 
                     is_training = self.is_training,
                     scope = '{:d}'.format(i + 1)
                 )
@@ -114,7 +115,7 @@ class VariationalAutoEncoder(object):
                 inputs = encoder,
                 num_outputs = self.latent_size,
                 activation_fn = None,
-                use_batch_norm = False,
+                batch_normalisation = False,
                 is_training = self.is_training,
                 scope = 'MU')
             
@@ -122,7 +123,7 @@ class VariationalAutoEncoder(object):
                 inputs = encoder,
                 num_outputs = self.latent_size,
                 activation_fn = lambda x: tf.exp(tf.clip_by_value(x, -3, 3)),
-                use_batch_norm = False,
+                batch_normalisation = False,
                 is_training = self.is_training,
                 scope = 'SIGMA')
             
@@ -136,7 +137,7 @@ class VariationalAutoEncoder(object):
         
         # Decoder - Generative model, p(x|z)
         
-        if self.use_count_sum:
+        if self.count_sum:
             decoder = tf.concat([self.z, self.n], axis = 1, name = 'Z_N')
         else:
             decoder = self.z
@@ -147,7 +148,7 @@ class VariationalAutoEncoder(object):
                     inputs = decoder,
                     num_outputs = hidden_size,
                     activation_fn = relu,
-                    use_batch_norm = self.use_batch_norm,
+                    batch_normalisation = self.batch_normalisation,
                     is_training = self.is_training,
                     scope = '{:d}'.format(len(self.hidden_sizes) - i)
                 )
@@ -286,7 +287,7 @@ class VariationalAutoEncoder(object):
         
         # Extra setup
         
-        if self.use_count_sum:
+        if self.count_sum:
             n_train = x_train.counts.sum(axis = 1).reshape(-1, 1)
             n_valid = x_valid.counts.sum(axis = 1).reshape(-1, 1)
         
@@ -344,7 +345,7 @@ class VariationalAutoEncoder(object):
                         self.learning_rate: learning_rate
                     }
                     
-                    if self.use_count_sum:
+                    if self.count_sum:
                         feed_dict_batch[self.n] = n_train[batch_indices]
                     
                     # Run the stochastic batch training operation
@@ -399,7 +400,7 @@ class VariationalAutoEncoder(object):
                     subset = slice(i, (i + batch_size))
                     batch = x_train.counts[subset]
                     feed_dict_batch = {self.x: batch, self.is_training: False}
-                    if self.use_count_sum:
+                    if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
                     ELBO_i, KL_i, ENRE_i = session.run(
                         [self.ELBO, self.KL, self.ENRE],
@@ -441,7 +442,7 @@ class VariationalAutoEncoder(object):
                     subset = slice(i, (i + batch_size))
                     batch = x_valid.counts[subset]
                     feed_dict_batch = {self.x: batch, self.is_training: False}
-                    if self.use_count_sum:
+                    if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
                     ELBO_i, KL_i, ENRE_i = session.run(
                         [self.ELBO, self.KL, self.ENRE],
@@ -474,7 +475,7 @@ class VariationalAutoEncoder(object):
     
     def evaluate(self, x_test, batch_size = 100, log_directory = None):
         
-        if self.use_count_sum:
+        if self.count_sum:
             n_test = x_test.counts.sum(axis = 1).reshape(-1, 1)
         
         M_test = x_test.number_of_examples
@@ -500,7 +501,7 @@ class VariationalAutoEncoder(object):
                 subset = slice(i, (i + batch_size))
                 batch = x_test.counts[subset]
                 feed_dict_batch = {self.x: batch, self.is_training: False}
-                if self.use_count_sum:
+                if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
                 
                 ELBO_i, KL_i, ENRE_i, x_tilde_i, z_mean_i = session.run(
@@ -657,11 +658,11 @@ distributions = {
 
 # Wrapper layer for inserting batch normalization in between linear and nonlinear activation layers.
 def dense_layer(inputs, num_outputs, is_training, scope, activation_fn = None,
-    use_batch_norm = False, decay = 0.999, center = True, scale = False):
+    batch_normalisation = False, decay = 0.999, center = True, scale = False):
     
     with tf.variable_scope(scope):
         outputs = fully_connected(inputs, num_outputs = num_outputs, activation_fn = None, scope = 'DENSE')
-        if use_batch_norm:
+        if batch_normalisation:
             outputs = batch_norm(outputs, center = center, scale = scale, is_training = is_training, scope = 'BATCH_NORM')
         if activation_fn is not None:
             outputs = activation_fn(outputs)

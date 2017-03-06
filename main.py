@@ -11,7 +11,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     splitting_method, splitting_fraction,
     latent_size, hidden_sizes, reconstruction_distribution,
     number_of_reconstruction_classes,
-    number_of_warm_up_epochs,
+    number_of_warm_up_epochs, batch_normalisation, count_sum,
     number_of_epochs, batch_size, learning_rate,
     reset_training):
     
@@ -32,6 +32,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
         feature_size, latent_size, hidden_sizes,
         reconstruction_distribution,
         number_of_reconstruction_classes,
+        batch_normalisation, count_sum
     )
     
     print()
@@ -148,8 +149,31 @@ parser.add_argument(
     help = "number of epochs with a linear weight on the KL-term"
 )
 parser.add_argument(
+    "--batch-normalisation",
+    action = "store_true",
+    help = "use batch normalisation"
+)
+parser.add_argument(
+    "--no-batch-normalisation",
+    dest = "batch_normalisation",
+    action = "store_false",
+    help = "do not use batch normalisation"
+)
+parser.set_defaults(batch_normalisation = True)
+parser.add_argument(
+    "--count-sum",
+    action = "store_true",
+    help = "use count sum"
+)
+parser.add_argument(
+    "--no-count-sum",
+    dest = "count_sum",
+    action = "store_false",
+    help = "do not use count sum"
+)
+parser.set_defaults(count_sum = True)
+parser.add_argument(
     "--reset-training",
-    # action = "store_false",
     action = "store_true",
     help = "reset already trained model"
 )
