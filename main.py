@@ -34,7 +34,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
         feature_size, latent_size, hidden_sizes,
         reconstruction_distribution,
         number_of_reconstruction_classes,
-        batch_normalisation, count_sum
+        batch_normalisation, count_sum, number_of_warm_up_epochs
     )
     
     print()
@@ -43,7 +43,6 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     
     model.train(training_set, validation_set,
         number_of_epochs, batch_size, learning_rate,
-        # number_of_warm_up_epochs,
         log_directory, reset_training)
     
     print()

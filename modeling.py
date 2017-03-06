@@ -21,7 +21,8 @@ class VariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
-        batch_normalisation = True, count_sum = True, epsilon = 1e-6):
+        batch_normalisation = True, count_sum = True,
+        number_of_warm_up_epochs = 0, epsilon = 1e-6):
         
         print("Model setup:")
         print("    feature size: {}".format(feature_size))
@@ -52,7 +53,8 @@ class VariationalAutoEncoder(object):
         
         self.batch_normalisation = batch_normalisation
         self.count_sum = count_sum
-        
+        self.number_of_warm_up_epochs = number_of_warm_up_epochs
+
         self.epsilon = epsilon
         
         self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
@@ -239,7 +241,8 @@ class VariationalAutoEncoder(object):
         self.KL = KL_qp
         
         # Averaging over samples.
-        self.lower_bound = tf.subtract(log_p_x_given_z, KL_qp, name = 'lower_bound')
+        self.lower_bound = tf.subtract(log_p_x_given_z, 
+            tf.where(self.is_training, self.warm_up_weight * KL_qp, KL_qp), name = 'lower_bound')
         tf.add_to_collection('losses', self.lower_bound)
         self.ELBO = self.lower_bound
         
@@ -333,7 +336,7 @@ class VariationalAutoEncoder(object):
             for epoch in range(epoch_start, number_of_epochs):
                 
                 epoch_time_start = time()
-                epoch_steps = 0
+                warm_up_weight = float(min(epoch/self.number_of_warm_up_epochs, 1.0))
                 
                 shuffled_indices = numpy.random.permutation(M_train)
                 
@@ -352,7 +355,8 @@ class VariationalAutoEncoder(object):
                     feed_dict_batch = {
                         self.x: x_train.counts[batch_indices],
                         self.is_training: True,
-                        self.learning_rate: learning_rate
+                        self.learning_rate: learning_rate, 
+                        self.warm_up_weight: warm_up_weight
                     }
                     
                     if self.count_sum:
@@ -372,9 +376,7 @@ class VariationalAutoEncoder(object):
 
                         print('Step {:d} ({:.3g} s): {:.5g}'.format(
                             int(step + 1), step_duration, batch_loss))
-                    
-                    epoch_steps += 1
-                
+                                    
                 print()
                 
                 epoch_duration = time() - epoch_time_start
@@ -409,7 +411,7 @@ class VariationalAutoEncoder(object):
                 for i in range(0, M_train, batch_size):
                     subset = slice(i, (i + batch_size))
                     batch = x_train.counts[subset]
-                    feed_dict_batch = {self.x: batch, self.is_training: False}
+                    feed_dict_batch = {self.x: batch, self.is_training: False, self.warm_up_weight: warm_up_weight}
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
                     ELBO_i, KL_i, ENRE_i = session.run(
@@ -451,7 +453,7 @@ class VariationalAutoEncoder(object):
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
                     batch = x_valid.counts[subset]
-                    feed_dict_batch = {self.x: batch, self.is_training: False}
+                    feed_dict_batch = {self.x: batch, self.is_training: False, self.warm_up_weight: warm_up_weight}
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
                     ELBO_i, KL_i, ENRE_i = session.run(
@@ -510,7 +512,7 @@ class VariationalAutoEncoder(object):
             for i in range(0, M_test, batch_size):
                 subset = slice(i, (i + batch_size))
                 batch = x_test.counts[subset]
-                feed_dict_batch = {self.x: batch, self.is_training: False}
+                feed_dict_batch = {self.x: batch, self.is_training: False, self.warm_up_weight: 1.0}
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
                 
