@@ -117,11 +117,13 @@ class DataSet(BaseDataSet):
     def createSamples(self, number_of_examples = 2000, number_of_features = 20,
         scale = 2, update_probability = 0.5):
         
+        random.seed(60)
+        
         m = number_of_examples
         n = number_of_features
         
         samples = zeros((m, n))
-    
+        
         row = scale * random.rand(n)
         k = 0
         for i in range(m):
@@ -130,9 +132,9 @@ class DataSet(BaseDataSet):
                 row = scale * random.rand(n)
                 k += 1
             samples[i] = row
-    
+        
         random.shuffle(samples)
-    
+        
         for i in range(m):
             for j in range(n):
                 samples[i, j] = random.poisson(samples[i, j])
@@ -142,6 +144,8 @@ class DataSet(BaseDataSet):
             "cells": arange(m),
             "genes": arange(n)
         }
+        
+        print("Sample data created with {} different example types.".format(k))
         
         return data_dictionary
     
