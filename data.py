@@ -10,6 +10,8 @@ from pandas import read_csv
 from numpy import random, array, arange, zeros#, nonzero, sort, argsort, where
 from scipy.sparse import csr_matrix
 
+from time import time
+
 preprocess_suffix = "preprocessed"
 sparse_extension = ".pkl.gz"
 
@@ -77,17 +79,37 @@ class DataSet(BaseDataSet):
             data_dictionary = self.createSamples()
         else:
             if os.path.isfile(self.sparse_path):
-                print(self.sparse_path)
+                print("Loading data set from sparse representation.")
+                start_time = time()
                 data_dictionary = loadFromSparseData(self.sparse_path)
+                duration = time() - start_time
+                print("Data set loaded from sparse representation" +
+                    " ({:.3g} s).".format(duration))
             else:
                 if not os.path.isfile(self.path):
+                    print("Downloading data set.")
+                    start_time = time()
                     self.download()
-                print(self.path)
+                    duration = time() - start_time
+                    print("Data set downloaded." +
+                        " ({:.3g} s).".format(duration))
+                
+                print("Loading original data set.")
+                start_time = time()
                 data_dictionary = self.loadOriginalData()
+                duration = time() - start_time
+                print("Original data set loaded" +
+                    " ({:.3g} s).".format(duration))
+                
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
-                print(self.sparse_path)
+                
+                print("Saving data set in sparse representation.")
+                start_time = time()
                 saveAsSparseData(data_dictionary, self.sparse_path)
+                duration = time() - start_time
+                print("Data set saved in sparse representation" +
+                    " ({:.3g} s).".format(duration))
         
         self.update(
             data_dictionary["counts"],
@@ -116,6 +138,8 @@ class DataSet(BaseDataSet):
     
     def createSamples(self, number_of_examples = 2000, number_of_features = 20,
         scale = 2, update_probability = 0.5):
+        
+        print("Creating sample data set.")
         
         random.seed(60)
         
@@ -152,20 +176,36 @@ class DataSet(BaseDataSet):
     def split(self, method, fraction):
         
         if self.name == "sample":
+            print("Splitting data set.")
             data_dictionary = self.splitAndCollectInDictionary(method,
                 fraction)
+            print("Data set split.")
         else:
             split_data_sets_path = self.preprocessPath(["split", method,
                 str(fraction)])
         
-            print(split_data_sets_path)
-        
             if os.path.isfile(split_data_sets_path):
+                print("Loading split data sets from sparse representations.")
+                start_time = time()
                 data_dictionary = loadFromSparseData(split_data_sets_path)
+                duration = time() - start_time
+                print("Split data sets loaded from sparse representations" +
+                    " ({:.3g} s).".format(duration))
             else:
+                print("Splitting data set.")
+                start_time = time()
                 data_dictionary = self.splitAndCollectInDictionary(method,
                     fraction)
+                duration = time() - start_time
+                print("Data set split" +
+                    " ({:.3g} s).".format(duration))
+                
+                print("Saving split data sets in sparse representations.")
+                start_time = time()
                 saveAsSparseData(data_dictionary, split_data_sets_path)
+                duration = time() - start_time
+                print("Split data sets saved in sparse representations" +
+                    " ({:.3g} s).".format(duration))
         
         training_set = BaseDataSet(
             counts = data_dictionary["training_set"]["counts"],
@@ -181,6 +221,19 @@ class DataSet(BaseDataSet):
             counts = data_dictionary["test_set"]["counts"],
             cells = data_dictionary["test_set"]["cells"],
             genes = data_dictionary["genes"]
+        )
+        
+        print()
+        
+        print(
+            "Data sets with {} features:\n".format(
+                training_set.number_of_features) +
+            "    Training sets: {} examples.\n".format(
+                training_set.number_of_examples) +
+            "    Validation sets: {} examples.\n".format(
+                validation_set.number_of_examples) +
+            "    Test sets: {} examples.".format(
+                test_set.number_of_examples)
         )
         
         return training_set, validation_set, test_set
@@ -266,4 +319,4 @@ def download_report_hook(block_num, block_size, total_size):
         if bytes_read >= total_size:
             sys.stderr.write("\n")
     else:
-        sys.stderr.write("Downloaded: {:d} bytes.".format(bytes_read))
+        sys.stderr.write("Downloaded {:d} bytes.".format(bytes_read))

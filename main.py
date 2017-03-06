@@ -18,7 +18,9 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     # Data
     
     data_set = data.DataSet(data_set_name, data_directory)
-
+    
+    print()
+    
     training_set, validation_set, test_set = data_set.split(
         splitting_method, splitting_fraction)
 
