@@ -19,6 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 from tensorflow import where
+from tensorflow import ones_like
 from tensorflow.contrib.distributions.python.ops import distribution
 from tensorflow.contrib.distributions.python.ops import distribution_util
 from tensorflow.contrib.framework.python.framework import tensor_util as contrib_tensor_util
@@ -99,7 +100,7 @@ class Pareto(distribution.Distribution):
     return self._alpha
 
   def _batch_shape(self):
-    return array_ops.broadcast_dynamic_shape(array_ops.shape(self.alpha) + array_ops.shape(self.sigma))
+    return array_ops.broadcast_dynamic_shape(array_ops.shape(self.alpha), array_ops.shape(self.sigma))
 
   def _get_batch_shape(self):
     return array_ops.broadcast_static_shape(
@@ -113,6 +114,7 @@ class Pareto(distribution.Distribution):
 
   def _log_prob(self, x):
     x = self._assert_valid_sample(x, check_integer=False)
+    #log_prob_zero = 10e-12 * ones_like(x)
     x = clip_ops.clip_by_value(x, 1e-6, x)
     return math_ops.log(self.alpha) + self.alpha*math_ops.log(self.sigma) - (self.alpha + 1)*math_ops.log(x)
 
