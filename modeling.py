@@ -294,7 +294,6 @@ class VariationalAutoEncoder(object):
         M_valid = x_valid.number_of_examples
         
         steps_per_epoch = numpy.ceil(M_train / batch_size)
-        
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
         
         with tf.Session(graph = self.graph) as session:
@@ -473,40 +472,67 @@ class VariationalAutoEncoder(object):
                
                 print()
     
-    def evaluate(self, test_set, batch_size = 100, log_directory = None):
+    def evaluate(self, x_test, batch_size = 100, log_directory = None):
+        
+        if self.use_count_sum:
+            n_test = x_test.counts.sum(axis = 1).reshape(-1, 1)
+        
+        M_test = x_test.number_of_examples
+        F_test = x_test.number_of_features
         
         checkpoint = tf.train.get_checkpoint_state(log_directory)
         
-        if self.use_count_sum:
-            n_test = test_set.counts.sum(axis = 1).reshape(-1, 1)
-                
         with tf.Session(graph = self.graph) as session:
         
-            if checkpoint and checkpoint.model_checkpoint_path:
+            if checkpoint:
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
-        
-            lower_bound_test = 0
-            recon_mean_test = numpy.empty([test_set.number_of_examples, test_set.number_of_features])
-            z_mu_test = numpy.empty([test_set.number_of_examples, self.latent_size])
-            for i in range(0, test_set.number_of_examples, batch_size):
+            
+            evaluating_time_start = time()
+            
+            ELBO_test = 0
+            KL_test = 0
+            ENRE_test = 0
+            
+            x_tilde_test = numpy.empty([M_test, F_test])
+            z_mean_test = numpy.empty([M_test, self.latent_size])
+            
+            for i in range(0, M_test, batch_size):
                 subset = slice(i, (i + batch_size))
-                batch = test_set.counts[subset]
+                batch = x_test.counts[subset]
                 feed_dict_batch = {self.x: batch, self.is_training: False}
                 if self.use_count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
-                lower_bound_batch, recon_mean_batch, z_mu_batch = session.run([self.lower_bound, self.x_tilde_mean, self.z_mean], feed_dict = feed_dict_batch)
-                lower_bound_test += lower_bound_batch
-                recon_mean_test[subset] = recon_mean_batch
-                z_mu_test[subset] = z_mu_batch
-            lower_bound_test /= test_set.number_of_examples / batch_size
-
+                
+                ELBO_i, KL_i, ENRE_i, x_tilde_i, z_mean_i = session.run(
+                    [self.ELBO, self.KL, self.ENRE,
+                        self.x_tilde_mean, self.z_mean],
+                    feed_dict = feed_dict_batch
+                )
+                
+                ELBO_test += ELBO_i
+                KL_test += KL_i
+                ENRE_test += ENRE_i
+                
+                x_tilde_test[subset] = x_tilde_i
+                z_mean_test[subset] = z_mean_i
+            
+            ELBO_test /= M_test / batch_size
+            KL_test /= M_test / batch_size
+            ENRE_test /= M_test / batch_size
+            
+            evaluating_duration = time() - evaluating_time_start
+            print("Test set ({:.3g} s): ".format(
+                evaluating_duration) + \
+                "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
+                ELBO_test, ENRE_test, KL_test))
+            
             metrics_test = {
-                "LL_test": lower_bound_test
+                "ELBO": ELBO_test,
+                "ENRE": ENRE_test,
+                "KL": KL_test
             }
-        
-            print(metrics_test)
-        
-            return recon_mean_test, z_mu_test, metrics_test
+            
+            return x_tilde_test, z_mean_test, metrics_test
 
 distributions = {
     "bernoulli": {
