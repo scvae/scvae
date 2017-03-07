@@ -2,7 +2,7 @@
 
 import data
 import modeling
-import analysis
+import analysing
 
 import os
 import argparse
@@ -14,6 +14,9 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     number_of_warm_up_epochs, batch_normalisation, count_sum,
     number_of_epochs, batch_size, learning_rate,
     reset_training):
+    
+    log_directory = os.path.join(log_directory, data_set_name)
+    results_directory = os.path.join(results_directory, data_set_name)
     
     # Data
     
@@ -34,30 +37,30 @@ def main(data_set_name, data_directory, log_directory, results_directory,
         feature_size, latent_size, hidden_sizes,
         reconstruction_distribution,
         number_of_reconstruction_classes,
-        batch_normalisation, count_sum, number_of_warm_up_epochs
+        batch_normalisation, count_sum, number_of_warm_up_epochs,
+        log_directory = log_directory
     )
     
     print()
     
-    log_directory = os.path.join(log_directory, data_set_name, model.name)
-    
     model.train(training_set, validation_set,
         number_of_epochs, batch_size, learning_rate,
-        log_directory, reset_training)
+        reset_training)
     
     print()
     
+    reconstructed_test_set, latent_set, test_metrics = model.evaluate(
+        test_set, batch_size)
+    
     # Analysis
     
-    results_directory = os.path.join(results_directory, data_set_name,
-        model.name)
+    analysis = analysing.Analysis(
+        log_directory, results_directory, model.name
+    )
     
-    analysis.analyseModel(log_directory, results_directory)
-    
-    reconstructed_test_set, latent_set, test_metrics = model.evaluate(test_set, batch_size, log_directory)
-    
-    analysis.analyseResults(test_set, reconstructed_test_set, latent_set,
-        results_directory)
+    analysis.analyseModel()
+
+    analysis.analyseResults(test_set, reconstructed_test_set, latent_set)
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',

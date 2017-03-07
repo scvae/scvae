@@ -14,14 +14,23 @@ figure_extension = ".png"
 
 pyplot.rcParams.update({'figure.max_open_warning': 0})
 
-def analyseModel(log_directory, results_directory):
-    pass
-
-def analyseResults(test_set, reconstructed_test_set, latent_set, results_directory):
+class Analysis(object):
+    def __init__(self, log_directory, results_directory, model_name):
+        super(Analysis, self).__init__()
+        self.log_directory = os.path.join(log_directory, model_name)
+        self.results_directory = os.path.join(results_directory, model_name)
     
-    plotProfileComparison(test_set.counts[0], reconstructed_test_set[0],
-        x_label = "Genes sorted by original counts", y_label = "Counts",
-        scale = "log", name = str(test_set.cells[0]), results_directory = results_directory)
+    def analyseModel(self):
+        pass
+    
+    def analyseResults(self, test_set, reconstructed_test_set, latent_set):
+        
+        figure, name = plotProfileComparison(
+            test_set.counts[0], reconstructed_test_set[0],
+            x_label = "Genes sorted by original counts", y_label = "Counts",
+            scale = "log", name = str(test_set.cells[0])
+        )
+        saveFigure(figure, name, self.results_directory)
 
 def plotProfileComparison(original_series, reconstructed_series, x_label, y_label,
     scale = "linear", name = None, results_directory = ""):
@@ -51,7 +60,7 @@ def plotProfileComparison(original_series, reconstructed_series, x_label, y_labe
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
     
-    saveFigure(figure, figure_name, results_directory)
+    return figure, figure_name
 
 def saveFigure(figure, figure_name, results_directory, no_spine = True):
     

@@ -22,7 +22,8 @@ class VariationalAutoEncoder(object):
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
-        number_of_warm_up_epochs = 0, epsilon = 1e-6):
+        number_of_warm_up_epochs = 0, epsilon = 1e-6,
+        log_directory = "log"):
         
         print("Model setup:")
         print("    feature size: {}".format(feature_size))
@@ -56,6 +57,8 @@ class VariationalAutoEncoder(object):
         self.number_of_warm_up_epochs = number_of_warm_up_epochs
 
         self.epsilon = epsilon
+        
+        self.log_directory = os.path.join(log_directory, self.name)
         
         # Graph setup
         
@@ -293,19 +296,19 @@ class VariationalAutoEncoder(object):
             setupTraining()
 
     def train(self, x_train, x_valid, number_of_epochs = 100, batch_size = 100,
-        learning_rate = 1e-3, log_directory = None, reset_training = False):
+        learning_rate = 1e-3, reset_training = False):
         
         # Logging
         
         # parameter_values = "lr_{:.1g}".format(learning_rate)
         # parameter_values += "_b_" + str(batch_size)
         
-        # log_directory = os.path.join(log_directory, parameter_values)
+        # self.log_directory = os.path.join(self.log_directory, parameter_values)
         
-        if reset_training and os.path.exists(log_directory):
-            shutil.rmtree(log_directory)
+        if reset_training and os.path.exists(self.log_directory):
+            shutil.rmtree(self.log_directory)
         
-        checkpoint_file = os.path.join(log_directory, 'model.ckpt')
+        checkpoint_file = os.path.join(self.log_directory, 'model.ckpt')
         
         # Extra setup
         
@@ -321,15 +324,16 @@ class VariationalAutoEncoder(object):
         
         with tf.Session() as session:
             
-            parameter_summary_writer = tf.summary.FileWriter(log_directory)
+            parameter_summary_writer = tf.summary.FileWriter(
+                self.log_directory)
             training_summary_writer = tf.summary.FileWriter(
-                os.path.join(log_directory, "training"))
+                os.path.join(self.log_directory, "training"))
             validation_summary_writer = tf.summary.FileWriter(
-                os.path.join(log_directory, "validation"))
+                os.path.join(self.log_directory, "validation"))
             
             # Initialisation
             
-            checkpoint = tf.train.get_checkpoint_state(log_directory)
+            checkpoint = tf.train.get_checkpoint_state(self.log_directory)
             
             if checkpoint:
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
@@ -522,7 +526,7 @@ class VariationalAutoEncoder(object):
                
                 print()
     
-    def evaluate(self, x_test, batch_size = 100, log_directory = None):
+    def evaluate(self, x_test, batch_size = 100):
         
         if self.count_sum:
             n_test = x_test.counts.sum(axis = 1).reshape(-1, 1)
@@ -530,7 +534,7 @@ class VariationalAutoEncoder(object):
         M_test = x_test.number_of_examples
         F_test = x_test.number_of_features
         
-        checkpoint = tf.train.get_checkpoint_state(log_directory)
+        checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
         with tf.Session() as session:
         
