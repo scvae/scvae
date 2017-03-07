@@ -20,8 +20,14 @@ data_set_URLs = {
 }
 
 class BaseDataSet(object):
-    def __init__(self, counts = None, cells = None, genes = None):
+    def __init__(self, counts = None, cells = None, genes = None,
+        name = "", kind = "", version = "original"):
+        
         super(BaseDataSet, self).__init__()
+        
+        self.name = name
+        self.kind = kind
+        self.version = version
         
         self.update(counts, cells, genes)
     
@@ -49,24 +55,24 @@ class BaseDataSet(object):
 
 class DataSet(BaseDataSet):
     def __init__(self, name, directory):
-        super(DataSet, self).__init__()
+        super(DataSet, self).__init__(name = name, kind = "full")
         
-        self.name = name
         self.directory = directory
         
         if self.name != "sample":
-            self.preprocess_directory = os.path.join(directory, preprocess_suffix)
+            self.preprocess_directory = os.path.join(directory,
+                preprocess_suffix)
         
             self.URL = data_set_URLs[self.name]
         
             file_name_with_extension = os.path.split(self.URL)[-1]
         
-            self.file_name, extension = file_name_with_extension.split(os.extsep, 1)
+            file_name, extension = file_name_with_extension.split(os.extsep, 1)
         
-            self.path = os.path.join(self.directory, self.file_name) + os.extsep + extension
+            self.path = os.path.join(self.directory, file_name) + os.extsep + extension
 
             self.preprocessPath = lambda additions: \
-                os.path.join(self.preprocess_directory, self.file_name) + "_" \
+                os.path.join(self.preprocess_directory, file_name) + "_" \
                     + "_".join(additions) + sparse_extension
 
             self.sparse_path = self.preprocessPath(["sparse"])
@@ -210,17 +216,23 @@ class DataSet(BaseDataSet):
         training_set = BaseDataSet(
             counts = data_dictionary["training_set"]["counts"],
             cells = data_dictionary["training_set"]["cells"],
-            genes = data_dictionary["genes"]
+            genes = data_dictionary["genes"],
+            name = self.name,
+            kind = "training"
         )
         validation_set = BaseDataSet(
             counts = data_dictionary["validation_set"]["counts"],
             cells = data_dictionary["validation_set"]["cells"],
-            genes = data_dictionary["genes"]
+            genes = data_dictionary["genes"],
+            name = self.name,
+            kind = "validation"
         )
         test_set = BaseDataSet(
             counts = data_dictionary["test_set"]["counts"],
             cells = data_dictionary["test_set"]["cells"],
-            genes = data_dictionary["genes"]
+            genes = data_dictionary["genes"],
+            name = self.name,
+            kind = "test"
         )
         
         print()
