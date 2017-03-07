@@ -38,7 +38,7 @@ class VariationalAutoEncoder(object):
             print("    using count sums")
         print("")
         
-        # Setup
+        # Class setup
         
         super(VariationalAutoEncoder, self).__init__()
         
@@ -57,15 +57,23 @@ class VariationalAutoEncoder(object):
 
         self.epsilon = epsilon
         
-        self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'x') # counts
-    
-        if self.count_sum:
-            self.n = tf.placeholder(tf.float32, [None, 1], 'N') # total counts sum
-    
-        self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
-        self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
+        # Graph setup
         
-        self.is_training = tf.placeholder(tf.bool, [], 'phase')
+        self.parameter_summary_list = []
+        
+        self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'X')
+        
+        if self.count_sum:
+            self.n = tf.placeholder(tf.float32, [None, 1], 'N')
+        
+        self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
+        
+        self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
+        parameter_summary = tf.summary.scalar('warm_up_weight',
+            self.warm_up_weight)
+        self.parameter_summary_list.append(parameter_summary)
+        
+        self.is_training = tf.placeholder(tf.bool, [], 'is_training')
         
         self.inference()
         self.loss()
@@ -98,6 +106,9 @@ class VariationalAutoEncoder(object):
         
         if self.batch_normalisation:
             model_name += "_bn"
+        
+        if self.number_of_warm_up_epochs:
+            model_name += "_wu_" + str(self.number_of_warm_up_epochs)
         
         return model_name
 
@@ -209,11 +220,10 @@ class VariationalAutoEncoder(object):
             self.x_tilde_mean = self.p_x_given_z.mean()
         
         # Add histogram summaries for the trainable parameters
-        parameter_summary_list = []
         for parameter in tf.trainable_variables():
             parameter_summary = tf.summary.histogram(parameter.name, parameter)
-            parameter_summary_list.append(parameter_summary)
-        self.parameter_summary = tf.summary.merge(parameter_summary_list)
+            self.parameter_summary_list.append(parameter_summary)
+        self.parameter_summary = tf.summary.merge(self.parameter_summary_list)
     
     def loss(self):
         
@@ -287,9 +297,8 @@ class VariationalAutoEncoder(object):
         
         # Logging
         
-        # parameter_values = "lr_{:.1g}".format(self.learning_rate)
-        # parameter_values += "_b_" + str(self.batch_size)
-        # parameter_values += "_wu_" + str(number_of_warm_up_epochs)
+        # parameter_values = "lr_{:.1g}".format(learning_rate)
+        # parameter_values += "_b_" + str(batch_size)
         
         # log_directory = os.path.join(log_directory, parameter_values)
         
@@ -338,7 +347,8 @@ class VariationalAutoEncoder(object):
                 epoch_time_start = time()
 
                 if self.number_of_warm_up_epochs:
-                    warm_up_weight = float(min(epoch / (self.number_of_warm_up_epochs), 1.0))
+                    warm_up_weight = float(min(
+                        epoch / (self.number_of_warm_up_epochs), 1.0))
                 else:
                     warm_up_weight = 1.0
                 
@@ -385,7 +395,7 @@ class VariationalAutoEncoder(object):
                 
                 epoch_duration = time() - epoch_time_start
                 
-                print("Epoch {} ({:.3g} s):".format(epoch + 1, warm_up_weight, epoch_duration))
+                print("Epoch {} ({:.3g} s):".format(epoch + 1, epoch_duration))
 
                 # With warmup or not
                 if warm_up_weight < 1:
@@ -400,7 +410,10 @@ class VariationalAutoEncoder(object):
                 print('    Model saved ({:.3g} s).'.format(saving_duration))
                 
                 # Export parameter summaries
-                parameter_summary_string = session.run(self.parameter_summary)
+                parameter_summary_string = session.run(
+                    self.parameter_summary,
+                    feed_dict = {self.warm_up_weight: warm_up_weight}
+                )
                 parameter_summary_writer.add_summary(
                     parameter_summary_string, global_step = epoch + 1)
                 parameter_summary_writer.flush()
@@ -419,13 +432,19 @@ class VariationalAutoEncoder(object):
                 for i in range(0, M_train, batch_size):
                     subset = slice(i, (i + batch_size))
                     batch = x_train.counts[subset]
-                    feed_dict_batch = {self.x: batch, self.is_training: False, self.warm_up_weight: warm_up_weight}
+                    feed_dict_batch = {
+                        self.x: batch,
+                        self.is_training: False,
+                        self.warm_up_weight: warm_up_weight
+                    }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
+                    
                     ELBO_i, KL_i, ENRE_i = session.run(
                         [self.ELBO, self.KL, self.ENRE],
                         feed_dict = feed_dict_batch
                     )
+                    
                     ELBO_train += ELBO_i
                     KL_train += KL_i
                     ENRE_train += ENRE_i
@@ -437,10 +456,12 @@ class VariationalAutoEncoder(object):
                 evaluating_duration = time() - evaluating_time_start
                 
                 summary = tf.Summary()
-                summary.value.add(tag="lower_bound", simple_value = ELBO_train)
-                summary.value.add(tag="reconstruction_error",
+                summary.value.add(tag="losses/lower_bound",
+                    simple_value = ELBO_train)
+                summary.value.add(tag="losses/reconstruction_error",
                     simple_value = ENRE_train)
-                summary.value.add(tag="kl_divergence", simple_value = KL_train)
+                summary.value.add(tag="losses/kl_divergence",
+                    simple_value = KL_train)
                 training_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
                 training_summary_writer.flush()
@@ -461,13 +482,19 @@ class VariationalAutoEncoder(object):
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
                     batch = x_valid.counts[subset]
-                    feed_dict_batch = {self.x: batch, self.is_training: False, self.warm_up_weight: warm_up_weight}
+                    feed_dict_batch = {
+                        self.x: batch,
+                        self.is_training: False,
+                        self.warm_up_weight: warm_up_weight
+                    }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
+                    
                     ELBO_i, KL_i, ENRE_i = session.run(
                         [self.ELBO, self.KL, self.ENRE],
                         feed_dict = feed_dict_batch
                     )
+                    
                     ELBO_valid += ELBO_i
                     KL_valid += KL_i
                     ENRE_valid += ENRE_i
@@ -477,10 +504,12 @@ class VariationalAutoEncoder(object):
                 ENRE_valid /= M_valid / batch_size
                 
                 summary = tf.Summary()
-                summary.value.add(tag="lower_bound", simple_value = ELBO_valid)
-                summary.value.add(tag="reconstruction_error",
+                summary.value.add(tag="losses/lower_bound",
+                    simple_value = ELBO_valid)
+                summary.value.add(tag="losses/reconstruction_error",
                     simple_value = ENRE_valid)
-                summary.value.add(tag="kl_divergence", simple_value = KL_valid)
+                summary.value.add(tag="losses/kl_divergence",
+                    simple_value = KL_valid)
                 validation_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
                 validation_summary_writer.flush()
@@ -520,7 +549,11 @@ class VariationalAutoEncoder(object):
             for i in range(0, M_test, batch_size):
                 subset = slice(i, (i + batch_size))
                 batch = x_test.counts[subset]
-                feed_dict_batch = {self.x: batch, self.is_training: False, self.warm_up_weight: 1.0}
+                feed_dict_batch = {
+                    self.x: batch,
+                    self.is_training: False,
+                    self.warm_up_weight: 1.0
+                }
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
                 
