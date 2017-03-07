@@ -7,15 +7,13 @@ from distributions import (
     ZeroInflatedPoisson, NegativeBinomial, ZeroInflatedNegativeBinomial, ZeroInflated, Categorized, Pareto
 )
 
-import os, shutil
-
 import numpy
-
 from numpy import inf
 
+import os, shutil
 from time import time
 
-eps = 1e-6
+import data
 
 class VariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
@@ -346,6 +344,10 @@ class VariationalAutoEncoder(object):
             
             # Training loop
             
+            if epoch_start == number_of_epochs:
+                print("Model has already been trained for {} epochs.".format(
+                    number_of_epochs))
+            
             for epoch in range(epoch_start, number_of_epochs):
                 
                 epoch_time_start = time()
@@ -523,7 +525,7 @@ class VariationalAutoEncoder(object):
                     evaluating_duration) + \
                     "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                     ELBO_valid, ENRE_valid, KL_valid))
-               
+                
                 print()
     
     def evaluate(self, x_test, batch_size = 100):
@@ -589,6 +591,15 @@ class VariationalAutoEncoder(object):
                 "ENRE": ENRE_test,
                 "KL": KL_test
             }
+            
+            x_tilde_test = data.BaseDataSet(
+                counts = x_tilde_test,
+                cells = x_test.cells,
+                genes = x_test.genes,
+                name = self.name,
+                kind = "test",
+                version = "reconstructed"
+            )
             
             return x_tilde_test, z_mean_test, metrics_test
 
