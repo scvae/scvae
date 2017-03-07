@@ -2,7 +2,7 @@
 
 import data
 import modeling
-import analysing
+import analysis
 
 import os
 import argparse
@@ -13,7 +13,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     number_of_reconstruction_classes,
     number_of_warm_up_epochs, batch_normalisation, count_sum,
     number_of_epochs, batch_size, learning_rate,
-    reset_training):
+    reset_training, analyse_data):
     
     log_directory = os.path.join(log_directory, data_set_name)
     results_directory = os.path.join(results_directory, data_set_name)
@@ -30,6 +30,13 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     feature_size = data_set.number_of_features
     
     print()
+    
+    if analyse_data:
+        analysis.analyseData(
+            [data_set, training_set, validation_set, test_set],
+            results_directory
+        )
+        print()
     
     # Modeling
 
@@ -52,15 +59,14 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     reconstructed_test_set, latent_set, test_metrics = model.evaluate(
         test_set, batch_size)
     
+    print()
+    
     # Analysis
     
-    analysis = analysing.Analysis(
-        log_directory, results_directory, model.name
-    )
+    analysis.analyseModel(model, results_directory)
     
-    analysis.analyseModel()
-
-    analysis.analyseResults(test_set, reconstructed_test_set, latent_set)
+    analysis.analyseResults(test_set, reconstructed_test_set, latent_set,
+        model, results_directory)
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',
@@ -180,6 +186,11 @@ parser.add_argument(
     "--reset-training",
     action = "store_true",
     help = "reset already trained model"
+)
+parser.add_argument(
+    "--analyse-data",
+    action = "store_true",
+    help = "analyse data before modeling it"
 )
 
 if __name__ == '__main__':
