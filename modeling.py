@@ -336,7 +336,11 @@ class VariationalAutoEncoder(object):
             for epoch in range(epoch_start, number_of_epochs):
                 
                 epoch_time_start = time()
-                warm_up_weight = float(min(epoch/self.number_of_warm_up_epochs, 1.0))
+
+                if self.number_of_warm_up_epochs:
+                    warm_up_weight = float(min(epoch / (self.number_of_warm_up_epochs), 1.0))
+                else:
+                    warm_up_weight = 1.0
                 
                 shuffled_indices = numpy.random.permutation(M_train)
                 
@@ -381,8 +385,12 @@ class VariationalAutoEncoder(object):
                 
                 epoch_duration = time() - epoch_time_start
                 
-                print("Epoch {} ({:.3g} s):".format(epoch + 1, epoch_duration))
-                
+                print("Epoch {} ({:.3g} s):".format(epoch + 1, warm_up_weight, epoch_duration))
+
+                # With warmup or not
+                if warm_up_weight < 1:
+                    print('    Warm-up weight: {:.2g}'.format(warm_up_weight))
+
                 # Saving model parameters
                 print('    Saving model.')
                 saving_time_start = time()
