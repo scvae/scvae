@@ -1,10 +1,17 @@
 import tensorflow as tf
-from tensorflow.contrib.layers import fully_connected, batch_norm, variance_scaling_initializer
+
+from tensorflow.contrib.layers import (
+    fully_connected, batch_norm, variance_scaling_initializer
+)
+
 from tensorflow.python.ops.nn import relu
 from tensorflow import sigmoid, identity
-from tensorflow.contrib.distributions import Bernoulli, Normal, Poisson, Categorical, kl
+
+from tensorflow.contrib.distributions import (
+    Bernoulli, Normal, Poisson, Categorical, kl
+)
 from distributions import (
-    ZeroInflatedPoisson, NegativeBinomial, ZeroInflatedNegativeBinomial, ZeroInflated, Categorized, Pareto
+    NegativeBinomial, Pareto, ZeroInflated, Categorized
 )
 
 import numpy
@@ -256,6 +263,9 @@ class VariationalAutoEncoder(object):
         tf.add_to_collection('losses', KL_qp)
         self.KL = KL_qp
         
+        KL_qp_all = tf.reduce_mean(kl(self.q_z_given_x, p_z), axis = 0)
+        self.KL_all = KL_qp_all
+        
         # Averaging over samples.
         self.lower_bound = tf.subtract(log_p_x_given_z, 
             tf.where(self.is_training, self.warm_up_weight * KL_qp, KL_qp), name = 'lower_bound')
@@ -443,6 +453,8 @@ class VariationalAutoEncoder(object):
                 KL_train = 0
                 ENRE_train = 0
                 
+                z_KL = numpy.zeros(self.latent_size)
+                
                 for i in range(0, M_train, batch_size):
                     subset = slice(i, (i + batch_size))
                     batch = x_train.counts[subset]
@@ -454,18 +466,22 @@ class VariationalAutoEncoder(object):
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
                     
-                    ELBO_i, KL_i, ENRE_i = session.run(
-                        [self.ELBO, self.KL, self.ENRE],
+                    ELBO_i, KL_i, ENRE_i, z_KL_i = session.run(
+                        [self.ELBO, self.KL, self.ENRE, self.KL_all],
                         feed_dict = feed_dict_batch
                     )
                     
                     ELBO_train += ELBO_i
                     KL_train += KL_i
                     ENRE_train += ENRE_i
+                    
+                    z_KL += z_KL_i
                 
                 ELBO_train /= M_train / batch_size
                 KL_train /= M_train / batch_size
                 ENRE_train /= M_train / batch_size
+                
+                z_KL /= M_train / batch_size
                 
                 evaluating_duration = time() - evaluating_time_start
                 
@@ -476,6 +492,11 @@ class VariationalAutoEncoder(object):
                     simple_value = ENRE_train)
                 summary.value.add(tag="losses/kl_divergence",
                     simple_value = KL_train)
+                
+                for i in range(self.latent_size):
+                    summary.value.add(tag="kl_divergence_neurons/{}".format(i),
+                        simple_value = z_KL[i])
+                
                 training_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
                 training_summary_writer.flush()

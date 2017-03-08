@@ -34,37 +34,25 @@ def analyseModel(model, results_directory = "results"):
     
     results_directory = os.path.join(results_directory, model.name)
     
-    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
-        model.log_directory)
-    multiplexer.Reload()
+    learning_curves, KL_neurons = parseSummaries(model)
     
     # Learning curves
     
     print("Plotting learning curves.")
     
-    data_set_kinds = ["training", "validation"]
-    losses = ["lower_bound", "kl_divergence", "reconstruction_error"]
+    figure, name = plotLearningCurves(learning_curves)
+    saveFigure(figure, name, results_directory)
     
-    learning_curve_sets = {}
+    print()
     
-    for data_set_kind in data_set_kinds:
-        
-        learning_curve_set = {}
-        
-        for loss in losses:
-            
-            scalars = multiplexer.Scalars(data_set_kind, "losses/" + loss)
-            
-            learning_curve = numpy.empty(len(scalars))
-            
-            for scalar in scalars:
-                learning_curve[scalar.step - 1] = scalar.value
-            
-            learning_curve_set[loss] = learning_curve
-        
-        learning_curve_sets[data_set_kind] = learning_curve_set
+    # Heat map of KL for all latent neurons
     
-    figure, name = plotLearningCurves(learning_curve_sets)
+    print("Plotting KL divergence heat map.")
+    
+    figure, name = plotHeatMap(
+        KL_neurons,
+        x_name = "Epoch", y_name = "$log KL(p_i||q_i)$",
+        center = 0, name = "kl_divergence")
     saveFigure(figure, name, results_directory)
     
     print()
@@ -254,7 +242,7 @@ def plotLearningCurves(curves, name = None):
                 axis = axis_1
             elif curve_name == "kl_divergence":
                 line_style = "dashed"
-                curve_name = "KL$(p||q)$"
+                curve_name = "KL(p||q)$"
                 axis = axis_2
             epochs = numpy.arange(len(curve)) + 1
             label = curve_name + " ({} set)".format(curve_set_name)
@@ -358,3 +346,48 @@ def saveFigure(figure, figure_name, results_directory, no_spine = True):
     
     figure_path = os.path.join(results_directory, figure_name) + figure_extension
     figure.savefig(figure_path, bbox_inches = 'tight')
+
+def parseSummaries(model):
+    
+    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
+        model.log_directory)
+    multiplexer.Reload()
+    
+    # Learning curves
+    
+    data_set_kinds = ["training", "validation"]
+    losses = ["lower_bound", "kl_divergence", "reconstruction_error"]
+    
+    learning_curve_sets = {}
+    
+    for data_set_kind in data_set_kinds:
+        
+        learning_curve_set = {}
+        
+        for loss in losses:
+            
+            scalars = multiplexer.Scalars(data_set_kind, "losses/" + loss)
+            
+            learning_curve = numpy.empty(len(scalars))
+            
+            for scalar in scalars:
+                learning_curve[scalar.step - 1] = scalar.value
+            
+            learning_curve_set[loss] = learning_curve
+        
+        learning_curve_sets[data_set_kind] = learning_curve_set
+    
+    # KL divergence for all latent neurons
+    
+    N_epochs = len(multiplexer.Scalars("training", "kl_divergence_neurons/0"))
+    
+    KL_neurons = numpy.empty([N_epochs, model.latent_size])
+    
+    for i in range(model.latent_size):
+        scalars = multiplexer.Scalars("training",
+            "kl_divergence_neurons/{}".format(i))
+        
+        for scalar in scalars:
+            KL_neurons[scalar.step - 1][i] = scalar.value
+    
+    return learning_curve_sets, KL_neurons
