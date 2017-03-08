@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 
-import os
-
 import numpy
 from sklearn.decomposition import PCA
+
+from tensorflow.python.summary import event_multiplexer
 
 from matplotlib import pyplot
 import seaborn
 
+import os
+
 from time import time
+
+from pprint import pprint
 
 palette = seaborn.color_palette('Set2', 8)
 seaborn.set(style='ticks', palette = palette)
@@ -25,7 +29,45 @@ def analyseData(data_sets, results_directory = "results"):
     ])
 
 def analyseModel(model, results_directory = "results"):
-    pass
+    
+    # Setup
+    
+    results_directory = os.path.join(results_directory, model.name)
+    
+    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
+        model.log_directory)
+    multiplexer.Reload()
+    
+    # Learning curves
+    
+    print("Plotting learning curves.")
+    
+    data_set_kinds = ["training", "validation"]
+    losses = ["lower_bound", "kl_divergence", "reconstruction_error"]
+    
+    learning_curve_sets = {}
+    
+    for data_set_kind in data_set_kinds:
+        
+        learning_curve_set = {}
+        
+        for loss in losses:
+            
+            scalars = multiplexer.Scalars(data_set_kind, "losses/" + loss)
+            
+            learning_curve = numpy.empty(len(scalars))
+            
+            for scalar in scalars:
+                learning_curve[scalar.step - 1] = scalar.value
+            
+            learning_curve_set[loss] = learning_curve
+        
+        learning_curve_sets[data_set_kind] = learning_curve_set
+    
+    figure, name = plotLearningCurves(learning_curve_sets)
+    saveFigure(figure, name, results_directory)
+    
+    print()
 
 def analyseResults(x_test, x_tilde_test, z_test,
     model, results_directory = "results", intensive_calculations = False):
@@ -186,6 +228,47 @@ def printSummaryStatistics(statistics_sets):
         ]
         
         print("  ".join(string_parts))
+
+def plotLearningCurves(curves, name = None):
+    
+    figure_name = "learning_curves"
+    
+    if name:
+        figure_name = figure_name + "_" + name
+    
+    figure, (axis_1, axis_2) = pyplot.subplots(2, sharex = True, figsize = (6.4, 9.6))
+
+
+    for i, (curve_set_name, curve_set) in enumerate(sorted(curves.items())):
+        
+        colour = palette[i]
+        
+        for curve_name, curve in sorted(curve_set.items()):
+            if curve_name == "lower_bound":
+                curve_name = "$\\mathcal{L}$"
+                line_style = "solid"
+                axis = axis_1
+            elif curve_name == "reconstruction_error":
+                curve_name = "$\\log p(x|z)$"
+                line_style = "dashed"
+                axis = axis_1
+            elif curve_name == "kl_divergence":
+                line_style = "dashed"
+                curve_name = "KL$(p||q)$"
+                axis = axis_2
+            epochs = numpy.arange(len(curve)) + 1
+            label = curve_name + " ({} set)".format(curve_set_name)
+            axis.plot(curve, color = colour, linestyle = line_style, label = label)
+    
+    handles, labels = axis_1.get_legend_handles_labels()
+    labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+    
+    axis_1.legend(handles, labels, loc = "best")
+    axis_2.legend(loc = "best")
+    
+    axis_2.set_xlabel("Epoch")
+    
+    return figure, figure_name
 
 def plotProfileComparison(original_series, reconstructed_series, 
     x_name, y_name, scale = "linear", title = None, name = None):
