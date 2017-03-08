@@ -56,8 +56,8 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     
     print()
     
-    reconstructed_test_set, latent_set, test_metrics = model.evaluate(
-        test_set, batch_size)
+    transformed_test_set, reconstructed_test_set, latent_set, test_metrics = \ 
+        model.evaluate(test_set, batch_size)
     
     print()
     
@@ -65,8 +65,8 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     
     analysis.analyseModel(model, results_directory)
     
-    analysis.analyseResults(test_set, reconstructed_test_set, latent_set,
-        model, results_directory, intensive_calculations)
+    analysis.analyseResults(transformed_test_set, reconstructed_test_set,
+        latent_set, model, results_directory, intensive_calculations)
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',

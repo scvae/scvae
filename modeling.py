@@ -48,6 +48,11 @@ class VariationalAutoEncoder(object):
         self.reconstruction_distribution_name = reconstruction_distribution
         self.reconstruction_distribution = distributions[reconstruction_distribution]
         
+        if "preprocess" in self.reconstruction_distribution:
+            self.preprocess = self.reconstruction_distribution["preprocess"]
+        else:
+            self.preprocess = lambda x: x
+        
         self.k_max = number_of_reconstruction_classes
         
         self.batch_normalisation = batch_normalisation
@@ -308,7 +313,7 @@ class VariationalAutoEncoder(object):
         
         checkpoint_file = os.path.join(self.log_directory, 'model.ckpt')
         
-        # Extra setup
+        # Setup
         
         if self.count_sum:
             n_train = x_train.counts.sum(axis = 1).reshape(-1, 1)
@@ -316,6 +321,9 @@ class VariationalAutoEncoder(object):
         
         M_train = x_train.number_of_examples
         M_valid = x_valid.number_of_examples
+        
+        x_train = self.preprocess(x_train)
+        x_valid = self.preprocess(x_valid)
         
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
@@ -536,6 +544,8 @@ class VariationalAutoEncoder(object):
         M_test = x_test.number_of_examples
         F_test = x_test.number_of_features
         
+        x_test = self.preprocess(x_test)
+        
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
         with tf.Session() as session:
@@ -613,7 +623,8 @@ distributions = {
         },
         "class": lambda theta: Bernoulli(
             p = theta["p"]
-        )
+        ),
+        "preprocess": lambda x: (x != 0).astype('float32')
     },
     
     "gauss": {
