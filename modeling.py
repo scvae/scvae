@@ -611,7 +611,7 @@ class VariationalAutoEncoder(object):
                 version = "reconstructed"
             )
             
-            return x_tilde_test, z_mean_test, metrics_test
+            return x_test, x_tilde_test, z_mean_test, metrics_test
 
 distributions = {
     "bernoulli": {

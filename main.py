@@ -56,7 +56,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     
     print()
     
-    transformed_test_set, reconstructed_test_set, latent_set, test_metrics = \ 
+    transformed_test_set, reconstructed_test_set, latent_set, test_metrics = \
         model.evaluate(test_set, batch_size)
     
     print()
