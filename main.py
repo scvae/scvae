@@ -13,7 +13,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     number_of_reconstruction_classes,
     number_of_warm_up_epochs, batch_normalisation, count_sum,
     number_of_epochs, batch_size, learning_rate,
-    reset_training, analyse_data):
+    reset_training, intensive_calculations):
     
     log_directory = os.path.join(log_directory, data_set_name)
     results_directory = os.path.join(results_directory, data_set_name)
@@ -31,7 +31,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     
     print()
     
-    if analyse_data:
+    if intensive_calculations:
         analysis.analyseData(
             [data_set, training_set, validation_set, test_set],
             results_directory
@@ -66,7 +66,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     analysis.analyseModel(model, results_directory)
     
     analysis.analyseResults(test_set, reconstructed_test_set, latent_set,
-        model, results_directory)
+        model, results_directory, intensive_calculations)
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',
@@ -188,10 +188,17 @@ parser.add_argument(
     help = "reset already trained model"
 )
 parser.add_argument(
-    "--analyse-data",
+    "--intensive-calculations",
     action = "store_true",
-    help = "analyse data before modeling it"
+    help = "perform intensive calculations"
 )
+parser.add_argument(
+    "--no-intensive-calculations",
+    dest = "intensive_calculations",
+    action = "store_false",
+    help = "skip intensive calculations"
+)
+parser.set_defaults(intensive_calculations = False)
 
 if __name__ == '__main__':
     arguments = parser.parse_args()
