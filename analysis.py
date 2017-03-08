@@ -3,9 +3,12 @@
 import os
 
 import numpy
+from sklearn.decomposition import PCA
 
 from matplotlib import pyplot
 import seaborn
+
+from time import time
 
 palette = seaborn.color_palette('Set2', 8)
 seaborn.set(style='ticks', palette = palette)
@@ -25,7 +28,7 @@ def analyseModel(model, results_directory = "results"):
     pass
 
 def analyseResults(x_test, x_tilde_test, z_test,
-    model, results_directory = "results"):
+    model, results_directory = "results", intensive_calculations = False):
     
     # Setup
     
@@ -35,16 +38,44 @@ def analyseResults(x_test, x_tilde_test, z_test,
     
     # Metrics
     
-    printSummaryStatistics([
-        statistics(data_set.counts, data_set.version, tolerance = 0.5)
-        for data_set in [x_test, x_tilde_test]
-    ])
+    print("Calculating metrics.")
+    metrics_time_start = time()
+    
+    x_statistics = [
+            statistics(data_set.counts, data_set.version, tolerance = 0.5)
+            for data_set in [x_test, x_tilde_test]
+    ]
+    
+    x_diff = x_test.counts - x_tilde_test.counts
+    x_diff_abs = numpy.abs(x_diff)
+    x_diff_abs_mean = x_diff_abs.mean()
+    x_diff_abs_std = x_diff_abs.std()
+    
+    x_log_ratio = numpy.log((x_test.counts + 1) / (x_tilde_test.counts + 1))
+    x_log_ratio_abs = numpy.abs(x_log_ratio)
+    x_log_ratio_abs_mean = x_log_ratio_abs.mean()
+    x_log_ratio_abs_std = x_log_ratio_abs.std()
+    
+    metrics_duration = time() - metrics_time_start
+    print("Metrics calculated ({:.3g} s).".format(metrics_duration))
+    
+    print()
+    
+    printSummaryStatistics(x_statistics)
+    
+    print()
+    
+    print("Differences: mean: {:.5g}, std: {:.5g}.".format(
+        x_diff_abs_mean, x_diff_abs_std))
+    print("log-ratios:  mean: {:.5g}, std: {:.5g}.".format(
+        x_log_ratio_abs_mean, x_log_ratio_abs_std))
     
     print()
     
     # Profile comparisons
     
-    print("Creating profile comparisons.")
+    print("Plotting profile comparisons.")
+    profile_comparisons_time_start = time()
     
     subset = numpy.random.randint(M, size = 10)
     
@@ -56,6 +87,55 @@ def analyseResults(x_test, x_tilde_test, z_test,
             title = str(x_test.cells[i]), name = str(j)
         )
         saveFigure(figure, name, results_directory)
+    
+    profile_comparisons_duration = time() - profile_comparisons_time_start
+    print("Profile comparisons plotted and saved ({:.3g} s)".format(
+        profile_comparisons_duration))
+    
+    print()
+    
+    # Heat maps
+    
+    if intensive_calculations:
+        print("Plotting heat maps.")
+        
+        # Difference
+        
+        heat_maps_time_start = time()
+        
+        figure, name = plotHeatMap(x_diff, x_name = "Cell", y_name = "Gene",
+            center = 0, name = "difference")
+        saveFigure(figure, name, results_directory)
+        
+        heat_maps_duration = time() - heat_maps_time_start
+        print("    Difference heat map for plotted and saved ({:.3g} s)" \
+            .format(heat_maps_duration))
+        
+        # log-ratios
+        
+        heat_maps_time_start = time()
+        
+        figure, name = plotHeatMap(x_log_ratio, x_name = "Cell", y_name = "Gene",
+            center = 0, name = "log_ratio")
+        saveFigure(figure, name, results_directory)
+        
+        heat_maps_duration = time() - heat_maps_time_start
+        print("    log-ratio heat map for plotted and saved ({:.3g} s)" \
+            .format(heat_maps_duration))
+        
+        print()
+    
+    # Latent space
+    
+    print("Plotting latent space.")
+    latent_space_time_start = time()
+    
+    figure, name = plotLatentSpace(z_test)
+    saveFigure(figure, name, results_directory)
+    
+    latent_space_duration = time() - latent_space_time_start
+    print("Latent space plotted and saved ({:.3g} s)".format(
+        latent_space_duration))
 
 def statistics(data_set, name = "", tolerance = 1e-3):
     
@@ -113,7 +193,7 @@ def plotProfileComparison(original_series, reconstructed_series,
     figure_name = "profile_comparison"
     
     if name:
-        figure_name = name + "_" + figure_name
+        figure_name = figure_name + "_" + name
     
     D = original_series.shape[0]
     
@@ -137,6 +217,51 @@ def plotProfileComparison(original_series, reconstructed_series,
     
     axis.set_xlabel(x_name + " sorted by original " + y_name.lower())
     axis.set_ylabel(y_name)
+    
+    return figure, figure_name
+
+def plotHeatMap(data_set, x_name, y_name, center = None, name = None):
+    
+    figure_name = "heat_map"
+    
+    if name:
+        figure_name = figure_name + "_" + name
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    seaborn.heatmap(data_set.T, xticklabels = False, yticklabels = False,
+        cbar = True, square = True, center = center, ax = axis)
+    
+    axis.set_xlabel(x_name)
+    axis.set_ylabel(y_name)
+    
+    return figure, figure_name
+
+def plotLatentSpace(latent_set, name = None):
+    
+    figure_name = "latent_space"
+    
+    if name:
+        figure_name = figure_name + "_" + name
+    
+    M, L = latent_set.shape
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    if L > 2:
+        pca = PCA(n_components = 2)
+        pca.fit(latent_set)
+        latent_set = pca.transform(latent_set)
+        
+        axis.set_xlabel("PC 1")
+        axis.set_ylabel("PC 2")
+    elif L == 2:
+        axis.set_xlabel("$z_1$")
+        axis.set_ylabel("$z_2$")
+    
+    axis.scatter(latent_set[:, 0], latent_set[:, 1])
     
     return figure, figure_name
 
