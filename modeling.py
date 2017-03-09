@@ -659,23 +659,6 @@ distributions = {
         "preprocess": lambda x: (x != 0).astype('float32')
     },
     
-    "gauss": {
-        "parameters": {
-            "mu": {
-                "support": [-inf, inf],
-                "activation function": identity
-            },
-            "log_sigma": {
-                "support": [-10, 10],
-                "activation function": identity
-            }
-        },
-        "class": lambda theta: Normal(
-            mu = theta["mu"],
-            sigma = tf.exp(theta["log_sigma"])
-        )
-    },
-    
     "poisson": {
         "parameters": {
             "log_lambda": {
