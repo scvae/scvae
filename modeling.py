@@ -343,8 +343,8 @@ class VariationalAutoEncoder(object):
         M_train = x_train.number_of_examples
         M_valid = x_valid.number_of_examples
         
-        x_train = self.preprocess(x_train)
-        x_valid = self.preprocess(x_valid)
+        x_train.counts = self.preprocess(x_train.counts)
+        x_valid.counts = self.preprocess(x_valid.counts)
         
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
@@ -576,7 +576,7 @@ class VariationalAutoEncoder(object):
         M_test = x_test.number_of_examples
         F_test = x_test.number_of_features
         
-        x_test = self.preprocess(x_test)
+        x_test.counts = self.preprocess(x_test.counts)
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
