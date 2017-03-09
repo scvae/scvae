@@ -76,37 +76,41 @@ class VariationalAutoEncoder(object):
         
         # Graph setup
         
+        self.graph = tf.Graph()
+        
         self.parameter_summary_list = []
         
-        self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'X')
+        with self.graph.as_default():
+            
+            self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'X')
+            
+            if self.count_sum:
+                self.n = tf.placeholder(tf.float32, [None, 1], 'N')
+            
+            self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
+            
+            self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
+            parameter_summary = tf.summary.scalar('warm_up_weight',
+                self.warm_up_weight)
+            self.parameter_summary_list.append(parameter_summary)
+            
+            self.is_training = tf.placeholder(tf.bool, [], 'is_training')
+            
+            self.inference()
+            self.loss()
+            self.training()
+            
+            self.saver = tf.train.Saver()
+            
+            print("Trainable parameters:")
         
-        if self.count_sum:
-            self.n = tf.placeholder(tf.float32, [None, 1], 'N')
+            trainable_parameters = tf.trainable_variables()
         
-        self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
+            width = max(map(len, [p.name for p in trainable_parameters]))
         
-        self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
-        parameter_summary = tf.summary.scalar('warm_up_weight',
-            self.warm_up_weight)
-        self.parameter_summary_list.append(parameter_summary)
-        
-        self.is_training = tf.placeholder(tf.bool, [], 'is_training')
-        
-        self.inference()
-        self.loss()
-        self.training()
-        
-        self.saver = tf.train.Saver()
-        
-        print("Trainable parameters:")
-    
-        trainable_parameters = tf.trainable_variables()
-    
-        width = max(map(len, [p.name for p in trainable_parameters]))
-    
-        for parameter in trainable_parameters:
-            print("    {:{}}  {}".format(
-                parameter.name, width, parameter.get_shape()))
+            for parameter in trainable_parameters:
+                print("    {:{}}  {}".format(
+                    parameter.name, width, parameter.get_shape()))
     
     @property
     def name(self):
@@ -345,7 +349,7 @@ class VariationalAutoEncoder(object):
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
         
-        with tf.Session() as session:
+        with tf.Session(graph = self.graph) as session:
             
             parameter_summary_writer = tf.summary.FileWriter(
                 self.log_directory)
@@ -576,7 +580,7 @@ class VariationalAutoEncoder(object):
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
-        with tf.Session() as session:
+        with tf.Session(graph = self.graph) as session:
         
             if checkpoint:
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
