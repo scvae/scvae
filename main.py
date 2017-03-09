@@ -38,35 +38,62 @@ def main(data_set_name, data_directory, log_directory, results_directory,
         )
         print()
     
-    # Modeling
-
-    model = modeling.VariationalAutoEncoder(
-        feature_size, latent_size, hidden_sizes,
-        reconstruction_distribution,
-        number_of_reconstruction_classes,
-        batch_normalisation, count_sum, number_of_warm_up_epochs,
-        log_directory = log_directory
-    )
+    # Loop over distribution
     
-    print()
+    if reconstruction_distribution == "all":
+        reconstruction_distributions = modeling.distributions.keys()
+    else:
+        reconstruction_distributions = [reconstruction_distribution]
     
-    model.train(training_set, validation_set,
-        number_of_epochs, batch_size, learning_rate,
-        reset_training)
-    
-    print()
-    
-    transformed_test_set, reconstructed_test_set, latent_set, test_metrics = \
-        model.evaluate(test_set, batch_size)
-    
-    print()
-    
-    # Analysis
-    
-    analysis.analyseModel(model, results_directory)
-    
-    analysis.analyseResults(transformed_test_set, reconstructed_test_set,
-        latent_set, model, results_directory, intensive_calculations)
+    for reconstruction_distribution in reconstruction_distributions:
+        
+        if number_of_reconstruction_classes > 0:
+            if reconstruction_distribution == "bernoulli":
+                print("Can't use reconstruction classification with",
+                    "the Bernoulli distribution.\n")
+                continue
+            
+            if "zero-inflated" in reconstruction_distribution:
+                print("Can't use reconstruction classification with",
+                    "zero-inflated distributions.\n")
+                continue
+            
+            if "negative binomial" in reconstruction_distribution:
+                print("Can't compute reconstruction classification with",
+                    "the negative binomial distribution.\n")
+                
+        
+        # Modeling
+        
+        model = modeling.VariationalAutoEncoder(
+            feature_size, latent_size, hidden_sizes,
+            reconstruction_distribution,
+            number_of_reconstruction_classes,
+            batch_normalisation, count_sum, number_of_warm_up_epochs,
+            log_directory = log_directory
+        )
+        
+        print()
+        
+        # model.train(training_set, validation_set,
+        #     number_of_epochs, batch_size, learning_rate,
+        #     reset_training)
+        #
+        # print()
+        #
+        # transformed_test_set, reconstructed_test_set, latent_set, \
+        #     test_metrics = model.evaluate(test_set, batch_size)
+        #
+        # print()
+        #
+        # # Analysis
+        #
+        # analysis.analyseModel(model, results_directory)
+        #
+        # analysis.analyseResults(transformed_test_set, reconstructed_test_set,
+        #     latent_set, model, results_directory, intensive_calculations)
+        #
+        # print()
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',
@@ -118,7 +145,7 @@ parser.add_argument(
 parser.add_argument(
     "--hidden-sizes",
     type = int,
-    nargs = '+',
+    nargs = "+",
     default = [500],
     help = "sizes of hidden layers"
 )
