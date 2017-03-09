@@ -4,7 +4,7 @@ from tensorflow.contrib.layers import (
     fully_connected, batch_norm, variance_scaling_initializer
 )
 
-from tensorflow.python.ops.nn import relu
+from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
 
 from tensorflow.contrib.distributions import (
@@ -63,7 +63,11 @@ class VariationalAutoEncoder(object):
         self.k_max = number_of_reconstruction_classes
         
         self.batch_normalisation = batch_normalisation
-        self.count_sum = count_sum
+
+        self.count_sum_feature = count_sum
+        self.count_sum = self.count_sum_feature or "constrained" in \
+            self.reconstruction_distribution_name
+
         self.number_of_warm_up_epochs = number_of_warm_up_epochs
 
         self.epsilon = epsilon
@@ -112,7 +116,7 @@ class VariationalAutoEncoder(object):
         if self.k_max:
             model_name += "_c_" + str(self.k_max)
 
-        if self.count_sum:
+        if self.count_sum_feature:
             model_name += "_sum"
         
         model_name += "_l_" + str(self.latent_size) + "_h_" + "_".join(map(str,self.hidden_sizes))
@@ -167,7 +171,7 @@ class VariationalAutoEncoder(object):
         
         # Decoder - Generative model, p(x|z)
         
-        if self.count_sum:
+        if self.count_sum_feature:
             decoder = tf.concat([self.z, self.n], axis = 1, name = 'Z_N')
         else:
             decoder = self.z
@@ -209,8 +213,11 @@ class VariationalAutoEncoder(object):
                     is_training = self.is_training,
                     scope = parameter.upper()
                 )
-        
-            self.p_x_given_z = self.reconstruction_distribution["class"](x_theta)
+            
+            if "constrained" in self.reconstruction_distribution_name:
+                self.p_x_given_z = self.reconstruction_distribution["class"](x_theta, self.n)
+            else:
+                self.p_x_given_z = self.reconstruction_distribution["class"](x_theta)
         
             if self.k_max:
                 
@@ -674,6 +681,18 @@ distributions = {
         },
         "class": lambda theta: Poisson(
             lam = tf.exp(theta["log_lambda"])
+        )
+    },
+
+    "constrained poisson": {
+        "parameters": {
+            "lambda": {
+                "support": [0, 1],
+                "activation function": softmax
+            }
+        },
+        "class": lambda theta, N: Poisson(
+            lam = theta["lambda"] * N
         )
     },
 
