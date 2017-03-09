@@ -126,7 +126,7 @@ class DataSet(BaseDataSet):
     def loadOriginalData(self):
         
         data_frame = read_csv(self.path, sep='\s+', index_col = 0,
-            compression = "gzip", engine = "python", nrows = 5)
+            compression = "gzip", engine = "python")
         
         data_dictionary = {
             "counts": data_frame.values.T,
