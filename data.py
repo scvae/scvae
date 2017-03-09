@@ -126,7 +126,7 @@ class DataSet(BaseDataSet):
     def loadOriginalData(self):
         
         data_frame = read_csv(self.path, sep='\s+', index_col = 0,
-            compression = "gzip", engine = "python")
+            compression = "gzip", engine = "python", nrows = 5)
         
         data_dictionary = {
             "counts": data_frame.values.T,
@@ -307,6 +307,8 @@ def loadFromSparseData(path):
 
 def saveAsSparseData(data_dictionary, path):
     
+    sparse_data_dictionary = {}
+    
     def converter(data):
         if data.ndim == 2:
             return csr_matrix(data)
@@ -315,13 +317,15 @@ def saveAsSparseData(data_dictionary, path):
     
     for key in data_dictionary:
         if "set" in key:
+            sparse_data_dictionary[key] = {}
             for key2 in data_dictionary[key]:
-                data_dictionary[key][key2] = converter(data_dictionary[key][key2])
+                sparse_data_dictionary[key][key2] = \
+                    converter(data_dictionary[key][key2])
         else:
-            data_dictionary[key] = converter(data_dictionary[key])
+            sparse_data_dictionary[key] = converter(data_dictionary[key])
     
     with gzip.open(path, "wb") as data_file:
-        pickle.dump(data_dictionary, data_file)
+        pickle.dump(sparse_data_dictionary, data_file)
 
 def download_report_hook(block_num, block_size, total_size):
     bytes_read = block_num * block_size
