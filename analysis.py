@@ -12,8 +12,6 @@ import os
 
 from time import time
 
-from pprint import pprint
-
 palette = seaborn.color_palette('Set2', 8)
 seaborn.set(style='ticks', palette = palette)
 
@@ -47,17 +45,20 @@ def analyseModel(model, results_directory = "results"):
     
     # Heat map of KL for all latent neurons
     
-    print("Plotting logarithm of KL divergence heat map.")
+    if KL_neurons is not None:
     
-    log_KL_neurons = numpy.log(KL_neurons)
+        print("Plotting logarithm of KL divergence heat map.")
     
-    figure, name = plotHeatMap(
-        log_KL_neurons, z_min = log_KL_neurons.min(),
-        x_name = "Epoch", y_name = "$log$ KL$(p_i||q_i)$",
-        name = "kl_divergence")
-    saveFigure(figure, name, results_directory)
+        log_KL_neurons = numpy.log(KL_neurons)
     
-    print()
+        figure, name = plotHeatMap(
+            log_KL_neurons, z_min = log_KL_neurons.min(),
+            x_name = "Epoch", y_name = "$i$",
+            z_name = "$\log$ KL$(p_i|q_i)$",
+            name = "kl_divergence")
+        saveFigure(figure, name, results_directory)
+    
+        print()
 
 def analyseResults(x_test, x_tilde_test, z_test,
     model, results_directory = "results", intensive_calculations = False):
@@ -293,7 +294,7 @@ def plotProfileComparison(original_series, reconstructed_series,
     
     return figure, figure_name
 
-def plotHeatMap(data_set, x_name, y_name,
+def plotHeatMap(data_set, x_name, y_name, z_name = None,
     z_min = None, z_max = None, center = None, name = None):
     
     figure_name = "heat_map"
@@ -304,11 +305,16 @@ def plotHeatMap(data_set, x_name, y_name,
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
+    cbar_dict = {}
+    
+    if z_name:
+        cbar_dict["label"] = z_name
+    
     seaborn.heatmap(
         data_set.T,
         vmin = z_min, vmax = z_max, center = center, 
         xticklabels = False, yticklabels = False,
-        cbar = True, square = True, ax = axis
+        cbar = True, cbar_kws = cbar_dict, square = True, ax = axis
     )
     
     axis.set_xlabel(x_name)
@@ -386,7 +392,8 @@ def parseSummaries(model):
     
     # KL divergence for all latent neurons
     
-    N_epochs = len(multiplexer.Scalars("training", "kl_divergence_neurons/0"))
+    N_epochs = len(multiplexer.Scalars("training",
+        "kl_divergence_neurons/0"))
     
     KL_neurons = numpy.empty([N_epochs, model.latent_size])
     
