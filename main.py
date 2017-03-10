@@ -75,25 +75,25 @@ def main(data_set_name, data_directory, log_directory, results_directory,
         
         print()
         
-        # model.train(training_set, validation_set,
-        #     number_of_epochs, batch_size, learning_rate,
-        #     reset_training)
-        #
-        # print()
-        #
-        # transformed_test_set, reconstructed_test_set, latent_set, \
-        #     test_metrics = model.evaluate(test_set, batch_size)
-        #
-        # print()
-        #
-        # # Analysis
-        #
-        # analysis.analyseModel(model, results_directory)
-        #
-        # analysis.analyseResults(transformed_test_set, reconstructed_test_set,
-        #     latent_set, model, results_directory, intensive_calculations)
-        #
-        # print()
+        model.train(training_set, validation_set,
+            number_of_epochs, batch_size, learning_rate,
+            reset_training)
+        
+        print()
+        
+        transformed_test_set, reconstructed_test_set, latent_set, \
+            test_metrics = model.evaluate(test_set, batch_size)
+        
+        print()
+        
+        # Analysis
+        
+        analysis.analyseModel(model, results_directory)
+        
+        analysis.analyseResults(transformed_test_set, reconstructed_test_set,
+            latent_set, model, results_directory, intensive_calculations)
+        
+        print()
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',
