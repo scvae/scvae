@@ -61,7 +61,7 @@ def analyseModel(model, results_directory = "results"):
         print()
 
 def analyseResults(x_test, x_tilde_test, z_test,
-    model, results_directory = "results", intensive_calculations = False):
+    model, results_directory = "results"):
     
     # Setup
     
@@ -129,34 +129,33 @@ def analyseResults(x_test, x_tilde_test, z_test,
     
     # Heat maps
     
-    if intensive_calculations:
-        print("Plotting heat maps.")
-        
-        # Difference
-        
-        heat_maps_time_start = time()
-        
-        figure, name = plotHeatMap(x_diff, x_name = "Cell", y_name = "Gene",
-            center = 0, name = "difference")
-        saveFigure(figure, name, results_directory)
-        
-        heat_maps_duration = time() - heat_maps_time_start
-        print("    Difference heat map for plotted and saved ({:.3g} s)" \
-            .format(heat_maps_duration))
-        
-        # log-ratios
-        
-        heat_maps_time_start = time()
-        
-        figure, name = plotHeatMap(x_log_ratio, x_name = "Cell", y_name = "Gene",
-            center = 0, name = "log_ratio")
-        saveFigure(figure, name, results_directory)
-        
-        heat_maps_duration = time() - heat_maps_time_start
-        print("    log-ratio heat map for plotted and saved ({:.3g} s)" \
-            .format(heat_maps_duration))
-        
-        print()
+    print("Plotting heat maps.")
+    
+    # Difference
+    
+    heat_maps_time_start = time()
+    
+    figure, name = plotHeatMap(x_diff, x_name = "Cell", y_name = "Gene",
+        center = 0, name = "difference")
+    saveFigure(figure, name, results_directory)
+    
+    heat_maps_duration = time() - heat_maps_time_start
+    print("    Difference heat map for plotted and saved ({:.3g} s)" \
+        .format(heat_maps_duration))
+    
+    # log-ratios
+    
+    heat_maps_time_start = time()
+    
+    figure, name = plotHeatMap(x_log_ratio, x_name = "Cell", y_name = "Gene",
+        center = 0, name = "log_ratio")
+    saveFigure(figure, name, results_directory)
+    
+    heat_maps_duration = time() - heat_maps_time_start
+    print("    log-ratio heat map for plotted and saved ({:.3g} s)" \
+        .format(heat_maps_duration))
+    
+    print()
     
     # Latent space
     

@@ -13,7 +13,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     number_of_reconstruction_classes,
     number_of_warm_up_epochs, batch_normalisation, count_sum,
     number_of_epochs, batch_size, learning_rate,
-    reset_training, intensive_calculations):
+    reset_training, analyse):
     
     log_directory = os.path.join(log_directory, data_set_name)
     results_directory = os.path.join(results_directory, data_set_name)
@@ -31,7 +31,7 @@ def main(data_set_name, data_directory, log_directory, results_directory,
     
     print()
     
-    if intensive_calculations:
+    if analyse:
         analysis.analyseData(
             [data_set, training_set, validation_set, test_set],
             results_directory
@@ -88,12 +88,14 @@ def main(data_set_name, data_directory, log_directory, results_directory,
         
         # Analysis
         
-        analysis.analyseModel(model, results_directory)
-        
-        analysis.analyseResults(transformed_test_set, reconstructed_test_set,
-            latent_set, model, results_directory, intensive_calculations)
-        
-        print()
+        if analyse:
+            
+            analysis.analyseModel(model, results_directory)
+            
+            analysis.analyseResults(transformed_test_set, reconstructed_test_set,
+                latent_set, model, results_directory)
+            
+            print()
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',
@@ -215,17 +217,17 @@ parser.add_argument(
     help = "reset already trained model"
 )
 parser.add_argument(
-    "--intensive-calculations",
+    "--analyse",
     action = "store_true",
-    help = "perform intensive calculations"
+    help = "perform analysis"
 )
 parser.add_argument(
-    "--no-intensive-calculations",
-    dest = "intensive_calculations",
+    "--skip-analysis",
+    dest = "analyse",
     action = "store_false",
-    help = "skip intensive calculations"
+    help = "skip analysis"
 )
-parser.set_defaults(intensive_calculations = False)
+parser.set_defaults(analyse = True)
 
 if __name__ == '__main__':
     arguments = parser.parse_args()
