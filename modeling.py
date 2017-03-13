@@ -319,8 +319,9 @@ class VariationalAutoEncoder(object):
         else:
             setupTraining()
 
-    def train(self, x_train, x_valid, number_of_epochs = 100, batch_size = 100,
-        learning_rate = 1e-3, reset_training = False):
+    def train(self, training_set, validation_set,
+        number_of_epochs = 100, batch_size = 100, learning_rate = 1e-3,
+        reset_training = False):
         
         # Logging
         
@@ -337,14 +338,14 @@ class VariationalAutoEncoder(object):
         # Setup
         
         if self.count_sum:
-            n_train = x_train.counts.sum(axis = 1).reshape(-1, 1)
-            n_valid = x_valid.counts.sum(axis = 1).reshape(-1, 1)
+            n_train = training_set.counts.sum(axis = 1).reshape(-1, 1)
+            n_valid = validation_set.counts.sum(axis = 1).reshape(-1, 1)
         
-        M_train = x_train.number_of_examples
-        M_valid = x_valid.number_of_examples
+        M_train = training_set.number_of_examples
+        M_valid = validation_set.number_of_examples
         
-        x_train.counts = self.preprocess(x_train.counts)
-        x_valid.counts = self.preprocess(x_valid.counts)
+        x_train = self.preprocess(training_set.counts)
+        x_valid = self.preprocess(validation_set.counts)
         
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
@@ -402,7 +403,7 @@ class VariationalAutoEncoder(object):
                     batch_indices = shuffled_indices[i:(i + batch_size)]
                     
                     feed_dict_batch = {
-                        self.x: x_train.counts[batch_indices],
+                        self.x: x_train[batch_indices],
                         self.is_training: True,
                         self.learning_rate: learning_rate, 
                         self.warm_up_weight: warm_up_weight
@@ -468,7 +469,7 @@ class VariationalAutoEncoder(object):
                 
                 for i in range(0, M_train, batch_size):
                     subset = slice(i, (i + batch_size))
-                    batch = x_train.counts[subset]
+                    batch = x_train[subset]
                     feed_dict_batch = {
                         self.x: batch,
                         self.is_training: False,
@@ -527,7 +528,7 @@ class VariationalAutoEncoder(object):
                 
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
-                    batch = x_valid.counts[subset]
+                    batch = x_valid[subset]
                     feed_dict_batch = {
                         self.x: batch,
                         self.is_training: False,
@@ -568,15 +569,15 @@ class VariationalAutoEncoder(object):
                 
                 print()
     
-    def evaluate(self, x_test, batch_size = 100):
+    def evaluate(self, test_set, batch_size = 100):
         
         if self.count_sum:
-            n_test = x_test.counts.sum(axis = 1).reshape(-1, 1)
+            n_test = test_set.counts.sum(axis = 1).reshape(-1, 1)
         
-        M_test = x_test.number_of_examples
-        F_test = x_test.number_of_features
+        M_test = test_set.number_of_examples
+        F_test = test_set.number_of_features
         
-        x_test.counts = self.preprocess(x_test.counts)
+        x_test = self.preprocess(test_set.counts)
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
@@ -596,7 +597,7 @@ class VariationalAutoEncoder(object):
             
             for i in range(0, M_test, batch_size):
                 subset = slice(i, (i + batch_size))
-                batch = x_test.counts[subset]
+                batch = x_test[subset]
                 feed_dict_batch = {
                     self.x: batch,
                     self.is_training: False,
@@ -634,16 +635,25 @@ class VariationalAutoEncoder(object):
                 "KL": KL_test
             }
             
-            x_tilde_test = data.BaseDataSet(
+            transformed_test_set = data.BaseDataSet(
+                counts = x_test,
+                cells = test_set.cells,
+                genes = test_set.genes,
+                name = self.name,
+                kind = "test",
+            )
+            
+            reconstructed_test_set = data.BaseDataSet(
                 counts = x_tilde_test,
-                cells = x_test.cells,
-                genes = x_test.genes,
+                cells = test_set.cells,
+                genes = test_set.genes,
                 name = self.name,
                 kind = "test",
                 version = "reconstructed"
             )
             
-            return x_test, x_tilde_test, z_mean_test, metrics_test
+            return transformed_test_set, reconstructed_test_set, z_mean_test, \
+                metrics_test
 
 distributions = {
     "bernoulli": {
