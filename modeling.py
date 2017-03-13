@@ -100,7 +100,7 @@ class VariationalAutoEncoder(object):
             self.loss()
             self.training()
             
-            self.saver = tf.train.Saver()
+            self.saver = tf.train.Saver(max_to_keep = 1)
             
             print("Trainable parameters:")
         
