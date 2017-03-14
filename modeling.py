@@ -633,7 +633,7 @@ class VariationalAutoEncoder(object):
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                 ELBO_test, ENRE_test, KL_test))
             
-            metrics_test = {
+            evaluation_test = {
                 "ELBO": ELBO_test,
                 "ENRE": ENRE_test,
                 "KL": KL_test
@@ -657,7 +657,7 @@ class VariationalAutoEncoder(object):
             )
             
             return transformed_test_set, reconstructed_test_set, z_mean_test, \
-                metrics_test
+                evaluation_test
 
 distributions = {
     "bernoulli": {

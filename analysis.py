@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy
+from numpy import nan
 from sklearn.decomposition import PCA
 
 from tensorflow.python.summary import event_multiplexer
@@ -22,7 +23,7 @@ pyplot.rcParams.update({'figure.max_open_warning': 0})
 
 def analyseData(data_sets, results_directory = "results"):
     
-    printSummaryStatistics([
+    convertStatisticsToString([
         statistics(data_set.counts, data_set.kind, tolerance = 0.5)
         for data_set in data_sets
     ])
@@ -61,7 +62,7 @@ def analyseModel(model, results_directory = "results"):
     
         print()
 
-def analyseResults(x_test, x_tilde_test, z_test,
+def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     model, results_directory = "results"):
     
     # Setup
@@ -81,29 +82,47 @@ def analyseResults(x_test, x_tilde_test, z_test,
     ]
     
     x_diff = x_test.counts - x_tilde_test.counts
-    x_diff_abs = numpy.abs(x_diff)
-    x_diff_abs_mean = x_diff_abs.mean()
-    x_diff_abs_std = x_diff_abs.std()
+    x_statistics.append(statistics(numpy.abs(x_diff), "differences",
+        skip_sparsity = True))
     
     x_log_ratio = numpy.log((x_test.counts + 1) / (x_tilde_test.counts + 1))
-    x_log_ratio_abs = numpy.abs(x_log_ratio)
-    x_log_ratio_abs_mean = x_log_ratio_abs.mean()
-    x_log_ratio_abs_std = x_log_ratio_abs.std()
+    x_statistics.append(statistics(numpy.abs(x_log_ratio), "log-ratios",
+        skip_sparsity = True))
     
     metrics_duration = time() - metrics_time_start
     print("Metrics calculated ({}).".format(
         convertTimeToString(metrics_duration)))
     
+    ## Saving
+    
+    metrics_path = os.path.join(results_directory, "test_metrics.log")
+    
+    metrics_saving_time_start = time()
+    
+    with open(metrics_path, "w") as metrics_file:
+        metrics_file.write(
+            "Evaluation:\n" +
+            "    ELBO: {:.5g}.\n".format(evaluation_test["ELBO"]) +
+            "    ENRE: {:.5g}.\n".format(evaluation_test["ENRE"]) +
+            "    KL:   {:.5g}.\n".format(evaluation_test["KL"]) +
+            "\n" +
+            convertStatisticsToString(x_statistics)
+        )
+    
+    metrics_saving_duration = time() - metrics_saving_time_start
+    print("Metrics saved ({}).".format(convertTimeToString(
+        metrics_saving_duration)))
+    
     print()
     
-    printSummaryStatistics(x_statistics)
+    ## Displaying
     
-    print()
+    print(convertStatisticsToString(x_statistics))
     
-    print("Differences: mean: {:.5g}, std: {:.5g}.".format(
-        x_diff_abs_mean, x_diff_abs_std))
-    print("log-ratios:  mean: {:.5g}, std: {:.5g}.".format(
-        x_log_ratio_abs_mean, x_log_ratio_abs_std))
+    # print("Differences: mean: {:.5g}, std: {:.5g}.".format(
+    #     x_diff_abs_mean, x_diff_abs_std))
+    # print("log-ratios:  mean: {:.5g}, std: {:.5g}.".format(
+    #     x_log_ratio_abs_mean, x_log_ratio_abs_std))
     
     print()
     
@@ -124,7 +143,7 @@ def analyseResults(x_test, x_tilde_test, z_test,
         saveFigure(figure, name, results_directory)
     
     profile_comparisons_duration = time() - profile_comparisons_time_start
-    print("Profile comparisons plotted and saved ({})".format(
+    print("Profile comparisons plotted and saved ({}).".format(
         convertTimeToString(profile_comparisons_duration)))
     
     print()
@@ -142,7 +161,7 @@ def analyseResults(x_test, x_tilde_test, z_test,
     saveFigure(figure, name, results_directory)
     
     heat_maps_duration = time() - heat_maps_time_start
-    print("    Difference heat map for plotted and saved ({})" \
+    print("    Difference heat map for plotted and saved ({})." \
         .format(convertTimeToString(heat_maps_duration)))
     
     # log-ratios
@@ -154,7 +173,7 @@ def analyseResults(x_test, x_tilde_test, z_test,
     saveFigure(figure, name, results_directory)
     
     heat_maps_duration = time() - heat_maps_time_start
-    print("    log-ratio heat map for plotted and saved ({})" \
+    print("    log-ratio heat map for plotted and saved ({})." \
         .format(convertTimeToString(heat_maps_duration)))
     
     print()
@@ -168,10 +187,10 @@ def analyseResults(x_test, x_tilde_test, z_test,
     saveFigure(figure, name, results_directory)
     
     latent_space_duration = time() - latent_space_time_start
-    print("Latent space plotted and saved ({})".format(
+    print("Latent space plotted and saved ({}).".format(
         convertTimeToString(latent_space_duration)))
 
-def statistics(data_set, name = "", tolerance = 1e-3):
+def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
     x_mean = data_set.mean()
     x_std  = data_set.std()
@@ -180,7 +199,10 @@ def statistics(data_set, name = "", tolerance = 1e-3):
     
     x_dispersion = x_mean / x_std
     
-    x_sparsity = (data_set < tolerance).sum() / data_set.size
+    if skip_sparsity:
+        x_sparsity = nan
+    else:
+        x_sparsity = (data_set < tolerance).sum() / data_set.size
     
     statistics = {
         "name": name,
@@ -194,7 +216,7 @@ def statistics(data_set, name = "", tolerance = 1e-3):
     
     return statistics
 
-def printSummaryStatistics(statistics_sets):
+def convertStatisticsToString(statistics_sets):
     
     if type(statistics_sets) != list:
         statistics_sets = [statistics_sets]
@@ -204,9 +226,9 @@ def printSummaryStatistics(statistics_sets):
     for statistics_set in statistics_sets:
         name_width = max(len(statistics_set["name"]), name_width)
     
-    print("  ".join(["{:{}}".format("Data set", name_width),
+    statistics_string = "  ".join(["{:{}}".format("Data set", name_width),
         " mean ", "std. dev. ", "dispersion",
-        " minimum ", " maximum ","sparsity"]))
+        " minimum ", " maximum ","sparsity"]) + "\n"
     
     for statistics_set in statistics_sets:
         string_parts = [
@@ -219,7 +241,9 @@ def printSummaryStatistics(statistics_sets):
             "{:<7.5g}".format(statistics_set["sparsity"]),
         ]
         
-        print("  ".join(string_parts))
+        statistics_string += "  ".join(string_parts) + "\n"
+    
+    return statistics_string
 
 def plotLearningCurves(curves, name = None):
     
