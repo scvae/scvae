@@ -47,13 +47,25 @@ def main(data_set_name, data_directory = "data",
 
     # Loop over distribution
     
-    model_configurations = setUpModelConfigurations(
+    print("Setting up model configurations.")
+    
+    model_configurations, configuration_errors = setUpModelConfigurations(
         model_configurations_path, model_type,
         latent_size, hidden_sizes, reconstruction_distribution,
         number_of_reconstruction_classes, number_of_warm_up_epochs,
         batch_normalisation, count_sum, number_of_epochs,
         batch_size, learning_rate
     )
+    
+    if configuration_errors:
+        print("Invalid model configurations:")
+        for errors in configuration_errors:
+            for error in errors:
+                print("    ", error)
+    
+    print()
+    
+    print("Looping over models.\n")
     
     for model_configuration in model_configurations:
 
@@ -134,6 +146,8 @@ def setUpModelConfigurations(model_configurations_path, model_type,
             likelihood["numbers of reconstruction classes"]
         )
         
+        configuration_errors = []
+        
         for model_type, type_configurations in model_types.items():
             for hidden_sizes, count_sum, batch_normalisation, \
                 reconstruction_distribution, number_of_reconstruction_classes \
@@ -159,8 +173,13 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                         model_configuration["number_of_warm_up_epochs"] = \
                             type_configurations["number of warm-up epochs"]
                     
-                    if validateModelConfiguration(model_configuration):
+                    validity, errors = \
+                        validateModelConfiguration(model_configuration)
+                    
+                    if validity:
                         model_configurations.append(model_configuration)
+                    else:
+                        configuration_errors.append(errors)
         
     else:
         model_configuration = {
@@ -178,18 +197,27 @@ def setUpModelConfigurations(model_configurations_path, model_type,
             "learning_rate": learning_rate
         }
         
-        if validateModelConfiguration(model_configuration):
+        validity, errors = validateModelConfiguration(model_configuration)
+        
+        if validity:
             model_configurations.append(model_configuration)
+        else:
+            configuration_errors.append(errors)
     
-    return model_configurations
+    if len(configuration_errors) == 0:
+        configuration_errors = None
+    
+    return model_configurations, configuration_errors
 
 def validateModelConfiguration(model_configuration):
     
     validity = True
+    errors = ""
     
     # Likelihood
     
     likelihood_validity = True
+    likelihood_error = ""
     
     reconstruction_distribution = \
         model_configuration["reconstruction_distribution"]
@@ -197,26 +225,45 @@ def validateModelConfiguration(model_configuration):
         model_configuration["number_of_reconstruction_classes"]
     
     if number_of_reconstruction_classes > 0:
+        likelihood_error = "Reconstruction classification with"
+        
+        likelihood_error_list = []
+        
         if reconstruction_distribution == "bernoulli":
-            print("Can't use reconstruction classification with",
-                "the Bernoulli distribution.\n")
+            likelihood_error_list.append("the Bernoulli distribution")
             likelihood_validity = False
         
         if "zero-inflated" in reconstruction_distribution:
-            print("Can't use reconstruction classification with",
-                "zero-inflated distributions.\n")
+            likelihood_error_list.append("zero-inflated distributions")
             likelihood_validity = False
         
         if "negative binomial" in reconstruction_distribution:
-            print("Can't compute reconstruction classification with",
-                "any negative binomial distribution.\n")
+            likelihood_error_list.append("any negative binomial distribution")
             likelihood_validity = False
+        
+        number_of_distributions = len(likelihood_error_list)
+        
+        if number_of_distributions == 1:
+            likelihood_error_distribution = likelihood_error_list[0]
+        elif number_of_distributions == 2:
+            likelihood_error_distribution = \
+                " and ".join(likelihood_error_list)
+        elif number_of_distributions >= 2:
+            likelihood_error_distribution = \
+                ", ".join(likelihood_error_list[:-1]) + ", and" \
+                + likelihood_error_list[-1]
+        
+        if likelihood_validity:
+            likelihood_error = ""
+        else:
+            likelihood_error += " " + likelihood_error_distribution + "."
     
     # Over-all validity
     
     validity = likelihood_validity
+    errors = [likelihood_error]
     
-    return validity
+    return validity, errors
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',
