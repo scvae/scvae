@@ -18,7 +18,7 @@ def main(data_set_name, data_directory = "data",
     number_of_reconstruction_classes = 0, number_of_warm_up_epochs = 50,
     batch_normalisation = True, count_sum = True,
     number_of_epochs = 200, batch_size = 100, learning_rate = 1e-4,
-    reset_training = False, analyse = True):
+    reset_training = False, analyse = True, full_analysis = False):
     
     # Setup
 
@@ -38,7 +38,7 @@ def main(data_set_name, data_directory = "data",
 
     print()
 
-    if analyse:
+    if full_analysis:
         analysis.analyseData(
             [data_set, training_set, validation_set, test_set],
             results_directory
@@ -408,6 +408,18 @@ parser.add_argument(
     help = "skip analysis"
 )
 parser.set_defaults(analyse = True)
+parser.add_argument(
+    "--full-analysis",
+    action = "store_true",
+    help = "perform analysis"
+)
+parser.add_argument(
+    "--skip-full-analysis",
+    dest = "full_analysis",
+    action = "store_false",
+    help = "skip analysis"
+)
+parser.set_defaults(full_analysis = False)
 
 if __name__ == '__main__':
     arguments = parser.parse_args()
