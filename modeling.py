@@ -695,17 +695,12 @@ distributions = {
 
     "pareto": {
         "parameters": {
-            "log_sigma": {
-                "support": [-10, 10],
-                "activation function": identity
-            },
             "log_alpha": {
                 "support": [-10, 10],
                 "activation function": identity
             }
         },
         "class": lambda theta: Pareto(
-            sigma = tf.exp(theta["log_sigma"]),
             alpha = tf.exp(theta["log_alpha"])
         )
     },
