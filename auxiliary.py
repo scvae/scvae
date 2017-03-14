@@ -3,7 +3,9 @@ from math import floor
 # Time
 
 def convertTimeToString(seconds):
-    if seconds < 1:
+    if seconds < 0.001:
+        return "<1 ms"
+    elif seconds < 1:
         return "{:.0f} ms".format(1000 * seconds)
     elif seconds < 60:
         return "{:.3g} s".format(seconds)
