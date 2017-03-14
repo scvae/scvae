@@ -11,6 +11,7 @@ import seaborn
 import os
 
 from time import time
+from auxiliary import convertTimeToString
 
 palette = seaborn.color_palette('Set2', 8)
 seaborn.set(style='ticks', palette = palette)
@@ -90,7 +91,8 @@ def analyseResults(x_test, x_tilde_test, z_test,
     x_log_ratio_abs_std = x_log_ratio_abs.std()
     
     metrics_duration = time() - metrics_time_start
-    print("Metrics calculated ({:.3g} s).".format(metrics_duration))
+    print("Metrics calculated ({}).".format(
+        convertTimeToString(metrics_duration)))
     
     print()
     
@@ -122,8 +124,8 @@ def analyseResults(x_test, x_tilde_test, z_test,
         saveFigure(figure, name, results_directory)
     
     profile_comparisons_duration = time() - profile_comparisons_time_start
-    print("Profile comparisons plotted and saved ({:.3g} s)".format(
-        profile_comparisons_duration))
+    print("Profile comparisons plotted and saved ({})".format(
+        convertTimeToString(profile_comparisons_duration)))
     
     print()
     
@@ -140,8 +142,8 @@ def analyseResults(x_test, x_tilde_test, z_test,
     saveFigure(figure, name, results_directory)
     
     heat_maps_duration = time() - heat_maps_time_start
-    print("    Difference heat map for plotted and saved ({:.3g} s)" \
-        .format(heat_maps_duration))
+    print("    Difference heat map for plotted and saved ({})" \
+        .format(convertTimeToString(heat_maps_duration)))
     
     # log-ratios
     
@@ -152,8 +154,8 @@ def analyseResults(x_test, x_tilde_test, z_test,
     saveFigure(figure, name, results_directory)
     
     heat_maps_duration = time() - heat_maps_time_start
-    print("    log-ratio heat map for plotted and saved ({:.3g} s)" \
-        .format(heat_maps_duration))
+    print("    log-ratio heat map for plotted and saved ({})" \
+        .format(convertTimeToString(heat_maps_duration)))
     
     print()
     
@@ -166,8 +168,8 @@ def analyseResults(x_test, x_tilde_test, z_test,
     saveFigure(figure, name, results_directory)
     
     latent_space_duration = time() - latent_space_time_start
-    print("Latent space plotted and saved ({:.3g} s)".format(
-        latent_space_duration))
+    print("Latent space plotted and saved ({})".format(
+        convertTimeToString(latent_space_duration)))
 
 def statistics(data_set, name = "", tolerance = 1e-3):
     

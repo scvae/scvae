@@ -19,6 +19,7 @@ from numpy import inf
 
 import os, shutil
 from time import time
+from auxiliary import convertTimeToString
 
 import data
 
@@ -424,14 +425,16 @@ class VariationalAutoEncoder(object):
                     # Print evaluation and output summaries
                     if (step + 1 - steps_per_epoch * epoch) in output_at_step:
 
-                        print('Step {:d} ({:.3g} s): {:.5g}'.format(
-                            int(step + 1), step_duration, batch_loss))
+                        print('Step {:d} ({}): {:.5g}.'.format(
+                            int(step + 1), convertTimeToString(step_duration),
+                            batch_loss))
                                     
                 print()
                 
                 epoch_duration = time() - epoch_time_start
                 
-                print("Epoch {} ({:.3g} s):".format(epoch + 1, epoch_duration))
+                print("Epoch {} ({}):".format(epoch + 1,
+                    convertTimeToString(epoch_duration)))
 
                 # With warmup or not
                 if warm_up_weight < 1:
@@ -443,7 +446,8 @@ class VariationalAutoEncoder(object):
                 self.saver.save(session, checkpoint_file,
                     global_step = epoch + 1)
                 saving_duration = time() - saving_time_start
-                print('    Model saved ({:.3g} s).'.format(saving_duration))
+                print('    Model saved ({}).'.format(
+                    convertTimeToString(saving_duration)))
                 
                 # Export parameter summaries
                 parameter_summary_string = session.run(
@@ -513,8 +517,8 @@ class VariationalAutoEncoder(object):
                     global_step = epoch + 1)
                 training_summary_writer.flush()
                 
-                print("    Training set ({:.3g} s): ".format(
-                    evaluating_duration) + \
+                print("    Training set ({}): ".format(
+                    convertTimeToString(evaluating_duration)) + \
                     "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                     ELBO_train, ENRE_train, KL_train))
                 
@@ -562,8 +566,8 @@ class VariationalAutoEncoder(object):
                 validation_summary_writer.flush()
                 
                 evaluating_duration = time() - evaluating_time_start
-                print("    Validation set ({:.3g} s): ".format(
-                    evaluating_duration) + \
+                print("    Validation set ({}): ".format(
+                    convertTimeToString(evaluating_duration)) + \
                     "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                     ELBO_valid, ENRE_valid, KL_valid))
                 
@@ -624,8 +628,8 @@ class VariationalAutoEncoder(object):
             ENRE_test /= M_test / batch_size
             
             evaluating_duration = time() - evaluating_time_start
-            print("Test set ({:.3g} s): ".format(
-                evaluating_duration) + \
+            print("Test set ({}): ".format(
+                convertTimeToString(evaluating_duration)) + \
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                 ELBO_test, ENRE_test, KL_test))
             

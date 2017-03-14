@@ -11,6 +11,7 @@ from numpy import random, array, arange, zeros#, nonzero, sort, argsort, where
 from scipy.sparse import csr_matrix
 
 from time import time
+from auxiliary import convertTimeToString
 
 preprocess_suffix = "preprocessed"
 sparse_extension = ".pkl.gz"
@@ -90,7 +91,7 @@ class DataSet(BaseDataSet):
                 data_dictionary = loadFromSparseData(self.sparse_path)
                 duration = time() - start_time
                 print("Data set loaded from sparse representation" +
-                    " ({:.3g} s).".format(duration))
+                    " ({}).".format(convertTimeToString(duration)))
             else:
                 if not os.path.isfile(self.path):
                     print("Downloading data set.")
@@ -98,14 +99,14 @@ class DataSet(BaseDataSet):
                     self.download()
                     duration = time() - start_time
                     print("Data set downloaded." +
-                        " ({:.3g} s).".format(duration))
+                        " ({}).".format(convertTimeToString(duration)))
                 
                 print("Loading original data set.")
                 start_time = time()
                 data_dictionary = self.loadOriginalData()
                 duration = time() - start_time
                 print("Original data set loaded" +
-                    " ({:.3g} s).".format(duration))
+                    " ({}).".format(convertTimeToString(duration)))
                 
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
@@ -115,7 +116,7 @@ class DataSet(BaseDataSet):
                 saveAsSparseData(data_dictionary, self.sparse_path)
                 duration = time() - start_time
                 print("Data set saved in sparse representation" +
-                    " ({:.3g} s).".format(duration))
+                    " ({}).".format(convertTimeToString(duration)))
         
         self.update(
             data_dictionary["counts"],
@@ -196,7 +197,7 @@ class DataSet(BaseDataSet):
                 data_dictionary = loadFromSparseData(split_data_sets_path)
                 duration = time() - start_time
                 print("Split data sets loaded from sparse representations" +
-                    " ({:.3g} s).".format(duration))
+                    " ({}).".format(convertTimeToString(duration)))
             else:
                 print("Splitting data set.")
                 start_time = time()
@@ -204,14 +205,14 @@ class DataSet(BaseDataSet):
                     fraction)
                 duration = time() - start_time
                 print("Data set split" +
-                    " ({:.3g} s).".format(duration))
+                    " ({}).".format(convertTimeToString(duration)))
                 
                 print("Saving split data sets in sparse representations.")
                 start_time = time()
                 saveAsSparseData(data_dictionary, split_data_sets_path)
                 duration = time() - start_time
                 print("Split data sets saved in sparse representations" +
-                    " ({:.3g} s).".format(duration))
+                    " ({}).".format(convertTimeToString(duration)))
         
         training_set = BaseDataSet(
             counts = data_dictionary["training_set"]["counts"],
