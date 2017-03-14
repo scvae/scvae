@@ -127,6 +127,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
     batch_size, learning_rate):
     
     model_configurations = []
+    configuration_errors = []
     
     if model_configurations_path:
         
@@ -145,8 +146,6 @@ def setUpModelConfigurations(model_configurations_path, model_type,
             likelihood["reconstruction distributions"],
             likelihood["numbers of reconstruction classes"]
         )
-        
-        configuration_errors = []
         
         for model_type, type_configurations in model_types.items():
             for hidden_sizes, count_sum, batch_normalisation, \
