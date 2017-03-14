@@ -49,8 +49,7 @@ class Pareto(distribution.Distribution):
 
   """
 
-  def __init__(self,
-               sigma, 
+  def __init__(self, 
                alpha,
                validate_args=False,
                allow_nan_stats=True,
@@ -58,7 +57,6 @@ class Pareto(distribution.Distribution):
     """Construct pareto distributions (Type 1).
 
     Args:
-      sigma: Floating point tensor, the scale parameter of the distribution(s). `sigma` must be positive and non-zero.
       alpha: Floating point tensor, the shape parameter of the distribution(s). `alpha` must be positive and non-zero.
       validate_args: `Boolean`, default `False`.  Whether to assert that
         `p > 0` as well as inputs to pmf computations are non-negative
@@ -72,27 +70,19 @@ class Pareto(distribution.Distribution):
     """
     parameters = locals()
     parameters.pop("self")
-    with ops.name_scope(name, values=[sigma, alpha]) as ns:
-      with ops.control_dependencies([check_ops.assert_positive(sigma), check_ops.assert_positive(alpha)] if
+    with ops.name_scope(name, values=[alpha]) as ns:
+      with ops.control_dependencies([check_ops.assert_positive(alpha)] if
                                     validate_args else []):
-        self._sigma = array_ops.identity(sigma, name="r")
         self._alpha = array_ops.identity(alpha, name="p")
-        contrib_tensor_util.assert_same_float_dtype((self._sigma, self._alpha))
     super(Pareto, self).__init__(
-        dtype=self._sigma.dtype,
+        dtype=self._alpha.dtype,
         is_continuous=True,
         is_reparameterized=False,
         validate_args=validate_args,
         allow_nan_stats=allow_nan_stats,
         parameters=parameters,
-        graph_parents=[self._sigma, self._alpha],
+        graph_parents=[self._alpha],
         name=ns)
-
-
-  @property
-  def sigma(self):
-    """Scale parameter."""
-    return self._sigma
 
   @property
   def alpha(self):
@@ -100,11 +90,10 @@ class Pareto(distribution.Distribution):
     return self._alpha
 
   def _batch_shape(self):
-    return array_ops.broadcast_dynamic_shape(array_ops.shape(self.alpha), array_ops.shape(self.sigma))
+    return array_ops.shape(self.alpha)
 
   def _get_batch_shape(self):
-    return array_ops.broadcast_static_shape(
-        self.alpha.get_shape(), self._sigma.get_shape())
+    return self.alpha.get_shape()
 
   def _event_shape(self):
     return constant_op.constant([], dtype=dtypes.int32)
@@ -115,13 +104,14 @@ class Pareto(distribution.Distribution):
   def _log_prob(self, x):
     x = self._assert_valid_sample(x, check_integer=False)
     #log_prob_zero = 10e-12 * ones_like(x)
-    x = clip_ops.clip_by_value(x, 1e-6, x)
-    return math_ops.log(self.alpha) + self.alpha*math_ops.log(self.sigma) - (self.alpha + 1)*math_ops.log(x)
+    x = clip_ops.clip_by_value(x, 1e-8, x)
+    return where(x >= 1.0, math_ops.log(self.alpha) - (self.alpha + 1)*math_ops.log(x), 0*x)
 
   # TODO:
   def _prob(self, x):
     # pmf(x) = (alpha * sigma^alpha)/(x^{alpha+1})    , for x >= sigma
     # pmf(x) = 0                                      , for x < sigma
+    # where sigma = 1
     return math_ops.exp(self._log_prob(x))
 
   def _log_cdf(self, x):
@@ -129,14 +119,14 @@ class Pareto(distribution.Distribution):
 
   def _cdf(self, x):
     x = self._assert_valid_sample(x, check_integer=False)
-    return 1 - math_ops.pow((self.sigma/x),self.alpha)
+    return 1 - math_ops.pow((1/x),self.alpha)
 
   def _mean(self):
-    return (self.alpha * self.sigma) / (self.alpha - 1)
+    return (self.alpha) / (self.alpha - 1)
 
   # TODO:
   def _variance(self):
-    return self.alpha * self.sigma / math_ops.square(1-self.alpha)
+    return self.alpha / math_ops.square(1-self.alpha)
 
   # TODO:
   def _std(self):
@@ -144,7 +134,7 @@ class Pareto(distribution.Distribution):
 
   # TODO:
   def _mode(self):
-    return where(self.sigma > 1, math_ops.floor(self.alpha*(self.sigma-1)/(1-self.alpha)), 0.0)
+    return where(self.alpha > 1, math_ops.floor(self.alpha*(-1)/(1-self.alpha)), 0.0)
 
   # TODO:
   def _assert_valid_sample(self, x, check_integer=False):
