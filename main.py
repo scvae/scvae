@@ -6,96 +6,217 @@ import analysis
 
 import os
 import argparse
+import json
+import itertools
 
-def main(data_set_name, data_directory, log_directory, results_directory,
-    splitting_method, splitting_fraction,
-    latent_size, hidden_sizes, reconstruction_distribution,
-    number_of_reconstruction_classes,
-    number_of_warm_up_epochs, batch_normalisation, count_sum,
-    number_of_epochs, batch_size, learning_rate,
-    reset_training, analyse):
+def main(data_set_name, data_directory = "data",
+    log_directory = "log", results_directory = "results",
+    splitting_method = "random", splitting_fraction = 0.8,
+    model_configurations_path = None, model_type = "VAE",
+    latent_size = 50, hidden_sizes = [500],
+    reconstruction_distribution = "poisson",
+    number_of_reconstruction_classes = 0, number_of_warm_up_epochs = 50,
+    batch_normalisation = True, count_sum = True,
+    number_of_epochs = 200, batch_size = 100, learning_rate = 1e-4,
+    reset_training = False, analyse = True):
     
+    # Setup
+
     log_directory = os.path.join(log_directory, data_set_name)
     results_directory = os.path.join(results_directory, data_set_name)
-    
+
     # Data
-    
+
     data_set = data.DataSet(data_set_name, data_directory)
-    
+
     print()
-    
+
     training_set, validation_set, test_set = data_set.split(
         splitting_method, splitting_fraction)
 
     feature_size = data_set.number_of_features
-    
+
     print()
-    
+
     if analyse:
         analysis.analyseData(
             [data_set, training_set, validation_set, test_set],
             results_directory
         )
         print()
-    
+
     # Loop over distribution
     
-    if reconstruction_distribution == "all":
-        reconstruction_distributions = modeling.distributions.keys()
-    else:
-        reconstruction_distributions = [reconstruction_distribution]
+    model_configurations = setUpModelConfigurations(
+        model_configurations_path, model_type,
+        latent_size, hidden_sizes, reconstruction_distribution,
+        number_of_reconstruction_classes, number_of_warm_up_epochs,
+        batch_normalisation, count_sum, number_of_epochs,
+        batch_size, learning_rate
+    )
     
-    for reconstruction_distribution in reconstruction_distributions:
-        
-        if number_of_reconstruction_classes > 0:
-            if reconstruction_distribution == "bernoulli":
-                print("Can't use reconstruction classification with",
-                    "the Bernoulli distribution.\n")
-                continue
-            
-            if "zero-inflated" in reconstruction_distribution:
-                print("Can't use reconstruction classification with",
-                    "zero-inflated distributions.\n")
-                continue
-            
-            if "negative binomial" in reconstruction_distribution:
-                print("Can't compute reconstruction classification with",
-                    "the negative binomial distribution.\n")
-                
-        
+    for model_configuration in model_configurations:
+
+        model_type = model_configuration["model_type"]
+        hidden_sizes = model_configuration["hidden_sizes"]
+        reconstruction_distribution = \
+            model_configuration["reconstruction_distribution"]
+        number_of_reconstruction_classes = \
+            model_configuration["number_of_reconstruction_classes"]
+        batch_normalisation = model_configuration["batch_normalisation"]
+        count_sum = model_configuration["count_sum"]
+        number_of_epochs = model_configuration["number_of_epochs"]
+        batch_size = model_configuration["batch_size"]
+        learning_rate = model_configuration["learning_rate"]
+
         # Modeling
-        
-        model = modeling.VariationalAutoEncoder(
-            feature_size, latent_size, hidden_sizes,
-            reconstruction_distribution,
-            number_of_reconstruction_classes,
-            batch_normalisation, count_sum, number_of_warm_up_epochs,
-            log_directory = log_directory
-        )
-        
+
+        if model_type == "VAE":
+            latent_size = model_configuration["latent_size"]
+            number_of_warm_up_epochs = \
+                model_configuration["number_of_warm_up_epochs"]
+
+            model = modeling.VariationalAutoEncoder(
+                feature_size, latent_size, hidden_sizes,
+                reconstruction_distribution,
+                number_of_reconstruction_classes,
+                batch_normalisation, count_sum, number_of_warm_up_epochs,
+                log_directory = log_directory
+            )
+
         print()
-        
+
         model.train(training_set, validation_set,
             number_of_epochs, batch_size, learning_rate,
             reset_training)
-        
+
         print()
-        
+
         transformed_test_set, reconstructed_test_set, latent_set, \
             test_metrics = model.evaluate(test_set, batch_size)
-        
+
         print()
-        
+
         # Analysis
-        
+
         if analyse:
-            
+
             analysis.analyseModel(model, results_directory)
-            
+
             analysis.analyseResults(transformed_test_set, reconstructed_test_set,
                 latent_set, model, results_directory)
-            
+
             print()
+
+def setUpModelConfigurations(model_configurations_path, model_type,
+    latent_size, hidden_sizes, reconstruction_distribution,
+    number_of_reconstruction_classes, number_of_warm_up_epochs,
+    batch_normalisation, count_sum, number_of_epochs,
+    batch_size, learning_rate):
+    
+    model_configurations = []
+    
+    if model_configurations_path:
+        
+        with open(model_configurations_path, "r") as configurations_file:
+            configurations = json.load(configurations_file)
+        
+        model_types = configurations["model types"]
+        network = configurations["network"]
+        likelihood = configurations["likelihood"]
+        training = configurations["training"]
+        
+        configurations_product = itertools.product(
+            network["structure of hidden layers"],
+            network["count sum"],
+            network["batch normalisation"],
+            likelihood["reconstruction distributions"],
+            likelihood["numbers of reconstruction classes"]
+        )
+        
+        for model_type, type_configurations in model_types.items():
+            for hidden_sizes, count_sum, batch_normalisation, \
+                reconstruction_distribution, number_of_reconstruction_classes \
+                in configurations_product:
+                    
+                    model_configuration = {
+                            "model_type": model_type,
+                            "hidden_sizes": hidden_sizes,
+                            "reconstruction_distribution":
+                                reconstruction_distribution,
+                            "number_of_reconstruction_classes":
+                                number_of_reconstruction_classes,
+                            "batch_normalisation": batch_normalisation,
+                            "count_sum": count_sum,
+                            "number_of_epochs": training["number of epochs"],
+                            "batch_size": training["batch size"],
+                            "learning_rate": training["learning rate"]
+                    }
+                    
+                    if model_type == "VAE":
+                        for latent_size in type_configurations["latent sizes"]:
+                            model_configuration["latent_size"] = latent_size
+                        model_configuration["number_of_warm_up_epochs"] = \
+                            type_configurations["number of warm-up epochs"]
+                    
+                    if validateModelConfiguration(model_configuration):
+                        model_configurations.append(model_configuration)
+        
+    else:
+        model_configuration = {
+            "model_type": model_type,
+            "latent_size": latent_size,
+            "hidden_sizes": hidden_sizes,
+            "reconstruction_distribution": reconstruction_distribution,
+            "number_of_reconstruction_classes":
+                number_of_reconstruction_classes,
+            "number_of_warm_up_epochs": number_of_warm_up_epochs,
+            "batch_normalisation": batch_normalisation,
+            "count_sum": count_sum,
+            "number_of_epochs": number_of_epochs,
+            "batch_size": batch_size,
+            "learning_rate": learning_rate
+        }
+        
+        if validateModelConfiguration(model_configuration):
+            model_configurations.append(model_configuration)
+    
+    return model_configurations
+
+def validateModelConfiguration(model_configuration):
+    
+    validity = True
+    
+    # Likelihood
+    
+    likelihood_validity = True
+    
+    reconstruction_distribution = \
+        model_configuration["reconstruction_distribution"]
+    number_of_reconstruction_classes = \
+        model_configuration["number_of_reconstruction_classes"]
+    
+    if number_of_reconstruction_classes > 0:
+        if reconstruction_distribution == "bernoulli":
+            print("Can't use reconstruction classification with",
+                "the Bernoulli distribution.\n")
+            likelihood_validity = False
+        
+        if "zero-inflated" in reconstruction_distribution:
+            print("Can't use reconstruction classification with",
+                "zero-inflated distributions.\n")
+            likelihood_validity = False
+        
+        if "negative binomial" in reconstruction_distribution:
+            print("Can't compute reconstruction classification with",
+                "any negative binomial distribution.\n")
+            likelihood_validity = False
+    
+    # Over-all validity
+    
+    validity = likelihood_validity
+    
+    return validity
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',
@@ -103,109 +224,122 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument(
-    "--data-set-name",
+    "--data-set-name", "-n",
     type = str,
     default = "sample",
     help = "name of data set"
 )
 parser.add_argument(
-    "--data-directory",
+    "--data-directory", "-D",
     type = str,
     default = "data",
     help = "directory where data is placed"
 )
 parser.add_argument(
-    "--log-directory",
+    "--log-directory", "-L",
     type = str,
     default = "log",
     help = "directory where models are logged"
 )
 parser.add_argument(
-    "--results-directory",
+    "--results-directory", "-R",
     type = str,
     default = "results",
     help = "directory where results are saved"
 )
 parser.add_argument(
-    "--splitting-method",
+    "--splitting-method", "-s",
     type = str,
     default = "random", 
     help = "method for splitting data into training, validation, and test sets"
 )
 parser.add_argument(
-    "--splitting-fraction",
+    "--splitting-fraction", "-f",
     type = float,
     default = 0.8,
     help = "fraction to use when splitting data into training, validation, and test sets"
 )
 parser.add_argument(
-    "--latent-size",
+    "--model-configurations", "-m",
+    dest = "model_configurations_path",
+    type = str,
+    default = None,
+    help = "file with model configurations"
+)
+parser.add_argument(
+    "--model-type", "-M",
+    type = str,
+    default = "VAE",
+    help = "type of model"
+)
+parser.add_argument(
+    "--latent-size", "-l",
     type = int,
     default = 50,
     help = "size of latent space"
 )
 parser.add_argument(
-    "--hidden-sizes",
+    "--hidden-sizes", "-H",
     type = int,
     nargs = "+",
     default = [500],
     help = "sizes of hidden layers"
 )
 parser.add_argument(
-    "--reconstruction-distribution",
+    "--reconstruction-distribution", "-r",
     type = str,
     default = "poisson",
     help = "distribution for the reconstructions"
 )
 parser.add_argument(
-    "--number-of-reconstruction-classes",
+    "--number-of-reconstruction-classes", "-k",
     type = int,
     default = 0,
     help = "the maximum count for which to use classification"
 )
 parser.add_argument(
-    "--number-of-epochs",
+    "--number-of-epochs", "-e",
     type = int,
-    default = 100,
+    default = 200,
     help = "number of epochs for which to train"
 )
 parser.add_argument(
-    "--batch-size",
+    "--batch-size", "-i",
     type = int,
     default = 100,
     help = "batch size used when training"
 )
 parser.add_argument(
-    "--learning-rate",
+    "--learning-rate", "-S",
     type = float,
-    default = 1e-3,
+    default = 1e-4,
     help = "learning rate when training"
 )
 parser.add_argument(
-    "--number-of-warm-up-epochs",
+    "--number-of-warm-up-epochs", "-w",
     type = int,
     default = 0,
     help = "number of epochs with a linear weight on the KL-term"
 )
 parser.add_argument(
-    "--batch-normalisation",
+    "--batch-normalisation", "-b",
     action = "store_true",
     help = "use batch normalisation"
 )
 parser.add_argument(
-    "--no-batch-normalisation",
+    "--no-batch-normalisation", "-B",
     dest = "batch_normalisation",
     action = "store_false",
     help = "do not use batch normalisation"
 )
 parser.set_defaults(batch_normalisation = True)
 parser.add_argument(
-    "--count-sum",
+    "--count-sum", "-c",
     action = "store_true",
     help = "use count sum"
 )
 parser.add_argument(
-    "--no-count-sum",
+    "--no-count-sum", "-C",
     dest = "count_sum",
     action = "store_false",
     help = "do not use count sum"
