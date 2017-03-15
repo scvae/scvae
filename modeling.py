@@ -121,11 +121,12 @@ class VariationalAutoEncoder(object):
         
         if self.k_max:
             model_name += "_c_" + str(self.k_max)
-
+        
         if self.count_sum_feature:
             model_name += "_sum"
         
-        model_name += "_l_" + str(self.latent_size) + "_h_" + "_".join(map(str,self.hidden_sizes))
+        model_name += "_l_" + str(self.latent_size) \
+            + "_h_" + "_".join(map(str, self.hidden_sizes))
         
         if self.batch_normalisation:
             model_name += "_bn"
@@ -134,7 +135,34 @@ class VariationalAutoEncoder(object):
             model_name += "_wu_" + str(self.number_of_warm_up_epochs)
         
         return model_name
-
+    
+    @property
+    def description(self):
+        
+        description = self.reconstruction_distribution_name.capitalize()
+        
+        configuration = [
+            "$l = {}$".format(self.latent_size),
+            "$h = \\{{{}\\}}$".format(", ".join(map(str, self.hidden_sizes)))
+        ]
+        
+        if self.k_max:
+            configuration.append("$k_max = {}$".format(self.k_max))
+        
+        if self.count_sum_feature:
+            configuration.append("CS")
+        
+        if self.batch_normalisation:
+            configuration.append("BN")
+        
+        if self.number_of_warm_up_epochs:
+            configuration.append("$W = {}$".format(
+                self.number_of_warm_up_epochs))
+        
+        description += " (" + ", ".join(configuration) + ")"
+        
+        return description
+    
     def inference(self):
         
         encoder = self.x
