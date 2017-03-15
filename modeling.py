@@ -8,10 +8,10 @@ from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
 
 from tensorflow.contrib.distributions import (
-    Bernoulli, Normal, Poisson, Categorical, kl
+    Bernoulli, Normal, Poisson, Categorical, Multinomial, kl
 )
 from distributions import (
-    NegativeBinomial, Pareto, ZeroInflated, Categorized
+    NegativeBinomial, Pareto, ZeroInflated, Categorized, NonPermutedMultinomial
 )
 
 import numpy
@@ -219,8 +219,11 @@ class VariationalAutoEncoder(object):
                     scope = parameter.upper()
                 )
             
-            if "constrained" in self.reconstruction_distribution_name:
+            if "constrained" in self.reconstruction_distribution_name or \
+                "multinomial" in self.reconstruction_distribution_name:
                 self.p_x_given_z = self.reconstruction_distribution["class"](x_theta, self.n)
+            elif "multinomial" in self.reconstruction_distribution_name:
+               self.p_x_given_z = self.reconstruction_distribution["class"](x_theta, self.n) 
             else:
                 self.p_x_given_z = self.reconstruction_distribution["class"](x_theta)
         
@@ -708,7 +711,19 @@ distributions = {
             alpha = tf.exp(theta["log_alpha"])
         )
     },
-    
+
+    "multinomial": {
+        "parameters": {
+            "p": {
+                "support": [0, 1],
+                "activation function": softmax
+            }
+        },
+        "class": lambda theta, N: NonPermutedMultinomial(
+                n = N,
+                p = theta["p"])
+    },    
+
     "zero-inflated poisson": {
         "parameters": {
             "pi": {
