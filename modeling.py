@@ -143,7 +143,7 @@ class VariationalAutoEncoder(object):
                 encoder = dense_layer(
                     inputs = encoder,
                     num_outputs = hidden_size,
-                    activation_fn = lambda x: prelu(x, self.is_training, "PRELU"),
+                    activation_fn = relu,
                     batch_normalisation = self.batch_normalisation, 
                     is_training = self.is_training,
                     scope = '{:d}'.format(i + 1)
@@ -186,7 +186,7 @@ class VariationalAutoEncoder(object):
                 decoder = dense_layer(
                     inputs = decoder,
                     num_outputs = hidden_size,
-                    activation_fn = lambda x: prelu(x, self.is_training, "PRELU"),
+                    activation_fn = relu,
                     batch_normalisation = self.batch_normalisation,
                     is_training = self.is_training,
                     scope = '{:d}'.format(len(self.hidden_sizes) - i)
