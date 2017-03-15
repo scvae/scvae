@@ -67,6 +67,7 @@ class VariationalAutoEncoder(object):
 
         self.count_sum_feature = count_sum
         self.count_sum = self.count_sum_feature or "constrained" in \
+            self.reconstruction_distribution_name or "multinomial" in \
             self.reconstruction_distribution_name
 
         self.number_of_warm_up_epochs = number_of_warm_up_epochs
