@@ -252,6 +252,10 @@ def validateModelConfiguration(model_configuration):
             likelihood_error_list.append("any negative binomial distribution")
             likelihood_validity = False
         
+        if "multinomial" in reconstruction_distribution:
+            likelihood_error_list.append("the multinomial distribution")
+            likelihood_validity = False
+        
         number_of_distributions = len(likelihood_error_list)
         
         if number_of_distributions == 1:
