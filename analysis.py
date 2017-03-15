@@ -74,6 +74,15 @@ def analyseAllModels(models_summaries, results_directory = "results"):
     saveFigure(figure, name, results_directory)
     
     print()
+    
+    # Learning curves
+    
+    print("Plotting evaluation for all run models.")
+    
+    figure, name = plotEvaluationsForModels(models_summaries)
+    saveFigure(figure, name, results_directory)
+    
+    print()
 
 def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     model, results_directory = "results"):
@@ -315,6 +324,33 @@ def plotLearningCurvesForModels(models_summaries, name = None):
     
     axis.set_xlabel("Epoch")
     axis.set_ylabel("Lower bound for validation set")
+    
+    return figure, figure_name
+
+def plotEvaluationsForModels(models_summaries, name = None):
+    
+    figure_name = "evaluation"
+    
+    if name:
+        figure_name = figure_name + "_" + name
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    lower_bounds = []
+    model_descriptions = []
+    
+    for model_description, model_summary in models_summaries.items():
+        lower_bound = model_summary["test evaluation"]["ELBO"]
+        lower_bounds.append(lower_bound)
+        model_description = model_summary["description"]
+        model_descriptions.append(model_description)
+    
+    model_indices = numpy.arange(len(model_descriptions)) + 1
+    axis.bar(model_indices, lower_bounds)
+    
+    axis.set_xticks(model_indices)
+    axis.set_xticklabels(model_descriptions, rotation = 45, ha = "right")
     
     return figure, figure_name
 
