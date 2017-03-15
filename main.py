@@ -21,30 +21,30 @@ def main(data_set_name, data_directory = "data",
     reset_training = False, analyse = True, analyse_data = False):
     
     # Setup
-
+    
     log_directory = os.path.join(log_directory, data_set_name)
     results_directory = os.path.join(results_directory, data_set_name)
-
+    
     # Data
-
+    
     data_set = data.DataSet(data_set_name, data_directory)
-
+    
     print()
-
+    
     training_set, validation_set, test_set = data_set.split(
         splitting_method, splitting_fraction)
-
+    
     feature_size = data_set.number_of_features
-
+    
     print()
-
+    
     if analyse_data:
         analysis.analyseData(
             [data_set, training_set, validation_set, test_set],
             results_directory
         )
         print()
-
+    
     # Loop over distribution
     
     print("Setting up model configurations.")
@@ -67,8 +67,11 @@ def main(data_set_name, data_directory = "data",
     
     print("Looping over models.\n")
     
+    if analyse:
+        models_summaries = {}
+    
     for model_configuration in model_configurations:
-
+        
         model_type = model_configuration["model_type"]
         hidden_sizes = model_configuration["hidden_sizes"]
         reconstruction_distribution = \
@@ -80,14 +83,14 @@ def main(data_set_name, data_directory = "data",
         number_of_epochs = model_configuration["number_of_epochs"]
         batch_size = model_configuration["batch_size"]
         learning_rate = model_configuration["learning_rate"]
-
+        
         # Modeling
-
+        
         if model_type == "VAE":
             latent_size = model_configuration["latent_size"]
             number_of_warm_up_epochs = \
                 model_configuration["number_of_warm_up_epochs"]
-
+            
             model = modeling.VariationalAutoEncoder(
                 feature_size, latent_size, hidden_sizes,
                 reconstruction_distribution,
@@ -95,30 +98,39 @@ def main(data_set_name, data_directory = "data",
                 batch_normalisation, count_sum, number_of_warm_up_epochs,
                 log_directory = log_directory
             )
-
+        
         print()
-
+        
         model.train(training_set, validation_set,
             number_of_epochs, batch_size, learning_rate,
             reset_training)
-
+        
         print()
-
+        
         transformed_test_set, reconstructed_test_set, latent_set, \
             evaluation_test = model.evaluate(test_set, batch_size)
-
+        
         print()
-
+        
         # Analysis
-
+        
         if analyse:
-
-            analysis.analyseModel(model, results_directory)
-
+            
+            learning_curves = analysis.analyseModel(model, results_directory)
+            
             analysis.analyseResults(transformed_test_set, reconstructed_test_set,
                 latent_set, evaluation_test, model, results_directory)
-
+            
+            models_summaries[model.name] = {
+                "description": model.description,
+                "configuration": model_configuration,
+                "learning curves": learning_curves,
+                "test evaluation": evaluation_test
+            }
+            
             print()
+    
+    analysis.analyseAllModels(models_summaries, results_directory)
 
 def setUpModelConfigurations(model_configurations_path, model_type,
     latent_size, hidden_sizes, reconstruction_distribution,
@@ -246,10 +258,10 @@ def validateModelConfiguration(model_configuration):
             likelihood_error_distribution = likelihood_error_list[0]
         elif number_of_distributions == 2:
             likelihood_error_distribution = \
-                " and ".join(likelihood_error_list)
+                " or ".join(likelihood_error_list)
         elif number_of_distributions >= 2:
             likelihood_error_distribution = \
-                ", ".join(likelihood_error_list[:-1]) + ", and" \
+                ", ".join(likelihood_error_list[:-1]) + ", or" \
                 + likelihood_error_list[-1]
         
         if likelihood_validity:

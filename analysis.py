@@ -48,19 +48,32 @@ def analyseModel(model, results_directory = "results"):
     # Heat map of KL for all latent neurons
     
     if KL_neurons is not None:
-    
+        
         print("Plotting logarithm of KL divergence heat map.")
-    
+        
         log_KL_neurons = numpy.log(KL_neurons)
-    
+        
         figure, name = plotHeatMap(
             log_KL_neurons, z_min = log_KL_neurons.min(),
             x_name = "Epoch", y_name = "$i$",
             z_name = "$\log$ KL$(p_i|q_i)$",
             name = "kl_divergence")
         saveFigure(figure, name, results_directory)
-    
+        
         print()
+    
+    return learning_curves
+
+def analyseAllModels(models_summaries, results_directory = "results"):
+    
+    # Learning curves
+    
+    print("Plotting learning curves for all run models.")
+    
+    figure, name = plotLearningCurvesForModels(models_summaries)
+    saveFigure(figure, name, results_directory)
+    
+    print()
 
 def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     model, results_directory = "results"):
@@ -117,12 +130,7 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     
     ## Displaying
     
-    print(convertStatisticsToString(x_statistics))
-    
-    # print("Differences: mean: {:.5g}, std: {:.5g}.".format(
-    #     x_diff_abs_mean, x_diff_abs_std))
-    # print("log-ratios:  mean: {:.5g}, std: {:.5g}.".format(
-    #     x_log_ratio_abs_mean, x_log_ratio_abs_std))
+    print(convertStatisticsToString(x_statistics), end = "")
     
     print()
     
@@ -252,9 +260,9 @@ def plotLearningCurves(curves, name = None):
     if name:
         figure_name = figure_name + "_" + name
     
-    figure, (axis_1, axis_2) = pyplot.subplots(2, sharex = True, figsize = (6.4, 9.6))
-
-
+    figure, (axis_1, axis_2) = pyplot.subplots(2, sharex = True,
+        figsize = (6.4, 9.6))
+    
     for i, (curve_set_name, curve_set) in enumerate(sorted(curves.items())):
         
         colour = palette[i]
@@ -283,6 +291,29 @@ def plotLearningCurves(curves, name = None):
     axis_2.legend(loc = "best")
     
     axis_2.set_xlabel("Epoch")
+    
+    return figure, figure_name
+
+def plotLearningCurvesForModels(models_summaries, name = None):
+    
+    figure_name = "learning_curves"
+    
+    if name:
+        figure_name = figure_name + "_" + name
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    for model_name, model_summary in models_summaries.items():
+        curve = model_summary["learning curves"]["validation"]["lower_bound"]
+        epochs = numpy.arange(len(curve)) + 1
+        label = model_summary["description"]
+        axis.plot(curve, label = label)
+    
+    axis.legend(loc = "best")
+    
+    axis.set_xlabel("Epoch")
+    axis.set_ylabel("Lower bound for validation set")
     
     return figure, figure_name
 
