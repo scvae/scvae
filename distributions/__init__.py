@@ -4,3 +4,4 @@ from distributions.zero_inflated_negative_binomial import ZeroInflatedNegativeBi
 from distributions.zero_inflated import ZeroInflated
 from distributions.categorized import Categorized
 from distributions.pareto import Pareto
+from distributions.multinomial_non_permuted import NonPermutedMultinomial
