@@ -147,7 +147,7 @@ class VariationalAutoEncoder(object):
         ]
         
         if self.k_max:
-            configuration.append("$k_max = {}$".format(self.k_max))
+            configuration.append("$k_{{\\mathrm{{max}}}} = {}$".format(self.k_max))
         
         if self.count_sum_feature:
             configuration.append("CS")

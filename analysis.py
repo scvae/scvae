@@ -282,7 +282,8 @@ def plotLearningCurves(curves, name = None):
                 axis = axis_2
             epochs = numpy.arange(len(curve)) + 1
             label = curve_name + " ({} set)".format(curve_set_name)
-            axis.plot(curve, color = colour, linestyle = line_style, label = label)
+            axis.plot(epochs, curve, color = colour, linestyle = line_style,
+                label = label)
     
     handles, labels = axis_1.get_legend_handles_labels()
     labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
@@ -308,7 +309,7 @@ def plotLearningCurvesForModels(models_summaries, name = None):
         curve = model_summary["learning curves"]["validation"]["lower_bound"]
         epochs = numpy.arange(len(curve)) + 1
         label = model_summary["description"]
-        axis.plot(curve, label = label)
+        axis.plot(epochs, curve, label = label)
     
     axis.legend(loc = "best")
     
