@@ -56,11 +56,6 @@ class VariationalAutoEncoder(object):
         self.reconstruction_distribution_name = reconstruction_distribution
         self.reconstruction_distribution = distributions[reconstruction_distribution]
         
-        if "preprocess" in self.reconstruction_distribution:
-            self.preprocess = self.reconstruction_distribution["preprocess"]
-        else:
-            self.preprocess = lambda x: x
-        
         self.k_max = number_of_reconstruction_classes
         
         self.batch_normalisation = batch_normalisation
@@ -85,6 +80,7 @@ class VariationalAutoEncoder(object):
         with self.graph.as_default():
             
             self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'X')
+            self.t = tf.placeholder(tf.float32, [None, self.feature_size], 'T')
             
             if self.count_sum:
                 self.n = tf.placeholder(tf.float32, [None, 1], 'N')
@@ -293,7 +289,7 @@ class VariationalAutoEncoder(object):
         
         ## Reconstruction error
         log_p_x_given_z = tf.reduce_mean(
-            tf.reduce_sum(self.p_x_given_z.log_prob(self.x), axis = 1),
+            tf.reduce_sum(self.p_x_given_z.log_prob(self.t), axis = 1),
             name = 'reconstruction_error'
         )
         tf.add_to_collection('losses', log_p_x_given_z)
@@ -377,8 +373,11 @@ class VariationalAutoEncoder(object):
         M_train = training_set.number_of_examples
         M_valid = validation_set.number_of_examples
         
-        x_train = self.preprocess(training_set.counts)
-        x_valid = self.preprocess(validation_set.counts)
+        x_train = training_set.preprocessed_counts
+        x_valid = validation_set.preprocessed_counts
+        
+        t_train = training_set.counts
+        t_valid = validation_set.counts
         
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
@@ -437,6 +436,7 @@ class VariationalAutoEncoder(object):
                     
                     feed_dict_batch = {
                         self.x: x_train[batch_indices],
+                        self.t: t_train[batch_indices],
                         self.is_training: True,
                         self.learning_rate: learning_rate, 
                         self.warm_up_weight: warm_up_weight
@@ -505,9 +505,11 @@ class VariationalAutoEncoder(object):
                 
                 for i in range(0, M_train, batch_size):
                     subset = slice(i, (i + batch_size))
-                    batch = x_train[subset]
+                    x_batch = x_train[subset]
+                    t_batch = x_train[subset]
                     feed_dict_batch = {
-                        self.x: batch,
+                        self.x: x_batch,
+                        self.t: t_batch,
                         self.is_training: False,
                         self.warm_up_weight: warm_up_weight
                     }
@@ -564,9 +566,11 @@ class VariationalAutoEncoder(object):
                 
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
-                    batch = x_valid[subset]
+                    x_batch = x_valid[subset]
+                    t_batch = t_valid[subset]
                     feed_dict_batch = {
-                        self.x: batch,
+                        self.x: x_batch,
+                        self.t: t_batch,
                         self.is_training: False,
                         self.warm_up_weight: warm_up_weight
                     }
@@ -613,7 +617,9 @@ class VariationalAutoEncoder(object):
         M_test = test_set.number_of_examples
         F_test = test_set.number_of_features
         
-        x_test = self.preprocess(test_set.counts)
+        x_test = test_set.preprocessed_counts
+        
+        t_test = test_set.counts
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
@@ -633,9 +639,11 @@ class VariationalAutoEncoder(object):
             
             for i in range(0, M_test, batch_size):
                 subset = slice(i, (i + batch_size))
-                batch = x_test[subset]
+                x_batch = x_test[subset]
+                t_batch = t_test[subset]
                 feed_dict_batch = {
-                    self.x: batch,
+                    self.x: x_batch,
+                    self.t: t_batch,
                     self.is_training: False,
                     self.warm_up_weight: 1.0
                 }
@@ -671,14 +679,6 @@ class VariationalAutoEncoder(object):
                 "KL": KL_test
             }
             
-            transformed_test_set = data.BaseDataSet(
-                counts = x_test,
-                cells = test_set.cells,
-                genes = test_set.genes,
-                name = self.name,
-                kind = "test",
-            )
-            
             reconstructed_test_set = data.BaseDataSet(
                 counts = x_tilde_test,
                 cells = test_set.cells,
@@ -688,8 +688,7 @@ class VariationalAutoEncoder(object):
                 version = "reconstructed"
             )
             
-            return transformed_test_set, reconstructed_test_set, z_mean_test, \
-                evaluation_test
+            return reconstructed_test_set, z_mean_test, evaluation_test
 
 distributions = {
     "bernoulli": {
@@ -701,8 +700,7 @@ distributions = {
         },
         "class": lambda theta: Bernoulli(
             p = theta["p"]
-        ),
-        "preprocess": lambda x: (x != 0).astype('float32')
+        )
     },
     
     "poisson": {

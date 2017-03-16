@@ -12,6 +12,7 @@ import itertools
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     splitting_method = "random", splitting_fraction = 0.8,
+    preprocessing_method = None,
     model_configurations_path = None, model_type = "VAE",
     latent_size = 50, hidden_sizes = [500],
     reconstruction_distribution = "poisson",
@@ -32,9 +33,7 @@ def main(data_set_name, data_directory = "data",
     print()
     
     training_set, validation_set, test_set = data_set.split(
-        splitting_method, splitting_fraction)
-    
-    feature_size = data_set.number_of_features
+        splitting_method, splitting_fraction, preprocessing_method)
     
     print()
     
@@ -45,7 +44,7 @@ def main(data_set_name, data_directory = "data",
         )
         print()
     
-    # Loop over distribution
+    # Set up model configurations
     
     print("Setting up model configurations.")
     
@@ -69,6 +68,10 @@ def main(data_set_name, data_directory = "data",
     
     if analyse:
         models_summaries = {}
+    
+    # Loop over models
+    
+    feature_size = data_set.number_of_features
     
     for model_configuration in model_configurations:
         
@@ -101,14 +104,16 @@ def main(data_set_name, data_directory = "data",
         
         print()
         
-        model.train(training_set, validation_set,
+        model.train(
+            training_set, validation_set,
             number_of_epochs, batch_size, learning_rate,
-            reset_training)
+            reset_training
+        )
         
         print()
         
-        transformed_test_set, reconstructed_test_set, latent_set, \
-            evaluation_test = model.evaluate(test_set, batch_size)
+        reconstructed_test_set, latent_set, evaluation_test = \
+            model.evaluate(test_set, batch_size)
         
         print()
         
@@ -118,7 +123,7 @@ def main(data_set_name, data_directory = "data",
             
             learning_curves = analysis.analyseModel(model, results_directory)
             
-            analysis.analyseResults(transformed_test_set, reconstructed_test_set,
+            analysis.analyseResults(test_set, reconstructed_test_set,
                 latent_set, evaluation_test, model, results_directory)
             
             models_summaries[model.name] = {
@@ -321,6 +326,12 @@ parser.add_argument(
     type = float,
     default = 0.8,
     help = "fraction to use when splitting data into training, validation, and test sets"
+)
+parser.add_argument(
+    "--preprocessing-method", "-p",
+    type = str,
+    default = None, 
+    help = "method for preprocessing data"
 )
 parser.add_argument(
     "--model-configurations", "-m",

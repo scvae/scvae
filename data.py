@@ -21,7 +21,7 @@ data_set_URLs = {
 }
 
 class BaseDataSet(object):
-    def __init__(self, counts = None, cells = None, genes = None,
+    def __init__(self, counts = None, cells = None, genes = None, preprocessed_counts = None,
         name = "", kind = "", version = "original"):
         
         super(BaseDataSet, self).__init__()
@@ -30,9 +30,9 @@ class BaseDataSet(object):
         self.kind = kind
         self.version = version
         
-        self.update(counts, cells, genes)
+        self.update(counts, cells, genes, preprocessed_counts)
     
-    def update(self, counts = None, cells = None, genes = None):
+    def update(self, counts = None, cells = None, genes = None, preprocessed_counts = None):
         
         if counts is not None and cells is not None and genes is not None:
             
@@ -51,11 +51,12 @@ class BaseDataSet(object):
             self.number_of_features = None
         
         self.counts = counts
+        self.preprocessed_counts = preprocessed_counts
         self.cells = cells
         self.genes = genes
 
 class DataSet(BaseDataSet):
-    def __init__(self, name, directory):
+    def __init__(self, name, directory, preprocessing_method = None):
         super(DataSet, self).__init__(name = name, kind = "full")
         
         self.directory = directory
@@ -63,19 +64,19 @@ class DataSet(BaseDataSet):
         if self.name != "sample":
             self.preprocess_directory = os.path.join(directory,
                 preprocess_suffix)
-        
+            
             self.URL = data_set_URLs[self.name]
-        
+            
             file_name_with_extension = os.path.split(self.URL)[-1]
-        
+            
             file_name, extension = file_name_with_extension.split(os.extsep, 1)
-        
+            
             self.path = os.path.join(self.directory, file_name) + os.extsep + extension
 
             self.preprocessPath = lambda additions: \
                 os.path.join(self.preprocess_directory, file_name) + "_" \
                     + "_".join(additions) + sparse_extension
-
+            
             self.sparse_path = self.preprocessPath(["sparse"])
         
         self.load()
@@ -127,7 +128,7 @@ class DataSet(BaseDataSet):
     def loadOriginalData(self):
         
         data_frame = read_csv(self.path, sep='\s+', index_col = 0,
-            compression = "gzip", engine = "python")
+            compression = "gzip", engine = "python", nrows = 5)
         
         data_dictionary = {
             "counts": data_frame.values.T,
@@ -180,16 +181,25 @@ class DataSet(BaseDataSet):
         
         return data_dictionary
     
-    def split(self, method, fraction):
+    def split(self, method, fraction, preprocessing_method = None):
         
         if self.name == "sample":
             print("Splitting data set.")
             data_dictionary = self.splitAndCollectInDictionary(method,
-                fraction)
+                fraction, preprocessing_method)
             print("Data set split.")
+        
         else:
-            split_data_sets_path = self.preprocessPath(["split", method,
-                str(fraction)])
+            if preprocessing_method:
+                split_data_sets_path = self.preprocessPath([
+                    "split", preprocessing_method,
+                    method, str(fraction)
+                ])
+            else:
+                split_data_sets_path = self.preprocessPath([
+                    "split",
+                    method, str(fraction)
+                ])
         
             if os.path.isfile(split_data_sets_path):
                 print("Loading split data sets from sparse representations.")
@@ -202,7 +212,7 @@ class DataSet(BaseDataSet):
                 print("Splitting data set.")
                 start_time = time()
                 data_dictionary = self.splitAndCollectInDictionary(method,
-                    fraction)
+                    fraction, preprocessing_method)
                 duration = time() - start_time
                 print("Data set split" +
                     " ({}).".format(convertTimeToString(duration)))
@@ -216,6 +226,7 @@ class DataSet(BaseDataSet):
         
         training_set = BaseDataSet(
             counts = data_dictionary["training_set"]["counts"],
+            preprocessed_counts = data_dictionary["training_set"]["counts"],
             cells = data_dictionary["training_set"]["cells"],
             genes = data_dictionary["genes"],
             name = self.name,
@@ -223,6 +234,7 @@ class DataSet(BaseDataSet):
         )
         validation_set = BaseDataSet(
             counts = data_dictionary["validation_set"]["counts"],
+            preprocessed_counts = data_dictionary["validation_set"]["counts"],
             cells = data_dictionary["validation_set"]["cells"],
             genes = data_dictionary["genes"],
             name = self.name,
@@ -230,6 +242,7 @@ class DataSet(BaseDataSet):
         )
         test_set = BaseDataSet(
             counts = data_dictionary["test_set"]["counts"],
+            preprocessed_counts = data_dictionary["test_set"]["counts"],
             cells = data_dictionary["test_set"]["cells"],
             genes = data_dictionary["genes"],
             name = self.name,
@@ -251,9 +264,16 @@ class DataSet(BaseDataSet):
         
         return training_set, validation_set, test_set
     
-    def splitAndCollectInDictionary(self, method, fraction):
+    def splitAndCollectInDictionary(self, method, fraction, preprocessing_method = None):
         
         random.seed(42)
+        
+        if preprocessing_method == "binarise":
+            preprocess = lambda x: (x != 0).astype('float32')
+        else:
+            preprocess = lambda x: x
+        
+        self.preprocessed_counts = preprocess(self.counts)
         
         M = self.number_of_examples
         
@@ -271,14 +291,17 @@ class DataSet(BaseDataSet):
         data_dictionary = {
             "training_set": {
                 "counts": self.counts[training_indices],
+                "preprocessed_counts": self.preprocessed_counts[training_indices],
                 "cells": self.cells[training_indices],
             },
             "validation_set": {
                 "counts": self.counts[validation_indices],
+                "preprocessed_counts": self.preprocessed_counts[validation_indices],
                 "cells": self.cells[validation_indices],
             },
             "test_set": {
                 "counts": self.counts[test_indices],
+                "preprocessed_counts": self.preprocessed_counts[test_indices],
                 "cells": self.cells[test_indices],
             },
             "genes": self.genes
@@ -337,3 +360,5 @@ def download_report_hook(block_num, block_size, total_size):
             sys.stderr.write("\n")
     else:
         sys.stderr.write("Downloaded {:d} bytes.".format(bytes_read))
+
+### Prepocessing functions
