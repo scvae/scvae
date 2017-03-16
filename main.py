@@ -130,7 +130,8 @@ def main(data_set_name, data_directory = "data",
             
             print()
     
-    analysis.analyseAllModels(models_summaries, results_directory)
+    if analyse:
+        analysis.analyseAllModels(models_summaries, results_directory)
 
 def setUpModelConfigurations(model_configurations_path, model_type,
     latent_size, hidden_sizes, reconstruction_distribution,
