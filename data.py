@@ -7,7 +7,7 @@ import gzip
 import pickle
 
 from pandas import read_csv
-from numpy import random, array, arange, zeros#, nonzero, sort, argsort, where
+from numpy import random, array, arange, zeros, sum, where, log, sort, clip #, nonzero, sort, argsort, where
 from scipy.sparse import csr_matrix
 
 from time import time
@@ -268,8 +268,14 @@ class DataSet(BaseDataSet):
         
         random.seed(42)
         
+        print("What preprocessing to use?")
         if preprocessing_method == "binarise":
             preprocess = lambda x: (x != 0).astype('float32')
+        elif preprocessing_method == "gini":
+            print("GINI preprocessing")
+            preprocess = lambda x: x * gini_coefficients(x)
+        elif preprocessing_method == "tf_idf":
+            preprocess = lambda x: x * log_inverse_global_frequency(x)
         else:
             preprocess = lambda x: x
         
@@ -362,3 +368,34 @@ def download_report_hook(block_num, block_size, total_size):
         sys.stderr.write("Downloaded {:d} bytes.".format(bytes_read))
 
 ### Prepocessing functions
+
+# Compute gini-coefficients
+def gini_coefficients(data, eps=1e-16, batch_size=5000):
+    """Calculate the Gini coefficients along last axis of a numpy array."""
+    # based on bottom eq: http://www.statsdirect.com/help/generatedimages/equations/equation154.svg
+    # from: http://www.statsdirect.com/help/default.htm#nonparametric_methods/gini.htm
+    N, M = data.shape # number of examples, N, and features, M.
+    index_vector =  2 * arange(1, N + 1) - N - 1  # 1-indexing vector for each data element.
+    data = clip(data, eps, data) #values cannot be 0
+
+    gini_index = zeros(M)
+    print("Calculating gini-coefficients batch-wise for all features in the data set")
+    for i in range(0, M, batch_size):
+        batch = data[:, i:(i+batch_size)]
+
+        # Array should be normalized and sorted frequencies over the examples
+        batch = sort(batch / (sum(batch,axis=0)), axis=0)
+        
+        #Gini coefficients over the examples for each feature. 
+        gini_index[i:(i+batch_size)] = index_vector @ batch / N
+
+        print("Computed gini-indices for feature {} to {} out of {} features.".format(i, min(i+batch_size, M), M))
+
+    return gini_index
+
+# Compute log inverse global frequency of features over all examples.
+def log_inverse_global_frequency(data):
+    global_freq = sum(where(data > 0, 1, 0), axis=0)
+    
+    # Return log(inverse global frequency) = log(N / (global_frequency + 1))
+    return log(data.shape[0] / (global_freq + 1))
