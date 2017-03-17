@@ -268,11 +268,9 @@ class DataSet(BaseDataSet):
         
         random.seed(42)
         
-        print("What preprocessing to use?")
         if preprocessing_method == "binarise":
             preprocess = lambda x: (x != 0).astype('float32')
         elif preprocessing_method == "gini":
-            print("GINI preprocessing")
             preprocess = lambda x: x * gini_coefficients(x)
         elif preprocessing_method == "tf_idf":
             preprocess = lambda x: x * log_inverse_global_frequency(x)
