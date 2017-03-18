@@ -23,7 +23,7 @@ def main(data_set_name, data_directory = "data",
     
     # Setup
     
-    log_directory = os.path.join(log_directory, data_set_name)
+    log_directory = os.path.join(os.path.join(log_directory, data_set_name), preprocessing_method)
     results_directory = os.path.join(results_directory, data_set_name)
     
     # Data
