@@ -12,7 +12,7 @@ import itertools
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     splitting_method = "random", splitting_fraction = 0.8,
-    preprocessing_methods = None,
+    preprocessing_method = None,
     model_configurations_path = None, model_type = "VAE",
     latent_size = 50, hidden_sizes = [500],
     reconstruction_distribution = "poisson",
@@ -33,7 +33,7 @@ def main(data_set_name, data_directory = "data",
     print()
     
     training_set, validation_set, test_set = data_set.split(
-        splitting_method, splitting_fraction, preprocessing_methods)
+        splitting_method, splitting_fraction, preprocessing_method)
     
     print()
     
@@ -328,11 +328,10 @@ parser.add_argument(
     help = "fraction to use when splitting data into training, validation, and test sets"
 )
 parser.add_argument(
-    "--preprocessing-methods", "-p",
+    "--preprocessing-method", "-p",
     type = str,
-    nargs = '+',
     default = None, 
-    help = "methods for preprocessing data"
+    help = "method for preprocessing data"
 )
 parser.add_argument(
     "--model-configurations", "-m",

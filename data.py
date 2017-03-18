@@ -57,7 +57,7 @@ class BaseDataSet(object):
         self.genes = genes
 
 class DataSet(BaseDataSet):
-    def __init__(self, name, directory, preprocessing_methods = None):
+    def __init__(self, name, directory, preprocessing_method = None):
         super(DataSet, self).__init__(name = name, kind = "full")
         
         self.directory = directory
@@ -182,18 +182,18 @@ class DataSet(BaseDataSet):
         
         return data_dictionary
     
-    def split(self, method, fraction, preprocessing_methods = None):
+    def split(self, method, fraction, preprocessing_method = None):
         
         if self.name == "sample":
             print("Splitting data set.")
             data_dictionary = self.splitAndCollectInDictionary(method,
-                fraction, preprocessing_methods)
+                fraction, preprocessing_method)
             print("Data set split.")
         
         else:
-            if preprocessing_methods:
+            if preprocessing_method:
                 split_data_sets_path = self.preprocessPath([
-                    "split", preprocessing_methods,
+                    "split", preprocessing_method,
                     method, str(fraction)
                 ])
             else:
@@ -213,7 +213,7 @@ class DataSet(BaseDataSet):
                 print("Splitting data set.")
                 start_time = time()
                 data_dictionary = self.splitAndCollectInDictionary(method,
-                    fraction, preprocessing_methods)
+                    fraction, preprocessing_method)
                 duration = time() - start_time
                 print("Data set split" +
                     " ({}).".format(convertTimeToString(duration)))
@@ -265,19 +265,18 @@ class DataSet(BaseDataSet):
         
         return training_set, validation_set, test_set
     
-    def splitAndCollectInDictionary(self, method, fraction, preprocessing_methods = None):
+    def splitAndCollectInDictionary(self, method, fraction, preprocessing_method = None):
         
         random.seed(42)
         preprocess = lambda x: x
-        for preprocessing_method in preprocessing_methods:
-            if preprocessing_method == "binarise":
-                preprocess = lambda x: (x != 0).astype('float32')
-            elif preprocessing_method == "gini":
-                preprocess = lambda x: gini_coefficients(x)
-            elif preprocessing_method == "tf_idf":
-                preprocess = lambda x: log_inverse_global_frequency(x)
-            elif preprocessing_method == "l2_normalise_tf_idf":
-                preprocess = lambda x: normalize(log_inverse_global_frequency(x), norm='l2', axis=1, copy=True, return_norm=False)
+        if preprocessing_method == "binarise":
+            preprocess = lambda x: (x != 0).astype('float32')
+        elif preprocessing_method == "gini":
+            preprocess = lambda x: gini_coefficients(x)
+        elif preprocessing_method == "tf_idf":
+            preprocess = lambda x: log_inverse_global_frequency(x)
+        elif preprocessing_method == "l2_normalise_tf_idf":
+            preprocess = lambda x: normalize(log_inverse_global_frequency(x), norm='l2', axis=1, copy=True, return_norm=False)
         
         self.preprocessed_counts = preprocess(self.counts)
         
