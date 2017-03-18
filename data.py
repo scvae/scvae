@@ -9,6 +9,7 @@ import pickle
 from pandas import read_csv
 from numpy import random, array, arange, zeros, sum, where, log, sort, clip #, nonzero, sort, argsort, where
 from scipy.sparse import csr_matrix
+from sklearn.preprocessing import normalize
 
 from time import time
 from auxiliary import convertTimeToString
@@ -56,7 +57,7 @@ class BaseDataSet(object):
         self.genes = genes
 
 class DataSet(BaseDataSet):
-    def __init__(self, name, directory, preprocessing_method = None):
+    def __init__(self, name, directory, preprocessing_methods = None):
         super(DataSet, self).__init__(name = name, kind = "full")
         
         self.directory = directory
@@ -181,18 +182,18 @@ class DataSet(BaseDataSet):
         
         return data_dictionary
     
-    def split(self, method, fraction, preprocessing_method = None):
+    def split(self, method, fraction, preprocessing_methods = None):
         
         if self.name == "sample":
             print("Splitting data set.")
             data_dictionary = self.splitAndCollectInDictionary(method,
-                fraction, preprocessing_method)
+                fraction, preprocessing_methods)
             print("Data set split.")
         
         else:
-            if preprocessing_method:
+            if preprocessing_methods:
                 split_data_sets_path = self.preprocessPath([
-                    "split", preprocessing_method,
+                    "split", preprocessing_methods,
                     method, str(fraction)
                 ])
             else:
@@ -212,7 +213,7 @@ class DataSet(BaseDataSet):
                 print("Splitting data set.")
                 start_time = time()
                 data_dictionary = self.splitAndCollectInDictionary(method,
-                    fraction, preprocessing_method)
+                    fraction, preprocessing_methods)
                 duration = time() - start_time
                 print("Data set split" +
                     " ({}).".format(convertTimeToString(duration)))
@@ -264,18 +265,19 @@ class DataSet(BaseDataSet):
         
         return training_set, validation_set, test_set
     
-    def splitAndCollectInDictionary(self, method, fraction, preprocessing_method = None):
+    def splitAndCollectInDictionary(self, method, fraction, preprocessing_methods = None):
         
         random.seed(42)
-        
-        if preprocessing_method == "binarise":
-            preprocess = lambda x: (x != 0).astype('float32')
-        elif preprocessing_method == "gini":
-            preprocess = lambda x: x * gini_coefficients(x)
-        elif preprocessing_method == "tf_idf":
-            preprocess = lambda x: x * log_inverse_global_frequency(x)
-        else:
-            preprocess = lambda x: x
+        preprocess = lambda x: x
+        for preprocessing_method in preprocessing_methods:
+            if preprocessing_method == "binarise":
+                preprocess = lambda x: (x != 0).astype('float32')
+            elif preprocessing_method == "gini":
+                preprocess = lambda x: gini_coefficients(x)
+            elif preprocessing_method == "tf_idf":
+                preprocess = lambda x: log_inverse_global_frequency(x)
+            elif preprocessing_method == "l2_normalise_tf_idf":
+                preprocess = lambda x: normalize(log_inverse_global_frequency(x), norm='l2', axis=1, copy=True, return_norm=False)
         
         self.preprocessed_counts = preprocess(self.counts)
         
@@ -389,11 +391,11 @@ def gini_coefficients(data, eps=1e-16, batch_size=5000):
 
         print("Computed gini-indices for feature {} to {} out of {} features.".format(i, min(i+batch_size, M), M))
 
-    return gini_index
+    return data * gini_index
 
 # Compute log inverse global frequency of features over all examples.
 def log_inverse_global_frequency(data):
     global_freq = sum(where(data > 0, 1, 0), axis=0)
     
     # Return log(inverse global frequency) = log(N / (global_frequency + 1))
-    return log(data.shape[0] / (global_freq + 1))
+    return data * log(data.shape[0] / (global_freq + 1))
