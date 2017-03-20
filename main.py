@@ -176,46 +176,47 @@ def setUpModelConfigurations(model_configurations_path, model_type,
         likelihood = configurations["likelihood"]
         training = configurations["training"]
         
-        configurations_product = itertools.product(
-            network["structure of hidden layers"],
-            network["count sum"],
-            network["batch normalisation"],
-            likelihood["reconstruction distributions"],
-            likelihood["numbers of reconstruction classes"]
-        )
-        
         for model_type, type_configurations in model_types.items():
+            
+            configurations_product = itertools.product(
+                network["structure of hidden layers"],
+                network["count sum"],
+                network["batch normalisation"],
+                likelihood["reconstruction distributions"],
+                likelihood["numbers of reconstruction classes"]
+            )
+            
             for hidden_sizes, count_sum, batch_normalisation, \
                 reconstruction_distribution, number_of_reconstruction_classes \
                 in configurations_product:
-                    
-                    model_configuration = {
-                            "model_type": model_type,
-                            "hidden_sizes": hidden_sizes,
-                            "reconstruction_distribution":
-                                reconstruction_distribution,
-                            "number_of_reconstruction_classes":
-                                number_of_reconstruction_classes,
-                            "batch_normalisation": batch_normalisation,
-                            "count_sum": count_sum,
-                            "number_of_epochs": training["number of epochs"],
-                            "batch_size": training["batch size"],
-                            "learning_rate": training["learning rate"]
-                    }
-                    
-                    if model_type == "VAE":
-                        for latent_size in type_configurations["latent sizes"]:
-                            model_configuration["latent_size"] = latent_size
-                        model_configuration["number_of_warm_up_epochs"] = \
-                            type_configurations["number of warm-up epochs"]
-                    
-                    validity, errors = \
-                        validateModelConfiguration(model_configuration)
-                    
-                    if validity:
-                        model_configurations.append(model_configuration)
-                    else:
-                        configuration_errors.append(errors)
+                
+                model_configuration = {
+                        "model_type": model_type,
+                        "hidden_sizes": hidden_sizes,
+                        "reconstruction_distribution":
+                            reconstruction_distribution,
+                        "number_of_reconstruction_classes":
+                            number_of_reconstruction_classes,
+                        "batch_normalisation": batch_normalisation,
+                        "count_sum": count_sum,
+                        "number_of_epochs": training["number of epochs"],
+                        "batch_size": training["batch size"],
+                        "learning_rate": training["learning rate"]
+                }
+                
+                if model_type == "VAE":
+                    for latent_size in type_configurations["latent sizes"]:
+                        model_configuration["latent_size"] = latent_size
+                    model_configuration["number_of_warm_up_epochs"] = \
+                        type_configurations["number of warm-up epochs"]
+                
+                validity, errors = \
+                    validateModelConfiguration(model_configuration)
+                
+                if validity:
+                    model_configurations.append(model_configuration)
+                else:
+                    configuration_errors.append(errors)
         
     else:
         model_configuration = {
