@@ -395,9 +395,10 @@ def plotProfileComparison(original_series, reconstructed_series,
     axis = figure.add_subplot(1, 1, 1)
     
     x = numpy.linspace(0, D, D)
-    axis.plot(x, original_series[sort_indices], label = 'Original', zorder = 1)
-    axis.plot(x, reconstructed_series[sort_indices], label = 'Reconstruction',
-        zorder = 0)
+    axis.plot(x, original_series[sort_indices], color = palette[0],
+        label = 'Original', zorder = 1)
+    axis.scatter(x, reconstructed_series[sort_indices], color = palette[1],
+        label = 'Reconstruction', zorder = 0)
     
     axis.legend()
     
