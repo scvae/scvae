@@ -51,6 +51,7 @@ def analyseModel(model, results_directory = "results"):
         
         print("Plotting logarithm of KL divergence heat map.")
         
+        KL_neurons = numpy.sort(KL_neurons, axis = 1)
         log_KL_neurons = numpy.log(KL_neurons)
         
         figure, name = plotHeatMap(
