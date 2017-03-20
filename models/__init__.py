@@ -1,1 +1,2 @@
 from models.variational_auto_encoder import VariationalAutoEncoder
+from models.simple_neural_network import SimpleNeuralNetwork

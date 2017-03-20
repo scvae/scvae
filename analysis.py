@@ -40,7 +40,7 @@ def analyseModel(model, results_directory = "results"):
     
     print("Plotting learning curves.")
     
-    figure, name = plotLearningCurves(learning_curves)
+    figure, name = plotLearningCurves(learning_curves, model.type)
     saveFigure(figure, name, results_directory)
     
     print()
@@ -122,14 +122,17 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     metrics_saving_time_start = time()
     
     with open(metrics_path, "w") as metrics_file:
-        metrics_file.write(
-            "Evaluation:\n" +
-            "    ELBO: {:.5g}.\n".format(evaluation_test["ELBO"]) +
-            "    ENRE: {:.5g}.\n".format(evaluation_test["ENRE"]) +
-            "    KL:   {:.5g}.\n".format(evaluation_test["KL"]) +
-            "\n" +
-            convertStatisticsToString(x_statistics)
-        )
+        metrics_string = "Evaluation:\n"
+        if model.type == "SNN":
+            metrics_string += \
+                "    log-likelihood: {:.5g}.\n".format(evaluation_test["log-likelihood"])
+        elif model.type == "VAE":
+            metrics_string += \
+                "    ELBO: {:.5g}.\n".format(evaluation_test["ELBO"]) + \
+                "    ENRE: {:.5g}.\n".format(evaluation_test["ENRE"]) + \
+                "    KL:   {:.5g}.\n".format(evaluation_test["KL"])
+        metrics_string = "\n" + convertStatisticsToString(x_statistics)
+        metrics_file.write(metrics_string)
     
     metrics_saving_duration = time() - metrics_saving_time_start
     print("Metrics saved ({}).".format(convertTimeToString(
@@ -197,15 +200,17 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     
     # Latent space
     
-    print("Plotting latent space.")
-    latent_space_time_start = time()
-    
-    figure, name = plotLatentSpace(z_test)
-    saveFigure(figure, name, results_directory)
-    
-    latent_space_duration = time() - latent_space_time_start
-    print("Latent space plotted and saved ({}).".format(
-        convertTimeToString(latent_space_duration)))
+    if z_test is not None:
+        
+        print("Plotting latent space.")
+        latent_space_time_start = time()
+        
+        figure, name = plotLatentSpace(z_test)
+        saveFigure(figure, name, results_directory)
+        
+        latent_space_duration = time() - latent_space_time_start
+        print("Latent space plotted and saved ({}).".format(
+            convertTimeToString(latent_space_duration)))
 
 def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
@@ -262,15 +267,19 @@ def convertStatisticsToString(statistics_sets):
     
     return statistics_string
 
-def plotLearningCurves(curves, name = None):
+def plotLearningCurves(curves, model_type, name = None):
     
     figure_name = "learning_curves"
     
     if name:
         figure_name = figure_name + "_" + name
     
-    figure, (axis_1, axis_2) = pyplot.subplots(2, sharex = True,
-        figsize = (6.4, 9.6))
+    if model_type == "SNN":
+        figure = pyplot.figure()
+        axis_1 = figure.add_subplot(1, 1, 1)
+    elif model_type == "VAE":
+        figure, (axis_1, axis_2) = pyplot.subplots(2, sharex = True,
+            figsize = (6.4, 9.6))
     
     for i, (curve_set_name, curve_set) in enumerate(sorted(curves.items())):
         
@@ -287,8 +296,12 @@ def plotLearningCurves(curves, name = None):
                 axis = axis_1
             elif curve_name == "kl_divergence":
                 line_style = "dashed"
-                curve_name = "KL(p||q)$"
+                curve_name = "KL$(p||q)$"
                 axis = axis_2
+            if curve_name == "log_likelihood":
+                curve_name = "$L$"
+                line_style = "solid"
+                axis = axis_1
             epochs = numpy.arange(len(curve)) + 1
             label = curve_name + " ({} set)".format(curve_set_name)
             axis.plot(epochs, curve, color = colour, linestyle = line_style,
@@ -298,9 +311,12 @@ def plotLearningCurves(curves, name = None):
     labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
     
     axis_1.legend(handles, labels, loc = "best")
-    axis_2.legend(loc = "best")
     
-    axis_2.set_xlabel("Epoch")
+    if model_type == "SNN":
+        axis_1.set_xlabel("Epoch")
+    elif model_type == "VAE":
+        axis_2.legend(loc = "best")
+        axis_2.set_xlabel("Epoch")
     
     return figure, figure_name
 
@@ -315,7 +331,10 @@ def plotLearningCurvesForModels(models_summaries, name = None):
     axis = figure.add_subplot(1, 1, 1)
     
     for model_name, model_summary in models_summaries.items():
-        curve = model_summary["learning curves"]["validation"]["lower_bound"]
+        if model_summary["type"] == "SNN":
+            curve = model_summary["learning curves"]["validation"]["log_likelihood"]
+        elif model_summary["type"] == "VAE":
+            curve = model_summary["learning curves"]["validation"]["lower_bound"]
         epochs = numpy.arange(len(curve)) + 1
         label = model_summary["description"]
         axis.plot(epochs, curve, label = label)
@@ -337,20 +356,26 @@ def plotEvaluationsForModels(models_summaries, name = None):
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
-    lower_bounds = []
+    log_likelihoods = []
     model_descriptions = []
     
     for model_description, model_summary in models_summaries.items():
-        lower_bound = model_summary["test evaluation"]["ELBO"]
-        lower_bounds.append(lower_bound)
+        if model_summary["type"] == "SNN":
+            log_likelihood = model_summary["test evaluation"]["log-likelihood"]
+        elif model_summary["type"] == "VAE":
+            log_likelihood = model_summary["test evaluation"]["ELBO"]
+        log_likelihoods.append(log_likelihood)
         model_description = model_summary["description"]
         model_descriptions.append(model_description)
     
-    model_indices = numpy.arange(len(model_descriptions)) + 1
-    axis.bar(model_indices, lower_bounds)
+    model_indices = numpy.arange(len(models_summaries)) + 1
+    axis.bar(model_indices, log_likelihoods)
     
     axis.set_xticks(model_indices)
     axis.set_xticklabels(model_descriptions, rotation = 45, ha = "right")
+    
+    axis.set_xlabel("Models")
+    axis.set_ylabel("log-likelhood for validation set")
     
     return figure, figure_name
 
@@ -462,7 +487,11 @@ def parseSummaries(model):
     # Learning curves
     
     data_set_kinds = ["training", "validation"]
-    losses = ["lower_bound", "kl_divergence", "reconstruction_error"]
+    
+    if model.type == "SNN":
+        losses = ["log_likelihood"]
+    elif model.type == "VAE":
+        losses = ["lower_bound", "kl_divergence", "reconstruction_error"]
     
     learning_curve_sets = {}
     
@@ -485,16 +514,19 @@ def parseSummaries(model):
     
     # KL divergence for all latent neurons
     
-    N_epochs = len(multiplexer.Scalars("training",
-        "kl_divergence_neurons/0"))
-    
-    KL_neurons = numpy.empty([N_epochs, model.latent_size])
-    
-    for i in range(model.latent_size):
-        scalars = multiplexer.Scalars("training",
-            "kl_divergence_neurons/{}".format(i))
+    try:
+        N_epochs = len(multiplexer.Scalars("training",
+            "kl_divergence_neurons/0"))
         
-        for scalar in scalars:
-            KL_neurons[scalar.step - 1][i] = scalar.value
+        KL_neurons = numpy.empty([N_epochs, model.latent_size])
+        
+        for i in range(model.latent_size):
+            scalars = multiplexer.Scalars("training",
+                "kl_divergence_neurons/{}".format(i))
+            
+            for scalar in scalars:
+                KL_neurons[scalar.step - 1][i] = scalar.value
+    except:
+        KL_neurons = None
     
     return learning_curve_sets, KL_neurons

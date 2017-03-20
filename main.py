@@ -3,7 +3,7 @@
 import data
 import analysis
 
-from models import VariationalAutoEncoder
+from models import VariationalAutoEncoder, SimpleNeuralNetwork
 
 import os
 import argparse
@@ -29,9 +29,9 @@ def main(data_set_name, data_directory = "data",
     preprocessing_method_name = str(preprocessing_method)
     
     log_directory = os.path.join(log_directory, data_set_name,
-        preprocessing_method_name)
+        preprocessing_method_name, model_type)
     results_directory = os.path.join(results_directory, data_set_name,
-        preprocessing_method_name)
+        preprocessing_method_name, model_type)
     
     # Data
     
@@ -97,6 +97,7 @@ def main(data_set_name, data_directory = "data",
         # Modeling
         
         if model_type == "VAE":
+            
             latent_size = model_configuration["latent_size"]
             number_of_warm_up_epochs = \
                 model_configuration["number_of_warm_up_epochs"]
@@ -106,6 +107,16 @@ def main(data_set_name, data_directory = "data",
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum, number_of_warm_up_epochs,
+                log_directory = log_directory
+            )
+        
+        elif model_type == "SNN":
+            
+            model = SimpleNeuralNetwork(
+                feature_size, hidden_sizes,
+                reconstruction_distribution,
+                number_of_reconstruction_classes,
+                batch_normalisation, count_sum,
                 log_directory = log_directory
             )
         
@@ -134,6 +145,7 @@ def main(data_set_name, data_directory = "data",
                 latent_set, evaluation_test, model, results_directory)
             
             models_summaries[model.name] = {
+                "type": model.type,
                 "description": model.description,
                 "configuration": model_configuration,
                 "learning curves": learning_curves,

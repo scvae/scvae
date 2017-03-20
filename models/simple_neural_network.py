@@ -17,17 +17,16 @@ from auxiliary import convertTimeToString
 
 import data
 
-class VariationalAutoEncoder(object):
-    def __init__(self, feature_size, latent_size, hidden_sizes,
+class SimpleNeuralNetwork(object):
+    def __init__(self, feature_size, hidden_sizes,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
-        number_of_warm_up_epochs = 0, epsilon = 1e-6,
+        epsilon = 1e-6,
         log_directory = "log"):
         
         print("Model setup:")
         print("    feature size: {}".format(feature_size))
-        print("    latent size: {}".format(latent_size))
         print("    hidden sizes: {}".format(", ".join(map(str, hidden_sizes))))
         print("    reconstruction distribution: " + reconstruction_distribution)
         if number_of_reconstruction_classes > 0:
@@ -41,12 +40,11 @@ class VariationalAutoEncoder(object):
         
         # Class setup
         
-        super(VariationalAutoEncoder, self).__init__()
+        super(SimpleNeuralNetwork, self).__init__()
         
-        self.type = "VAE"
+        self.type = "SNN"
         
         self.feature_size = feature_size
-        self.latent_size = latent_size
         self.hidden_sizes = hidden_sizes
         
         self.reconstruction_distribution_name = reconstruction_distribution
@@ -60,8 +58,6 @@ class VariationalAutoEncoder(object):
         self.count_sum = self.count_sum_feature or "constrained" in \
             self.reconstruction_distribution_name or "multinomial" in \
             self.reconstruction_distribution_name
-
-        self.number_of_warm_up_epochs = number_of_warm_up_epochs
 
         self.epsilon = epsilon
         
@@ -82,11 +78,6 @@ class VariationalAutoEncoder(object):
                 self.n = tf.placeholder(tf.float32, [None, 1], 'N')
             
             self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
-            
-            self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
-            parameter_summary = tf.summary.scalar('warm_up_weight',
-                self.warm_up_weight)
-            self.parameter_summary_list.append(parameter_summary)
             
             self.is_training = tf.placeholder(tf.bool, [], 'is_training')
             
@@ -117,25 +108,20 @@ class VariationalAutoEncoder(object):
         if self.count_sum_feature:
             model_name += "_sum"
         
-        model_name += "_l_" + str(self.latent_size) \
-            + "_h_" + "_".join(map(str, self.hidden_sizes))
+        model_name += "_h_" + "_".join(map(str, self.hidden_sizes))
         
         if self.batch_normalisation:
             model_name += "_bn"
-        
-        if self.number_of_warm_up_epochs:
-            model_name += "_wu_" + str(self.number_of_warm_up_epochs)
         
         return model_name
     
     @property
     def description(self):
         
-        description = "VAE"
+        description = "SNN"
         
         configuration = [
             self.reconstruction_distribution_name.capitalize(),
-            "$l = {}$".format(self.latent_size),
             "$h = \\{{{}\\}}$".format(", ".join(map(str, self.hidden_sizes)))
         ]
         
@@ -148,64 +134,20 @@ class VariationalAutoEncoder(object):
         if self.batch_normalisation:
             configuration.append("BN")
         
-        if self.number_of_warm_up_epochs:
-            configuration.append("$W = {}$".format(
-                self.number_of_warm_up_epochs))
-        
         description += " (" + ", ".join(configuration) + ")"
         
         return description
     
     def inference(self):
         
-        encoder = self.x
-        
-        with tf.variable_scope("ENCODER"):
-            for i, hidden_size in enumerate(self.hidden_sizes):
-                encoder = dense_layer(
-                    inputs = encoder,
-                    num_outputs = hidden_size,
-                    activation_fn = relu,
-                    batch_normalisation = self.batch_normalisation, 
-                    is_training = self.is_training,
-                    scope = '{:d}'.format(i + 1)
-                )
-        
-        with tf.variable_scope("Z"):
-            z_mu = dense_layer(
-                inputs = encoder,
-                num_outputs = self.latent_size,
-                activation_fn = None,
-                batch_normalisation = False,
-                is_training = self.is_training,
-                scope = 'MU')
-            
-            z_sigma = dense_layer(
-                inputs = encoder,
-                num_outputs = self.latent_size,
-                activation_fn = lambda x: tf.exp(tf.clip_by_value(x, -3, 3)),
-                batch_normalisation = False,
-                is_training = self.is_training,
-                scope = 'SIGMA')
-            
-            self.q_z_given_x = Normal(mu = z_mu, sigma = z_sigma)
-            
-            # Mean of z
-            self.z_mean = self.q_z_given_x.mean()
-        
-            # Stochastic layer
-            self.z = self.q_z_given_x.sample()
-        
-        # Decoder - Generative model, p(x|z)
-        
         if self.count_sum_feature:
-            decoder = tf.concat([self.z, self.n], axis = 1, name = 'Z_N')
+            decoder = tf.concat([self.x, self.n], axis = 1, name = 'X_N')
         else:
-            decoder = self.z
+            decoder = self.x
         
-        with tf.variable_scope("DECODER"):
+        with tf.variable_scope("NEURAL_NETWORK"):
             for i, hidden_size in enumerate(reversed(self.hidden_sizes)):
-                decoder = dense_layer(
+                neural_network = dense_layer(
                     inputs = decoder,
                     num_outputs = hidden_size,
                     activation_fn = relu,
@@ -213,7 +155,7 @@ class VariationalAutoEncoder(object):
                     is_training = self.is_training,
                     scope = '{:d}'.format(len(self.hidden_sizes) - i)
                 )
-
+        
         # Reconstruction distribution parameterisation
         
         with tf.variable_scope("X_TILDE"):
@@ -230,7 +172,7 @@ class VariationalAutoEncoder(object):
                     [parameter]["support"]
                 
                 x_theta[parameter] = dense_layer(
-                    inputs = decoder,
+                    inputs = neural_network,
                     num_outputs = self.feature_size,
                     activation_fn = lambda x: tf.clip_by_value(
                         parameter_activation_function(x),
@@ -243,11 +185,11 @@ class VariationalAutoEncoder(object):
             
             if "constrained" in self.reconstruction_distribution_name or \
                 "multinomial" in self.reconstruction_distribution_name:
-                self.p_x_given_z = self.reconstruction_distribution["class"](x_theta, self.n)
+                self.p_x = self.reconstruction_distribution["class"](x_theta, self.n)
             elif "multinomial" in self.reconstruction_distribution_name:
-               self.p_x_given_z = self.reconstruction_distribution["class"](x_theta, self.n) 
+               self.p_x = self.reconstruction_distribution["class"](x_theta, self.n) 
             else:
-                self.p_x_given_z = self.reconstruction_distribution["class"](x_theta)
+                self.p_x = self.reconstruction_distribution["class"](x_theta)
         
             if self.k_max:
                 
@@ -262,12 +204,12 @@ class VariationalAutoEncoder(object):
                 x_logits = tf.reshape(x_logits,
                     [-1, self.feature_size, self.k_max])
                 
-                self.p_x_given_z = Categorized(
-                    dist = self.p_x_given_z,
+                self.p_x = Categorized(
+                    dist = self.p_x,
                     cat = Categorical(logits = x_logits)
                 )
             
-            self.x_tilde_mean = self.p_x_given_z.mean()
+            self.x_tilde_mean = self.p_x.mean()
         
         # Add histogram summaries for the trainable parameters
         for parameter in tf.trainable_variables():
@@ -277,41 +219,11 @@ class VariationalAutoEncoder(object):
     
     def loss(self):
         
-        # Recognition prior
-        p_z_mu = tf.constant(0.0, dtype = tf.float32)
-        p_z_sigma = tf.constant(1.0, dtype = tf.float32)
-        p_z = Normal(p_z_mu, p_z_sigma)
-        
-        # Loss
-        
-        ## Reconstruction error
-        log_p_x_given_z = tf.reduce_mean(
-            tf.reduce_sum(self.p_x_given_z.log_prob(self.t), axis = 1),
-            name = 'reconstruction_error'
+        self.log_likelihood = tf.reduce_mean(
+            tf.reduce_sum(self.p_x.log_prob(self.t), axis = 1),
+            name = 'log_likelihood'
         )
-        tf.add_to_collection('losses', log_p_x_given_z)
-        self.ENRE = log_p_x_given_z
-        
-        ## Regularisation
-        KL_qp = tf.reduce_mean(
-            tf.reduce_sum(kl(self.q_z_given_x, p_z), axis = 1),
-            name = "kl_divergence"
-        )
-        tf.add_to_collection('losses', KL_qp)
-        self.KL = KL_qp
-        
-        KL_qp_all = tf.reduce_mean(kl(self.q_z_given_x, p_z), axis = 0)
-        self.KL_all = KL_qp_all
-        
-        # Averaging over samples.
-        self.lower_bound = tf.subtract(log_p_x_given_z, 
-            tf.where(self.is_training, self.warm_up_weight * KL_qp, KL_qp), name = 'lower_bound')
-        tf.add_to_collection('losses', self.lower_bound)
-        self.ELBO = self.lower_bound
-        
-        # Add scalar summaries for the losses
-        # for l in tf.get_collection('losses'):
-        #     tf.summary.scalar(l.op.name, l)
+        tf.add_to_collection('losses', self.log_likelihood)
     
     def training(self):
         
@@ -329,7 +241,7 @@ class VariationalAutoEncoder(object):
             # (and also increment the global step counter) as a single training
             # step.
             self.train_op = optimiser.minimize(
-                -self.lower_bound,
+                -self.log_likelihood,
                 global_step = self.global_step
             )
         
@@ -411,12 +323,6 @@ class VariationalAutoEncoder(object):
                 
                 epoch_time_start = time()
 
-                if self.number_of_warm_up_epochs:
-                    warm_up_weight = float(min(
-                        epoch / (self.number_of_warm_up_epochs), 1.0))
-                else:
-                    warm_up_weight = 1.0
-                
                 shuffled_indices = numpy.random.permutation(M_train)
                 
                 for i in range(0, M_train, batch_size):
@@ -436,7 +342,6 @@ class VariationalAutoEncoder(object):
                         self.t: t_train[batch_indices],
                         self.is_training: True,
                         self.learning_rate: learning_rate, 
-                        self.warm_up_weight: warm_up_weight
                     }
                     
                     if self.count_sum:
@@ -444,7 +349,7 @@ class VariationalAutoEncoder(object):
                     
                     # Run the stochastic batch training operation
                     _, batch_loss = session.run(
-                        [self.train_op, self.lower_bound],
+                        [self.train_op, self.log_likelihood],
                         feed_dict = feed_dict_batch
                     )
 
@@ -465,10 +370,6 @@ class VariationalAutoEncoder(object):
                 print("Epoch {} ({}):".format(epoch + 1,
                     convertTimeToString(epoch_duration)))
 
-                # With warmup or not
-                if warm_up_weight < 1:
-                    print('    Warm-up weight: {:.2g}'.format(warm_up_weight))
-
                 # Saving model parameters
                 print('    Saving model.')
                 saving_time_start = time()
@@ -479,10 +380,7 @@ class VariationalAutoEncoder(object):
                     convertTimeToString(saving_duration)))
                 
                 # Export parameter summaries
-                parameter_summary_string = session.run(
-                    self.parameter_summary,
-                    feed_dict = {self.warm_up_weight: warm_up_weight}
-                )
+                parameter_summary_string = session.run(self.parameter_summary)
                 parameter_summary_writer.add_summary(
                     parameter_summary_string, global_step = epoch + 1)
                 parameter_summary_writer.flush()
@@ -494,11 +392,7 @@ class VariationalAutoEncoder(object):
                 
                 evaluating_time_start = time()
                 
-                ELBO_train = 0
-                KL_train = 0
-                ENRE_train = 0
-                
-                z_KL = numpy.zeros(self.latent_size)
+                log_likelihood_train = 0
                 
                 for i in range(0, M_train, batch_size):
                     subset = slice(i, (i + batch_size))
@@ -508,41 +402,24 @@ class VariationalAutoEncoder(object):
                         self.x: x_batch,
                         self.t: t_batch,
                         self.is_training: False,
-                        self.warm_up_weight: warm_up_weight
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
                     
-                    ELBO_i, KL_i, ENRE_i, z_KL_i = session.run(
-                        [self.ELBO, self.KL, self.ENRE, self.KL_all],
+                    log_likelihood_i = session.run(
+                        self.log_likelihood,
                         feed_dict = feed_dict_batch
                     )
                     
-                    ELBO_train += ELBO_i
-                    KL_train += KL_i
-                    ENRE_train += ENRE_i
-                    
-                    z_KL += z_KL_i
+                    log_likelihood_train += log_likelihood_i
                 
-                ELBO_train /= M_train / batch_size
-                KL_train /= M_train / batch_size
-                ENRE_train /= M_train / batch_size
-                
-                z_KL /= M_train / batch_size
+                log_likelihood_train /= M_train / batch_size
                 
                 evaluating_duration = time() - evaluating_time_start
                 
                 summary = tf.Summary()
-                summary.value.add(tag="losses/lower_bound",
-                    simple_value = ELBO_train)
-                summary.value.add(tag="losses/reconstruction_error",
-                    simple_value = ENRE_train)
-                summary.value.add(tag="losses/kl_divergence",
-                    simple_value = KL_train)
-                
-                for i in range(self.latent_size):
-                    summary.value.add(tag="kl_divergence_neurons/{}".format(i),
-                        simple_value = z_KL[i])
+                summary.value.add(tag = "losses/log_likelihood",
+                    simple_value = log_likelihood_train)
                 
                 training_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
@@ -550,59 +427,48 @@ class VariationalAutoEncoder(object):
                 
                 print("    Training set ({}): ".format(
                     convertTimeToString(evaluating_duration)) + \
-                    "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
-                    ELBO_train, ENRE_train, KL_train))
+                    "log-likelihood: {:.5g}.".format(log_likelihood_train))
                 
                 ## Validation
                 
                 evaluating_time_start = time()
                 
-                ELBO_valid = 0
-                KL_valid = 0
-                ENRE_valid = 0
+                log_likelihood_valid = 0
                 
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
                     x_batch = x_valid[subset]
-                    t_batch = t_valid[subset]
+                    t_batch = x_valid[subset]
                     feed_dict_batch = {
                         self.x: x_batch,
                         self.t: t_batch,
                         self.is_training: False,
-                        self.warm_up_weight: warm_up_weight
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
                     
-                    ELBO_i, KL_i, ENRE_i = session.run(
-                        [self.ELBO, self.KL, self.ENRE],
+                    log_likelihood_i = session.run(
+                        self.log_likelihood,
                         feed_dict = feed_dict_batch
                     )
                     
-                    ELBO_valid += ELBO_i
-                    KL_valid += KL_i
-                    ENRE_valid += ENRE_i
+                    log_likelihood_valid += log_likelihood_i
                 
-                ELBO_valid /= M_valid / batch_size
-                KL_valid /= M_valid / batch_size
-                ENRE_valid /= M_valid / batch_size
+                log_likelihood_valid /= M_valid / batch_size
+                
+                evaluating_duration = time() - evaluating_time_start
                 
                 summary = tf.Summary()
-                summary.value.add(tag="losses/lower_bound",
-                    simple_value = ELBO_valid)
-                summary.value.add(tag="losses/reconstruction_error",
-                    simple_value = ENRE_valid)
-                summary.value.add(tag="losses/kl_divergence",
-                    simple_value = KL_valid)
+                summary.value.add(tag="losses/log_likelihood",
+                    simple_value = log_likelihood_valid)
+                
                 validation_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
                 validation_summary_writer.flush()
                 
-                evaluating_duration = time() - evaluating_time_start
                 print("    Validation set ({}): ".format(
                     convertTimeToString(evaluating_duration)) + \
-                    "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
-                    ELBO_valid, ENRE_valid, KL_valid))
+                    "log-likelihood: {:.5g}.".format(log_likelihood_valid))
                 
                 print()
             
@@ -641,12 +507,9 @@ class VariationalAutoEncoder(object):
             
             evaluating_time_start = time()
             
-            ELBO_test = 0
-            KL_test = 0
-            ENRE_test = 0
+            log_likelihood_test = 0
             
             x_tilde_test = numpy.empty([M_test, F_test])
-            z_mean_test = numpy.empty([M_test, self.latent_size])
             
             for i in range(0, M_test, batch_size):
                 subset = slice(i, (i + batch_size))
@@ -656,38 +519,28 @@ class VariationalAutoEncoder(object):
                     self.x: x_batch,
                     self.t: t_batch,
                     self.is_training: False,
-                    self.warm_up_weight: 1.0
                 }
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
                 
-                ELBO_i, KL_i, ENRE_i, x_tilde_i, z_mean_i = session.run(
-                    [self.ELBO, self.KL, self.ENRE,
-                        self.x_tilde_mean, self.z_mean],
+                log_likelihood_i, x_tilde_i = session.run(
+                    [self.log_likelihood, self.x_tilde_mean],
                     feed_dict = feed_dict_batch
                 )
                 
-                ELBO_test += ELBO_i
-                KL_test += KL_i
-                ENRE_test += ENRE_i
+                log_likelihood_test += log_likelihood_i
                 
                 x_tilde_test[subset] = x_tilde_i
-                z_mean_test[subset] = z_mean_i
             
-            ELBO_test /= M_test / batch_size
-            KL_test /= M_test / batch_size
-            ENRE_test /= M_test / batch_size
+            log_likelihood_test /= M_test / batch_size
             
             evaluating_duration = time() - evaluating_time_start
             print("Test set ({}): ".format(
                 convertTimeToString(evaluating_duration)) + \
-                "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
-                ELBO_test, ENRE_test, KL_test))
+                "log-likelihood: {:.5g}".format(log_likelihood_test))
             
             evaluation_test = {
-                "ELBO": ELBO_test,
-                "ENRE": ENRE_test,
-                "KL": KL_test
+                "log-likelihood": log_likelihood_test,
             }
             
             reconstructed_test_set = data.BaseDataSet(
@@ -699,4 +552,4 @@ class VariationalAutoEncoder(object):
                 version = "reconstructed"
             )
             
-            return reconstructed_test_set, z_mean_test, evaluation_test
+            return reconstructed_test_set, None, evaluation_test
