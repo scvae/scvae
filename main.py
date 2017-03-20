@@ -31,7 +31,7 @@ def main(data_set_name, data_directory = "data",
     log_directory = os.path.join(log_directory, data_set_name,
         preprocessing_method_name, model_type)
     results_directory = os.path.join(results_directory, data_set_name,
-        preprocessing_method_name, model_type)
+        preprocessing_method_name)
     
     # Data
     
