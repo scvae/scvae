@@ -7,7 +7,7 @@ import gzip
 import pickle
 
 from pandas import read_csv
-from numpy import random, array, arange, zeros, sum, where, log, sort, clip #, nonzero, sort, argsort, where
+from numpy import random, array, arange, zeros, sum, where, log, sort, clip, concatenate #, nonzero, sort, argsort, where
 from scipy.sparse import csr_matrix
 from sklearn.preprocessing import normalize
 
@@ -19,6 +19,8 @@ sparse_extension = ".pkl.gz"
 
 data_set_URLs = {
     "mouse retina": "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE63nnn/GSE63472/suppl/GSE63472_P14Retina_merged_digital_expression.txt.gz",
+    "mnist":
+    "http://deeplearning.net/data/mnist/mnist.pkl.gz"
 }
 
 class BaseDataSet(object):
@@ -128,18 +130,43 @@ class DataSet(BaseDataSet):
     
     def loadOriginalData(self):
         
-        data_frame = read_csv(self.path, sep='\s+', index_col = 0,
-            compression = "gzip", engine = "python", nrows = 5)
+        if self.name == "mouse retina":
+            
+            data_frame = read_csv(self.path, sep='\s+', index_col = 0,
+                compression = "gzip", engine = "python", nrows = 5)
+            
+            data_dictionary = {
+                "counts": data_frame.values.T,
+                "cells": array(data_frame.columns.tolist()),
+                "genes": array(data_frame.index.tolist())
+            }
         
-        data_dictionary = {
-            "counts": data_frame.values.T,
-            "cells": array(data_frame.columns.tolist()),
-            "genes": array(data_frame.index.tolist())
-        }
+        elif self.name == "mnist":
+            
+            with gzip.open(self.path, 'rb') as data:
+                training_set, validation_set, test_set = pickle.load(data,
+                    encoding = "latin1")
+            
+            X_train, _ = training_set
+            X_valid, _ = validation_set
+            X_test, _ = test_set
+            
+            X_train = X_train.reshape(-1, 28**2)
+            X_valid = X_valid.reshape(-1, 28**2)
+            X_test = X_test.reshape(-1, 28**2)
+            
+            X = concatenate((X_train, X_valid, X_test))
+            
+            data_dictionary = {
+                "counts": X,
+                "cells": arange(X.shape[0]),
+                "genes": arange(X.shape[1])
+            }
         
         return data_dictionary
     
     def download(self):
+        
         if not os.path.exists(self.directory):
             os.makedirs(self.directory)
         urllib.request.urlretrieve(self.URL, self.path,
