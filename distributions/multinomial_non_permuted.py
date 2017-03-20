@@ -244,9 +244,6 @@ class NonPermutedMultinomial(distribution.Distribution):
     return math_ops.exp(self._log_prob(counts))
 
   def _mean(self):
-    print(self._n.shape)
-    print(self._p.shape)
-    print(self._mean_val.shape)
     return array_ops.identity(self._mean_val)
 
   def _variance(self):
