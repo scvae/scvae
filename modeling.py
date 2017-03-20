@@ -608,6 +608,20 @@ class VariationalAutoEncoder(object):
                     ELBO_valid, ENRE_valid, KL_valid))
                 
                 print()
+            
+            # Clean up
+            
+            checkpoint = tf.train.get_checkpoint_state(self.log_directory)
+            
+            if checkpoint:
+                for f in os.listdir(self.log_directory):
+                    file_path = os.path.join(self.log_directory, f)
+                    is_old_checkpoint_file = os.path.isfile(file_path) \
+                        and "model" in f \
+                        and not checkpoint.model_checkpoint_path in file_path
+                    if is_old_checkpoint_file:
+                        os.remove(file_path)
+                
     
     def evaluate(self, test_set, batch_size = 100):
         
