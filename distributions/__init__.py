@@ -1,10 +1,4 @@
-from distributions.zero_inflated_poisson import ZeroInflatedPoisson
-from distributions.negative_binomial import NegativeBinomial
-from distributions.zero_inflated_negative_binomial import ZeroInflatedNegativeBinomial
-from distributions.zero_inflated import ZeroInflated
-from distributions.categorized import Categorized
-from distributions.pareto import Pareto
-from distributions.multinomial_non_permuted import NonPermutedMultinomial
+import tensorflow as tf
 
 from tensorflow.contrib.distributions import (
     Bernoulli, Normal, Poisson, Categorical, Multinomial
@@ -12,6 +6,14 @@ from tensorflow.contrib.distributions import (
 
 from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
+
+from distributions.zero_inflated_poisson import ZeroInflatedPoisson
+from distributions.negative_binomial import NegativeBinomial
+from distributions.zero_inflated_negative_binomial import ZeroInflatedNegativeBinomial
+from distributions.zero_inflated import ZeroInflated
+from distributions.categorized import Categorized
+from distributions.pareto import Pareto
+from distributions.multinomial_non_permuted import NonPermutedMultinomial
 
 distributions = {
     "bernoulli": {
