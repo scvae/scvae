@@ -1,8 +1,9 @@
 #!/usr/bin/env python3 -u
 
 import data
-import modeling
 import analysis
+
+from models import VariationalAutoEncoder
 
 import os
 import argparse
@@ -100,7 +101,7 @@ def main(data_set_name, data_directory = "data",
             number_of_warm_up_epochs = \
                 model_configuration["number_of_warm_up_epochs"]
             
-            model = modeling.VariationalAutoEncoder(
+            model = VariationalAutoEncoder(
                 feature_size, latent_size, hidden_sizes,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
