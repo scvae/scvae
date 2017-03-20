@@ -22,9 +22,15 @@ def main(data_set_name, data_directory = "data",
     reset_training = False, analyse = True, analyse_data = False):
     
     # Setup
+    
+    data_directory = os.path.join(data_directory, data_set_name)
+    
     preprocessing_method_name = str(preprocessing_method)
-    log_directory = os.path.join(log_directory, data_set_name, preprocessing_method_name)
-    results_directory = os.path.join(results_directory, data_set_name, preprocessing_method_name)
+    
+    log_directory = os.path.join(log_directory, data_set_name,
+        preprocessing_method_name)
+    results_directory = os.path.join(results_directory, data_set_name,
+        preprocessing_method_name)
     
     # Data
     
