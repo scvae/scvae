@@ -61,7 +61,7 @@ class SimpleNeuralNetwork(object):
 
         self.epsilon = epsilon
         
-        self.log_directory = os.path.join(log_directory, self.name)
+        self.log_directory = os.path.join(log_directory, self.type, self.name)
         
         # Graph setup
         
