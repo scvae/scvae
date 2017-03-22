@@ -6,8 +6,7 @@ from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
 
 from tensorflow.contrib.distributions import Normal, kl, Categorical
-from distributions import distributions
-from distributions import Categorized
+from distributions import distributions, Categorized
 
 
 import numpy
