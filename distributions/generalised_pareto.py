@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""The Generalizedpareto distribution class."""
+"""The generalised pareto distribution class."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -35,10 +35,10 @@ from tensorflow.python.ops import clip_ops
 
 
 
-class GeneralizedPareto(distribution.Distribution):
-  """Generalized pareto distribution.
+class GeneralisedPareto(distribution.Distribution):
+  """Generalised pareto distribution.
 
-  The generalized pareto distribution is parameterized by `sigma`, the scale parameter, and by 'xi', the shape parameter.
+  The generalised pareto distribution is parameterized by `sigma`, the scale parameter, and by 'xi', the shape parameter.
 
   The pmf of this distribution is:
 
@@ -51,10 +51,11 @@ class GeneralizedPareto(distribution.Distribution):
 
   def __init__(self, 
                xi,
+               sigma,
                validate_args=False,
                allow_nan_stats=True,
-               name="Generalized Pareto"):
-    """Construct generalized pareto distributions.
+               name="GeneralisedPareto"):
+    """Construct generalised pareto distributions.
 
     Args:
       xi: Floating point tensor, the shape parameter of the distribution(s). `xi` must be real and in (-\ifnty, \infty)
@@ -77,7 +78,8 @@ class GeneralizedPareto(distribution.Distribution):
       with ops.control_dependencies([check_ops.assert_positive(xi), check_ops.assert_positive(sigma)] if
                                     validate_args else []):
         self._xi = array_ops.identity(xi, name="xi")
-        self._sigma = array_ops.identity(sigma, name="sigma")    super(GeneralizedPareto, self).__init__(
+        self._sigma = array_ops.identity(sigma, name="sigma")    
+        super(GeneralisedPareto, self).__init__(
         dtype=self._xi.dtype,
         is_continuous=True,
         is_reparameterized=False,
@@ -95,7 +97,7 @@ class GeneralizedPareto(distribution.Distribution):
   @property
   def sigma(self):
     """Scale parameter."""
-    return self._sigma
+    return self._sigma 
 
   def _batch_shape(self):
     return array_ops.broadcast_dynamic_shape(array_ops.shape(self.xi) + array_ops.shape(self.sigma))
@@ -112,22 +114,20 @@ class GeneralizedPareto(distribution.Distribution):
 
   def _log_prob(self, x):
     x = self._assert_valid_sample(x, check_integer=False)
-    #log_prob_zero = 10e-12 * ones_like(x)
-    return -math_ops.log(self._sigma) - (1/self._xi + 1) * math_ops.log(1 + self._xi * (x/self._sigma) )
+    return -math_ops.log(self._sigma) - where(self._xi == 0, 
+      x / self._sigma, (1/self._xi + 1) * math_ops.log(1 + self._xi * (x/self._sigma)))
 
-    # x = clip_ops.clip_by_value(x, 1e-8, x)
-    # return where(x >= 1.0, math_ops.log(self.xi) - (self.xi + 1)*math_ops.log(x), 0*x)
-
-  # TODO:
   def _prob(self, x):
-    # pmf(x) = (xi * sigma^xi)/(x^{xi+1})    , for x >= sigma
+    # pmf(x) = (1 + xi * (x-mu)/sigma))^{-(1/xi + 1)} / sigma    , for x >= sigma
     # pmf(x) = 0                                      , for x < sigma
     # where sigma = 1
     return math_ops.exp(self._log_prob(x))
 
+  # TODO:
   def _log_cdf(self, x):
     return math_ops.log(self.cdf(x))
 
+  # TODO:
   def _cdf(self, x):
     x = self._assert_valid_sample(x, check_integer=False)
     return 1 - math_ops.pow((1/x),self.xi)

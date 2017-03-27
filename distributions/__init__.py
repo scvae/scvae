@@ -1,4 +1,5 @@
 import tensorflow as tf
+from numpy import inf
 
 from tensorflow.contrib.distributions import (
     Bernoulli, Normal, Poisson, Categorical, Multinomial
@@ -13,6 +14,7 @@ from distributions.zero_inflated_negative_binomial import ZeroInflatedNegativeBi
 from distributions.zero_inflated import ZeroInflated
 from distributions.categorized import Categorized
 from distributions.pareto import Pareto
+from distributions.generalised_pareto import GeneralisedPareto
 from distributions.multinomial_non_permuted import NonPermutedMultinomial
 
 distributions = {
@@ -62,6 +64,23 @@ distributions = {
         "class": lambda theta: Pareto(
             alpha = tf.exp(theta["log_alpha"])
         )
+    },
+
+    "generalised pareto": {
+        "parameters": {
+            "xi": {
+                "support": [-inf, inf],
+                "activation function": identity
+            },
+            "log_sigma": {
+                "support": [-10, 10],
+                "activation function": identity
+            }
+        },
+        "class": lambda theta: GeneralisedPareto(
+            xi = theta["xi"],
+            sigma = tf.exp(theta["log_sigma"])
+            )
     },
 
     "multinomial": {
