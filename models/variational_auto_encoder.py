@@ -189,7 +189,7 @@ class VariationalAutoEncoder(object):
                 is_training = self.is_training,
                 scope = 'SIGMA')
             
-            self.q_z_given_x = Normal(mu = z_mu, sigma = z_sigma)
+            self.q_z_given_x = Normal(mu = z_mu, sigma = z_sigma, validate_args = True)
             
             # Mean of z
             self.z_mean = self.q_z_given_x.mean()
@@ -293,16 +293,13 @@ class VariationalAutoEncoder(object):
         tf.add_to_collection('losses', log_p_x_given_z)
         self.ENRE = log_p_x_given_z
         
-        ## Regularisation
-        KL_qp = tf.reduce_mean(
-            tf.reduce_sum(kl(self.q_z_given_x, p_z), axis = 1),
-            name = "kl_divergence"
-        )
-        tf.add_to_collection('losses', KL_qp)
-        self.KL = KL_qp
-        
         KL_qp_all = tf.reduce_mean(kl(self.q_z_given_x, p_z), axis = 0)
         self.KL_all = KL_qp_all
+
+        ## Regularisation
+        KL_qp = tf.reduce_sum(KL_qp_all, name = "kl_divergence")
+        tf.add_to_collection('losses', KL_qp)
+        self.KL = KL_qp
         
         # Averaging over samples.
         self.lower_bound = tf.subtract(log_p_x_given_z, 
@@ -329,11 +326,14 @@ class VariationalAutoEncoder(object):
             # Use the optimiser to apply the gradients that minimize the loss
             # (and also increment the global step counter) as a single training
             # step.
-            self.train_op = optimiser.minimize(
-                -self.lower_bound,
-                global_step = self.global_step
-            )
+            # self.train_op = optimiser.minimize(
+            #     -self.lower_bound,
+            #     global_step = self.global_step
+            # )
         
+            gradients = optimiser.compute_gradients(-self.lower_bound)
+            clipped_gradients = [(tf.clip_by_value(gradient, -1., 1.), variable) for gradient, variable in gradients]
+            self.train_op = optimiser.apply_gradients(clipped_gradients, global_step = self.global_step)
         # Make sure that the updates of the moving_averages in batch_norm
         # layers are performed before the train_step.
         
@@ -442,11 +442,29 @@ class VariationalAutoEncoder(object):
                     
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[batch_indices]
+
+                    print(session.run([
+                        tf.reduce_sum(self.p_x_given_z.dist.xi), 
+                        tf.reduce_sum(self.p_x_given_z.dist.sigma), 
+                        tf.reduce_sum(self.q_z_given_x.mu), 
+                        tf.reduce_sum(self.q_z_given_x.sigma)
+                        ], 
+                        feed_dict=feed_dict_batch)
+                    )
                     
                     # Run the stochastic batch training operation
                     _, batch_loss = session.run(
                         [self.train_op, self.lower_bound],
                         feed_dict = feed_dict_batch
+                    )
+
+                    print(session.run([
+                        tf.reduce_sum(self.p_x_given_z.dist.xi), 
+                        tf.reduce_sum(self.p_x_given_z.dist.sigma), 
+                        tf.reduce_sum(self.q_z_given_x.mu), 
+                        tf.reduce_sum(self.q_z_given_x.sigma)
+                        ], 
+                        feed_dict=feed_dict_batch)
                     )
 
                     # Compute step duration
