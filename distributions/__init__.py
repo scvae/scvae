@@ -69,18 +69,18 @@ distributions = {
     "generalised pareto": {
         "parameters": {
             "xi": {
-                "support": [-inf, inf],
+                "support": [-1e4, 1e4],
                 "activation function": identity
             },
             "log_sigma": {
-                "support": [-10, 10],
+                "support": [-3, 3],
                 "activation function": identity
             }
         },
         "class": lambda theta: GeneralisedPareto(
             xi = theta["xi"],
             sigma = tf.exp(theta["log_sigma"])
-            )
+            , validate_args=True)
     },
 
     "multinomial": {
