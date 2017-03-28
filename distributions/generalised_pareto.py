@@ -58,7 +58,7 @@ class GeneralisedPareto(distribution.Distribution):
     """Construct generalised pareto distributions.
 
     Args:
-      xi: Floating point tensor, the shape parameter of the distribution(s). `xi` must be real and in (-\ifnty, \infty)
+      xi: Floating point tensor, the shape parameter of the distribution(s). `xi` must be real and in (-\infty, \infty)
       
       sigma: Floating point tensor, the scale parameter of the distribution(s). `sigma` must be a real positive value. 
       
@@ -75,7 +75,7 @@ class GeneralisedPareto(distribution.Distribution):
     parameters = locals()
     parameters.pop("self")
     with ops.name_scope(name, values=[xi, sigma]) as ns:
-      with ops.control_dependencies([check_ops.assert_positive(xi), check_ops.assert_positive(sigma)] if
+      with ops.control_dependencies([check_ops.assert_positive(sigma)] if
                                     validate_args else []):
         self._xi = array_ops.identity(xi, name="xi")
         self._sigma = array_ops.identity(sigma, name="sigma")    
@@ -113,9 +113,9 @@ class GeneralisedPareto(distribution.Distribution):
     return tensor_shape.scalar()
 
   def _log_prob(self, x):
-    x = self._assert_valid_sample(x, check_integer=False)
-    return -math_ops.log(self._sigma) - where(self._xi == 0, 
-      x / self._sigma, (1/self._xi + 1) * math_ops.log(1 + self._xi * (x/self._sigma)))
+    # x = self._assert_valid_sample(x, check_integer=False)
+    return - math_ops.log(self._sigma) - where(self._xi == 0, 
+      x / self._sigma, (1/self._xi + 1) * math_ops.log(1 + self._xi * (x / self._sigma)))
 
   def _prob(self, x):
     # pmf(x) = (1 + xi * (x-mu)/sigma))^{-(1/xi + 1)} / sigma    , for x >= sigma
