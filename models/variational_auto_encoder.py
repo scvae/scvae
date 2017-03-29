@@ -443,14 +443,14 @@ class VariationalAutoEncoder(object):
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[batch_indices]
 
-                    print(session.run([
-                        tf.reduce_sum(self.p_x_given_z.dist.xi), 
-                        tf.reduce_sum(self.p_x_given_z.dist.sigma), 
-                        tf.reduce_sum(self.q_z_given_x.mu), 
-                        tf.reduce_sum(self.q_z_given_x.sigma)
-                        ], 
-                        feed_dict=feed_dict_batch)
-                    )
+                    # print(session.run([
+                    #     tf.reduce_sum(self.p_x_given_z.dist.xi), 
+                    #     tf.reduce_sum(self.p_x_given_z.dist.sigma), 
+                    #     tf.reduce_sum(self.q_z_given_x.mu), 
+                    #     tf.reduce_sum(self.q_z_given_x.sigma)
+                    #     ], 
+                    #     feed_dict=feed_dict_batch)
+                    # )
                     
                     # Run the stochastic batch training operation
                     _, batch_loss = session.run(
@@ -458,14 +458,14 @@ class VariationalAutoEncoder(object):
                         feed_dict = feed_dict_batch
                     )
 
-                    print(session.run([
-                        tf.reduce_sum(self.p_x_given_z.dist.xi), 
-                        tf.reduce_sum(self.p_x_given_z.dist.sigma), 
-                        tf.reduce_sum(self.q_z_given_x.mu), 
-                        tf.reduce_sum(self.q_z_given_x.sigma)
-                        ], 
-                        feed_dict=feed_dict_batch)
-                    )
+                    # print(session.run([
+                    #     tf.reduce_sum(self.p_x_given_z.dist.xi), 
+                    #     tf.reduce_sum(self.p_x_given_z.dist.sigma), 
+                    #     tf.reduce_sum(self.q_z_given_x.mu), 
+                    #     tf.reduce_sum(self.q_z_given_x.sigma)
+                    #     ], 
+                    #     feed_dict=feed_dict_batch)
+                    # )
 
                     # Compute step duration
                     step_duration = time() - step_time_start
