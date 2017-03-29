@@ -4,15 +4,22 @@ import os
 import sys
 import urllib.request
 import gzip
+from tarfile import TarFile
 import pickle
 
 from pandas import read_csv
 from numpy import random, array, arange, zeros, sum, where, log, sort, clip, concatenate #, nonzero, sort, argsort, where
 from scipy.sparse import csr_matrix
 from sklearn.preprocessing import normalize
+import re
 
 from time import time
 from auxiliary import convertTimeToString
+
+# External dependencies (pip install needed)
+from bs4 import BeautifulSoup
+from stemming.porter2 import stem
+
 
 preprocess_suffix = "preprocessed"
 sparse_extension = ".pkl.gz"
@@ -20,7 +27,8 @@ sparse_extension = ".pkl.gz"
 data_set_URLs = {
     "mouse retina": "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE63nnn/GSE63472/suppl/GSE63472_P14Retina_merged_digital_expression.txt.gz",
     "mnist":
-    "http://deeplearning.net/data/mnist/mnist.pkl.gz"
+    "http://deeplearning.net/data/mnist/mnist.pkl.gz",
+    "reuters": "https://archive.ics.uci.edu/ml/machine-learning-databases/reuters21578-mld/reuters21578.tar.gz"
 }
 
 class BaseDataSet(object):
@@ -162,6 +170,16 @@ class DataSet(BaseDataSet):
                 "cells": arange(X.shape[0]),
                 "genes": arange(X.shape[1])
             }
+        elif self.name == "reuters":
+            body_list, topics_list = load_reuter_word_counts(self.path)
+            bag_of_words, unique_words, unique_words_index = createBagOfWords(body_list)
+
+            data_dictionary = {
+                "counts": bag_of_words,
+                "cells": arange(bag_of_words.shape[0]),
+                "genes": array(unique_words)
+            }
+            # add to dictionary: "labels": topics_list 
         
         return data_dictionary
     
@@ -392,6 +410,83 @@ def download_report_hook(block_num, block_size, total_size):
             sys.stderr.write("\n")
     else:
         sys.stderr.write("Downloaded {:d} bytes.".format(bytes_read))
+
+
+
+
+### Helper functions for reuter text data
+
+# Helper function for finding stemmed words in string and return them as a list.
+def findWords(text):
+    lower_case_text = text.lower()
+    #lower_case_text = re.sub(r'(reuter)$', ' DIGIT ', lower_case_text)
+    only_words_text = re.compile(r"[\w'\-]+").findall(re.sub(r'\d+[\d.,\-\(\)+]*', ' DIGIT ', lower_case_text))
+    stemmed_words = [stem(word) for word in only_words_text]
+    return stemmed_words
+
+# Function for bag of words from body text in articles.
+def createBagOfWords(documents):
+    # Create original bag of words with one bucket pr. distinct word. 
+    # List and set for saving the found words
+    texts_words = list()
+    unique_words = set()
+    num_of_documents = len(documents)
+    # Run through documents bodies and update the list and set with words from findWords()
+    for document in documents:
+        #print(document)
+        #words = findWords(document)
+    
+        unique_words.update(document)
+        # texts_words.append(words)
+    
+    # Create list of the unique set of unique words found
+    unique_words = list(unique_words)
+    num_of_unique_words = len(unique_words)
+    # Create dictionary mapping words to their index in the list
+    unique_words_index = dict()
+    for i, unique_word in enumerate(unique_words):
+        unique_words_index[unique_word] = i
+    
+    # Initialize bag of words matrix with numpy's zeros()
+    bag_of_words = zeros([num_of_documents, num_of_unique_words]).astype('int32')
+    
+    # Fill out bag of words with cumulative count of word occurences
+    for i, words in enumerate(documents):
+        for word in words:
+            bag_of_words[i, unique_words_index[word]] += 1
+    
+    # Return bag of words matrix, list of unique words and dictionary mapping words to indices.
+    return bag_of_words, unique_words, unique_words_index
+
+def load_reuter_word_counts(path):
+    N_files = 22
+    topics_list = []
+    body_list = []
+    N_all_articles = 0
+    N_chosen_articles = 0
+    with TarFile.open(path, 'r:gz') as tarball:
+        for i in range(N_files):
+            if i != 17:
+                articles_file_name = "reut2-{:03d}.sgm".format(i)
+                #print("Loading " + articles_file_name)
+                with tarball.extractfile(articles_file_name) as article_list:
+                    soup = BeautifulSoup(article_list, 'html.parser') 
+                for article in soup.find_all("reuters"):
+                    N_all_articles += 1
+                    topics = article.topics
+                    body = article.body
+                    if topics is not None and body is not None:
+                        topics_generator = topics.find_all("d")
+                        topics_text = [topic.get_text() for topic in topics_generator]
+                        body_text = body.get_text()
+                        if len(topics_text) > 0 and len(body_text) > 0:
+                            N_chosen_articles += 1
+                            topics_list.append(topics_text)
+                            body_list.append(findWords(body_text))
+
+    return body_list, topics_list
+
+
 
 ### Prepocessing functions
 
