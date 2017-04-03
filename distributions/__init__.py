@@ -2,7 +2,7 @@ import tensorflow as tf
 from numpy import inf
 
 from tensorflow.contrib.distributions import (
-    Bernoulli, Normal, Poisson, Categorical, Multinomial
+    Bernoulli, Normal, Poisson, Categorical, Multinomial, Mixture
 )
 
 from tensorflow.python.ops.nn import relu, softmax
@@ -35,7 +35,27 @@ distributions = {
         )
     },
 
-    
+    "gaussian mixture": {
+        "parameters": {
+            "p": {
+                "support": [0, 1],
+                "activation function": softmax
+            },
+            "mus": {
+                "support": [-inf, inf],
+                "activation function": identity
+            },
+            "log_sigmas": {
+                "support": [-3, 3],
+                "activation function": identity
+            }
+        },
+        "class": lambda theta: Mixture(
+            cat = Categorical(p = theta["p"]), 
+            components = [Normal(mu = m, sigma = tf.exp(s)) for m, s in 
+                zip(theta["mus"], theta["log_sigmas"])]
+        )
+    },    
 
     "bernoulli": {
         "parameters": {
