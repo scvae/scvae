@@ -15,7 +15,7 @@ def main(data_set_name, data_directory = "data",
     splitting_method = "random", splitting_fraction = 0.8,
     preprocessing_method = None,
     model_configurations_path = None, model_type = "VAE",
-    latent_size = 50, hidden_sizes = [500],
+    latent_size = 50, hidden_sizes = [500], latent_distribution = "normal",
     reconstruction_distribution = "poisson",
     number_of_reconstruction_classes = 0, number_of_warm_up_epochs = 50,
     batch_normalisation = True, count_sum = True,
@@ -103,7 +103,8 @@ def main(data_set_name, data_directory = "data",
                 model_configuration["number_of_warm_up_epochs"]
             
             model = VariationalAutoEncoder(
-                feature_size, latent_size, hidden_sizes,
+                feature_size, latent_size, hidden_sizes, 
+                latent_distribution,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum, number_of_warm_up_epochs,
@@ -378,6 +379,12 @@ parser.add_argument(
     nargs = "+",
     default = [500],
     help = "sizes of hidden layers"
+)
+parser.add_argument(
+    "--latent-distribution", "-q",
+    type = str,
+    default = "normal",
+    help = "distribution for the latent variables"
 )
 parser.add_argument(
     "--reconstruction-distribution", "-r",
