@@ -5,7 +5,7 @@ from models.auxiliary import dense_layer
 from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
 
-from tensorflow.contrib.distributions import Normal, kl, Categorical
+from tensorflow.contrib.distributions import Normal, Bernoulli, kl, Categorical
 from distributions import distributions, Categorized
 
 
@@ -19,7 +19,7 @@ from auxiliary import convertTimeToString
 import data
 
 class VariationalAutoEncoder(object):
-    def __init__(self, feature_size, latent_size, hidden_sizes,
+    def __init__(self, feature_size, latent_size, hidden_sizes, latent_distribution = "normal",
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
@@ -30,6 +30,8 @@ class VariationalAutoEncoder(object):
         print("    feature size: {}".format(feature_size))
         print("    latent size: {}".format(latent_size))
         print("    hidden sizes: {}".format(", ".join(map(str, hidden_sizes))))
+        print("    latent distribution: " + 
+            latent_distribution)
         print("    reconstruction distribution: " + reconstruction_distribution)
         if number_of_reconstruction_classes > 0:
             print("    reconstruction classes: {}".format(number_of_reconstruction_classes),
@@ -50,6 +52,9 @@ class VariationalAutoEncoder(object):
         self.latent_size = latent_size
         self.hidden_sizes = hidden_sizes
         
+        self.latent_distribution_name = latent_distribution
+        self.latent_distribution = distributions[latent_distribution]
+
         self.reconstruction_distribution_name = reconstruction_distribution
         self.reconstruction_distribution = distributions[reconstruction_distribution]
         
@@ -173,29 +178,40 @@ class VariationalAutoEncoder(object):
                 )
         
         with tf.variable_scope("Z"):
-            z_mu = dense_layer(
-                inputs = encoder,
-                num_outputs = self.latent_size,
-                activation_fn = None,
-                batch_normalisation = False,
-                is_training = self.is_training,
-                scope = 'MU')
-            
-            z_sigma = dense_layer(
-                inputs = encoder,
-                num_outputs = self.latent_size,
-                activation_fn = lambda x: tf.exp(tf.clip_by_value(x, -3, 3)),
-                batch_normalisation = False,
-                is_training = self.is_training,
-                scope = 'SIGMA')
-            
-            self.q_z_given_x = Normal(mu = z_mu, sigma = z_sigma, validate_args = True)
-            
-            # Mean of z
+            z_phi = {}
+        
+            # Retrieving layers for all latent distribution parameters
+            for parameter in self.latent_distribution["parameters"]:
+                
+                parameter_activation_function = \
+                    self.latent_distribution["parameters"]\
+                    [parameter]["activation function"]
+                p_min, p_max = \
+                    self.latent_distribution["parameters"]\
+                    [parameter]["support"]
+                
+                z_phi[parameter] = dense_layer(
+                    inputs = encoder,
+                    num_outputs = self.latent_size,
+                    activation_fn = lambda x: tf.clip_by_value(
+                        parameter_activation_function(x),
+                        p_min + self.epsilon,
+                        p_max - self.epsilon
+                    ),
+                    is_training = self.is_training,
+                    scope = parameter.upper()
+                )
+
+            # Parameterise latent distribution 
+            self.q_z_given_x = self.latent_distribution["class"](z_phi)
+
+            # Mean of latent distribution
             self.z_mean = self.q_z_given_x.mean()
         
-            # Stochastic layer
-            self.z = self.q_z_given_x.sample()
+            # Stochastic layer sampling with reparameterisation trick
+            self.z = tf.cast(self.q_z_given_x.sample(), tf.float32)
+        
+
         
         # Decoder - Generative model, p(x|z)
         
@@ -279,9 +295,13 @@ class VariationalAutoEncoder(object):
     def loss(self):
         
         # Recognition prior
-        p_z_mu = tf.constant(0.0, dtype = tf.float32)
-        p_z_sigma = tf.constant(1.0, dtype = tf.float32)
-        p_z = Normal(p_z_mu, p_z_sigma)
+        if self.latent_distribution_name == "normal":
+            p_z_mu = tf.constant(0.0, dtype = tf.float32)
+            p_z_sigma = tf.constant(1.0, dtype = tf.float32)
+            p_z = Normal(p_z_mu, p_z_sigma)
+        elif self.latent_distribution_name == "bernoulli":
+            p_z_p = tf.constant(0.0, dtype = tf.float32)
+            p_z = Bernoulli(p = p_z_p)
         
         # Loss
         
