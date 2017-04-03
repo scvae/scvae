@@ -18,6 +18,25 @@ from distributions.generalised_pareto import GeneralisedPareto
 from distributions.multinomial_non_permuted import NonPermutedMultinomial
 
 distributions = {
+    "normal": {
+        "parameters": {
+            "mu": {
+                "support": [-inf, inf],
+                "activation function": identity
+            },
+            "log_sigma": {
+                "support": [-3, 3],
+                "activation function": identity
+            }
+        },
+        "class": lambda theta: Normal(
+            mu = theta["mu"], 
+            sigma = tf.exp(theta["log_sigma"])
+        )
+    },
+
+    
+
     "bernoulli": {
         "parameters": {
             "p": {
