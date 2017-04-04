@@ -19,7 +19,8 @@ from auxiliary import convertTimeToString
 import data
 
 class VariationalAutoEncoder(object):
-    def __init__(self, feature_size, latent_size, hidden_sizes, latent_distribution = "normal",
+    def __init__(self, feature_size, latent_size, hidden_sizes, latent_distribution = "normal",  
+        number_of_latent_clusters = 2,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
@@ -54,6 +55,7 @@ class VariationalAutoEncoder(object):
         
         self.latent_distribution_name = latent_distribution
         self.latent_distribution = distributions[latent_distribution]
+        self.number_of_latent_clusters = number_of_latent_clusters
 
         self.reconstruction_distribution_name = reconstruction_distribution
         self.reconstruction_distribution = distributions[reconstruction_distribution]
@@ -190,17 +192,50 @@ class VariationalAutoEncoder(object):
                     self.latent_distribution["parameters"]\
                     [parameter]["support"]
                 
-                z_phi[parameter] = dense_layer(
-                    inputs = encoder,
-                    num_outputs = self.latent_size,
-                    activation_fn = lambda x: tf.clip_by_value(
-                        parameter_activation_function(x),
-                        p_min + self.epsilon,
-                        p_max - self.epsilon
-                    ),
-                    is_training = self.is_training,
-                    scope = parameter.upper()
-                )
+                if self.latent_distribution_name == "gaussian mixture":
+                    print("Setting up Gaussian mixture posterior")
+                    print("Setting up " + parameter)
+                    if parameter == "mus" or parameter == "log_sigmas":
+                        z_phi[parameter] = []
+                        for k in range(self.number_of_latent_clusters):
+                            z_phi[parameter].append(
+                                dense_layer(
+                                    inputs = encoder,
+                                    num_outputs = self.latent_size,
+                                    activation_fn = lambda x: tf.clip_by_value(
+                                        parameter_activation_function(x),
+                                        p_min + self.epsilon,
+                                        p_max - self.epsilon
+                                    ),
+                                    is_training = self.is_training,
+                                    scope = parameter.upper()[:-1] + str(k)
+                                )
+                            )
+                        print("Number of " + parameter + " in gaussian mixture:", len(z_phi[parameter]))
+                    else:
+                        z_phi[parameter] = dense_layer(
+                            inputs = encoder,
+                            num_outputs = self.number_of_latent_clusters,
+                            activation_fn = lambda x: tf.clip_by_value(
+                                parameter_activation_function(x),
+                                p_min + self.epsilon,
+                                p_max - self.epsilon
+                            ),
+                            is_training = self.is_training,
+                            scope = parameter.upper()
+                        )
+                else:
+                    z_phi[parameter] = dense_layer(
+                        inputs = encoder,
+                        num_outputs = self.latent_size,
+                        activation_fn = lambda x: tf.clip_by_value(
+                            parameter_activation_function(x),
+                            p_min + self.epsilon,
+                            p_max - self.epsilon
+                        ),
+                        is_training = self.is_training,
+                        scope = parameter.upper()
+                    )
 
             # Parameterise latent distribution 
             self.q_z_given_x = self.latent_distribution["class"](z_phi)
@@ -313,7 +348,11 @@ class VariationalAutoEncoder(object):
         tf.add_to_collection('losses', log_p_x_given_z)
         self.ENRE = log_p_x_given_z
         
-        KL_qp_all = tf.reduce_mean(kl(self.q_z_given_x, p_z), axis = 0)
+        if self.latent_distribution_name == "gaussian mixture":
+            KL_qp_all = tf.reduce_mean(self.q_z_given_x.entropy_lower_bound(), axis = 0)
+        else:
+            KL_qp_all = tf.reduce_mean(kl(self.q_z_given_x, p_z), axis = 0)
+        
         self.KL_all = KL_qp_all
 
         ## Regularisation
