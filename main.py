@@ -3,7 +3,7 @@
 import data
 import analysis
 
-from models import VariationalAutoEncoder, SimpleNeuralNetwork
+from models import VariationalAutoEncoder, ImportanceWeightedVariationalAutoEncoder, SimpleNeuralNetwork
 
 import os
 import argparse
@@ -16,6 +16,8 @@ def main(data_set_name, data_directory = "data",
     preprocessing_method = None,
     model_configurations_path = None, model_type = "VAE",
     latent_size = 50, hidden_sizes = [500], latent_distribution = "normal",
+    number_of_iw_samples = 5, number_of_mc_samples = 10,
+    number_of_latent_clusters = 1,
     reconstruction_distribution = "poisson",
     number_of_reconstruction_classes = 0, number_of_warm_up_epochs = 50,
     batch_normalisation = True, count_sum = True,
@@ -105,6 +107,7 @@ def main(data_set_name, data_directory = "data",
             model = VariationalAutoEncoder(
                 feature_size, latent_size, hidden_sizes, 
                 latent_distribution,
+                number_of_latent_clusters,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum, number_of_warm_up_epochs,
@@ -120,6 +123,18 @@ def main(data_set_name, data_directory = "data",
                 batch_normalisation, count_sum,
                 log_directory = log_directory
             )
+        elif model_type == "IWAE":
+            # Dictionary holding number of samples needed for the "monte carlo" estimator and "importance weighting" during both "train" and "test" time.  
+            number_of_samples = {"training": {"importance weighting": 10, "monte carlo": 5}, "evaluation": {"importance weighting": 10, "monte carlo": 1}} 
+            model = ImportanceWeightedVariationalAutoEncoder(
+                feature_size, latent_size, hidden_sizes, number_of_samples,
+                latent_distribution, 
+                number_of_latent_clusters,
+                reconstruction_distribution,
+                number_of_reconstruction_classes,
+                batch_normalisation, count_sum, number_of_warm_up_epochs,
+                log_directory = log_directory
+            )    
         
         print()
         
