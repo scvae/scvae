@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from models.auxiliary import dense_layer
+from models.auxiliary import dense_layer, log_reduce_exp
 
 from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
@@ -352,28 +352,34 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             p_z_p = tf.constant(0.0, dtype = tf.float32)
             p_z = Bernoulli(p = p_z_p)
         
-        # Loss
-        ## Reconstruction error
+        # Prepare replicated and reshaped arrays
+        ## Replicate out batches in tiles pr. sample into: 
+        ### shape = (N_iw * N_mc * batchsize, N_x)
         t_tiled = tf.tile(self.t, [self.number_of_iw_samples*self.number_of_mc_samples, 1])
-        log_p_x_given_z = tf.reshape(tf.reduce_sum(self.p_x_given_z.log_prob(t_tiled), axis=-1), [self.number_of_iw_samples, self.number_of_mc_samples, -1])
+        ## Reshape samples back to: 
+        ### shape = (N_iw, N_mc, batchsize, N_z)
         z_reshaped = tf.reshape(self.z, [self.number_of_iw_samples, self.number_of_mc_samples, -1, self.latent_size])
 
-        # Recognition error
-        log_q_z_given_x = self.q_z_given_x.log_prob(z_reshaped)
-        log_p_z = p_z.log_prob(z_reshaped)
-
-        KL = log_q_z_given_x - log_p_z
-
-        LL = tf.reduce_mean(log_p_x_given_z - tf.reduce_sum(KL, axis=-1), axis = 0)
-        self.lower_bound = tf.reduce_mean(LL)
-
-        # ## Reconstruction error
-        # log_p_x_given_z = tf.reduce_mean(
-        #     tf.reduce_sum(self.p_x_given_z.log_prob(self.t), axis = 1),
-        #     name = 'reconstruction_error'
-        # )
+        # Loss
+        ## Reconstruction error
+        ### 1. Evaluate all log(p(x|z)) (N_iw * N_mc * batchsize, N_x) target values in the (N_iw * N_mc * batchsize, N_x) probability distributions learned
+        ### 2. Sum over all N_x features
+        ### 3. and reshape it back to (N_iw, N_mc, batchsize) 
+        log_p_x_given_z = tf.reshape(tf.reduce_sum(self.p_x_given_z.log_prob(t_tiled), axis=-1), [self.number_of_iw_samples, self.number_of_mc_samples, -1])
+        # Average over all samples and examples and add to losses in summary
         self.ENRE = tf.reduce_mean(log_p_x_given_z)
         tf.add_to_collection('losses', self.ENRE)
+
+        # Recognition error
+        ### Evaluate all log(q(z|x)) and log(p(z)) on (N_iw, N_mc, batchsize, N_x) latent sample values.
+        ### shape =  (N_iw, N_mc, batchsize, N_z)
+        log_q_z_given_x = self.q_z_given_x.log_prob(z_reshaped)
+        ### shape =  (N_iw, N_mc, batchsize, N_z)
+        log_p_z = p_z.log_prob(z_reshaped)
+
+        # The log of fraction, f(z)=q(z|x)/p(z) in the Kullback-Leibler Divergence: 
+        # KL[q(z|x)||p(z)] = E_q[f(z)] = \int q(z|x) log(f(z)) = \int q(z|x) log(q(z|x)/p(z)) = \int q(z|x) ( log(q(z|x)) - log(p(z)) ) dz
+        KL = log_q_z_given_x - log_p_z
         
         if self.latent_distribution_name == "gaussian mixture":
             KL_qp_all = tf.reduce_mean(self.q_z_given_x.entropy_lower_bound(), axis = 0)
@@ -386,7 +392,14 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         KL_qp = tf.reduce_sum(KL_qp_all, name = "kl_divergence")
         tf.add_to_collection('losses', KL_qp)
         self.KL = KL_qp
-        
+
+        # log-mean-exp (to avoid over- and underflow) over iw_samples dimension
+        ## -> shape: (N_mc, batch_size)
+        LL = log_reduce_exp(log_p_x_given_z - self.warm_up_weight * tf.reduce_sum(KL, axis=-1), reduction_function = tf.reduce_mean, axis = 0)
+
+        # average over eq_samples, batch_size dimensions    -> shape: ()
+        self.lower_bound = tf.reduce_mean(LL) # scalar
+
         # # Averaging over samples.
         # self.lower_bound = tf.subtract(log_p_x_given_z, 
         #     tf.where(self.is_training, self.warm_up_weight * KL_qp, KL_qp), name = 'lower_bound')
@@ -531,14 +544,6 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[batch_indices]
 
-                    # print(session.run([
-                    #     tf.reduce_sum(self.p_x_given_z.dist.xi), 
-                    #     tf.reduce_sum(self.p_x_given_z.dist.sigma), 
-                    #     tf.reduce_sum(self.q_z_given_x.mu), 
-                    #     tf.reduce_sum(self.q_z_given_x.sigma)
-                    #     ], 
-                    #     feed_dict=feed_dict_batch)
-                    # )
                     
                     # Run the stochastic batch training operation
                     _, batch_loss = session.run(
@@ -546,14 +551,6 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         feed_dict = feed_dict_batch
                     )
 
-                    # print(session.run([
-                    #     tf.reduce_sum(self.p_x_given_z.dist.xi), 
-                    #     tf.reduce_sum(self.p_x_given_z.dist.sigma), 
-                    #     tf.reduce_sum(self.q_z_given_x.mu), 
-                    #     tf.reduce_sum(self.q_z_given_x.sigma)
-                    #     ], 
-                    #     feed_dict=feed_dict_batch)
-                    # )
 
                     # Compute step duration
                     step_duration = time() - step_time_start
@@ -615,7 +612,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.x: x_batch,
                         self.t: t_batch,
                         self.is_training: False,
-                        self.warm_up_weight: warm_up_weight,
+                        self.warm_up_weight: 1.0,
                         self.number_of_iw_samples: self.number_of_samples["evaluation"]["importance weighting"],
                         self.number_of_mc_samples: self.number_of_samples["evaluation"]["monte carlo"]
                     }
@@ -678,7 +675,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.x: x_batch,
                         self.t: t_batch,
                         self.is_training: False,
-                        self.warm_up_weight: warm_up_weight,
+                        self.warm_up_weight: 1.0,
                         self.number_of_iw_samples: self.number_of_samples["evaluation"]["importance weighting"],
                         self.number_of_mc_samples: self.number_of_samples["evaluation"]["monte carlo"]
                     }
