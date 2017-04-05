@@ -41,3 +41,31 @@ def log_reduce_exp(A, reduction_function=tf.reduce_mean, axis=None):
     A_max = tf.reduce_max(A, axis=axis, keep_dims=True)
     B = tf.log(reduction_function(tf.exp(A - A_max), axis = axis, keep_dims=True))+A_max
     return tf.squeeze(B)
+
+def reduce_logmeanexp(input_tensor, axis=None, keep_dims=False):
+    """Computes log(mean(exp(elements across dimensions of a tensor))).
+
+    Parameters
+    ----------
+    input_tensor : tf.Tensor
+    The tensor to reduce. Should have numeric type.
+    axis : int or list of int, optional
+    The dimensions to reduce. If `None` (the default), reduces all
+    dimensions.
+    keep_dims : bool, optional
+    If true, retains reduced dimensions with length 1.
+
+    Returns
+    -------
+    tf.Tensor
+    The reduced tensor.
+    """
+    logsumexp = tf.reduce_logsumexp(input_tensor, axis, keep_dims)
+    input_tensor = tf.convert_to_tensor(input_tensor)
+    n = input_tensor.get_shape().as_list()
+    if axis is None:
+        n = tf.cast(tf.reduce_prod(n), logsumexp.dtype)
+    else:
+        n = tf.cast(tf.reduce_prod(n[axis]), logsumexp.dtype)
+
+    return -tf.log(n) + logsumexp
