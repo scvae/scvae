@@ -125,7 +125,7 @@ def main(data_set_name, data_directory = "data",
             )
         elif model_type == "IWAE":
             # Dictionary holding number of samples needed for the "monte carlo" estimator and "importance weighting" during both "train" and "test" time.  
-            number_of_samples = {"training": {"importance weighting": 10, "monte carlo": 5}, "evaluation": {"importance weighting": 10, "monte carlo": 1}} 
+            number_of_samples = {"training": {"importance weighting": 5, "monte carlo": 10}, "evaluation": {"importance weighting": 50, "monte carlo": 1}} 
             model = ImportanceWeightedVariationalAutoEncoder(
                 feature_size, latent_size, hidden_sizes, number_of_samples,
                 latent_distribution, 
