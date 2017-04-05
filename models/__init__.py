@@ -1,3 +1,3 @@
 from models.variational_auto_encoder import VariationalAutoEncoder
-from models.importance_weighted_variational_auto_encoder import ImportanceWeightedVariationalAutoEncoder
+from models.iw_vae import ImportanceWeightedVariationalAutoEncoder
 from models.simple_neural_network import SimpleNeuralNetwork
