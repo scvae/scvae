@@ -35,3 +35,9 @@ def dense_layer(inputs, num_outputs, is_training, scope, activation_fn = None,
             outputs = activation_fn(outputs)
     
     return outputs
+
+def log_reduce_exp(A, reduction_function=tf.reduce_mean, axis=None):
+    # log-mean-exp over axis to avoid overflow and underflow
+    A_max = tf.reduce_max(A, axis=axis, keep_dims=True)
+    B = tf.log(reduction_function(tf.exp(A - A_max), axis = axis, keep_dims=True))+A_max
+    return tf.squeeze(B)
