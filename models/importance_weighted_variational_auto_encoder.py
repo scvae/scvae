@@ -784,7 +784,14 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 KL_test += KL_i
                 ENRE_test += ENRE_i
                 
-                x_tilde_test[subset] = x_tilde_i
+                x_tilde_test[subset] = numpy.mean(numpy.reshape(x_tilde_i, 
+                    [
+                        self.number_of_samples["evaluation"]["importance weighting"]
+                        * self.number_of_samples["evaluation"]["monte carlo"] 
+                        , batch_size
+                        , F_test
+                    ]
+                ), axis = 0)
                 z_mean_test[subset] = z_mean_i
             
             ELBO_test /= M_test / batch_size
