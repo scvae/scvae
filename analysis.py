@@ -278,7 +278,7 @@ def plotLearningCurves(curves, model_type, name = None):
     if model_type == "SNN":
         figure = pyplot.figure()
         axis_1 = figure.add_subplot(1, 1, 1)
-    elif model_type == "VAE":
+    elif "AE" in model_type:
         figure, (axis_1, axis_2) = pyplot.subplots(2, sharex = True,
             figsize = (6.4, 9.6))
     
@@ -315,7 +315,7 @@ def plotLearningCurves(curves, model_type, name = None):
     
     if model_type == "SNN":
         axis_1.set_xlabel("Epoch")
-    elif model_type == "VAE":
+    elif "AE" in model_type:
         axis_2.legend(loc = "best")
         axis_2.set_xlabel("Epoch")
     
@@ -334,7 +334,7 @@ def plotLearningCurvesForModels(models_summaries, name = None):
     for model_name, model_summary in models_summaries.items():
         if model_summary["type"] == "SNN":
             curve = model_summary["learning curves"]["validation"]["log_likelihood"]
-        elif model_summary["type"] == "VAE":
+        elif "AE" in model_summary["type"]:
             curve = model_summary["learning curves"]["validation"]["lower_bound"]
         epochs = numpy.arange(len(curve)) + 1
         label = model_summary["description"]
@@ -363,7 +363,7 @@ def plotEvaluationsForModels(models_summaries, name = None):
     for model_description, model_summary in models_summaries.items():
         if model_summary["type"] == "SNN":
             log_likelihood = model_summary["test evaluation"]["log-likelihood"]
-        elif model_summary["type"] == "VAE":
+        elif "AE" in model_summary["type"]:
             log_likelihood = model_summary["test evaluation"]["ELBO"]
         log_likelihoods.append(log_likelihood)
         model_description = model_summary["description"]
@@ -492,7 +492,7 @@ def parseSummaries(model):
     
     if model.type == "SNN":
         losses = ["log_likelihood"]
-    elif model.type == "VAE":
+    elif "AE" in model.type:
         losses = ["lower_bound", "kl_divergence", "reconstruction_error"]
     
     learning_curve_sets = {}
