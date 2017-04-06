@@ -113,6 +113,24 @@ def main(data_set_name, data_directory = "data",
                 batch_normalisation, count_sum, number_of_warm_up_epochs,
                 log_directory = log_directory
             )
+
+        elif model_type == "IW-VAE":
+            latent_size = model_configuration["latent_size"]
+            number_of_warm_up_epochs = \
+                model_configuration["number_of_warm_up_epochs"]
+
+            # Dictionary holding number of samples needed for the "monte carlo" estimator and "importance weighting" during both "train" and "test" time.  
+            number_of_samples = model_configuration["number_of_samples"] 
+ 
+            model = ImportanceWeightedVariationalAutoEncoder(
+                feature_size, latent_size, hidden_sizes, number_of_samples,
+                latent_distribution, 
+                number_of_latent_clusters,
+                reconstruction_distribution,
+                number_of_reconstruction_classes,
+                batch_normalisation, count_sum, number_of_warm_up_epochs,
+                log_directory = log_directory
+            )    
         
         elif model_type == "SNN":
             
@@ -123,18 +141,6 @@ def main(data_set_name, data_directory = "data",
                 batch_normalisation, count_sum,
                 log_directory = log_directory
             )
-        elif model_type == "IWAE":
-            # Dictionary holding number of samples needed for the "monte carlo" estimator and "importance weighting" during both "train" and "test" time.  
-            number_of_samples = {"training": {"importance weighting": 5, "monte carlo": 10}, "evaluation": {"importance weighting": 50, "monte carlo": 1}} 
-            model = ImportanceWeightedVariationalAutoEncoder(
-                feature_size, latent_size, hidden_sizes, number_of_samples,
-                latent_distribution, 
-                number_of_latent_clusters,
-                reconstruction_distribution,
-                number_of_reconstruction_classes,
-                batch_normalisation, count_sum, number_of_warm_up_epochs,
-                log_directory = log_directory
-            )    
         
         print()
         
@@ -220,11 +226,15 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                         "learning_rate": training["learning rate"]
                 }
                 
-                if model_type == "VAE":
+                if "VAE" in model_type:
                     for latent_size in type_configurations["latent sizes"]:
                         model_configuration["latent_size"] = latent_size
                     model_configuration["number_of_warm_up_epochs"] = \
                         type_configurations["number of warm-up epochs"]
+                    if "IW" in model_type:
+                        model_configuration["number_of_samples"] = \
+                            type_configurations["number of samples"]
+
                 
                 validity, errors = \
                     validateModelConfiguration(model_configuration)
