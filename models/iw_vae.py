@@ -263,6 +263,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         
         # Decoder - Generative model, p(x|z)
         
+        # Make sure we use a replication pr. sample of the feature sum, when adding this to the features.  
+        if self.count_sum:
+            replicated_n = tf.tile(self.n, [self.number_of_iw_samples*self.number_of_mc_samples, 1])
+
         if self.count_sum_feature:
             replicated_n = tf.tile(self.n, [self.number_of_iw_samples*self.number_of_mc_samples, 1])
             decoder = tf.concat([self.z, replicated_n], axis = 1, name = 'Z_N')
@@ -309,9 +313,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             if "constrained" in self.reconstruction_distribution_name or \
                 "multinomial" in self.reconstruction_distribution_name:
-                self.p_x_given_z = self.reconstruction_distribution["class"](x_theta, self.n)
+                self.p_x_given_z = self.reconstruction_distribution["class"](x_theta, replicated_n)
             elif "multinomial" in self.reconstruction_distribution_name:
-               self.p_x_given_z = self.reconstruction_distribution["class"](x_theta, self.n) 
+               self.p_x_given_z = self.reconstruction_distribution["class"](x_theta, replicated_n) 
             else:
                 self.p_x_given_z = self.reconstruction_distribution["class"](x_theta)
         
@@ -786,11 +790,12 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 KL_test += KL_i
                 ENRE_test += ENRE_i
                 
+                # E[p(x|z)]: Reshape and mean over all the iw and mc samples.
                 x_tilde_test[subset] = numpy.mean(numpy.reshape(x_tilde_i, 
                     [
                         self.number_of_samples["evaluation"]["importance weighting"]
                         * self.number_of_samples["evaluation"]["monte carlo"] 
-                        , batch_size
+                        , -1
                         , F_test
                     ]
                 ), axis = 0)
