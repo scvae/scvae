@@ -348,9 +348,14 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             p_z_mu = tf.constant(0.0, dtype = tf.float32)
             p_z_sigma = tf.constant(1.0, dtype = tf.float32)
             p_z = Normal(p_z_mu, p_z_sigma)
+        if self.latent_distribution_name == "mixture of gaussians":
+            p_z_mu = tf.constant(0.0, dtype = tf.float32)
+            p_z_sigma = tf.constant(1.0, dtype = tf.float32)
+            p_z = Normal(p_z_mu, p_z_sigma)
         elif self.latent_distribution_name == "bernoulli":
             p_z_p = tf.constant(0.0, dtype = tf.float32)
             p_z = Bernoulli(p = p_z_p)
+
         
         # Prepare replicated and reshaped arrays
         ## Replicate out batches in tiles pr. sample into: 
