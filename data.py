@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# TODO Fix all temporary changes
-
 import os
 import gzip
 import tarfile
@@ -277,7 +275,7 @@ class DataSet(object):
         
         print()
     
-    def split(self, method = "default", fraction = 0.9): # TODO Or 0.8 as previously?
+    def split(self, method = "default", fraction = 0.9):
         
         if method == "default":
             if self.split_indices:
@@ -660,8 +658,7 @@ def saveAsSparseData(data_dictionary, path):
 def loadMouseRetinaDataSet(paths):
     
     values_data = pandas.read_csv(paths["values"]["full"], sep='\s+',
-        index_col = 0, compression = "gzip", engine = "python",
-        nrows = 20 # TODO Remove
+        index_col = 0, compression = "gzip", engine = "python"
     )
     
     values = values_data.values.T
@@ -673,10 +670,7 @@ def loadMouseRetinaDataSet(paths):
     labels = numpy.zeros(example_names.shape)
     
     with open(paths["labels"]["full"], "r") as labels_data:
-        k = 0 # TODO Remove
         for line in labels_data.read().split("\n"):
-            
-            if k > 20: break # TODO Remove
             
             if line == "":
                 continue
@@ -684,8 +678,6 @@ def loadMouseRetinaDataSet(paths):
             example_name, label = line.split("\t")
             
             labels[example_names == example_name] = int(label)
-            
-            k += 1 # TODO Remove
     
     data_dictionary = {
         "values": values,
@@ -734,7 +726,6 @@ def loadMNISTDataSet(paths):
     example_names = numpy.array(["image {}".format(i + 1) for i in range(M)])
     feature_names = numpy.array(["pixel {}".format(j + 1) for j in range(N)])
     
-    # TODO Remove
     values = values[:100, 382:402]
     labels = labels[:100]
     example_names = example_names[:100]
@@ -759,11 +750,7 @@ def loadReutersDataSet(paths):
         
         article_filenames = [f for f in tarball.getnames() if ".sgm" in f]
         
-        k = 0 # TODO Remove
-        
         for article_filename in article_filenames:
-            
-            if k > 20: break # TODO Remove
             
             with tarball.extractfile(article_filename) as article_html:
                 soup = BeautifulSoup(article_html, 'html.parser')
@@ -783,8 +770,6 @@ def loadReutersDataSet(paths):
                     if len(topics_text) > 0 and len(body_text) > 0:
                         topics_list.append(topics_text)
                         body_list.append(body_text)
-            
-            k += 1 # TODO Remove
     
     M = len(body_list)
     
@@ -821,12 +806,8 @@ def load20NewsgroupsDataSet(paths):
     
     with tarfile.open(paths["all"]["full"], 'r:gz') as tarball:
         
-        k = 0 # TODO Remove
-        
         for member in tarball:
             if member.isfile():
-                
-                if k > 20: break # TODO Remove
                 
                 with tarball.extractfile(member) as document_file:
                     document = document_file.read().decode("latin1") 
@@ -838,8 +819,6 @@ def load20NewsgroupsDataSet(paths):
                 documents[kind].append(document)
                 document_ids[kind].append(document_id)
                 newsgroups[kind].append(newsgroup)
-                
-                k += 1 # TODO Remove
     
     M_train = len(documents["train"])
     M_test = len(documents["test"])
