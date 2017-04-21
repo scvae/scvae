@@ -129,7 +129,8 @@ class NegativeBinomial(distribution.Distribution):
 
   def _cdf(self, x):
     x = self._assert_valid_sample(x, check_integer=False)
-    return math_ops.igammac(math_ops.floor(x + 1), self.p)
+    return 1 - math_ops.betainc(x + 1, self.r, self.p)
+    # return math_ops.igammac(math_ops.floor(x + 1), self.p)
 
   def _mean(self):
     return (self.p * self.r) / (1 - self.p)
