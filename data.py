@@ -84,9 +84,40 @@ data_sets = {
             }
         },
         "load function": lambda x: load20NewsgroupsDataSet(x)
-    }
+    },
     
-    # TODO Add sample sets
+    "blobs": {
+        "split": False,
+        "processed": False,
+        "URLs": {
+            "all": {
+                "full": "http://people.compute.dtu.dk/s147246/datasets/blobs.pkl.gz"
+            }
+        },
+        "load function": lambda x: loadSampleDataSet(x)
+    },
+    
+    "circles": {
+        "split": False,
+        "processed": False,
+        "URLs": {
+            "all": {
+                "full": "http://people.compute.dtu.dk/s147246/datasets/circles.pkl.gz"
+            }
+        },
+        "load function": lambda x: loadSampleDataSet(x)
+    },
+    
+    "moons": {
+        "split": False,
+        "processed": False,
+        "URLs": {
+            "all": {
+                "full": "http://people.compute.dtu.dk/s147246/datasets/moons.pkl.gz"
+            }
+        },
+        "load function": lambda x: loadSampleDataSet(x)
+    }
 }
 
 class DataSet(object):
@@ -846,6 +877,28 @@ def load20NewsgroupsDataSet(paths):
         "example names": example_names,
         "feature names": feature_names,
         "split indices": split_indices
+    }
+    
+    return data_dictionary
+
+def loadSampleDataSet(paths):
+    
+    with gzip.open(paths["all"]["full"], "rb") as data_file:
+        data = pickle.load(data_file)
+    
+    values = data["values"]
+    labels = data["labels"]
+    
+    M, N = values.shape
+    
+    example_names = numpy.array(["example {}".format(i + 1) for i in range(M)])
+    feature_names = numpy.array(["feature {}".format(j + 1) for j in range(N)])
+    
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names
     }
     
     return data_dictionary
