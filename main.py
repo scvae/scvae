@@ -115,7 +115,7 @@ def main(data_set_name, data_directory = "data",
                 log_directory = log_directory
             )
 
-        elif model_type == "IW-VAE":
+        elif model_type == "IWVAE":
             latent_size = model_configuration["latent_size"]
             number_of_warm_up_epochs = \
                 model_configuration["number_of_warm_up_epochs"]
@@ -142,6 +142,9 @@ def main(data_set_name, data_directory = "data",
                 batch_normalisation, count_sum,
                 log_directory = log_directory
             )
+        
+        else:
+            return ValueError("Model type not found.")
         
         print()
         

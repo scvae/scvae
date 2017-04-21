@@ -24,7 +24,7 @@ pyplot.rcParams.update({'figure.max_open_warning': 0})
 def analyseData(data_sets, results_directory = "results"):
     
     convertStatisticsToString([
-        statistics(data_set.counts, data_set.kind, tolerance = 0.5)
+        statistics(data_set.values, data_set.kind, tolerance = 0.5)
         for data_set in data_sets
     ])
 
@@ -100,15 +100,15 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     metrics_time_start = time()
     
     x_statistics = [
-            statistics(data_set.counts, data_set.version, tolerance = 0.5)
+            statistics(data_set.values, data_set.version, tolerance = 0.5)
             for data_set in [x_test, x_tilde_test]
     ]
     
-    x_diff = x_test.counts - x_tilde_test.counts
+    x_diff = x_test.values - x_tilde_test.values
     x_statistics.append(statistics(numpy.abs(x_diff), "differences",
         skip_sparsity = True))
     
-    x_log_ratio = numpy.log((x_test.counts + 1) / (x_tilde_test.counts + 1))
+    x_log_ratio = numpy.log((x_test.values + 1) / (x_tilde_test.values + 1))
     x_statistics.append(statistics(numpy.abs(x_log_ratio), "log-ratios",
         skip_sparsity = True))
     
@@ -157,9 +157,9 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     for j, i in enumerate(subset):
         
         figure, name = plotProfileComparison(
-            x_test.counts[i], x_tilde_test.counts[i],
+            x_test.values[i], x_tilde_test.values[i],
             x_name = "Genes", y_name = "Counts", scale = "log",
-            title = str(x_test.cells[i]), name = str(j)
+            title = str(x_test.example_names[i]), name = str(j)
         )
         saveFigure(figure, name, results_directory)
     

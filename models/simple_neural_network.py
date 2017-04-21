@@ -14,7 +14,7 @@ import os, shutil
 from time import time
 from auxiliary import formatDuration
 
-import data
+from data import DataSet
 
 class SimpleNeuralNetwork(object):
     def __init__(self, feature_size, hidden_sizes,
@@ -275,17 +275,17 @@ class SimpleNeuralNetwork(object):
         # Setup
         
         if self.count_sum:
-            n_train = training_set.counts.sum(axis = 1).reshape(-1, 1)
-            n_valid = validation_set.counts.sum(axis = 1).reshape(-1, 1)
+            n_train = training_set.values.sum(axis = 1).reshape(-1, 1)
+            n_valid = validation_set.values.sum(axis = 1).reshape(-1, 1)
         
         M_train = training_set.number_of_examples
         M_valid = validation_set.number_of_examples
         
-        x_train = training_set.preprocessed_counts
-        x_valid = validation_set.preprocessed_counts
+        x_train = training_set.preprocessed_values
+        x_valid = validation_set.preprocessed_values
         
-        t_train = training_set.counts
-        t_valid = validation_set.counts
+        t_train = training_set.values
+        t_valid = validation_set.values
         
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
@@ -488,14 +488,14 @@ class SimpleNeuralNetwork(object):
     def evaluate(self, test_set, batch_size = 100):
         
         if self.count_sum:
-            n_test = test_set.counts.sum(axis = 1).reshape(-1, 1)
+            n_test = test_set.values.sum(axis = 1).reshape(-1, 1)
         
         M_test = test_set.number_of_examples
         F_test = test_set.number_of_features
         
-        x_test = test_set.preprocessed_counts
+        x_test = test_set.preprocessed_values
         
-        t_test = test_set.counts
+        t_test = test_set.values
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
@@ -542,11 +542,15 @@ class SimpleNeuralNetwork(object):
                 "log-likelihood": log_likelihood_test,
             }
             
-            reconstructed_test_set = data.BaseDataSet(
-                counts = x_tilde_test,
-                cells = test_set.cells,
-                genes = test_set.genes,
-                name = self.name,
+            reconstructed_test_set = DataSet(
+                name = test_set.name,
+                values = x_tilde_test,
+                preprocessed_values = None,
+                labels = test_set.labels,
+                example_names = test_set.example_names,
+                feature_names = test_set.feature_names,
+                feature_selection = test_set.feature_selection,
+                preprocessing_methods = None,
                 kind = "test",
                 version = "reconstructed"
             )
