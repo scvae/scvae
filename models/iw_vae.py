@@ -14,7 +14,7 @@ from numpy import inf
 
 import os, shutil
 from time import time
-from auxiliary import convertTimeToString
+from auxiliary import formatDuration
 
 import data
 
@@ -570,7 +570,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     if (step + 1 - steps_per_epoch * epoch) in output_at_step:
 
                         print('Step {:d} ({}): {:.5g}.'.format(
-                            int(step + 1), convertTimeToString(step_duration),
+                            int(step + 1), formatDuration(step_duration),
                             batch_loss))
                                     
                 print()
@@ -578,7 +578,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 epoch_duration = time() - epoch_time_start
                 
                 print("Epoch {} ({}):".format(epoch + 1,
-                    convertTimeToString(epoch_duration)))
+                    formatDuration(epoch_duration)))
 
                 # With warmup or not
                 if warm_up_weight < 1:
@@ -591,7 +591,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     global_step = epoch + 1)
                 saving_duration = time() - saving_time_start
                 print('    Model saved ({}).'.format(
-                    convertTimeToString(saving_duration)))
+                    formatDuration(saving_duration)))
                 
                 # Export parameter summaries
                 parameter_summary_string = session.run(
@@ -666,7 +666,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 training_summary_writer.flush()
                 
                 print("    Training set ({}): ".format(
-                    convertTimeToString(evaluating_duration)) + \
+                    formatDuration(evaluating_duration)) + \
                     "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                     ELBO_train, ENRE_train, KL_train))
                 
@@ -719,7 +719,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 
                 evaluating_duration = time() - evaluating_time_start
                 print("    Validation set ({}): ".format(
-                    convertTimeToString(evaluating_duration)) + \
+                    formatDuration(evaluating_duration)) + \
                     "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                     ELBO_valid, ENRE_valid, KL_valid))
                 
@@ -809,7 +809,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             evaluating_duration = time() - evaluating_time_start
             print("Test set ({}): ".format(
-                convertTimeToString(evaluating_duration)) + \
+                formatDuration(evaluating_duration)) + \
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                 ELBO_test, ENRE_test, KL_test))
             

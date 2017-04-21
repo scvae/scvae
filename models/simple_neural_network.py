@@ -12,7 +12,7 @@ from numpy import inf
 
 import os, shutil
 from time import time
-from auxiliary import convertTimeToString
+from auxiliary import formatDuration
 
 import data
 
@@ -359,7 +359,7 @@ class SimpleNeuralNetwork(object):
                     if (step + 1 - steps_per_epoch * epoch) in output_at_step:
 
                         print('Step {:d} ({}): {:.5g}.'.format(
-                            int(step + 1), convertTimeToString(step_duration),
+                            int(step + 1), formatDuration(step_duration),
                             batch_loss))
                                     
                 print()
@@ -367,7 +367,7 @@ class SimpleNeuralNetwork(object):
                 epoch_duration = time() - epoch_time_start
                 
                 print("Epoch {} ({}):".format(epoch + 1,
-                    convertTimeToString(epoch_duration)))
+                    formatDuration(epoch_duration)))
 
                 # Saving model parameters
                 print('    Saving model.')
@@ -376,7 +376,7 @@ class SimpleNeuralNetwork(object):
                     global_step = epoch + 1)
                 saving_duration = time() - saving_time_start
                 print('    Model saved ({}).'.format(
-                    convertTimeToString(saving_duration)))
+                    formatDuration(saving_duration)))
                 
                 # Export parameter summaries
                 parameter_summary_string = session.run(self.parameter_summary)
@@ -425,7 +425,7 @@ class SimpleNeuralNetwork(object):
                 training_summary_writer.flush()
                 
                 print("    Training set ({}): ".format(
-                    convertTimeToString(evaluating_duration)) + \
+                    formatDuration(evaluating_duration)) + \
                     "log-likelihood: {:.5g}.".format(log_likelihood_train))
                 
                 ## Validation
@@ -466,7 +466,7 @@ class SimpleNeuralNetwork(object):
                 validation_summary_writer.flush()
                 
                 print("    Validation set ({}): ".format(
-                    convertTimeToString(evaluating_duration)) + \
+                    formatDuration(evaluating_duration)) + \
                     "log-likelihood: {:.5g}.".format(log_likelihood_valid))
                 
                 print()
@@ -535,7 +535,7 @@ class SimpleNeuralNetwork(object):
             
             evaluating_duration = time() - evaluating_time_start
             print("Test set ({}): ".format(
-                convertTimeToString(evaluating_duration)) + \
+                formatDuration(evaluating_duration)) + \
                 "log-likelihood: {:.5g}".format(log_likelihood_test))
             
             evaluation_test = {
