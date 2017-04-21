@@ -15,7 +15,7 @@ from auxiliary import directory
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     splitting_method = "random", splitting_fraction = 0.8,
-    preprocessing_method = None,
+    feature_selection = None, preprocessing_methods = None,
     model_configurations_path = None, model_type = "VAE",
     latent_size = 50, hidden_sizes = [500], latent_distribution = "normal",
     number_of_iw_samples = 5, number_of_mc_samples = 10,
@@ -35,12 +35,15 @@ def main(data_set_name, data_directory = "data",
     
     # Data
     
-    data_set = data.DataSet(data_set_name, data_directory)
-    
-    print()
+    data_set = data.DataSet(
+        data_set_name,
+        directory = data_directory,
+        feature_selection = feature_selection,
+        preprocessing_methods = preprocessing_methods
+    )
     
     training_set, validation_set, test_set = data_set.split(
-        splitting_method, splitting_fraction, preprocessing_method)
+        splitting_method, splitting_fraction)
     
     print()
     
@@ -360,6 +363,19 @@ parser.add_argument(
     help = "directory where results are saved"
 )
 parser.add_argument(
+    "--feature-selection",
+    type = str,
+    default = None, 
+    help = "method for selecting features"
+)
+parser.add_argument(
+    "--preprocessing-methods", "-p",
+    type = str,
+    nargs = "+",
+    default = None, 
+    help = "methods for preprocessing data (applied in order)"
+)
+parser.add_argument(
     "--splitting-method", "-s",
     type = str,
     default = "random", 
@@ -370,12 +386,6 @@ parser.add_argument(
     type = float,
     default = 0.8,
     help = "fraction to use when splitting data into training, validation, and test sets"
-)
-parser.add_argument(
-    "--preprocessing-method", "-p",
-    type = str,
-    default = None, 
-    help = "method for preprocessing data"
 )
 parser.add_argument(
     "--model-configurations", "-m",
