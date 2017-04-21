@@ -10,6 +10,8 @@ import argparse
 import json
 import itertools
 
+from auxiliary import directory
+
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     splitting_method = "random", splitting_fraction = 0.8,
@@ -26,14 +28,10 @@ def main(data_set_name, data_directory = "data",
     
     # Setup
     
-    data_directory = os.path.join(data_directory, data_set_name)
-    
-    preprocessing_method_name = str(preprocessing_method)
-    
-    log_directory = os.path.join(log_directory, data_set_name,
-        preprocessing_method_name)
-    results_directory = os.path.join(results_directory, data_set_name,
-        preprocessing_method_name)
+    log_directory = directory(log_directory, data_set_name,
+        feature_selection, preprocessing_methods)
+    results_directory = directory(results_directory, data_set_name,
+        feature_selection, preprocessing_methods)
     
     # Data
     
