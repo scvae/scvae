@@ -1,297 +1,355 @@
 #!/usr/bin/env python3
 
-import os
-import sys
-import urllib.request
-import gzip
-from tarfile import TarFile
-import pickle
+# TODO Fix all temporary changes
 
-from pandas import read_csv
-from numpy import random, array, arange, zeros, sum, where, log, sort, clip, concatenate #, nonzero, sort, argsort, where
-from scipy.sparse import csr_matrix
-from sklearn.preprocessing import normalize
+import os
+import gzip
+import tarfile
+import pickle
+import struct
+
 import re
+from bs4 import BeautifulSoup
+
+import pandas
+import numpy
+import scipy.sparse
+import sklearn.preprocessing
+import stemming.porter2 as stemming
+
+from functools import reduce
 
 from time import time
-from auxiliary import convertTimeToString
-
-# External dependencies (pip install needed)
-from bs4 import BeautifulSoup
-from stemming.porter2 import stem
-
+from auxiliary import (
+    formatDuration,
+    normaliseString,
+    download
+)
 
 preprocess_suffix = "preprocessed"
-sparse_extension = ".pkl.gz"
+original_suffix = "original"
+preprocessed_extension = ".sparse.pkl.gz"
 
-data_set_URLs = {
-    "mouse retina": "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE63nnn/GSE63472/suppl/GSE63472_P14Retina_merged_digital_expression.txt.gz",
-    "mnist":
-    "http://deeplearning.net/data/mnist/mnist.pkl.gz",
-    "reuters": "https://archive.ics.uci.edu/ml/machine-learning-databases/reuters21578-mld/reuters21578.tar.gz"
+data_sets = {
+    "mouse retina": {
+        "split": False,
+        "processed": True,
+        "URLs": {
+            "values": {
+                "full": "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE63nnn/GSE63472/suppl/GSE63472_P14Retina_merged_digital_expression.txt.gz"
+            },
+            "labels": {
+                "full": "http://mccarrolllab.com/wp-content/uploads/2015/05/retina_clusteridentities.txt"
+            }
+        },
+        "load function": lambda x: loadMouseRetinaDataSet(x)
+    },
+    
+    "MNIST": {
+        "split": ["training", "test"],
+        "processed": True,
+        "URLs": {
+            "values": {
+                    "training":
+                        "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz",
+                    "test":
+                        "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz"
+            },
+            "labels": {
+                    "training":
+                        "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz",
+                    "test":
+                        "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz"
+            },
+        },
+        "load function": lambda x: loadMNISTDataSet(x)
+    },
+    
+    "Reuters": {
+        "split": False,
+        "processed": False,
+        "URLs": {
+            "all": {
+                "full": "http://www.daviddlewis.com/resources/testcollections/reuters21578/reuters21578.tar.gz"
+            }
+        },
+        "load function": lambda x: loadReutersDataSet(x)
+    },
+    
+    "20 Newsgroups": {
+        "split": ["training", "test"],
+        "processed": False,
+        "URLs": {
+            "all": {
+                "full":
+                    "http://qwone.com/~jason/20Newsgroups/20news-bydate.tar.gz"
+            }
+        },
+        "load function": lambda x: load20NewsgroupsDataSet(x)
+    }
+    
+    # TODO Add sample sets
 }
 
-class BaseDataSet(object):
-    def __init__(self, counts = None, cells = None, genes = None, preprocessed_counts = None,
-        name = "", kind = "", version = "original"):
+class DataSet(object):
+    def __init__(self, name, values = None, preprocessed_values = None,
+        labels = None, example_names = None, feature_names = None,
+        feature_selection = None, preprocessing_methods = [],
+        kind = "full", version = "original", directory = "data"):
         
-        super(BaseDataSet, self).__init__()
+        super(DataSet, self).__init__()
         
-        self.name = name
+        # Name of data set
+        self.name = normaliseString(name)
+        
+        # Title (proper name) of data set
+        self.title = dataSetTitle(self.name)
+        
+        # Values and their names as well as labels in data set
+        self.values = None
+        self.preprocessed_values = None
+        self.labels = None
+        self.example_names = None
+        self.feature_names = None
+        self.number_of_examples = None
+        self.number_of_features = None
+        self.update(values, preprocessed_values, labels, example_names,
+            feature_names)
+        
+        # Feature selction and preprocessing methods
+        self.feature_selection = feature_selection
+        self.original_feature_selection_indices = None
+        self.preprocessing_methods = preprocessing_methods
+        
+        # Kind of data set (full, training, validation, test)
         self.kind = kind
+        
+        # Split indices for training, validation, and test sets
+        self.split_indices = None
+        
+        # Version of data set (original, reconstructed)
         self.version = version
         
-        self.update(counts, cells, genes, preprocessed_counts)
-    
-    def update(self, counts = None, cells = None, genes = None, preprocessed_counts = None):
+        # Directories for data set
+        self.directory = os.path.join(directory, self.name)
+        self.preprocess_directory = os.path.join(self.directory,
+            preprocess_suffix)
+        self.original_directory = os.path.join(self.directory,
+            original_suffix)
         
-        if counts is not None and cells is not None and genes is not None:
+        self.preprocessedPath = preprocessedPathFunction(
+            self.preprocess_directory, self.name)
+        
+        if self.values is None and self.kind == "full":
+            self.load()
+        
+        if self.preprocessed_values is None and self.kind == "full":
+            self.preprocess()
+    
+    def update(self, values = None, preprocessed_values = None, labels = None,
+        example_names = None, feature_names = None):
+        
+        if values is not None:
             
-            M_counts, F_counts = counts.shape
-            M_cells = cells.shape[0]
-            F_genes = genes.shape[0]
+            self.values = values
             
-            assert M_counts == M_cells
-            assert F_counts == F_genes
+            M_values, N_values = values.shape
             
-            self.number_of_examples = M_cells
-            self.number_of_features = F_genes
+            if example_names is not None:
+                self.example_names = example_names
+                M_examples = example_names.shape[0]
+                assert M_values == M_examples
+            
+            if feature_names is not None:
+                self.feature_names = feature_names
+                N_features = feature_names.shape[0]
+                assert N_values == N_features
+            
+            self.number_of_examples = M_values
+            self.number_of_features = N_values
         
         else:
-            self.number_of_examples = None
-            self.number_of_features = None
+            
+            if example_names is not None and feature_names is not None:
+                
+                self.example_names = example_names
+                self.feature_names = feature_names
         
-        self.counts = counts
-        self.preprocessed_counts = preprocessed_counts
-        self.cells = cells
-        self.genes = genes
-
-class DataSet(BaseDataSet):
-    def __init__(self, name, directory, preprocessing_method = None):
-        super(DataSet, self).__init__(name = name, kind = "full")
+        if labels is not None:
+            self.labels = labels
         
-        self.directory = directory
-        
-        if self.name != "sample":
-            self.preprocess_directory = os.path.join(directory,
-                preprocess_suffix)
-            
-            self.URL = data_set_URLs[self.name]
-            
-            file_name_with_extension = os.path.split(self.URL)[-1]
-            
-            file_name, extension = file_name_with_extension.split(os.extsep, 1)
-            
-            self.path = os.path.join(self.directory, file_name) + os.extsep + extension
-
-            self.preprocessPath = lambda additions: \
-                os.path.join(self.preprocess_directory, file_name) + "_" \
-                    + "_".join(additions) + sparse_extension
-            
-            self.sparse_path = self.preprocessPath(["sparse"])
-        
-        self.load()
+        if preprocessed_values is not None:
+            self.preprocessed_values = preprocessed_values
     
     def load(self):
         
-        if self.name == "sample":
-            data_dictionary = self.createSamples()
+        sparse_path = self.preprocessedPath()
+        
+        if os.path.isfile(sparse_path):
+            print("Loading data set from sparse representation.")
+            data_dictionary = loadFromSparseData(sparse_path)
         else:
-            if os.path.isfile(self.sparse_path):
-                print("Loading data set from sparse representation.")
-                start_time = time()
-                data_dictionary = loadFromSparseData(self.sparse_path)
-                duration = time() - start_time
-                print("Data set loaded from sparse representation" +
-                    " ({}).".format(convertTimeToString(duration)))
-            else:
-                if not os.path.isfile(self.path):
-                    print("Downloading data set.")
-                    start_time = time()
-                    self.download()
-                    duration = time() - start_time
-                    print("Data set downloaded." +
-                        " ({}).".format(convertTimeToString(duration)))
-                
-                print("Loading original data set.")
-                start_time = time()
-                data_dictionary = self.loadOriginalData()
-                duration = time() - start_time
-                print("Original data set loaded" +
-                    " ({}).".format(convertTimeToString(duration)))
-                
-                if not os.path.exists(self.preprocess_directory):
-                    os.makedirs(self.preprocess_directory)
-                
-                print("Saving data set in sparse representation.")
-                start_time = time()
-                saveAsSparseData(data_dictionary, self.sparse_path)
-                duration = time() - start_time
-                print("Data set saved in sparse representation" +
-                    " ({}).".format(convertTimeToString(duration)))
+            original_paths = downloadDataSet(self.title, self.original_directory)
+            
+            print()
+            
+            data_dictionary = loadOriginalDataSet(self.title, original_paths)
+            
+            print()
+            
+            if not os.path.exists(self.preprocess_directory):
+                os.makedirs(self.preprocess_directory)
+            
+            print("Saving data set in sparse representation.")
+            saveAsSparseData(data_dictionary, sparse_path)
         
         self.update(
-            data_dictionary["counts"],
-            data_dictionary["cells"],
-            data_dictionary["genes"]
+            values = data_dictionary["values"],
+            labels = data_dictionary["labels"],
+            example_names = data_dictionary["example names"],
+            feature_names = data_dictionary["feature names"]
         )
+        
+        if "split indices" in data_dictionary:
+            self.split_indices = data_dictionary["split indices"]
+        
+        print()
     
-    def loadOriginalData(self):
+    def preprocess(self):
         
-        if self.name == "mouse retina":
-            
-            data_frame = read_csv(self.path, sep='\s+', index_col = 0,
-                compression = "gzip", engine = "python")
-            
-            data_dictionary = {
-                "counts": data_frame.values.T,
-                "cells": array(data_frame.columns.tolist()),
-                "genes": array(data_frame.index.tolist())
-            }
+        if not self.preprocessing_methods and not self.feature_selection:
+            self.update(preprocessed_values = self.values)
+            return
         
-        elif self.name == "mnist":
-            
-            with gzip.open(self.path, 'rb') as data:
-                training_set, validation_set, test_set = pickle.load(data,
-                    encoding = "latin1")
-            
-            X_train, _ = training_set
-            X_valid, _ = validation_set
-            X_test, _ = test_set
-            
-            X_train = X_train.reshape(-1, 28**2)
-            X_valid = X_valid.reshape(-1, 28**2)
-            X_test = X_test.reshape(-1, 28**2)
-            
-            X = concatenate((X_train, X_valid, X_test))
-            
-            data_dictionary = {
-                "counts": X,
-                "cells": arange(X.shape[0]),
-                "genes": arange(X.shape[1])
-            }
-        elif self.name == "reuters":
-            body_list, topics_list = load_reuter_word_counts(self.path)
-            bag_of_words, unique_words, unique_words_index = createBagOfWords(body_list)
-
-            data_dictionary = {
-                "counts": bag_of_words,
-                "cells": arange(bag_of_words.shape[0]),
-                "genes": array(unique_words)
-            }
-            # add to dictionary: "labels": topics_list 
+        sparse_path = self.preprocessedPath(
+            preprocessing_methods = self.preprocessing_methods,
+            feature_selection = self.feature_selection
+        )
         
-        return data_dictionary
-    
-    def download(self):
-        
-        if not os.path.exists(self.directory):
-            os.makedirs(self.directory)
-        urllib.request.urlretrieve(self.URL, self.path,
-            download_report_hook)
-    
-    def createSamples(self, number_of_examples = 2000, number_of_features = 20,
-        scale = 2, update_probability = 0.5):
-        
-        print("Creating sample data set.")
-        
-        random.seed(60)
-        
-        m = number_of_examples
-        n = number_of_features
-        
-        samples = zeros((m, n))
-        
-        row = scale * random.rand(n)
-        k = 0
-        for i in range(m):
-            u = random.rand()
-            if u > 1 - update_probability:
-                row = scale * random.rand(n)
-                k += 1
-            samples[i] = row
-        
-        random.shuffle(samples)
-        
-        for i in range(m):
-            for j in range(n):
-                samples[i, j] = random.poisson(samples[i, j])
-        
-        data_dictionary = {
-            "counts": samples,
-            "cells": arange(m),
-            "genes": arange(n)
-        }
-        
-        print("Sample data created with {} different example types.".format(k))
-        
-        return data_dictionary
-    
-    def split(self, method, fraction, preprocessing_method = None):
-        
-        if self.name == "sample":
-            print("Splitting data set.")
-            data_dictionary = self.splitAndCollectInDictionary(method,
-                fraction, preprocessing_method)
-            print("Data set split.")
+        if os.path.isfile(sparse_path):
+            print("Loading preprocessed data from sparse representation.")
+            data_dictionary = loadFromSparseData(sparse_path)
         
         else:
-            if preprocessing_method:
-                split_data_sets_path = self.preprocessPath([
-                    "split", preprocessing_method,
-                    method, str(fraction)
-                ])
-            else:
-                split_data_sets_path = self.preprocessPath([
-                    "split",
-                    method, str(fraction)
-                ])
-        
-            if os.path.isfile(split_data_sets_path):
-                print("Loading split data sets from sparse representations.")
-                start_time = time()
-                data_dictionary = loadFromSparseData(split_data_sets_path)
-                duration = time() - start_time
-                print("Split data sets loaded from sparse representations" +
-                    " ({}).".format(convertTimeToString(duration)))
-            else:
-                print("Splitting data set.")
-                start_time = time()
-                data_dictionary = self.splitAndCollectInDictionary(method,
-                    fraction, preprocessing_method)
-                duration = time() - start_time
-                print("Data set split" +
-                    " ({}).".format(convertTimeToString(duration)))
+            
+            if self.preprocessing_methods:
+                preprocessed_values = preprocessValues(self.values,
+                    self.preprocessing_methods, self.preprocessedPath)
                 
-                print("Saving split data sets in sparse representations.")
-                start_time = time()
-                saveAsSparseData(data_dictionary, split_data_sets_path)
-                duration = time() - start_time
-                print("Split data sets saved in sparse representations" +
-                    " ({}).".format(convertTimeToString(duration)))
+                print()
+            
+            else:
+                
+                preprocessed_values = self.values
+            
+            if self.feature_selection:
+                values_dictionary, feature_names = selectFeatures(
+                    {"original": self.values,
+                     "preprocessed": preprocessed_values},
+                    self.feature_names,
+                    self.feature_selection,
+                    self.preprocessedPath
+                )
+                
+                values = values_dictionary["original"]
+                preprocessed_values = values_dictionary["preprocessed"]
+            
+                print()
+            
+            else:
+                values = self.values
+                feature_names = self.feature_names
+            
+            data_dictionary = {
+                "values": values,
+                "preprocessed values": preprocessed_values,
+                "feature names": feature_names
+            }
+            
+            print("Saving preprocessed data set in sparse representation.")
+            saveAsSparseData(data_dictionary, sparse_path)
         
-        training_set = BaseDataSet(
-            counts = data_dictionary["training_set"]["counts"],
-            preprocessed_counts = data_dictionary["training_set"]["counts"],
-            cells = data_dictionary["training_set"]["cells"],
-            genes = data_dictionary["genes"],
+        self.update(
+            values = data_dictionary["values"],
+            preprocessed_values = data_dictionary["preprocessed values"],
+            feature_names = data_dictionary["feature names"]
+        )
+        
+        print()
+    
+    def split(self, method = "default", fraction = 0.9): # TODO Or 0.8 as previously?
+        
+        if method == "default":
+            if self.split_indices:
+                method = "indices"
+            else:
+                method = "random"
+        
+        sparse_path = self.preprocessedPath(
+            preprocessing_methods = self.preprocessing_methods,
+            feature_selection = self.feature_selection,
+            splitting_method = method,
+            splitting_fraction = fraction
+        )
+        
+        if os.path.isfile(sparse_path):
+            print("Loading split data sets from sparse representation.")
+            split_data_dictionary = loadFromSparseData(sparse_path)
+        
+        else:
+            
+            data_dictionary = {
+                "values": self.values,
+                "preprocessed values": self.preprocessed_values,
+                "labels": self.labels,
+                "example names": self.example_names,
+                "split indices": self.split_indices
+            }
+            
+            split_data_dictionary = splitDataSet(data_dictionary, method,
+                fraction)
+            
+            print()
+            
+            print("Saving split data sets in sparse representation.")
+            saveAsSparseData(split_data_dictionary, sparse_path)
+        
+        training_set = DataSet(
             name = self.name,
+            values = split_data_dictionary["training set"]["values"],
+            preprocessed_values = \
+                split_data_dictionary["training set"]["preprocessed values"],
+            labels = split_data_dictionary["training set"]["labels"],
+            example_names = split_data_dictionary["training set"]["example names"],
+            feature_names = self.feature_names,
+            feature_selection = self.feature_selection,
+            preprocessing_methods = self.preprocessing_methods,
             kind = "training"
         )
-        validation_set = BaseDataSet(
-            counts = data_dictionary["validation_set"]["counts"],
-            preprocessed_counts = data_dictionary["validation_set"]["counts"],
-            cells = data_dictionary["validation_set"]["cells"],
-            genes = data_dictionary["genes"],
+        
+        validation_set = DataSet(
             name = self.name,
+            values = split_data_dictionary["validation set"]["values"],
+            preprocessed_values = \
+                split_data_dictionary["validation set"]["preprocessed values"],
+            labels = split_data_dictionary["validation set"]["labels"],
+            example_names = split_data_dictionary["validation set"]["example names"],
+            feature_names = self.feature_names,
+            feature_selection = self.feature_selection,
+            preprocessing_methods = self.preprocessing_methods,
             kind = "validation"
         )
-        test_set = BaseDataSet(
-            counts = data_dictionary["test_set"]["counts"],
-            preprocessed_counts = data_dictionary["test_set"]["counts"],
-            cells = data_dictionary["test_set"]["cells"],
-            genes = data_dictionary["genes"],
+        
+        test_set = DataSet(
             name = self.name,
+            values = split_data_dictionary["test set"]["values"],
+            preprocessed_values = \
+                split_data_dictionary["test set"]["preprocessed values"],
+            labels = split_data_dictionary["test set"]["labels"],
+            example_names = split_data_dictionary["test set"]["example names"],
+            feature_names = self.feature_names,
+            feature_selection = self.feature_selection,
+            preprocessing_methods = self.preprocessing_methods,
             kind = "test"
         )
         
@@ -308,61 +366,249 @@ class DataSet(BaseDataSet):
                 test_set.number_of_examples)
         )
         
+        print()
+        
         return training_set, validation_set, test_set
+
+def dataSetTitle(name):
     
-    def splitAndCollectInDictionary(self, method, fraction, preprocessing_method = None):
+    title = None
         
-        random.seed(42)
-        preprocess = lambda x: x
+    for data_set in data_sets:
+        if normaliseString(data_set) == name:
+            title = data_set
+    
+    if not title:
+        raise KeyError("Data set not found.")
+    
+    return title
+
+def downloadDataSet(title, directory):
+    
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    URLs = data_sets[title]["URLs"]
+    
+    paths = {}
+    
+    for values_or_labels in URLs:
+        paths[values_or_labels] = {}
+        
+        for kind in URLs[values_or_labels]:
+            
+            URL = URLs[values_or_labels][kind]
+            URL_filename = os.path.split(URL)[-1]
+            extension = os.extsep + URL_filename.split(os.extsep, 1)[-1]
+            
+            name = normaliseString(title)
+            filename = name + "-" + values_or_labels + "-" + kind
+            path = os.path.join(directory, filename) + extension
+            
+            paths[values_or_labels][kind] = path
+            
+            if not os.path.isfile(path):
+                
+                print("Downloading {} for {} set.".format(
+                    values_or_labels, kind, title))
+                start_time = time()
+                
+                download(URL, path)
+                
+                duration = time() - start_time
+                print("Data set downloaded ({}).".format(formatDuration(duration)))
+                
+                print()
+    
+    return paths
+
+def loadOriginalDataSet(title, paths):
+    print("Loading original data set.")
+    start_time = time()
+    
+    data_dictionary = data_sets[title]["load function"](paths)
+    
+    duration = time() - start_time
+    print("Original data set loaded ({}).".format(formatDuration(duration)))
+    
+    return data_dictionary
+
+def preprocessedPathFunction(preprocess_directory = "", name = ""):
+    
+    def preprocessedPath(base_name = None, preprocessing_methods = None,
+        feature_selection = None,
+        splitting_method = None, splitting_fraction = None):
+        
+        base_path = os.path.join(preprocess_directory, name)
+        
+        filename_parts = [base_path]
+        
+        if base_name:
+            filename_parts.append(normaliseString(base_name))
+        
+        if feature_selection:
+            filename_parts.append(normaliseString(feature_selection))
+        
+        if preprocessing_methods:
+            filename_parts.extend(map(normaliseString, preprocessing_methods))
+        
+        if splitting_method:
+            filename_parts.append("split")
+            filename_parts.append(normaliseString(splitting_method))
+            
+            if splitting_fraction:
+                filename_parts.append(str(splitting_fraction))
+            
+        path = "-".join(filename_parts) + preprocessed_extension
+        
+        return path
+    
+    return preprocessedPath
+
+def selectFeatures(values_dictionary, feature_names, feature_selection = None, preprocessPath = None):
+    
+    print("Selecting features.")
+    start_time = time()
+    
+    if type(values_dictionary) == dict:
+        values = values_dictionary["original"]
+    
+    M, N = values.shape
+    
+    if feature_selection == "remove zeros":
+        total_feature_sum = values.sum(axis = 0)
+        indices = total_feature_sum != 0
+    
+    elif feature_selection == "low gini indices":
+        gini_indices = loadWeights(values, "gini", preprocessPath)
+        indices = gini_indices > 0.1
+    
+    else:
+        indices = slice(N)
+    
+    feature_selected_values = {}
+    
+    for version, values in values_dictionary.items():
+        feature_selected_values[version] = values[:, indices]
+    
+    feature_selected_feature_names = feature_names[indices]
+    
+    duration = time() - start_time
+    print("Features selected ({}).".format(formatDuration(duration)))
+    
+    return feature_selected_values, feature_selected_feature_names
+
+def preprocessValues(values, preprocessing_methods = [], preprocessPath = None):
+    
+    print("Preprocessing values.")
+    start_time = time()
+    
+    preprocesses = []
+    
+    for preprocessing_method in preprocessing_methods:
         if preprocessing_method == "binarise":
-            preprocess = lambda x: (x != 0).astype('float32')
-        elif preprocessing_method == "gini":
-            preprocess = lambda x: gini_coefficients(x)
-        elif preprocessing_method == "tf_idf":
-            preprocess = lambda x: log_inverse_global_frequency(x)
-        elif preprocessing_method == "l2_normalise_tf_idf":
-            preprocess = lambda x: normalize(log_inverse_global_frequency(x), norm='l2', axis=1, copy=True, return_norm=False)
+            preprocess = lambda x: (x != 0).astype('float')
         
-        self.preprocessed_counts = preprocess(self.counts)
+        elif preprocessing_method in ["gini", "idf"]:
+            preprocess = lambda x: applyWeights(x, preprocessing_method,
+                preprocessPath)
         
-        M = self.number_of_examples
+        elif preprocessing_method == "normalise":
+            preprocess = lambda x: sklearn.preprocessing.normalize(
+                x, norm = 'l2', axis = 1)
         
-        if method == "random":
+        else:
+            preprocess = lambda x: x
+        
+        preprocesses.append(preprocess)
+    
+    preprocessed_values = reduce(lambda v, p: p(v), preprocesses, values)
+    
+    duration = time() - start_time
+    print("Values preprocessed ({}).".format(formatDuration(duration)))
+    
+    return preprocessed_values
+
+def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
+    
+    print("Splitting data set.")
+    start_time = time()
+    
+    if method == "default":
+        if self.split_indices:
+            method = "indices"
+        else:
+            method = "random"
+    
+    M = data_dictionary["values"].shape[0]
+    
+    numpy.random.seed(42)
+    
+    if method == "random":
+        
+        M_training_validation = int(fraction * M)
+        M_training = int(fraction * M_training_validation)
+        
+        shuffled_indices = numpy.random.permutation(M)
+        
+        training_indices = shuffled_indices[:M_training]
+        validation_indices = shuffled_indices[M_training:M_training_validation]
+        test_indices = shuffled_indices[M_training_validation:]
+    
+    elif method == "indices":
+        
+        split_indices = data_dictionary["split indices"]
+        
+        training_indices = split_indices["training"]
+        test_indices = split_indices["test"]
+        
+        if "validation" in split_indices:
+            validation_indices = split_indices["validation"]
+        else:
+            M_training_validation = training_indices.stop
             
-            V = int(fraction * M)
-            T = int(fraction * V)
+            M_training = int(fraction * M_training_validation)
             
-            shuffled_indices = random.permutation(M)
-            
-            training_indices = shuffled_indices[:T]
-            validation_indices = shuffled_indices[T:V]
-            test_indices = shuffled_indices[V:]
-        
-        data_dictionary = {
-            "training_set": {
-                "counts": self.counts[training_indices],
-                "preprocessed_counts": self.preprocessed_counts[training_indices],
-                "cells": self.cells[training_indices],
-            },
-            "validation_set": {
-                "counts": self.counts[validation_indices],
-                "preprocessed_counts": self.preprocessed_counts[validation_indices],
-                "cells": self.cells[validation_indices],
-            },
-            "test_set": {
-                "counts": self.counts[test_indices],
-                "preprocessed_counts": self.preprocessed_counts[test_indices],
-                "cells": self.cells[test_indices],
-            },
-            "genes": self.genes
-        }
-        
-        return data_dictionary
+            training_indices = slice(M_training)
+            validation_indices = slice(M_training, M_training_validation)
+    
+    split_data_dictionary = {
+        "training set": {
+            "values": data_dictionary["values"][training_indices],
+            "labels": data_dictionary["labels"][training_indices],
+            "example names": data_dictionary["example names"][training_indices]
+        },
+        "validation set": {
+            "values": data_dictionary["values"][validation_indices],
+            "labels": data_dictionary["labels"][validation_indices],
+            "example names": data_dictionary["example names"][validation_indices]
+        },
+        "test set": {
+            "values": data_dictionary["values"][test_indices],
+            "labels": data_dictionary["labels"][test_indices],
+            "example names": data_dictionary["example names"][test_indices]
+        },
+    }
+    
+    if "preprocessed values" in data_dictionary:
+        split_data_dictionary["training set"]["preprocessed values"] = \
+            data_dictionary["preprocessed values"][training_indices]
+        split_data_dictionary["validation set"]["preprocessed values"] = \
+            data_dictionary["preprocessed values"][validation_indices]
+        split_data_dictionary["test set"]["preprocessed values"] = \
+            data_dictionary["preprocessed values"][test_indices]
+    
+    duration = time() - start_time
+    print("Data set split ({}).".format(formatDuration(duration)))
+    
+    return split_data_dictionary
 
 def loadFromSparseData(path):
     
+    start_time = time()
+    
     def converter(data):
-        if data.ndim == 2:
+        if type(data) == scipy.sparse.csr.csr_matrix:
             return data.todense().A
         else:
             return data
@@ -377,15 +623,21 @@ def loadFromSparseData(path):
         else:
             data_dictionary[key] = converter(data_dictionary[key])
     
+    duration = time() - start_time
+    print("Data loaded from sparse representation" +
+        " ({}).".format(formatDuration(duration)))
+    
     return data_dictionary
 
 def saveAsSparseData(data_dictionary, path):
     
+    start_time = time()
+    
     sparse_data_dictionary = {}
     
     def converter(data):
-        if data.ndim == 2:
-            return csr_matrix(data)
+        if type(data) == numpy.ndarray and data.ndim == 2:
+            return scipy.sparse.csr_matrix(data)
         else:
             return data
     
@@ -400,123 +652,345 @@ def saveAsSparseData(data_dictionary, path):
     
     with gzip.open(path, "wb") as data_file:
         pickle.dump(sparse_data_dictionary, data_file)
-
-def download_report_hook(block_num, block_size, total_size):
-    bytes_read = block_num * block_size
-    if total_size > 0:
-        percent = bytes_read / total_size * 100
-        sys.stderr.write("\rDownloading: {:3.0f}%.".format(percent))
-        if bytes_read >= total_size:
-            sys.stderr.write("\n")
-    else:
-        sys.stderr.write("Downloaded {:d} bytes.".format(bytes_read))
-
-
-
-
-### Helper functions for reuter text data
-
-# Helper function for finding stemmed words in string and return them as a list.
-def findWords(text):
-    lower_case_text = text.lower()
-    #lower_case_text = re.sub(r'(reuter)$', ' DIGIT ', lower_case_text)
-    only_words_text = re.compile(r"[\w'\-]+").findall(re.sub(r'\d+[\d.,\-\(\)+]*', ' DIGIT ', lower_case_text))
-    stemmed_words = [stem(word) for word in only_words_text]
-    return stemmed_words
-
-# Function for bag of words from body text in articles.
-def createBagOfWords(documents):
-    # Create original bag of words with one bucket pr. distinct word. 
-    # List and set for saving the found words
-    texts_words = list()
-    unique_words = set()
-    num_of_documents = len(documents)
-    # Run through documents bodies and update the list and set with words from findWords()
-    for document in documents:
-        #print(document)
-        #words = findWords(document)
     
-        unique_words.update(document)
-        # texts_words.append(words)
-    
-    # Create list of the unique set of unique words found
-    unique_words = list(unique_words)
-    num_of_unique_words = len(unique_words)
-    # Create dictionary mapping words to their index in the list
-    unique_words_index = dict()
-    for i, unique_word in enumerate(unique_words):
-        unique_words_index[unique_word] = i
-    
-    # Initialize bag of words matrix with numpy's zeros()
-    bag_of_words = zeros([num_of_documents, num_of_unique_words]).astype('int32')
-    
-    # Fill out bag of words with cumulative count of word occurences
-    for i, words in enumerate(documents):
-        for word in words:
-            bag_of_words[i, unique_words_index[word]] += 1
-    
-    # Return bag of words matrix, list of unique words and dictionary mapping words to indices.
-    return bag_of_words, unique_words, unique_words_index
+    duration = time() - start_time
+    print("Data saved in sparse representation" +
+        " ({}).".format(formatDuration(duration)))
 
-def load_reuter_word_counts(path):
-    N_files = 22
+def loadMouseRetinaDataSet(paths):
+    
+    values_data = pandas.read_csv(paths["values"]["full"], sep='\s+',
+        index_col = 0, compression = "gzip", engine = "python",
+        nrows = 20 # TODO Remove
+    )
+    
+    values = values_data.values.T
+    example_names = numpy.array(values_data.columns.tolist())
+    feature_names = numpy.array(values_data.index.tolist())
+    
+    values = values.astype(float)
+    
+    labels = numpy.zeros(example_names.shape)
+    
+    with open(paths["labels"]["full"], "r") as labels_data:
+        k = 0 # TODO Remove
+        for line in labels_data.read().split("\n"):
+            
+            if k > 20: break # TODO Remove
+            
+            if line == "":
+                continue
+            
+            example_name, label = line.split("\t")
+            
+            labels[example_names == example_name] = int(label)
+            
+            k += 1 # TODO Remove
+    
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names
+    }
+    
+    return data_dictionary
+
+def loadMNISTDataSet(paths):
+    
+    values = {}
+    
+    for kind in paths["values"]:
+        with gzip.open(paths["values"][kind], "rb") as values_stream:
+            _, M, r, c = struct.unpack(">IIII", values_stream.read(16))
+            values_buffer = values_stream.read(M * r * c)
+            values_flat = numpy.frombuffer(values_buffer, dtype = numpy.uint8)
+            values[kind] = values_flat.reshape(-1, r * c)
+    
+    N = r * c
+    
+    labels = {}
+    
+    for kind in paths["labels"]:
+        with gzip.open(paths["labels"][kind], "rb") as labels_stream:
+            _, M = struct.unpack(">II", labels_stream.read(8))
+            labels_buffer = labels_stream.read(M)
+            labels[kind] = numpy.frombuffer(labels_buffer, dtype = numpy.int8)
+    
+    M_training = values["training"].shape[0]
+    M_test = values["test"].shape[0]
+    M = M_training + M_test
+    
+    split_indices = {
+        "training": slice(0, M_training),
+        "test": slice(M_training, M)
+    }
+    
+    values = numpy.concatenate((values["training"], values["test"]))
+    labels = numpy.concatenate((labels["training"], labels["test"]))
+    
+    values = values.astype(float)
+    
+    example_names = numpy.array(["image {}".format(i + 1) for i in range(M)])
+    feature_names = numpy.array(["pixel {}".format(j + 1) for j in range(N)])
+    
+    # TODO Remove
+    values = values[:100, 382:402]
+    labels = labels[:100]
+    example_names = example_names[:100]
+    feature_names = feature_names[382:402]
+    
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names,
+        "split indices": split_indices
+    }
+    
+    return data_dictionary
+
+def loadReutersDataSet(paths):
+    
     topics_list = []
     body_list = []
-    N_all_articles = 0
-    N_chosen_articles = 0
-    with TarFile.open(path, 'r:gz') as tarball:
-        for i in range(N_files):
-            if i != 17:
-                articles_file_name = "reut2-{:03d}.sgm".format(i)
-                #print("Loading " + articles_file_name)
-                with tarball.extractfile(articles_file_name) as article_list:
-                    soup = BeautifulSoup(article_list, 'html.parser') 
-                for article in soup.find_all("reuters"):
-                    N_all_articles += 1
-                    topics = article.topics
-                    body = article.body
-                    if topics is not None and body is not None:
-                        topics_generator = topics.find_all("d")
-                        topics_text = [topic.get_text() for topic in topics_generator]
-                        body_text = body.get_text()
-                        if len(topics_text) > 0 and len(body_text) > 0:
-                            N_chosen_articles += 1
-                            topics_list.append(topics_text)
-                            body_list.append(findWords(body_text))
+    
+    with tarfile.open(paths["all"]["full"], 'r:gz') as tarball:
+        
+        article_filenames = [f for f in tarball.getnames() if ".sgm" in f]
+        
+        k = 0 # TODO Remove
+        
+        for article_filename in article_filenames:
+            
+            if k > 20: break # TODO Remove
+            
+            with tarball.extractfile(article_filename) as article_html:
+                soup = BeautifulSoup(article_html, 'html.parser')
+            
+            for article in soup.find_all("reuters"):
+                
+                topics = article.topics
+                body = article.body
+                
+                if topics is not None and body is not None:
+                    
+                    topics_generator = topics.find_all("d")
+                    topics_text = [topic.get_text() for topic in topics_generator]
+                    
+                    body_text = body.get_text()
+                    
+                    if len(topics_text) > 0 and len(body_text) > 0:
+                        topics_list.append(topics_text)
+                        body_list.append(body_text)
+            
+            k += 1 # TODO Remove
+    
+    M = len(body_list)
+    
+    bag_of_words, distinct_words = createBagOfWords(body_list)
+    
+    values = bag_of_words
+    labels = numpy.array([t[0] for t in topics_list])
+    example_names = numpy.array(["article {}".format(i + 1) for i in range(M)])
+    feature_names = numpy.array(distinct_words)
+    
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names
+    }
+    
+    return data_dictionary
 
-    return body_list, topics_list
+def load20NewsgroupsDataSet(paths):
+    
+    documents = {
+        "train": [],
+        "test": []
+    }
+    document_ids = {
+        "train": [],
+        "test": []
+    }
+    newsgroups = {
+        "train": [],
+        "test": []
+    }
+    
+    with tarfile.open(paths["all"]["full"], 'r:gz') as tarball:
+        
+        k = 0 # TODO Remove
+        
+        for member in tarball:
+            if member.isfile():
+                
+                if k > 20: break # TODO Remove
+                
+                with tarball.extractfile(member) as document_file:
+                    document = document_file.read().decode("latin1") 
+                
+                kind, newsgroup, document_id = member.name.split(os.sep)
+                
+                kind = kind.split("-")[-1]
+                
+                documents[kind].append(document)
+                document_ids[kind].append(document_id)
+                newsgroups[kind].append(newsgroup)
+                
+                k += 1 # TODO Remove
+    
+    M_train = len(documents["train"])
+    M_test = len(documents["test"])
+    M = M_train + M_test
+    
+    split_indices = {
+        "training": slice(0, M_train),
+        "test": slice(M_train, M)
+    }
+    
+    documents = documents["train"] + documents["test"]
+    document_ids = document_ids["train"] + document_ids["test"]
+    newsgroups = newsgroups["train"] + newsgroups["test"]
+    
+    bag_of_words, distinct_words = createBagOfWords(documents)
+    
+    values = bag_of_words
+    labels = numpy.array(newsgroups)
+    example_names = numpy.array(document_ids)
+    feature_names = numpy.array(distinct_words)
+    
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names,
+        "split indices": split_indices
+    }
+    
+    return data_dictionary
 
+def createBagOfWords(documents):
+    
+    def findWords(text):
+        lower_case_text = text.lower()
+        # lower_case_text = re.sub(r"(reuter)$", "", lower_case_text)
+        lower_case_text = re.sub(r"\d+[\d.,\-\(\)+]*", " DIGIT ", lower_case_text)
+        words = re.compile(r"[\w'\-]+").findall(lower_case_text)
+        words = [stemming.stem(word) for word in words]
+        return words
+    
+    # Create original bag of words with one bucket per distinct word. 
+    
+    # List and set for saving the found words
+    documents_words = list()
+    distinct_words = set()
+    
+    # Run through documents bodies and update the list and set with words from findWords()
+    for document in documents:
+        
+        words = findWords(document)
+        
+        documents_words.append(words)
+        distinct_words.update(words)
+    
+    # Create list of the unique set of distinct words found
+    distinct_words = list(distinct_words)
+    
+    # Create dictionary mapping words to their index in the list
+    distinct_words_index = dict()
+    for i, distinct_word in enumerate(distinct_words):
+        distinct_words_index[distinct_word] = i
+    
+    # Initialize bag of words matrix with numpy's zeros()
+    bag_of_words = numpy.zeros([len(documents), len(distinct_words)])
+    
+    # Fill out bag of words with cumulative count of word occurences
+    for i, words in enumerate(documents_words):
+        for word in words:
+            bag_of_words[i, distinct_words_index[word]] += 1
+    
+    # Return bag of words matrix as a sparse representation matrix to save memory
+    return bag_of_words, distinct_words
 
+## Apply weights
+def applyWeights(data, method, preprocessPath = None):
+    
+    weights = loadWeights(data, method, preprocessPath)
+    
+    return weights * data
 
-### Prepocessing functions
+def loadWeights(data, method, preprocessPath):
+    
+    if preprocessPath:
+        weights_path = preprocessPath(method + "-weights")
+    else:
+        weights_path = None
+    
+    if weights_path and os.path.isfile(weights_path):
+        print("Loading weights from sparse representation.")
+        weights_dictionary = loadFromSparseData(weights_path)
+    else:
+        if method == "gini":
+            weights = computeGiniIndices(data)
+        elif method == "idf":
+            weights = computeInverseGlobalFrequencyWeights(data)
+        
+        weights_dictionary = {"weights": weights}
+        
+        if weights_path:
+            print("Saving weights in sparse representation.")
+            saveAsSparseData(weights_dictionary, weights_path)
+    
+    return weights_dictionary["weights"]
 
-# Compute gini-coefficients
-def gini_coefficients(data, eps=1e-16, batch_size=5000):
-    """Calculate the Gini coefficients along last axis of a numpy array."""
-    # based on bottom eq: http://www.statsdirect.com/help/generatedimages/equations/equation154.svg
-    # from: http://www.statsdirect.com/help/default.htm#nonparametric_methods/gini.htm
-    N, M = data.shape # number of examples, N, and features, M.
-    index_vector =  2 * arange(1, N + 1) - N - 1  # 1-indexing vector for each data element.
-    data = clip(data, eps, data) #values cannot be 0
-
-    gini_index = zeros(M)
-    print("Calculating gini-coefficients batch-wise for all features in the data set")
-    for i in range(0, M, batch_size):
+## Compute Gini indices
+def computeGiniIndices(data, epsilon = 1e-16, batch_size = 5000):
+    """Calculate the Gini coefficients along last axis of a NumPy array."""
+    # Based on last equation on:
+    # http://www.statsdirect.com/help/default.htm#nonparametric_methods/gini.htm
+    
+    print("Computing Gini indices.")
+    start_time = time()
+    
+    # Number of examples, M, and features, N
+    M, N = data.shape
+    
+    # 1-indexing vector for each data element
+    index_vector = 2 * numpy.arange(1, M + 1) - M - 1
+    
+    # Values cannot be 0
+    data = numpy.clip(data, epsilon, data)
+    
+    gini_indices = numpy.zeros(N)
+    
+    for i in range(0, N, batch_size):
         batch = data[:, i:(i+batch_size)]
-
+        
         # Array should be normalized and sorted frequencies over the examples
-        batch = sort(batch / (sum(batch,axis=0)), axis=0)
+        batch = numpy.sort(batch / (numpy.sum(batch, axis = 0)), axis = 0)
         
         #Gini coefficients over the examples for each feature. 
-        gini_index[i:(i+batch_size)] = index_vector @ batch / N
-
-        print("Computed gini-indices for feature {} to {} out of {} features.".format(i, min(i+batch_size, M), M))
-
-    return data * gini_index
-
-# Compute log inverse global frequency of features over all examples.
-def log_inverse_global_frequency(data):
-    global_freq = sum(where(data > 0, 1, 0), axis=0)
+        gini_indices[i:(i+batch_size)] = index_vector @ batch / M
     
-    # Return log(inverse global frequency) = log(N / (global_frequency + 1))
-    return data * log(data.shape[0] / (global_freq + 1))
+    duration = time() - start_time
+    print("Gini indices computed ({}).".format(formatDuration(duration)))
+    
+    return gini_indices
+
+def computeInverseGlobalFrequencyWeights(data):
+    
+    print("Computing IDF weights.")
+    start_time = time()
+    
+    M = data.shape[0]
+    
+    global_frequencies = numpy.sum(numpy.where(data > 0, 1, 0), axis=0)
+    
+    idf_weights = numpy.log(M / (global_frequencies + 1))
+    
+    duration = time() - start_time
+    print("IDF weights computed ({}).".format(formatDuration(duration)))
+    
+    return idf_weights
