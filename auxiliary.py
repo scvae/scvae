@@ -60,6 +60,8 @@ def directory(base_directory, data_set_name, feature_selection = None, preproces
         preprocessing_directory = "none"
     
     directory = os.path.join(data_set_directory, preprocessing_directory)
+    
+    return directory
 
 def download(URL, path):
     urllib.request.urlretrieve(URL, path, download_report_hook)
