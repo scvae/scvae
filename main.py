@@ -412,6 +412,12 @@ parser.add_argument(
     help = "distribution for the latent variables"
 )
 parser.add_argument(
+    "--number-of-latent-clusters",
+    type = int,
+    default = 1,
+    help = "the number of modes in the gaussian mixture"
+)
+parser.add_argument(
     "--reconstruction-distribution", "-r",
     type = str,
     default = "poisson",
