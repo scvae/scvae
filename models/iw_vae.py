@@ -20,7 +20,7 @@ import data
 
 class ImportanceWeightedVariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes, number_of_samples, latent_distribution = "normal",
-        number_of_latent_clusters = 2,
+        number_of_latent_clusters = 1,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
@@ -205,7 +205,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         z_phi[parameter] = []
                         for k in range(self.number_of_latent_clusters):
                             z_phi[parameter].append(
-                                dense_layer(
+                                tf.expand_dims(tf.expand_dims(
+                                    dense_layer(
                                     inputs = encoder,
                                     num_outputs = self.latent_size,
                                     activation_fn = lambda x: tf.clip_by_value(
@@ -215,8 +216,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                                     ),
                                     is_training = self.is_training,
                                     scope = parameter.upper()[:-1] + str(k)
-                                )
+                                ), 0), 0)
                             )
+                            print(parameter.upper()[:-1] + str(k) + ":", z_phi[parameter][-1].shape)
                         print("Number of " + parameter + " in gaussian mixture:", len(z_phi[parameter]))
                     else:
                         z_phi[parameter] = tf.expand_dims(tf.expand_dims(dense_layer(
@@ -352,7 +354,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             p_z_mu = tf.constant(0.0, dtype = tf.float32)
             p_z_sigma = tf.constant(1.0, dtype = tf.float32)
             p_z = Normal(p_z_mu, p_z_sigma)
-        if self.latent_distribution_name == "mixture of gaussians":
+        if self.latent_distribution_name == "gaussian mixture":
             p_z_mu = tf.constant(0.0, dtype = tf.float32)
             p_z_sigma = tf.constant(1.0, dtype = tf.float32)
             p_z = Normal(p_z_mu, p_z_sigma)
