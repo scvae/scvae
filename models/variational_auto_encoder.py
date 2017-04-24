@@ -63,6 +63,7 @@ class VariationalAutoEncoder(object):
         print("    type: {}".format(self.type))
         print("    feature size: {}".format(self.feature_size))
         print("    hidden sizes: {}".format(", ".join(map(str, self.hidden_sizes))))
+        print("    latent distribution: " + self.latent_distribution_name)
         print("    reconstruction distribution: " + self.reconstruction_distribution_name)
         if self.k_max > 0:
             print("    reconstruction classes: {}".format(self.k_max),
