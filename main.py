@@ -233,7 +233,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                 latent_distribution, reconstruction_distribution, \
                 number_of_reconstruction_classes in configurations_product:
                 
-                model_configuration = {
+                base_model_configuration = {
                         "model_type": model_type,
                         "hidden_sizes": hidden_sizes,
                         "latent_distribution":
@@ -249,26 +249,57 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                         "learning_rate": training["learning rate"]
                 }
                 
-                if latent_distribution == "gaussian mixture":
-                    model_configuration["number_of_latent_clusters"] = \
-                        likelihood["number of latent clusters"]
-                
                 if "VAE" in model_type:
-                    for latent_size in type_configuration["latent sizes"]:
-                        model_configuration["latent_size"] = latent_size
-                    model_configuration["number_of_warm_up_epochs"] = \
+                    base_model_configuration["number_of_warm_up_epochs"] = \
                         type_configuration["number of warm-up epochs"]
                     if "IW" in model_type:
-                        model_configuration["numbers_of_samples"] = \
+                        base_model_configuration["numbers_of_samples"] = \
                             type_configuration["number of samples"]
                 
-                validity, errors = \
-                    validateModelConfiguration(model_configuration)
+                sub_model_configurations = []
                 
-                if validity:
-                    model_configurations.append(model_configuration)
+                if latent_distribution == "gaussian mixture" and \
+                    "VAE" in model_type:
+                    
+                    sub_configurations_product = itertools.product(
+                        likelihood["numbers of latent clusters"],
+                        type_configuration["latent sizes"]
+                    )
+                    
+                    for number_of_latent_clusters, latent_size in \
+                        sub_configurations_product:
+                        model_configuration = base_model_configuration.copy()
+                        model_configuration["number_of_latent_clusters"] = \
+                            number_of_latent_clusters
+                        model_configuration["latent_size"] = latent_size
+                        sub_model_configurations.append(model_configuration)
+                
+                elif latent_distribution == "gaussian mixture":
+                    for number_of_latent_clusters in \
+                        likelihood["number of latent clusters"]:
+                        model_configuration = base_model_configuration.copy()
+                        model_configuration["number_of_latent_clusters"] = \
+                            number_of_latent_clusters
+                        sub_model_configurations.append(model_configuration)
+                
+                elif "VAE" in model_type:
+                    for latent_size in type_configuration["latent sizes"]:
+                        model_configuration = base_model_configuration.copy()
+                        model_configuration["latent_size"] = latent_size
+                        sub_model_configurations.append(model_configuration)
+                
                 else:
-                    configuration_errors.append(errors)
+                    sub_model_configurations.append(base_model_configuration)
+                
+                for model_configuration in sub_model_configurations:
+                
+                    validity, errors = \
+                        validateModelConfiguration(model_configuration)
+                
+                    if validity:
+                        model_configurations.append(model_configuration)
+                    else:
+                        configuration_errors.append(errors)
         
     else:
         model_configuration = {
