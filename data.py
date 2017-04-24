@@ -681,7 +681,7 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
         },
     }
     
-    if "labels" in data_dictionary and data_dictionary["labels"]:
+    if "labels" in data_dictionary and data_dictionary["labels"] is not None:
         split_data_dictionary["training set"]["labels"] = \
             data_dictionary["labels"][training_indices]
         split_data_dictionary["validation set"]["labels"] = \
