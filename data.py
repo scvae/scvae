@@ -201,11 +201,29 @@ class DataSet(object):
         self.preprocessedPath = preprocessedPathFunction(
             self.preprocess_directory, self.name)
         
-        if self.values is None and self.kind == "full":
-            self.load()
+        if self.kind == "full":
+            
+            print("Data set:")
+            print("    title:", self.title)
+            if self.feature_selection:
+                print("    feature selection:", self.feature_selection)
+            else:
+                print("    feature selection: none")
+            if self.preprocessing_methods:
+                print("    processing methods:")
+                for preprocessing_method in self.preprocessing_methods:
+                    print("        ", preprocessing_method)
+            else:
+                print("    processing methods: none")
+            print()
+            
+            if self.values is None:
+                self.load()
+            
+            if self.preprocessed_values is None:
+                self.preprocess()
         
-        if self.preprocessed_values is None and self.kind == "full":
-            self.preprocess()
+        
     
     def update(self, values = None, preprocessed_values = None, labels = None,
         example_names = None, feature_names = None):
@@ -352,6 +370,11 @@ class DataSet(object):
             splitting_method = method,
             splitting_fraction = fraction
         )
+        
+        print("Splitting:")
+        print("    method:", method)
+        print("    fraction: {:.1f} %".format(100 * fraction))
+        print()
         
         if os.path.isfile(sparse_path):
             print("Loading split data sets from sparse representation.")
