@@ -63,6 +63,27 @@ data_sets = {
         "load function": lambda x: loadMNISTDataSet(x)
     },
     
+    "MNIST (binarised)": {
+        "split": ["training", "validation", "test"],
+        "processed": True,
+        "URLs": {
+            "values": {
+                    "training":
+                        "http://www.cs.toronto.edu/~larocheh/public/datasets/binarized_mnist/binarized_mnist_train.amat",
+                    "validation":
+                        "http://www.cs.toronto.edu/~larocheh/public/datasets/binarized_mnist/binarized_mnist_valid.amat",
+                    "test":
+                        "http://www.cs.toronto.edu/~larocheh/public/datasets/binarized_mnist/binarized_mnist_test.amat"
+            },
+            "labels": {
+                    "training": None,
+                    "validation": None,
+                    "test": None
+            },
+        },
+        "load function": lambda x: loadBinarisedMNISTDataSet(x)
+    },
+    
     "Reuters": {
         "split": False,
         "processed": False,
@@ -438,6 +459,10 @@ def downloadDataSet(title, directory):
         for kind in URLs[values_or_labels]:
             
             URL = URLs[values_or_labels][kind]
+            
+            if not URL:
+                continue
+            
             URL_filename = os.path.split(URL)[-1]
             extension = os.extsep + URL_filename.split(os.extsep, 1)[-1]
             
@@ -615,20 +640,31 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
     split_data_dictionary = {
         "training set": {
             "values": data_dictionary["values"][training_indices],
-            "labels": data_dictionary["labels"][training_indices],
+            "preprocessed values": None,
+            "labels": None,
             "example names": data_dictionary["example names"][training_indices]
         },
         "validation set": {
             "values": data_dictionary["values"][validation_indices],
-            "labels": data_dictionary["labels"][validation_indices],
+            "preprocessed values": None,
+            "labels": None,
             "example names": data_dictionary["example names"][validation_indices]
         },
         "test set": {
             "values": data_dictionary["values"][test_indices],
-            "labels": data_dictionary["labels"][test_indices],
+            "preprocessed values": None,
+            "labels": None,
             "example names": data_dictionary["example names"][test_indices]
         },
     }
+    
+    if "labels" in data_dictionary and data_dictionary["labels"]:
+        split_data_dictionary["training set"]["labels"] = \
+            data_dictionary["labels"][training_indices]
+        split_data_dictionary["validation set"]["labels"] = \
+            data_dictionary["labels"][validation_indices]
+        split_data_dictionary["test set"]["labels"] = \
+            data_dictionary["labels"][test_indices]
     
     if "preprocessed values" in data_dictionary:
         split_data_dictionary["training set"]["preprocessed values"] = \
@@ -768,14 +804,47 @@ def loadMNISTDataSet(paths):
     example_names = numpy.array(["image {}".format(i + 1) for i in range(M)])
     feature_names = numpy.array(["pixel {}".format(j + 1) for j in range(N)])
     
-    values = values[:100, 382:402]
-    labels = labels[:100]
-    example_names = example_names[:100]
-    feature_names = feature_names[382:402]
-    
     data_dictionary = {
         "values": values,
         "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names,
+        "split indices": split_indices
+    }
+    
+    return data_dictionary
+
+def loadBinarisedMNISTDataSet(paths):
+    
+    values = {}
+    
+    for kind in paths["values"]:
+        values[kind] = numpy.loadtxt(paths["values"][kind])
+    
+    M_training = values["training"].shape[0]
+    M_validation = values["validation"].shape[0]
+    M_training_validation = M_training + M_validation
+    M_test = values["test"].shape[0]
+    M = M_training_validation + M_test
+    
+    split_indices = {
+        "training": slice(0, M_training),
+        "validation": slice(M_training, M_training_validation),
+        "test": slice(M_training_validation, M)
+    }
+    
+    values = numpy.concatenate((
+        values["training"], values["validation"], values["test"]
+    ))
+    
+    N = values.shape[1]
+    
+    example_names = numpy.array(["image {}".format(i + 1) for i in range(M)])
+    feature_names = numpy.array(["pixel {}".format(j + 1) for j in range(N)])
+    
+    data_dictionary = {
+        "values": values,
+        "labels": None,
         "example names": example_names,
         "feature names": feature_names,
         "split indices": split_indices

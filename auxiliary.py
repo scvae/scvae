@@ -36,7 +36,7 @@ def formatDuration(seconds):
 # Strings
 
 def normaliseString(s):
-    return s.lower().replace(" ", "_")
+    return s.lower().replace(" ", "_").replace("(", "").replace(")", "")
 
 # IO
 
