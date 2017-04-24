@@ -20,7 +20,7 @@ def main(data_set_name, data_directory = "data",
     latent_size = 50, hidden_sizes = [500],
     number_of_importance_weighted_samples = [5],
     number_of_monte_carlo_samples = [10],
-    latent_distribution = "normal",
+    latent_distribution = "gaussian",
     number_of_latent_clusters = 1,
     reconstruction_distribution = "poisson",
     number_of_reconstruction_classes = 0, number_of_warm_up_epochs = 50,
@@ -94,6 +94,8 @@ def main(data_set_name, data_directory = "data",
         
         model_type = model_configuration["model_type"]
         hidden_sizes = model_configuration["hidden_sizes"]
+        latent_distribution = \
+            model_configuration["latent_distribution"]
         reconstruction_distribution = \
             model_configuration["reconstruction_distribution"]
         number_of_reconstruction_classes = \
@@ -103,6 +105,10 @@ def main(data_set_name, data_directory = "data",
         number_of_epochs = model_configuration["number_of_epochs"]
         batch_size = model_configuration["batch_size"]
         learning_rate = model_configuration["learning_rate"]
+        
+        if latent_distribution == "gaussian mixture":
+            number_of_latent_clusters = \
+                model_configuration["number_of_latent_clusters"]
         
         # Modeling
         
@@ -218,17 +224,20 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                 network["structure of hidden layers"],
                 network["count sum"],
                 network["batch normalisation"],
+                likelihood["latent distributions"],
                 likelihood["reconstruction distributions"],
                 likelihood["numbers of reconstruction classes"]
             )
             
             for hidden_sizes, count_sum, batch_normalisation, \
-                reconstruction_distribution, number_of_reconstruction_classes \
-                in configurations_product:
+                latent_distribution, reconstruction_distribution, \
+                number_of_reconstruction_classes in configurations_product:
                 
                 model_configuration = {
                         "model_type": model_type,
                         "hidden_sizes": hidden_sizes,
+                        "latent_distribution":
+                            latent_distribution,
                         "reconstruction_distribution":
                             reconstruction_distribution,
                         "number_of_reconstruction_classes":
@@ -239,6 +248,10 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                         "batch_size": training["batch size"],
                         "learning_rate": training["learning rate"]
                 }
+                
+                if latent_distribution == "gaussian mixture":
+                    model_configuration["number_of_latent_clusters"] = \
+                        likelihood["number of latent clusters"]
                 
                 if "VAE" in model_type:
                     for latent_size in type_configuration["latent sizes"]:
@@ -271,6 +284,10 @@ def setUpModelConfigurations(model_configurations_path, model_type,
             "batch_size": batch_size,
             "learning_rate": learning_rate
         }
+        
+        if latent_distribution == "gaussian mixture":
+            model_configuration["number_of_latent_clusters"] = \
+                number_of_latent_clusters
         
         if "VAE" in model_type:
             model_configuration["latent_size"] = latent_size
@@ -468,7 +485,7 @@ parser.add_argument(
 parser.add_argument(
     "--latent-distribution", "-q",
     type = str,
-    default = "normal",
+    default = "gaussian",
     help = "distribution for the latent variables"
 )
 parser.add_argument(

@@ -20,7 +20,7 @@ from distributions.mixture import Mixture
 
 
 distributions = {
-    "normal": {
+    "gaussian": {
         "parameters": {
             "mu": {
                 "support": [-inf, inf],

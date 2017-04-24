@@ -19,7 +19,7 @@ from auxiliary import formatDuration
 from data import DataSet
 
 class ImportanceWeightedVariationalAutoEncoder(object):
-    def __init__(self, feature_size, latent_size, hidden_sizes, numbers_of_samples, latent_distribution = "normal",
+    def __init__(self, feature_size, latent_size, hidden_sizes, numbers_of_samples, latent_distribution = "gaussian",
         number_of_latent_clusters = 1,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
@@ -348,7 +348,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
     def loss(self):
         
         # Recognition prior
-        if self.latent_distribution_name == "normal":
+        if self.latent_distribution_name == "gaussian":
             p_z_mu = tf.constant(0.0, dtype = tf.float32)
             p_z_sigma = tf.constant(1.0, dtype = tf.float32)
             p_z = Normal(p_z_mu, p_z_sigma)
