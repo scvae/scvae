@@ -19,29 +19,13 @@ from auxiliary import formatDuration
 from data import DataSet
 
 class ImportanceWeightedVariationalAutoEncoder(object):
-    def __init__(self, feature_size, latent_size, hidden_sizes, number_of_samples, latent_distribution = "normal",
+    def __init__(self, feature_size, latent_size, hidden_sizes, numbers_of_samples, latent_distribution = "normal",
         number_of_latent_clusters = 1,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
         number_of_warm_up_epochs = 0, epsilon = 1e-6,
         log_directory = "log"):
-        
-        print("Model setup:")
-        print("    feature size: {}".format(feature_size))
-        print("    latent size: {}".format(latent_size))
-        print("    hidden sizes: {}".format(", ".join(map(str, hidden_sizes))))
-        print("    latent distribution: " + 
-            latent_distribution)
-        print("    reconstruction distribution: " + reconstruction_distribution)
-        if number_of_reconstruction_classes > 0:
-            print("    reconstruction classes: {}".format(number_of_reconstruction_classes),
-                  " (including 0s)")
-        if batch_normalisation:
-            print("    using batch normalisation")
-        if count_sum:
-            print("    using count sums")
-        print("")
         
         # Class setup
         
@@ -58,7 +42,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         self.number_of_latent_clusters = number_of_latent_clusters
 
         # Dictionary holding number of samples needed for the "monte carlo" estimator and "importance weighting" during both "train" and "test" time.  
-        self.number_of_samples = number_of_samples
+        self.numbers_of_samples = numbers_of_samples
 
         self.reconstruction_distribution_name = reconstruction_distribution
         self.reconstruction_distribution = distributions[reconstruction_distribution]
@@ -77,6 +61,20 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         self.epsilon = epsilon
         
         self.log_directory = os.path.join(log_directory, self.type, self.name)
+        
+        print("Model setup:")
+        print("    type: {}".format(self.type))
+        print("    feature size: {}".format(self.feature_size))
+        print("    hidden sizes: {}".format(", ".join(map(str, self.hidden_sizes))))
+        print("    reconstruction distribution: " + self.reconstruction_distribution_name)
+        if self.k_max > 0:
+            print("    reconstruction classes: {}".format(self.k_max),
+                  " (including 0s)")
+        if self.batch_normalisation:
+            print("    using batch normalisation")
+        if self.count_sum_feature:
+            print("    using count sums")
+        print("")
         
         # Graph setup
         
@@ -548,8 +546,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.is_training: True,
                         self.learning_rate: learning_rate, 
                         self.warm_up_weight: warm_up_weight,
-                        self.number_of_iw_samples: self.number_of_samples["training"]["importance weighting"],
-                        self.number_of_mc_samples: self.number_of_samples["training"]["monte carlo"]
+                        self.number_of_iw_samples: self.numbers_of_samples["training"]["importance weighting"],
+                        self.number_of_mc_samples: self.numbers_of_samples["training"]["monte carlo"]
                     }
                     
                     if self.count_sum:
@@ -624,8 +622,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.t: t_batch,
                         self.is_training: False,
                         self.warm_up_weight: 1.0,
-                        self.number_of_iw_samples: self.number_of_samples["evaluation"]["importance weighting"],
-                        self.number_of_mc_samples: self.number_of_samples["evaluation"]["monte carlo"]
+                        self.number_of_iw_samples: self.numbers_of_samples["evaluation"]["importance weighting"],
+                        self.number_of_mc_samples: self.numbers_of_samples["evaluation"]["monte carlo"]
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
@@ -687,8 +685,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.t: t_batch,
                         self.is_training: False,
                         self.warm_up_weight: 1.0,
-                        self.number_of_iw_samples: self.number_of_samples["evaluation"]["importance weighting"],
-                        self.number_of_mc_samples: self.number_of_samples["evaluation"]["monte carlo"]
+                        self.number_of_iw_samples:
+                            self.numbers_of_samples["evaluation"]["importance weighting"],
+                        self.number_of_mc_samples:
+                            self.numbers_of_samples["evaluation"]["monte carlo"]
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
@@ -776,8 +776,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     self.t: t_batch,
                     self.is_training: False,
                     self.warm_up_weight: 1.0,
-                    self.number_of_iw_samples: self.number_of_samples["evaluation"]["importance weighting"],
-                    self.number_of_mc_samples: self.number_of_samples["evaluation"]["monte carlo"]
+                    self.number_of_iw_samples: self.numbers_of_samples["evaluation"]["importance weighting"],
+                    self.number_of_mc_samples: self.numbers_of_samples["evaluation"]["monte carlo"]
                 }
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
@@ -795,8 +795,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 # E[p(x|z)]: Reshape and mean over all the iw and mc samples.
                 x_tilde_test[subset] = numpy.mean(numpy.reshape(x_tilde_i, 
                     [
-                        self.number_of_samples["evaluation"]["importance weighting"]
-                        * self.number_of_samples["evaluation"]["monte carlo"] 
+                        self.numbers_of_samples["evaluation"]["importance weighting"]
+                        * self.numbers_of_samples["evaluation"]["monte carlo"] 
                         , -1
                         , F_test
                     ]

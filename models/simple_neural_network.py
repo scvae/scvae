@@ -24,19 +24,6 @@ class SimpleNeuralNetwork(object):
         epsilon = 1e-6,
         log_directory = "log"):
         
-        print("Model setup:")
-        print("    feature size: {}".format(feature_size))
-        print("    hidden sizes: {}".format(", ".join(map(str, hidden_sizes))))
-        print("    reconstruction distribution: " + reconstruction_distribution)
-        if number_of_reconstruction_classes > 0:
-            print("    reconstruction classes: {}".format(number_of_reconstruction_classes),
-                  " (including 0s)")
-        if batch_normalisation:
-            print("    using batch normalisation")
-        if count_sum:
-            print("    using count sums")
-        print("")
-        
         # Class setup
         
         super(SimpleNeuralNetwork, self).__init__()
@@ -61,6 +48,20 @@ class SimpleNeuralNetwork(object):
         self.epsilon = epsilon
         
         self.log_directory = os.path.join(log_directory, self.type, self.name)
+        
+        print("Model setup:")
+        print("    type: {}".format(self.type))
+        print("    feature size: {}".format(self.feature_size))
+        print("    hidden sizes: {}".format(", ".join(map(str, self.hidden_sizes))))
+        print("    reconstruction distribution: " + self.reconstruction_distribution_name)
+        if self.k_max > 0:
+            print("    reconstruction classes: {}".format(self.k_max),
+                  " (including 0s)")
+        if self.batch_normalisation:
+            print("    using batch normalisation")
+        if self.count_sum_feature:
+            print("    using count sums")
+        print("")
         
         # Graph setup
         
