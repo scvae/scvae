@@ -127,12 +127,12 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
         if model.type == "SNN":
             metrics_string += \
                 "    log-likelihood: {:.5g}.\n".format(evaluation_test["log-likelihood"])
-        elif model.type == "VAE":
+        elif "VAE" in model.type:
             metrics_string += \
                 "    ELBO: {:.5g}.\n".format(evaluation_test["ELBO"]) + \
                 "    ENRE: {:.5g}.\n".format(evaluation_test["ENRE"]) + \
                 "    KL:   {:.5g}.\n".format(evaluation_test["KL"])
-        metrics_string = "\n" + convertStatisticsToString(x_statistics)
+        metrics_string += "\n" + convertStatisticsToString(x_statistics)
         metrics_file.write(metrics_string)
     
     metrics_saving_duration = time() - metrics_saving_time_start
