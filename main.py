@@ -1,4 +1,4 @@
-#!/usr/bin/env python3 -u
+#!/usr/bin/env python3
 
 import data
 import analysis
@@ -14,8 +14,8 @@ from auxiliary import directory
 
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
-    splitting_method = "random", splitting_fraction = 0.8,
     feature_selection = None, preprocessing_methods = None,
+    splitting_method = "default", splitting_fraction = 0.8,
     model_configurations_path = None, model_type = "VAE",
     latent_size = 50, hidden_sizes = [500],
     number_of_importance_weighted_samples = [5],
@@ -254,7 +254,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                         type_configuration["number of warm-up epochs"]
                     if "IW" in model_type:
                         base_model_configuration["numbers_of_samples"] = \
-                            type_configuration["number of samples"]
+                            type_configuration["numbers of samples"]
                 
                 sub_model_configurations = []
                 
@@ -276,7 +276,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                 
                 elif latent_distribution == "gaussian mixture":
                     for number_of_latent_clusters in \
-                        likelihood["number of latent clusters"]:
+                        likelihood["numbers of latent clusters"]:
                         model_configuration = base_model_configuration.copy()
                         model_configuration["number_of_latent_clusters"] = \
                             number_of_latent_clusters
@@ -604,13 +604,13 @@ parser.set_defaults(analyse = True)
 parser.add_argument(
     "--analyse-data",
     action = "store_true",
-    help = "perform analysis"
+    help = "perform data analysis"
 )
 parser.add_argument(
-    "--skip-analyse-data",
+    "--skip-data-analysis",
     dest = "analyse_data",
     action = "store_false",
-    help = "skip analysis"
+    help = "skip data analysis"
 )
 parser.set_defaults(analyse_data = False)
 
