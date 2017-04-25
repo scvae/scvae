@@ -502,14 +502,14 @@ parser.add_argument(
 parser.add_argument(
     "--number-of-importance-weighted-samples",
     type = int,
-    nargs = 2,
+    nargs = "+",
     default = [5],
     help = "the number of importance weighted samples (if two numbers given, the first will be used for training and the second for evaluation)"
 )
 parser.add_argument(
     "--number-of-monte-carlo-samples",
     type = int,
-    nargs = 2,
+    nargs = "+",
     default = [10],
     help = "the number of Monte Carlo samples (if two numbers given, the first will be used for training and the second for evaluation)"
 )

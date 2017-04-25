@@ -4,7 +4,7 @@ import numpy
 from numpy import nan
 from sklearn.decomposition import PCA
 
-from tensorflow.python.summary import event_multiplexer
+from tensorflow.tensorboard.backend.event_processing import event_multiplexer
 
 from matplotlib import pyplot
 import seaborn

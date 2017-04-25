@@ -2,15 +2,12 @@ import tensorflow as tf
 from numpy import inf
 
 from tensorflow.contrib.distributions import (
-    Bernoulli, Normal, Poisson, Categorical, Multinomial
+    Bernoulli, Normal, Poisson, NegativeBinomial, Categorical, Multinomial
 )
 
 from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
 
-from distributions.zero_inflated_poisson import ZeroInflatedPoisson
-from distributions.negative_binomial import NegativeBinomial
-from distributions.zero_inflated_negative_binomial import ZeroInflatedNegativeBinomial
 from distributions.zero_inflated import ZeroInflated
 from distributions.categorized import Categorized
 from distributions.pareto import Pareto
@@ -32,8 +29,8 @@ distributions = {
             }
         },
         "class": lambda theta: Normal(
-            mu = theta["mu"], 
-            sigma = tf.exp(theta["log_sigma"])
+            loc = theta["mu"], 
+            scale = tf.exp(theta["log_sigma"])
         )
     },
 
@@ -53,8 +50,8 @@ distributions = {
             }
         },
         "class": lambda theta: Mixture(
-            cat = Categorical(p = theta["p"]), 
-            components = [Normal(mu = m, sigma = tf.exp(s)) for m, s in 
+            cat = Categorical(probs = theta["p"]), 
+            components = [Normal(loc = m, scale = tf.exp(s)) for m, s in 
                 zip(theta["mus"], theta["log_sigmas"])]
         )
     },    
@@ -67,7 +64,7 @@ distributions = {
             }
         },
         "class": lambda theta: Bernoulli(
-            p = theta["p"]
+            probs = theta["p"]
         )
     },
     
@@ -79,7 +76,7 @@ distributions = {
             }
         },
         "class": lambda theta: Poisson(
-            lam = tf.exp(theta["log_lambda"])
+            rate = tf.exp(theta["log_lambda"])
         )
     },
 
@@ -91,7 +88,7 @@ distributions = {
             }
         },
         "class": lambda theta, N: Poisson(
-            lam = theta["lambda"] * N
+            rate = theta["lambda"] * N
         )
     },
 
@@ -149,7 +146,7 @@ distributions = {
         },
         "class": lambda theta: ZeroInflated(
             Poisson(
-                lam = tf.exp(theta["log_lambda"])
+                rate = tf.exp(theta["log_lambda"])
             ),
             pi = theta["pi"]
         )
@@ -167,8 +164,8 @@ distributions = {
             }
         },
         "class": lambda theta: NegativeBinomial(
-            p = theta["p"],
-            r = tf.exp(theta["log_r"])
+            total_count = tf.exp(theta["log_r"]),
+            probs = theta["p"]
         )
     },
     
@@ -189,8 +186,8 @@ distributions = {
         },
         "class": lambda theta: ZeroInflated(
             NegativeBinomial(
-                p = theta["p"],
-                r = tf.exp(theta["log_r"])
+                total_count = tf.exp(theta["log_r"]),
+                probs = theta["p"]
             ),
             pi = theta["pi"]
         )
