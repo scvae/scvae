@@ -2,7 +2,10 @@ import tensorflow as tf
 from numpy import inf
 
 from tensorflow.contrib.distributions import (
-    Bernoulli, Normal, Poisson, NegativeBinomial, Categorical, Multinomial
+    Bernoulli,
+    Poisson, NegativeBinomial,
+    Normal, Multinomial,
+    Categorical, Mixture
 )
 
 from tensorflow.python.ops.nn import relu, softmax
@@ -13,8 +16,6 @@ from distributions.categorized import Categorized
 from distributions.pareto import Pareto
 from distributions.generalised_pareto import GeneralisedPareto
 from distributions.multinomial_non_permuted import NonPermutedMultinomial
-from distributions.mixture import Mixture
-
 
 distributions = {
     "gaussian": {
