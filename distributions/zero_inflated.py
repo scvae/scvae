@@ -124,7 +124,7 @@ class ZeroInflated(distribution.Distribution):
     return self._static_event_shape
 
   def _log_prob(self, x):
-    x = self._assert_valid_sample(x, check_integer=self._is_continuous)
+    # x = self._assert_valid_sample(x, check_integer=self._is_continuous)
     y_0 = math_ops.log(self.pi + (1 - self.pi) * self._dist.prob(x))
     y_1 = math_ops.log(1 - self.pi) + self._dist.log_prob(x)
     return where(x > 0, y_1, y_0)
