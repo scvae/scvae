@@ -40,8 +40,8 @@ class ZeroInflated(distribution.Distribution):
   The pmf of this distribution is:
 
   ```
-  pmf(k) = pi + (1-pi) * e^(-lambd),        for k = 0
-  pmf(k) = (1-pi) * e^(-lambd) * lambd^k / k!,   for k > 0
+  pmf(x) = pi + (1-pi) * dist(0), for x = 0
+  pmf(x) = (1-pi) * dist(x),      for x > 0
   ```
 
   """
