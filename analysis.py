@@ -461,8 +461,6 @@ def plotLatentSpace(latent_set, name = None):
         
         label_indices[label].append(i)
     
-    print(label_indices.keys())
-    
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
@@ -480,8 +478,16 @@ def plotLatentSpace(latent_set, name = None):
         axis.set_xlabel("$z_1$")
         axis.set_ylabel("$z_2$")
     
+    latent_palette = seaborn.color_palette("hls", len(label_indices))
+    
+    seaborn.set(palette = latent_palette)
+    
     for label, indices in label_indices.items():
         axis.scatter(values[indices, 0], values[indices, 1], label = label)
+    
+    axis.legend()
+    
+    seaborn.set(palette = palette)
     
     return figure, figure_name
 
