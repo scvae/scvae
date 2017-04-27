@@ -109,7 +109,7 @@ data_sets = {
     
     "blobs": {
         "split": False,
-        "preprocessed": False,
+        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full": "http://people.compute.dtu.dk/s147246/datasets/blobs.pkl.gz"
