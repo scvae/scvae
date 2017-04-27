@@ -162,11 +162,21 @@ def main(data_set_name, data_directory = "data",
         
         print()
         
-        model.train(
+        status = model.train(
             training_set, validation_set,
             number_of_epochs, batch_size, learning_rate,
             reset_training
         )
+        
+        if not status["completed"]:
+            print(status["message"])
+            error_path = os.path.join(model.log_directory, "error.log")
+            with open(error_path, "w") as error_file:
+                error_file.write(
+                    "completed: {}\n".format(status["completed"]) + \
+                    "message: {}\n".format(status["message"])
+                )
+            continue
         
         print()
         
@@ -194,7 +204,7 @@ def main(data_set_name, data_directory = "data",
             
             print()
     
-    if analyse:
+    if analyse and len(models_summaries.keys()) > 1:
         analysis.analyseAllModels(models_summaries, results_directory)
 
 def setUpModelConfigurations(model_configurations_path, model_type,

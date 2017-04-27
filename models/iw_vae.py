@@ -461,6 +461,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         
         # Logging
         
+        status = {
+            "completed": False,
+            "message": None
+        }
+        
         # parameter_values = "lr_{:.1g}".format(learning_rate)
         # parameter_values += "_b_" + str(batch_size)
         
@@ -553,25 +558,28 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[batch_indices]
-
                     
                     # Run the stochastic batch training operation
                     _, batch_loss = session.run(
                         [self.train_op, self.lower_bound],
                         feed_dict = feed_dict_batch
                     )
-
-
+                    
                     # Compute step duration
                     step_duration = time() - step_time_start
                     
                     # Print evaluation and output summaries
                     if (step + 1 - steps_per_epoch * epoch) in output_at_step:
-
+                        
                         print('Step {:d} ({}): {:.5g}.'.format(
                             int(step + 1), formatDuration(step_duration),
                             batch_loss))
-                                    
+                        
+                        if numpy.isnan(batch_loss):
+                            status["completed"] = False
+                            status["message"] = "loss became nan"
+                            return status
+                
                 print()
                 
                 epoch_duration = time() - epoch_time_start
@@ -738,7 +746,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         and not checkpoint.model_checkpoint_path in file_path
                     if is_old_checkpoint_file:
                         os.remove(file_path)
-                
+            
+            status["completed"] = True
+            
+            return status
     
     def evaluate(self, test_set, batch_size = 100):
         
