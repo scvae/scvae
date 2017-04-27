@@ -31,7 +31,7 @@ preprocessed_extension = ".sparse.pkl.gz"
 data_sets = {
     "mouse retina": {
         "split": False,
-        "processed": True,
+        "preprocessing methods": None,
         "URLs": {
             "values": {
                 "full": "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE63nnn/GSE63472/suppl/GSE63472_P14Retina_merged_digital_expression.txt.gz"
@@ -45,7 +45,7 @@ data_sets = {
     
     "MNIST": {
         "split": ["training", "test"],
-        "processed": True,
+        "preprocessing methods": None,
         "URLs": {
             "values": {
                     "training":
@@ -65,7 +65,7 @@ data_sets = {
     
     "MNIST (binarised)": {
         "split": ["training", "validation", "test"],
-        "processed": True,
+        "preprocessing methods": ["binarise"],
         "URLs": {
             "values": {
                     "training":
@@ -86,7 +86,7 @@ data_sets = {
     
     "Reuters": {
         "split": False,
-        "processed": False,
+        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full": "http://www.daviddlewis.com/resources/testcollections/reuters21578/reuters21578.tar.gz"
@@ -97,7 +97,7 @@ data_sets = {
     
     "20 Newsgroups": {
         "split": ["training", "test"],
-        "processed": False,
+        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full":
@@ -109,7 +109,7 @@ data_sets = {
     
     "blobs": {
         "split": False,
-        "processed": False,
+        "preprocessed": False,
         "URLs": {
             "all": {
                 "full": "http://people.compute.dtu.dk/s147246/datasets/blobs.pkl.gz"
@@ -120,7 +120,7 @@ data_sets = {
     
     "circles": {
         "split": False,
-        "processed": False,
+        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full": "http://people.compute.dtu.dk/s147246/datasets/circles.pkl.gz"
@@ -131,7 +131,7 @@ data_sets = {
     
     "moons": {
         "split": False,
-        "processed": False,
+        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full": "http://people.compute.dtu.dk/s147246/datasets/moons.pkl.gz"
@@ -142,7 +142,7 @@ data_sets = {
     
     "sample": {
         "split": False,
-        "processed": False,
+        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full": "http://people.compute.dtu.dk/s152421/data-sets/count_samples.pkl.gz"
@@ -156,7 +156,8 @@ class DataSet(object):
     def __init__(self, name, values = None, preprocessed_values = None,
         labels = None, example_names = None, feature_names = None,
         feature_selection = None, preprocessing_methods = [],
-        kind = "full", version = "original", directory = "data"):
+        preprocessed = None, kind = "full", version = "original",
+        directory = "data"):
         
         super(DataSet, self).__init__()
         
@@ -179,8 +180,20 @@ class DataSet(object):
         
         # Feature selction and preprocessing methods
         self.feature_selection = feature_selection
-        self.original_feature_selection_indices = None
         self.preprocessing_methods = preprocessing_methods
+        
+        if preprocessed is None:
+            data_set_preprocessing_methods = \
+                dataSetPreprocessingMethods(self.title)
+            if data_set_preprocessing_methods:
+                self.preprocessed = True
+            else:
+                self.preprocessed = False
+        else:
+            self.preprocessed = preprocessed
+        
+        if self.preprocessed:
+            self.preprocessing_methods = data_set_preprocessing_methods
         
         # Kind of data set (full, training, validation, test)
         self.kind = kind
@@ -209,10 +222,12 @@ class DataSet(object):
                 print("    feature selection:", self.feature_selection)
             else:
                 print("    feature selection: none")
-            if self.preprocessing_methods:
+            if not self.preprocessed and self.preprocessing_methods:
                 print("    processing methods:")
                 for preprocessing_method in self.preprocessing_methods:
                     print("        ", preprocessing_method)
+            elif self.preprocessed:
+                print("    processing methods: already done")
             else:
                 print("    processing methods: none")
             print()
@@ -222,8 +237,6 @@ class DataSet(object):
             
             if self.preprocessed_values is None:
                 self.preprocess()
-        
-        
     
     def update(self, values = None, preprocessed_values = None, labels = None,
         example_names = None, feature_names = None):
@@ -311,7 +324,7 @@ class DataSet(object):
         
         else:
             
-            if self.preprocessing_methods:
+            if not self.preprocessed and self.preprocessing_methods:
                 preprocessed_values = preprocessValues(self.values,
                     self.preprocessing_methods, self.preprocessedPath)
                 
@@ -466,6 +479,9 @@ def dataSetTitle(name):
         raise KeyError("Data set not found.")
     
     return title
+
+def dataSetPreprocessingMethods(title):
+    return data_sets[title]["preprocessing methods"]
 
 def downloadDataSet(title, directory):
     
