@@ -70,7 +70,8 @@ def main(data_set_name, data_directory = "data",
         reconstruction_distribution,
         number_of_reconstruction_classes, number_of_warm_up_epochs,
         batch_normalisation, count_sum, number_of_epochs,
-        batch_size, learning_rate
+        batch_size, learning_rate,
+        data_set.preprocessing_methods
     )
     
     if configuration_errors:
@@ -214,7 +215,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
     latent_distribution, number_of_latent_clusters,
     reconstruction_distribution, number_of_reconstruction_classes,
     number_of_warm_up_epochs, batch_normalisation, count_sum, number_of_epochs,
-    batch_size, learning_rate):
+    batch_size, learning_rate, preprocessing_methods):
     
     model_configurations = []
     configuration_errors = []
@@ -305,7 +306,8 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                 for model_configuration in sub_model_configurations:
                 
                     validity, errors = \
-                        validateModelConfiguration(model_configuration)
+                        validateModelConfiguration(model_configuration,
+                            preprocessing_methods)
                 
                     if validity:
                         model_configurations.append(model_configuration)
@@ -358,7 +360,8 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                 
                 model_configuration["numbers_of_samples"] = numbers_of_samples
         
-        validity, errors = validateModelConfiguration(model_configuration)
+        validity, errors = validateModelConfiguration(model_configuration,
+            preprocessing_methods)
         
         if validity:
             model_configurations.append(model_configuration)
@@ -370,20 +373,33 @@ def setUpModelConfigurations(model_configurations_path, model_type,
     
     return model_configurations, configuration_errors
 
-def validateModelConfiguration(model_configuration):
+def validateModelConfiguration(model_configuration, preprocessing_methods):
     
     validity = True
-    errors = ""
-    
-    # Likelihood
-    
-    likelihood_validity = True
-    likelihood_error = ""
+    errors = []
     
     reconstruction_distribution = \
         model_configuration["reconstruction_distribution"]
     number_of_reconstruction_classes = \
         model_configuration["number_of_reconstruction_classes"]
+    
+    # Preprocessing
+    
+    preprocessing_validity = True
+    preprocessing_error = ""
+    
+    if reconstruction_distribution == "bernoulli":
+        if preprocessing_methods[-1] != "binarise":
+            preprocessing_validity = False
+            preprocessing_error = "The Bernoulli distribution only works with binarised data."
+    
+    validity = validity and preprocessing_validity
+    errors.append(preprocessing_error)
+    
+    # Likelihood
+    
+    likelihood_validity = True
+    likelihood_error = ""
     
     if number_of_reconstruction_classes > 0:
         likelihood_error = "Reconstruction classification with"
@@ -423,10 +439,10 @@ def validateModelConfiguration(model_configuration):
         else:
             likelihood_error += " " + likelihood_error_distribution + "."
     
-    # Over-all validity
+    validity = validity and likelihood_validity
+    errors.append(likelihood_error)
     
-    validity = likelihood_validity
-    errors = [likelihood_error]
+    # Return
     
     return validity, errors
 
