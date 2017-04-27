@@ -449,23 +449,39 @@ def plotLatentSpace(latent_set, name = None):
     if name:
         figure_name = figure_name + "_" + name
     
-    M, L = latent_set.shape
+    M = latent_set.number_of_examples
+    L = latent_set.number_of_features
+    
+    label_indices = dict()
+    
+    for i, label in enumerate(latent_set.labels):
+        
+        if label not in label_indices:
+            label_indices[label] = []
+        
+        label_indices[label].append(i)
+    
+    print(label_indices.keys())
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
     if L > 2:
         pca = PCA(n_components = 2)
-        pca.fit(latent_set)
-        latent_set = pca.transform(latent_set)
+        pca.fit(latent_set.values)
+        values = pca.transform(latent_set.values)
         
         axis.set_xlabel("PC 1")
         axis.set_ylabel("PC 2")
+    
     elif L == 2:
+        values = latent_set.values
+        
         axis.set_xlabel("$z_1$")
         axis.set_ylabel("$z_2$")
     
-    axis.scatter(latent_set[:, 0], latent_set[:, 1])
+    for label, indices in label_indices.items():
+        axis.scatter(values[indices, 0], values[indices, 1], label = label)
     
     return figure, figure_name
 

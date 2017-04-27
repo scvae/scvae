@@ -176,11 +176,12 @@ def main(data_set_name, data_directory = "data",
                     "completed: {}\n".format(status["completed"]) + \
                     "message: {}\n".format(status["message"])
                 )
+            print()
             continue
         
         print()
         
-        reconstructed_test_set, latent_set, evaluation_test = \
+        reconstructed_test_set, latent_test_set, evaluation_test = \
             model.evaluate(test_set, batch_size)
         
         print()
@@ -192,7 +193,7 @@ def main(data_set_name, data_directory = "data",
             learning_curves = analysis.analyseModel(model, results_directory)
             
             analysis.analyseResults(test_set, reconstructed_test_set,
-                latent_set, evaluation_test, model, results_directory)
+                latent_test_set, evaluation_test, model, results_directory)
             
             models_summaries[model.name] = {
                 "type": model.type,

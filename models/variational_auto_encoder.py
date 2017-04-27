@@ -770,9 +770,23 @@ class VariationalAutoEncoder(object):
                 example_names = test_set.example_names,
                 feature_names = test_set.feature_names,
                 feature_selection = test_set.feature_selection,
-                preprocessing_methods = None,
+                preprocessing_methods = test_set.preprocessing_methods,
                 kind = "test",
                 version = "reconstructed"
             )
             
-            return reconstructed_test_set, z_mean_test, evaluation_test
+            latent_test_set = DataSet(
+                name = test_set.name,
+                values = z_mean_test,
+                preprocessed_values = None,
+                labels = test_set.labels,
+                example_names = test_set.example_names,
+                feature_names = numpy.array(["latent variable {}".format(
+                    i + 1) for i in range(self.latent_size)]),
+                feature_selection = test_set.feature_selection,
+                preprocessing_methods = test_set.preprocessing_methods,
+                kind = "test",
+                version = "latent"
+            )
+            
+            return reconstructed_test_set, latent_test_set, evaluation_test
