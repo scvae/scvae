@@ -139,7 +139,7 @@ class Categorized(distribution.Distribution):
 
       self._cat = cat
       self._dist = dist
-      self._num_classes = static_num_dist
+      self._num_classes = static_num_dist - 1
       self._static_event_shape = static_event_shape
       self._static_batch_shape = static_batch_shape
 
