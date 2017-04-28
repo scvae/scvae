@@ -12,7 +12,7 @@ import seaborn
 import os
 
 from time import time
-from auxiliary import formatDuration
+from auxiliary import formatDuration, normaliseString
 
 palette = seaborn.color_palette('Set2', 8)
 seaborn.set(style='ticks', palette = palette)
@@ -204,16 +204,53 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     if z_test is not None:
         
         print("Plotting latent space.")
+        
+        # Labels
+        
         latent_space_time_start = time()
         
-        figure, name = plotLatentSpace(z_test)
+        if z_test.labels is None:
+            figure, name = plotLatentSpace(z_test)
+            saveFigure(figure, name, results_directory)
+            
+            latent_space_duration = time() - latent_space_time_start
+            print("    Latent space (no labels) plotted and saved ({}).".format(
+                formatDuration(latent_space_duration)))
+        
+        else:
+            figure, name = plotLatentSpace(z_test, colour_coding = "labels")
+            saveFigure(figure, name, results_directory)
+            
+            latent_space_duration = time() - latent_space_time_start
+            print("    Latent space (with labels) plotted and saved ({}).".format(
+                formatDuration(latent_space_duration)))
+        
+        # Count sum
+        
+        latent_space_time_start = time()
+        
+        figure, name = plotLatentSpace(z_test, colour_coding = "count sum",
+            test_set = x_test)
         saveFigure(figure, name, results_directory)
         
         latent_space_duration = time() - latent_space_time_start
-        print("Latent space plotted and saved ({}).".format(
+        print("    Latent space (with count sum) plotted and saved ({}).".format(
             formatDuration(latent_space_duration)))
         
-        seaborn.set(palette = palette)
+        # Feature x
+        
+        feature_index = 0
+        
+        latent_space_time_start = time()
+        
+        figure, name = plotLatentSpace(z_test, colour_coding = "feature",
+            feature_index = feature_index, test_set = x_test)
+        saveFigure(figure, name, results_directory)
+        
+        latent_space_duration = time() - latent_space_time_start
+        print("    Latent space (with feature {}) plotted and saved ({}).".format(
+            feature_index + 1,
+            formatDuration(latent_space_duration)))
 
 def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
@@ -444,24 +481,13 @@ def plotHeatMap(data_set, x_name, y_name, z_name = None,
     
     return figure, figure_name
 
-def plotLatentSpace(latent_set, name = None):
+def plotLatentSpace(latent_set, colour_coding = None, feature_index = None,
+    test_set = None, name = None):
     
-    figure_name = "latent_space"
-    
-    if name:
-        figure_name = figure_name + "_" + name
+    figure_name = "latent_space-" + normaliseString(colour_coding)
     
     M = latent_set.number_of_examples
     L = latent_set.number_of_features
-    
-    label_indices = dict()
-    
-    for i, label in enumerate(latent_set.labels):
-        
-        if label not in label_indices:
-            label_indices[label] = []
-        
-        label_indices[label].append(i)
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -480,13 +506,65 @@ def plotLatentSpace(latent_set, name = None):
         axis.set_xlabel("$z_1$")
         axis.set_ylabel("$z_2$")
     
-    latent_palette = seaborn.color_palette("hls", len(label_indices))
+    if colour_coding == "labels":
+        
+        label_indices = dict()
+        
+        for i, label in enumerate(latent_set.labels):
+        
+            if label not in label_indices:
+                label_indices[label] = []
+        
+            label_indices[label].append(i)
     
-    for i, (label, indices) in enumerate(label_indices.items()):
-        axis.scatter(values[indices, 0], values[indices, 1], label = label,
-            color = latent_palette[i])
+        latent_palette = seaborn.color_palette("hls", len(label_indices))
     
-    axis.legend()
+        for i, (label, indices) in enumerate(label_indices.items()):
+            axis.scatter(values[indices, 0], values[indices, 1], label = label,
+                color = latent_palette[i])
+    
+        axis.legend()
+    
+    elif colour_coding == "count sum":
+        
+        if test_set is None:
+            raise ValueError("Test set not given.")
+        
+        n_test = test_set.count_sum
+        
+        n_normalised = n_test / n_test.max()
+        
+        colours = numpy.array([palette[0]]) * n_normalised
+        
+        axis.scatter(values[:, 0], values[:, 1], color = colours)
+    
+    elif colour_coding == "feature":
+        
+        if test_set is None:
+            raise ValueError("Test set not given.")
+        
+        if feature_index is None:
+            raise ValueError("Feature number not given.")
+        
+        if feature_index > test_set.number_of_features:
+            raise ValueError("Feature number higher than number of features.")
+        
+        figure_name += "-{}".format(
+            normaliseString(test_set.feature_names[feature_index]))
+        
+        f_test = test_set.values[:, feature_index].reshape(-1, 1)
+        
+        f_normalised = f_test / f_test.max()
+        
+        colours = numpy.array([palette[0]]) * f_normalised
+        
+        axis.scatter(values[:, 0], values[:, 1], color = colours)
+    
+    else:
+        axis.scatter(values[indices, 0], values[indices, 1])
+    
+    if name:
+        figure_name = figure_name + "_" + name
     
     return figure, figure_name
 
