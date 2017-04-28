@@ -212,6 +212,8 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
         latent_space_duration = time() - latent_space_time_start
         print("Latent space plotted and saved ({}).".format(
             formatDuration(latent_space_duration)))
+        
+        seaborn.set(palette = palette)
 
 def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
@@ -480,14 +482,11 @@ def plotLatentSpace(latent_set, name = None):
     
     latent_palette = seaborn.color_palette("hls", len(label_indices))
     
-    seaborn.set(palette = latent_palette)
-    
-    for label, indices in label_indices.items():
-        axis.scatter(values[indices, 0], values[indices, 1], label = label)
+    for i, (label, indices) in enumerate(label_indices.items()):
+        axis.scatter(values[indices, 0], values[indices, 1], label = label,
+            color = latent_palette[i])
     
     axis.legend()
-    
-    seaborn.set(palette = palette)
     
     return figure, figure_name
 
