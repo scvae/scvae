@@ -153,7 +153,8 @@ data_sets = {
 }
 
 class DataSet(object):
-    def __init__(self, name, values = None, preprocessed_values = None,
+    def __init__(self, name,
+        values = None, preprocessed_values = None, count_sum = None,
         labels = None, example_names = None, feature_names = None,
         feature_selection = None, preprocessing_methods = [],
         preprocessed = None, kind = "full", version = "original",
@@ -169,6 +170,7 @@ class DataSet(object):
         
         # Values and their names as well as labels in data set
         self.values = None
+        self.count_sum = None
         self.preprocessed_values = None
         self.labels = None
         self.example_names = None
@@ -244,6 +246,8 @@ class DataSet(object):
         if values is not None:
             
             self.values = values
+            
+            self.count_sum = self.values.sum(axis = 1).reshape(-1, 1)
             
             M_values, N_values = values.shape
             

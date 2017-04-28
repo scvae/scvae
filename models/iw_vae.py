@@ -479,8 +479,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         # Setup
         
         if self.count_sum:
-            n_train = training_set.values.sum(axis = 1).reshape(-1, 1)
-            n_valid = validation_set.values.sum(axis = 1).reshape(-1, 1)
+            n_train = training_set.count_sum
+            n_valid = validation_set.count_sum
         
         M_train = training_set.number_of_examples
         M_valid = validation_set.number_of_examples
@@ -754,7 +754,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
     def evaluate(self, test_set, batch_size = 100):
         
         if self.count_sum:
-            n_test = test_set.values.sum(axis = 1).reshape(-1, 1)
+            n_test = test_set.count_sum
         
         M_test = test_set.number_of_examples
         F_test = test_set.number_of_features
