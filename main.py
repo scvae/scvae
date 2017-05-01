@@ -387,7 +387,7 @@ def validateModelConfiguration(model_configuration, preprocessing_methods):
     preprocessing_error = ""
     
     if reconstruction_distribution == "bernoulli":
-        if preprocessing_methods[-1] != "binarise":
+        if preprocessing_methods and preprocessing_methods[-1] != "binarise":
             preprocessing_validity = False
             preprocessing_error = "The Bernoulli distribution only works with binarised data."
     
