@@ -26,7 +26,7 @@ def main(data_set_name, data_directory = "data",
     number_of_epochs = 200, batch_size = 100, learning_rate = 1e-4,
     reset_training = False, analyse = True, analyse_data = False):
     
-    # Load, split, and analyse data
+    # Load and split data
     
     data_set = data.DataSet(
         data_set_name,
@@ -40,19 +40,21 @@ def main(data_set_name, data_directory = "data",
     
     print()
     
-    if analyse_data:
-        analysis.analyseData(
-            [data_set, training_set, validation_set, test_set],
-            results_directory
-        )
-        print()
-    
     # Set up log and results directories
     
     log_directory = data.directory(log_directory, data_set,
         splitting_method, splitting_fraction)
     results_directory = data.directory(results_directory, data_set,
         splitting_method, splitting_fraction)
+    
+    # Analyse data
+    
+    if analyse_data:
+        analysis.analyseData(
+            [data_set, training_set, validation_set, test_set],
+            results_directory
+        )
+        print()
     
     # Set up model configurations
     
