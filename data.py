@@ -30,6 +30,11 @@ preprocessed_extension = ".sparse.pkl.gz"
 
 data_sets = {
     "mouse retina": {
+        "tags": {
+            "example": "cell",
+            "feature": "gene",
+            "value": "count"
+        },
         "split": False,
         "preprocessing methods": None,
         "URLs": {
@@ -44,6 +49,11 @@ data_sets = {
     },
     
     "MNIST": {
+        "tags": {
+            "example": "digit",
+            "feature": "pixel",
+            "value": "pixel value"
+        },
         "split": ["training", "test"],
         "preprocessing methods": None,
         "URLs": {
@@ -64,6 +74,11 @@ data_sets = {
     },
     
     "MNIST (binarised)": {
+        "tags": {
+            "example": "digit",
+            "feature": "pixel",
+            "value": "pixel value"
+        },
         "split": ["training", "validation", "test"],
         "preprocessing methods": ["binarise"],
         "URLs": {
@@ -85,6 +100,11 @@ data_sets = {
     },
     
     "Reuters": {
+        "tags": {
+            "example": "document",
+            "feature": "word",
+            "value": "count"
+        },
         "split": False,
         "preprocessing methods": None,
         "URLs": {
@@ -96,6 +116,11 @@ data_sets = {
     },
     
     "20 Newsgroups": {
+        "tags": {
+            "example": "document",
+            "feature": "word",
+            "value": "count"
+        },
         "split": ["training", "test"],
         "preprocessing methods": None,
         "URLs": {
@@ -167,6 +192,9 @@ class DataSet(object):
         
         # Title (proper name) of data set
         self.title = dataSetTitle(self.name)
+        
+        # Tags (with names for examples, feature, and values) of data set
+        self.tags = dataSetTags(self.title)
         
         # Values and their names as well as labels in data set
         self.values = None
@@ -486,6 +514,17 @@ def dataSetTitle(name):
         raise KeyError("Data set not found.")
     
     return title
+
+def dataSetTags(title):
+    if "tags" in data_sets[title]:
+        return data_sets[title]["tags"]
+    else:
+        tags = {
+            "example": "example",
+            "feature": "feature",
+            "value": "value"
+        }
+        return tags
 
 def dataSetPreprocessingMethods(title):
     return data_sets[title]["preprocessing methods"]
