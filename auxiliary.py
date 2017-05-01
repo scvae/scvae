@@ -40,29 +40,6 @@ def normaliseString(s):
 
 # IO
 
-def directory(base_directory, data_set_name, feature_selection = None, preprocessing_methods = None):
-    
-    data_set_name = normaliseString(data_set_name)
-    data_set_directory = os.path.join(base_directory, data_set_name)
-    
-    preprocessing_directory_parts = []
-    
-    if feature_selection:
-        preprocessing_directory_parts.append(normaliseString(feature_selection))
-    
-    if preprocessing_methods:
-        preprocessing_directory_parts.extend(
-            map(normaliseString, preprocessing_methods))
-    
-    if preprocessing_directory_parts:
-        preprocessing_directory = "-".join(preprocessing_directory_parts)
-    else:
-        preprocessing_directory = "none"
-    
-    directory = os.path.join(data_set_directory, preprocessing_directory)
-    
-    return directory
-
 def download(URL, path):
     urllib.request.urlretrieve(URL, path, download_report_hook)
 

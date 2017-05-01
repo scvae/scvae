@@ -373,13 +373,16 @@ class DataSet(object):
         
         print()
     
+    def defaultSplittingMethod(self):
+        if self.split_indices:
+            return "indices"
+        else:
+            return "random"
+    
     def split(self, method = "default", fraction = 0.9):
         
         if method == "default":
-            if self.split_indices:
-                method = "indices"
-            else:
-                method = "random"
+            method = self.defaultSplittingMethod()
         
         sparse_path = self.preprocessedPath(
             preprocessing_methods = self.preprocessing_methods,
@@ -1149,3 +1152,33 @@ def computeInverseGlobalFrequencyWeights(data):
     print("IDF weights computed ({}).".format(formatDuration(duration)))
     
     return idf_weights
+
+def directory(base_directory, data_set, splitting_method, splitting_fraction):
+    
+    data_set_directory = os.path.join(base_directory, data_set.name)
+    
+    if splitting_method == "default":
+        splitting_method = data_set.defaultSplittingMethod()
+    
+    splitting_directory = "split-{}-{}".format(splitting_method,
+        splitting_fraction)
+    
+    preprocessing_directory_parts = []
+    
+    if data_set.feature_selection:
+        preprocessing_directory_parts.append(normaliseString(
+            data_set.feature_selection))
+    
+    if data_set.preprocessing_methods:
+        preprocessing_directory_parts.extend(map(normaliseString,
+            data_set.preprocessing_methods))
+    
+    if preprocessing_directory_parts:
+        preprocessing_directory = "-".join(preprocessing_directory_parts)
+    else:
+        preprocessing_directory = "none"
+    
+    directory = os.path.join(data_set_directory, splitting_directory,
+        preprocessing_directory)
+    
+    return directory

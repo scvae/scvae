@@ -10,8 +10,6 @@ import argparse
 import json
 import itertools
 
-from auxiliary import directory
-
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     feature_selection = None, preprocessing_methods = None,
@@ -28,14 +26,7 @@ def main(data_set_name, data_directory = "data",
     number_of_epochs = 200, batch_size = 100, learning_rate = 1e-4,
     reset_training = False, analyse = True, analyse_data = False):
     
-    # Setup
-    
-    log_directory = directory(log_directory, data_set_name,
-        feature_selection, preprocessing_methods)
-    results_directory = directory(results_directory, data_set_name,
-        feature_selection, preprocessing_methods)
-    
-    # Data
+    # Load, split, and analyse data
     
     data_set = data.DataSet(
         data_set_name,
@@ -55,6 +46,13 @@ def main(data_set_name, data_directory = "data",
             results_directory
         )
         print()
+    
+    # Set up log and results directories
+    
+    log_directory = data.directory(log_directory, data_set,
+        splitting_method, splitting_fraction)
+    results_directory = data.directory(results_directory, data_set,
+        splitting_method, splitting_fraction)
     
     # Set up model configurations
     
