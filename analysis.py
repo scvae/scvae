@@ -23,10 +23,73 @@ pyplot.rcParams.update({'figure.max_open_warning': 0})
 
 def analyseData(data_sets, results_directory = "results"):
     
-    convertStatisticsToString([
+    # Setup
+    
+    results_directory = os.path.join(results_directory, "data")
+    
+    if not os.path.exists(results_directory):
+        os.makedirs(results_directory)
+    
+    # Metrics
+    
+    print("Calculating metrics for data set.")
+    metrics_time_start = time()
+    
+    x_statistics = [
         statistics(data_set.values, data_set.kind, tolerance = 0.5)
-        for data_set in data_sets
-    ])
+            for data_set in data_sets
+    ]
+    
+    metrics_duration = time() - metrics_time_start
+    print("Metrics calculated ({}).".format(
+        formatDuration(metrics_duration)))
+    
+    ## Saving
+    
+    metrics_path = os.path.join(results_directory, "data_set_metrics.log")
+    
+    metrics_saving_time_start = time()
+    
+    with open(metrics_path, "w") as metrics_file:
+        metrics_string = "Metrics:\n"
+        metrics_string += convertStatisticsToString(x_statistics)
+        metrics_file.write(metrics_string)
+    
+    metrics_saving_duration = time() - metrics_saving_time_start
+    print("Metrics saved ({}).".format(formatDuration(
+        metrics_saving_duration)))
+    
+    print()
+    
+    ## Displaying
+    
+    print(convertStatisticsToString(x_statistics), end = "")
+    
+    print()
+    
+    # Heat map for test set
+    
+    for data_set in data_sets:
+        if data_set.kind == "test":
+            x_test = data_set
+    
+    print("Plotting heat map for test set.")
+    
+    heat_maps_time_start = time()
+    
+    figure, name = plotHeatMap(
+        x_test.values,
+        x_name = x_test.tags["example"].capitalize() + "s",
+        y_name = x_test.tags["feature"].capitalize() + "s",
+        name = "test"
+    )
+    saveFigure(figure, name, results_directory)
+    
+    heat_maps_duration = time() - heat_maps_time_start
+    print("Heat map for test set plotted and saved ({})." \
+        .format(formatDuration(heat_maps_duration)))
+    
+    print()
 
 def analyseModel(model, results_directory = "results"):
     
@@ -96,11 +159,11 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     
     # Metrics
     
-    print("Calculating metrics.")
+    print("Calculating metrics for results.")
     metrics_time_start = time()
     
     x_statistics = [
-            statistics(data_set.values, data_set.version, tolerance = 0.5)
+        statistics(data_set.values, data_set.version, tolerance = 0.5)
             for data_set in [x_test, x_tilde_test]
     ]
     
@@ -173,12 +236,33 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     
     print("Plotting heat maps.")
     
-    # Difference
+    # Reconstructions
     
     heat_maps_time_start = time()
     
-    figure, name = plotHeatMap(x_diff, x_name = "Cell", y_name = "Gene",
-        center = 0, name = "difference")
+    figure, name = plotHeatMap(
+        x_tilde_test.values,
+        x_name = x_test.tags["example"].capitalize() + "s",
+        y_name = x_test.tags["feature"].capitalize() + "s",
+        name = "reconstruction"
+    )
+    saveFigure(figure, name, results_directory)
+    
+    heat_maps_duration = time() - heat_maps_time_start
+    print("    Reconstruction heat map for plotted and saved ({})." \
+        .format(formatDuration(heat_maps_duration)))
+    
+    # Differences
+    
+    heat_maps_time_start = time()
+    
+    figure, name = plotHeatMap(
+        x_diff,
+        x_name = x_test.tags["example"].capitalize() + "s",
+        y_name = x_test.tags["feature"].capitalize() + "s",
+        name = "difference",
+        center = 0
+    )
     saveFigure(figure, name, results_directory)
     
     heat_maps_duration = time() - heat_maps_time_start
@@ -189,8 +273,13 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     
     heat_maps_time_start = time()
     
-    figure, name = plotHeatMap(x_log_ratio, x_name = "Cell", y_name = "Gene",
-        center = 0, name = "log_ratio")
+    figure, name = plotHeatMap(
+        x_log_ratio,
+        x_name = x_test.tags["example"].capitalize() + "s",
+        y_name = x_test.tags["feature"].capitalize() + "s",
+        name = "log_ratio",
+        center = 0
+    )
     saveFigure(figure, name, results_directory)
     
     heat_maps_duration = time() - heat_maps_time_start
@@ -516,9 +605,9 @@ def plotLatentSpace(latent_set, colour_coding = None, feature_index = None,
                 label_indices[label] = []
         
             label_indices[label].append(i)
-    
+        
         latent_palette = seaborn.color_palette("hls", len(label_indices))
-    
+        
         for i, (label, indices) in enumerate(label_indices.items()):
             axis.scatter(values[indices, 0], values[indices, 1], label = label,
                 color = latent_palette[i])
