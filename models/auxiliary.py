@@ -20,13 +20,15 @@ def dense_layer(inputs, num_outputs, is_training, scope, activation_fn = None,
         if activation_fn == relu: 
             # For relu use:
             ## N(mu=0,sigma=sqrt(2/n_in)) weight initialization
-            weights_init = variance_scaling_initializer(factor=2.0, mode='FAN_IN', uniform=False, seed=None, dtype=tf.float32)
+            weights_init = variance_scaling_initializer(factor=2.0, 
+                mode ='FAN_IN', uniform = False, seed = None, dtype = tf.float32)
             # and 0 bias initialization.
             outputs = fully_connected(inputs, num_outputs = num_outputs, activation_fn = None, weights_initializer = weights_init, scope = 'DENSE')
         else:
             # For all other activation functions use (the same):
             ## N(mu=0,sigma=sqrt(2/n_in) weight initialization
-            weights_init = variance_scaling_initializer(factor=2.0, mode='FAN_IN', uniform=False, seed=None, dtype=tf.float32)
+            weights_init = variance_scaling_initializer(factor=2.0,
+                mode = 'FAN_IN', uniform = False, seed = None, dtype = tf.float32)
             ## and 0 bias initialization.
             outputs = fully_connected(inputs, num_outputs = num_outputs, activation_fn = None, weights_initializer = weights_init, scope = 'DENSE')
         if batch_normalisation:
@@ -39,7 +41,8 @@ def dense_layer(inputs, num_outputs, is_training, scope, activation_fn = None,
 def log_reduce_exp(A, reduction_function=tf.reduce_mean, axis=None):
     # log-mean-exp over axis to avoid overflow and underflow
     A_max = tf.reduce_max(A, axis=axis, keep_dims=True)
-    B = tf.log(reduction_function(tf.exp(A - A_max), axis = axis, keep_dims=True))+A_max
+    B = tf.log(reduction_function(
+        tf.exp(A - A_max), axis = axis, keep_dims=True)) + A_max
     return tf.squeeze(B)
 
 def reduce_logmeanexp(input_tensor, axis=None, keep_dims=False):
