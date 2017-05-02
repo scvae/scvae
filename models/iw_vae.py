@@ -6,7 +6,7 @@ from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
 
 from tensorflow.contrib.distributions import Normal, Bernoulli, kl, Categorical
-from distributions import distributions, Categorized
+from distributions import distributions, latent_distributions, Categorized
 
 
 import numpy
@@ -14,12 +14,17 @@ from numpy import inf
 
 import os, shutil
 from time import time
-from auxiliary import formatDuration
+from auxiliary import formatDuration, normaliseString
 
 from data import DataSet
 
 class ImportanceWeightedVariationalAutoEncoder(object):
-    def __init__(self, feature_size, latent_size, hidden_sizes, numbers_of_samples, latent_distribution = "gaussian",
+    def __init__(self,
+        feature_size,
+        latent_size,
+        hidden_sizes,
+        numbers_of_samples,
+        latent_distribution = "gaussian",
         number_of_latent_clusters = 1,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
@@ -28,7 +33,6 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         log_directory = "log"):
         
         # Class setup
-        
         super(ImportanceWeightedVariationalAutoEncoder, self).__init__()
         
         self.type = "IWVAE"
@@ -38,14 +42,20 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         self.hidden_sizes = hidden_sizes
         
         self.latent_distribution_name = latent_distribution
-        self.latent_distribution = distributions[latent_distribution]
+        self.latent_distribution = latent_distributions\
+        [self.latent_distribution_name]
+
+        print(self.latent_distribution)
+
         self.number_of_latent_clusters = number_of_latent_clusters
 
-        # Dictionary holding number of samples needed for the "monte carlo" estimator and "importance weighting" during both "train" and "test" time.  
+        # Dictionary holding number of samples needed for the "monte carlo" 
+        # estimator and "importance weighting" during both "train" and "test" time.  
         self.numbers_of_samples = numbers_of_samples
 
         self.reconstruction_distribution_name = reconstruction_distribution
-        self.reconstruction_distribution = distributions[reconstruction_distribution]
+        self.reconstruction_distribution = distributions\
+        [reconstruction_distribution]
         
         self.k_max = number_of_reconstruction_classes
         
@@ -60,7 +70,12 @@ class ImportanceWeightedVariationalAutoEncoder(object):
 
         self.epsilon = epsilon
         
-        self.log_directory = os.path.join(log_directory, self.type, self.name)
+        self.log_directory = os.path.join(
+            log_directory,
+            self.type,
+            normaliseString(self.latent_distribution_name),
+            self.name
+        )
         
         print("Model setup:")
         print("    type: {}".format(self.type))
@@ -100,8 +115,16 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             self.is_training = tf.placeholder(tf.bool, [], 'is_training')
             
-            self.number_of_iw_samples = tf.placeholder(tf.int32, [], 'number_of_iw_samples')
-            self.number_of_mc_samples = tf.placeholder(tf.int32, [], 'number_of_mc_samples')
+            self.number_of_iw_samples = tf.placeholder(
+                tf.int32,
+                [],
+                'number_of_iw_samples'
+            )
+            self.number_of_mc_samples = tf.placeholder(
+                tf.int32,
+                [],
+                'number_of_mc_samples'
+            )
 
             self.inference()
             self.loss()
@@ -184,45 +207,88 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     scope = '{:d}'.format(i + 1)
                 )
         
-        with tf.variable_scope("Z"):
-            z_phi = {}
-        
-            # Retrieving layers for all latent distribution parameters
-            for parameter in self.latent_distribution["parameters"]:
+        # Parameterising the approximate posterior and prior over z
+
+        ## NOTE: tf.expand_dims(tf.expand_dims(x, 0), 0) allows broadcasting 
+        ## on first, importance weight, and second, monte carlo, sample dim.
+        for part in self.latent_distribution:
+            with tf.variable_scope(part.upper()):
+                part_name = self.latent_distribution[part]["name"]
+                print(part, ": ", part_name)
+                distribution = distributions[part_name]
+                # Retrieving layers for all latent distribution parameters
+                for parameter in distribution["parameters"]:
+                    print(parameter)
+                    if parameter in self.latent_distribution[part]["parameters"]:
+                        print("is already set.")
+                        continue
+                    parameter_activation_function = \
+                        distribution["parameters"]\
+                        [parameter]["activation function"]
+                    p_min, p_max = \
+                        distribution["parameters"]\
+                        [parameter]["support"]
+                    
+                    # Switch: Use single or mixture (list) of distributions
+                    if "mixture" in self.latent_distribution[part]["name"]:
+                        print("Setting up mixture parameter:", parameter)
+                        if parameter == "logits":
+                            logits = tf.expand_dims(tf.expand_dims(dense_layer(
+                                inputs = encoder,
+                                num_outputs = self.latent_size\
+                                    * self.number_of_latent_clusters,
+                                activation_fn = lambda x: tf.clip_by_value(
+                                    parameter_activation_function(x),
+                                    p_min + self.epsilon,
+                                    p_max - self.epsilon
+                                ),
+                                is_training = self.is_training,
+                                scope = parameter.upper()+"_FLAT"
+                            ), 0), 0)
                 
-                parameter_activation_function = \
-                    self.latent_distribution["parameters"]\
-                    [parameter]["activation function"]
-                p_min, p_max = \
-                    self.latent_distribution["parameters"]\
-                    [parameter]["support"]
-                
-                if self.latent_distribution_name == "gaussian mixture":
-                    print("Setting up Gaussian mixture posterior")
-                    print("Setting up " + parameter)
-                    if parameter == "mus" or parameter == "log_sigmas":
-                        z_phi[parameter] = []
-                        for k in range(self.number_of_latent_clusters):
-                            z_phi[parameter].append(
-                                tf.expand_dims(tf.expand_dims(
-                                    dense_layer(
-                                    inputs = encoder,
-                                    num_outputs = self.latent_size,
-                                    activation_fn = lambda x: tf.clip_by_value(
-                                        parameter_activation_function(x),
-                                        p_min + self.epsilon,
-                                        p_max - self.epsilon
-                                    ),
-                                    is_training = self.is_training,
-                                    scope = parameter.upper()[:-1] + str(k)
-                                ), 0), 0)
+                            self.latent_distribution[part]["parameters"]\
+                            [parameter] = tf.reshape(
+                                logits,
+                                [1, 1, -1, 
+                                    self.latent_size, 
+                                    self.number_of_latent_clusters
+                                ],
+                                name=parameter.upper()
                             )
-                            print(parameter.upper()[:-1] + str(k) + ":", z_phi[parameter][-1].shape)
-                        print("Number of " + parameter + " in gaussian mixture:", len(z_phi[parameter]))
+                        else:
+                            self.latent_distribution[part]["parameters"]\
+                            [parameter] = []
+                            for k in range(self.number_of_latent_clusters):
+                                self.latent_distribution[part]["parameters"]\
+                                    [parameter].append(
+                                    tf.expand_dims(tf.expand_dims(
+                                        dense_layer(
+                                        inputs = encoder,
+                                        num_outputs = self.latent_size,
+                                        activation_fn = lambda x: 
+                                            tf.clip_by_value(
+                                            parameter_activation_function(x),
+                                            p_min + self.epsilon,
+                                            p_max - self.epsilon
+                                        ),
+                                        is_training = self.is_training,
+                                        scope = parameter.upper()[:-1] + "_" + str(k)
+                                    ), 0), 0)
+                                )
+                                print(parameter.upper()[:-1] + str(k) + ":", 
+                                    self.latent_distribution[part]["parameters"]\
+                                    [parameter][-1].shape
+                                )
+                            print("Number of " + parameter +\
+                                " in gaussian mixture:", 
+                                len(self.latent_distribution[part]["parameters"]\
+                                    [parameter])
+                            )
                     else:
-                        z_phi[parameter] = tf.expand_dims(tf.expand_dims(dense_layer(
+                        self.latent_distribution[part]["parameters"][parameter]\
+                            = tf.expand_dims(tf.expand_dims(dense_layer(
                             inputs = encoder,
-                            num_outputs = self.number_of_latent_clusters,
+                            num_outputs = self.latent_size,
                             activation_fn = lambda x: tf.clip_by_value(
                                 parameter_activation_function(x),
                                 p_min + self.epsilon,
@@ -231,45 +297,51 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                             is_training = self.is_training,
                             scope = parameter.upper()
                         ), 0), 0)
-                else:
-                    z_phi[parameter] = tf.expand_dims(tf.expand_dims(dense_layer(
-                        inputs = encoder,
-                        num_outputs = self.latent_size,
-                        activation_fn = lambda x: tf.clip_by_value(
-                            parameter_activation_function(x),
-                            p_min + self.epsilon,
-                            p_max - self.epsilon
-                        ),
-                        is_training = self.is_training,
-                        scope = parameter.upper()
-                    ), 0), 0)
+                self.latent_distribution[part] =\
+                    self.latent_distribution[part]
 
-            # Parameterise latent distribution 
-            self.q_z_given_x = self.latent_distribution["class"](z_phi)
+        ## Latent posterior distribution
+        ### Parameterise:
+        self.q_z_given_x =\
+        self.latent_distribution["posterior"]["distribution"]["class"](
+            self.latent_distribution["posterior"]["parameters"]
+            )
 
-            # Mean of latent distribution
-            self.z_mean = self.q_z_given_x.mean()
-            
-            # self.sample_shape = tf.where(self.is_training, self.number_of_iw_samples*self.number_of_mc_samples, 1)
+        ### Analytical mean:
+        self.z_mean = self.q_z_given_x.mean()
+        
+        ### Sampling of
+            ### 1st dim.: importance weighting samples
+            ### 2nd dim.: monte carlo samples
+        self.z = tf.cast(
+            tf.reshape(
+                self.q_z_given_x.sample(
+                    self.number_of_iw_samples*self.number_of_mc_samples
+                    ),
+                [-1, self.latent_size]
+            ), tf.float32)
 
-            # Stochastic layer sampling with reparameterisation trick
-            self.z = tf.cast(
-                tf.reshape(
-                    self.q_z_given_x.sample(self.number_of_iw_samples*self.number_of_mc_samples),
-                    [-1, self.latent_size]
-                )
-                , tf.float32
-            )        
-
+        ## Latent prior distribution
+        ### Parameterise:
+        self.p_z =\
+        self.latent_distribution["prior"]["distribution"]["class"](
+            self.latent_distribution["prior"]["parameters"]
+        )
         
         # Decoder - Generative model, p(x|z)
         
-        # Make sure we use a replication pr. sample of the feature sum, when adding this to the features.  
+        # Make sure we use a replication pr. sample of the feature sum, 
+        # when adding this to the features.  
         if self.count_sum:
-            replicated_n = tf.tile(self.n, [self.number_of_iw_samples*self.number_of_mc_samples, 1])
-
+            replicated_n = tf.tile(
+                self.n,
+                [self.number_of_iw_samples*self.number_of_mc_samples, 1]
+                )
         if self.count_sum_feature:
-            replicated_n = tf.tile(self.n, [self.number_of_iw_samples*self.number_of_mc_samples, 1])
+            replicated_n = tf.tile(
+                self.n,
+                [self.number_of_iw_samples*self.number_of_mc_samples, 1]
+            )
             decoder = tf.concat([self.z, replicated_n], axis = 1, name = 'Z_N')
         else:
             decoder = self.z
@@ -314,14 +386,21 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             if "constrained" in self.reconstruction_distribution_name or \
                 "multinomial" in self.reconstruction_distribution_name:
-                self.p_x_given_z = self.reconstruction_distribution["class"](x_theta, replicated_n)
+                self.p_x_given_z = self.reconstruction_distribution["class"](
+                    x_theta,
+                    replicated_n
+                )
             elif "multinomial" in self.reconstruction_distribution_name:
-               self.p_x_given_z = self.reconstruction_distribution["class"](x_theta, replicated_n) 
+                self.p_x_given_z = self.reconstruction_distribution["class"](
+                    x_theta,
+                    replicated_n
+                )
             else:
-                self.p_x_given_z = self.reconstruction_distribution["class"](x_theta)
-        
+                self.p_x_given_z = self.reconstruction_distribution["class"](
+                    x_theta
+                )
+            
             if self.k_max:
-                
                 x_logits = dense_layer(
                     inputs = decoder,
                     num_outputs = self.feature_size * self.k_max,
@@ -348,18 +427,18 @@ class ImportanceWeightedVariationalAutoEncoder(object):
     
     def loss(self):
         
-        # Recognition prior
-        if self.latent_distribution_name == "gaussian":
-            p_z_mu = tf.constant(0.0, dtype = tf.float32)
-            p_z_sigma = tf.constant(1.0, dtype = tf.float32)
-            p_z = Normal(p_z_mu, p_z_sigma)
-        if self.latent_distribution_name == "gaussian mixture":
-            p_z_mu = tf.constant(0.0, dtype = tf.float32)
-            p_z_sigma = tf.constant(1.0, dtype = tf.float32)
-            p_z = Normal(p_z_mu, p_z_sigma)
-        elif self.latent_distribution_name == "bernoulli":
-            p_z_p = tf.constant(0.0, dtype = tf.float32)
-            p_z = Bernoulli(p = p_z_p)
+        # # Recognition prior
+        # if self.latent_distribution_name == "gaussian":
+        #     p_z_mu = tf.constant(0.0, dtype = tf.float32)
+        #     p_z_sigma = tf.constant(1.0, dtype = tf.float32)
+        #     p_z = Normal(p_z_mu, p_z_sigma)
+        # if self.latent_distribution_name == "gaussian mixture":
+        #     p_z_mu = tf.constant(0.0, dtype = tf.float32)
+        #     p_z_sigma = tf.constant(1.0, dtype = tf.float32)
+        #     p_z = Normal(p_z_mu, p_z_sigma)
+        # elif self.latent_distribution_name == "bernoulli":
+        #     p_z_p = tf.constant(0.0, dtype = tf.float32)
+        #     p_z = Bernoulli(p = p_z_p)
 
         
         # Prepare replicated and reshaped arrays
@@ -385,16 +464,16 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         ### shape =  (N_iw, N_mc, batchsize, N_z)
         log_q_z_given_x = self.q_z_given_x.log_prob(z_reshaped)
         ### shape =  (N_iw, N_mc, batchsize, N_z)
-        log_p_z = p_z.log_prob(z_reshaped)
+        log_p_z = self.p_z.log_prob(z_reshaped)
 
         # The log of fraction, f(z)=q(z|x)/p(z) in the Kullback-Leibler Divergence: 
         # KL[q(z|x)||p(z)] = E_q[f(z)] = \int q(z|x) log(f(z)) = \int q(z|x) log(q(z|x)/p(z)) = \int q(z|x) ( log(q(z|x)) - log(p(z)) ) dz
         KL = log_q_z_given_x - log_p_z
         
-        if self.latent_distribution_name == "gaussian mixture":
-            KL_qp_all = tf.reduce_mean(self.q_z_given_x.entropy_lower_bound(), axis = 0)
-        else:
-            KL_qp_all = tf.reduce_mean(tf.reshape(KL, [-1, self.latent_size]), axis = 0)
+        # if self.latent_distribution_name == "gaussian mixture":
+        #     KL_qp_all = tf.reduce_mean(self.q_z_given_x.entropy_lower_bound(), axis = 0)
+        # else:
+        KL_qp_all = tf.reduce_mean(tf.reshape(KL, [-1, self.latent_size]), axis = 0)
         
         self.KL_all = KL_qp_all
 
