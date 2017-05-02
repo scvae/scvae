@@ -19,10 +19,7 @@ from auxiliary import formatDuration, normaliseString
 from data import DataSet
 
 class ImportanceWeightedVariationalAutoEncoder(object):
-    def __init__(self,
-        feature_size,
-        latent_size,
-        hidden_sizes,
+    def __init__(self, feature_size, latent_size, hidden_sizes,
         numbers_of_samples,
         latent_distribution = "gaussian",
         number_of_latent_clusters = 1,
@@ -303,9 +300,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         ## Latent posterior distribution
         ### Parameterise:
         self.q_z_given_x =\
-        self.latent_distribution["posterior"]["distribution"]["class"](
+        distributions[
+            self.latent_distribution["posterior"]["name"]
+        ]["class"](
             self.latent_distribution["posterior"]["parameters"]
-            )
+        )
 
         ### Analytical mean:
         self.z_mean = self.q_z_given_x.mean()
@@ -324,7 +323,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         ## Latent prior distribution
         ### Parameterise:
         self.p_z =\
-        self.latent_distribution["prior"]["distribution"]["class"](
+        distributions[
+            self.latent_distribution["prior"]["name"]
+        ]["class"](
             self.latent_distribution["prior"]["parameters"]
         )
         
