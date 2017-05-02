@@ -381,18 +381,7 @@ class VariationalAutoEncoder(object):
         self.parameter_summary = tf.summary.merge(self.parameter_summary_list)
     
     def loss(self):
-        
-        # Recognition prior
-        # if self.latent_distribution_name == "gaussian":
-        #     p_z_mu = tf.constant(0.0, dtype = tf.float32)
-        #     p_z_sigma = tf.constant(1.0, dtype = tf.float32)
-        #     p_z = Normal(p_z_mu, p_z_sigma)
-        # elif self.latent_distribution_name == "bernoulli":
-        #     p_z_p = tf.constant(0.0, dtype = tf.float32)
-        #     p_z = Bernoulli(p = p_z_p)
-        
         # Loss
-        
         ## Reconstruction error
         log_p_x_given_z = tf.reduce_mean(
             tf.reduce_sum(self.p_x_given_z.log_prob(self.t), axis = 1),
