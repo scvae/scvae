@@ -231,9 +231,13 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     for j, i in enumerate(subset):
         
         figure, name = plotProfileComparison(
-            x_test.values[i], x_tilde_test.values[i],
-            x_name = "Genes", y_name = "Counts", scale = "log",
-            title = str(x_test.example_names[i]), name = str(j)
+            x_test.values[i],
+            x_tilde_test.values[i],
+            x_name = x_test.tags["example"].capitalize() + "s",
+            y_name = x_test.tags["feature"].capitalize() + "s",
+            scale = "log",
+            title = str(x_test.example_names[i]),
+            name = str(j)
         )
         saveFigure(figure, name, results_directory)
     
@@ -260,7 +264,7 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     saveFigure(figure, name, results_directory)
     
     heat_maps_duration = time() - heat_maps_time_start
-    print("    Reconstruction heat map for plotted and saved ({})." \
+    print("    Reconstruction heat map plotted and saved ({})." \
         .format(formatDuration(heat_maps_duration)))
     
     # Differences
@@ -277,7 +281,7 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     saveFigure(figure, name, results_directory)
     
     heat_maps_duration = time() - heat_maps_time_start
-    print("    Difference heat map for plotted and saved ({})." \
+    print("    Difference heat map plotted and saved ({})." \
         .format(formatDuration(heat_maps_duration)))
     
     # log-ratios
@@ -294,7 +298,7 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     saveFigure(figure, name, results_directory)
     
     heat_maps_duration = time() - heat_maps_time_start
-    print("    log-ratio heat map for plotted and saved ({})." \
+    print("    log-ratio heat map plotted and saved ({})." \
         .format(formatDuration(heat_maps_duration)))
     
     print()
