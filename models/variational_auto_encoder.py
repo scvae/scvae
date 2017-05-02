@@ -11,6 +11,7 @@ from distributions import distributions, latent_distributions, Categorized
 import numpy
 from numpy import inf
 
+import copy
 import os, shutil
 from time import time
 from auxiliary import formatDuration
@@ -38,7 +39,10 @@ class VariationalAutoEncoder(object):
         self.hidden_sizes = hidden_sizes
         
         self.latent_distribution_name = latent_distribution
-        self.latent_distribution = latent_distributions[latent_distribution]
+        self.latent_distribution = copy.deepcopy(
+            latent_distributions[latent_distribution]
+        )
+
         self.number_of_latent_clusters = number_of_latent_clusters
 
         self.reconstruction_distribution_name = reconstruction_distribution
@@ -63,6 +67,7 @@ class VariationalAutoEncoder(object):
         print("Model setup:")
         print("    type: {}".format(self.type))
         print("    feature size: {}".format(self.feature_size))
+        print("    latent size: {}".format(self.latent_size))
         print("    hidden sizes: {}".format(", ".join(map(str, self.hidden_sizes))))
         print("    latent distribution: " + self.latent_distribution_name)
         print("    reconstruction distribution: " + self.reconstruction_distribution_name)
@@ -186,13 +191,16 @@ class VariationalAutoEncoder(object):
         for part in self.latent_distribution:
             with tf.variable_scope(part.upper()):
                 part_name = self.latent_distribution[part]["name"]
-                print(part, ": ", part_name)
                 distribution = distributions[part_name]
                 # Retrieving layers for all latent distribution parameters
+
                 for parameter in distribution["parameters"]:
-                    print(parameter)
                     if parameter in self.latent_distribution[part]["parameters"]:
-                        print("is already set.")
+                        self.latent_distribution[part]["parameters"][parameter]\
+                        = tf.constant(
+                            self.latent_distribution[part]["parameters"][parameter],
+                            dtype = tf.float32
+                        )
                         continue
                     parameter_activation_function = \
                         distribution["parameters"]\
@@ -205,7 +213,7 @@ class VariationalAutoEncoder(object):
                     if "mixture" in self.latent_distribution[part]["name"]:
                         print("Setting up mixture parameter:", parameter)
                         if parameter == "logits":
-                            logits = tf.expand_dims(tf.expand_dims(dense_layer(
+                            logits = dense_layer(
                                 inputs = encoder,
                                 num_outputs = self.latent_size\
                                     * self.number_of_latent_clusters,
@@ -216,7 +224,7 @@ class VariationalAutoEncoder(object):
                                 ),
                                 is_training = self.is_training,
                                 scope = parameter.upper()+"_FLAT"
-                            ), 0), 0)
+                            )
                 
                             self.latent_distribution[part]["parameters"]\
                             [parameter] = tf.reshape(
@@ -233,7 +241,7 @@ class VariationalAutoEncoder(object):
                             for k in range(self.number_of_latent_clusters):
                                 self.latent_distribution[part]["parameters"]\
                                     [parameter].append(
-                                    tf.expand_dims(tf.expand_dims(
+                                    
                                         dense_layer(
                                         inputs = encoder,
                                         num_outputs = self.latent_size,
@@ -245,20 +253,11 @@ class VariationalAutoEncoder(object):
                                         ),
                                         is_training = self.is_training,
                                         scope = parameter.upper()[:-1] + "_" + str(k)
-                                    ), 0), 0)
+                                    )
                                 )
-                                print(parameter.upper()[:-1] + str(k) + ":", 
-                                    self.latent_distribution[part]["parameters"]\
-                                    [parameter][-1].shape
-                                )
-                            print("Number of " + parameter +\
-                                " in gaussian mixture:", 
-                                len(self.latent_distribution[part]["parameters"]\
-                                    [parameter])
-                            )
                     else:
                         self.latent_distribution[part]["parameters"][parameter]\
-                            = tf.expand_dims(tf.expand_dims(dense_layer(
+                            = dense_layer(
                             inputs = encoder,
                             num_outputs = self.latent_size,
                             activation_fn = lambda x: tf.clip_by_value(
@@ -268,9 +267,7 @@ class VariationalAutoEncoder(object):
                             ),
                             is_training = self.is_training,
                             scope = parameter.upper()
-                        ), 0), 0)
-                self.latent_distribution[part] =\
-                    self.latent_distribution[part]
+                        )
 
         ## Latent posterior distribution
         ### Parameterise:
@@ -289,9 +286,7 @@ class VariationalAutoEncoder(object):
             ### 2nd dim.: monte carlo samples
         self.z = tf.cast(
             tf.reshape(
-                self.q_z_given_x.sample(
-                    self.number_of_iw_samples*self.number_of_mc_samples
-                    ),
+                self.q_z_given_x.sample(),
                 [-1, self.latent_size]
             ), tf.float32)
 
@@ -388,13 +383,13 @@ class VariationalAutoEncoder(object):
     def loss(self):
         
         # Recognition prior
-        if self.latent_distribution_name == "gaussian":
-            p_z_mu = tf.constant(0.0, dtype = tf.float32)
-            p_z_sigma = tf.constant(1.0, dtype = tf.float32)
-            p_z = Normal(p_z_mu, p_z_sigma)
-        elif self.latent_distribution_name == "bernoulli":
-            p_z_p = tf.constant(0.0, dtype = tf.float32)
-            p_z = Bernoulli(p = p_z_p)
+        # if self.latent_distribution_name == "gaussian":
+        #     p_z_mu = tf.constant(0.0, dtype = tf.float32)
+        #     p_z_sigma = tf.constant(1.0, dtype = tf.float32)
+        #     p_z = Normal(p_z_mu, p_z_sigma)
+        # elif self.latent_distribution_name == "bernoulli":
+        #     p_z_p = tf.constant(0.0, dtype = tf.float32)
+        #     p_z = Bernoulli(p = p_z_p)
         
         # Loss
         
@@ -409,7 +404,7 @@ class VariationalAutoEncoder(object):
         if self.latent_distribution_name == "gaussian mixture":
             KL_qp_all = tf.reduce_mean(self.q_z_given_x.entropy_lower_bound(), axis = 0)
         else:
-            KL_qp_all = tf.reduce_mean(kl(self.q_z_given_x, p_z), axis = 0)
+            KL_qp_all = tf.reduce_mean(kl(self.q_z_given_x, self.p_z), axis = 0)
         
         self.KL_all = KL_qp_all
 
