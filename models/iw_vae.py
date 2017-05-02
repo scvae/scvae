@@ -12,6 +12,7 @@ from distributions import distributions, latent_distributions, Categorized
 import numpy
 from numpy import inf
 
+import copy
 import os, shutil
 from time import time
 from auxiliary import formatDuration, normaliseString
@@ -39,10 +40,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         self.hidden_sizes = hidden_sizes
         
         self.latent_distribution_name = latent_distribution
-        self.latent_distribution = latent_distributions\
-        [self.latent_distribution_name]
-
-        print(self.latent_distribution)
+        self.latent_distribution = copy.deepcopy(
+            latent_distributions[latent_distribution]
+        )
 
         self.number_of_latent_clusters = number_of_latent_clusters
 
@@ -77,6 +77,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         print("Model setup:")
         print("    type: {}".format(self.type))
         print("    feature size: {}".format(self.feature_size))
+        print("    latent size: {}".format(self.latent_size))
         print("    hidden sizes: {}".format(", ".join(map(str, self.hidden_sizes))))
         print("    latent distribution: " + self.latent_distribution_name)
         print("    reconstruction distribution: " + self.reconstruction_distribution_name)
@@ -211,13 +212,17 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         for part in self.latent_distribution:
             with tf.variable_scope(part.upper()):
                 part_name = self.latent_distribution[part]["name"]
-                print(part, ": ", part_name)
                 distribution = distributions[part_name]
+
                 # Retrieving layers for all latent distribution parameters
                 for parameter in distribution["parameters"]:
-                    print(parameter)
                     if parameter in self.latent_distribution[part]["parameters"]:
-                        print("is already set.")
+                        self.latent_distribution[part]["parameters"][parameter]\
+                        = tf.expand_dims(tf.expand_dims(tf.constant(
+                            self.latent_distribution[part]["parameters"]\
+                            [parameter],
+                            dtype = tf.float32
+                        ), 0), 0)
                         continue
                     parameter_activation_function = \
                         distribution["parameters"]\
@@ -228,7 +233,6 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     
                     # Switch: Use single or mixture (list) of distributions
                     if "mixture" in self.latent_distribution[part]["name"]:
-                        print("Setting up mixture parameter:", parameter)
                         if parameter == "logits":
                             logits = tf.expand_dims(tf.expand_dims(dense_layer(
                                 inputs = encoder,
@@ -272,15 +276,6 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                                         scope = parameter.upper()[:-1] + "_" + str(k)
                                     ), 0), 0)
                                 )
-                                print(parameter.upper()[:-1] + str(k) + ":", 
-                                    self.latent_distribution[part]["parameters"]\
-                                    [parameter][-1].shape
-                                )
-                            print("Number of " + parameter +\
-                                " in gaussian mixture:", 
-                                len(self.latent_distribution[part]["parameters"]\
-                                    [parameter])
-                            )
                     else:
                         self.latent_distribution[part]["parameters"][parameter]\
                             = tf.expand_dims(tf.expand_dims(dense_layer(
@@ -294,8 +289,6 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                             is_training = self.is_training,
                             scope = parameter.upper()
                         ), 0), 0)
-                self.latent_distribution[part] =\
-                    self.latent_distribution[part]
 
         ## Latent posterior distribution
         ### Parameterise:
@@ -455,7 +448,12 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         ### 1. Evaluate all log(p(x|z)) (N_iw * N_mc * batchsize, N_x) target values in the (N_iw * N_mc * batchsize, N_x) probability distributions learned
         ### 2. Sum over all N_x features
         ### 3. and reshape it back to (N_iw, N_mc, batchsize) 
-        log_p_x_given_z = tf.reshape(tf.reduce_sum(self.p_x_given_z.log_prob(t_tiled), axis=-1), [self.number_of_iw_samples, self.number_of_mc_samples, -1])
+        log_p_x_given_z = tf.reshape(
+            tf.reduce_sum(
+                self.p_x_given_z.log_prob(t_tiled), axis=-1
+            ),
+            [self.number_of_iw_samples, self.number_of_mc_samples, -1])
+
         # Average over all samples and examples and add to losses in summary
         self.ENRE = tf.reduce_mean(log_p_x_given_z)
         tf.add_to_collection('losses', self.ENRE)
@@ -468,13 +466,17 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         log_p_z = self.p_z.log_prob(z_reshaped)
 
         # The log of fraction, f(z)=q(z|x)/p(z) in the Kullback-Leibler Divergence: 
-        # KL[q(z|x)||p(z)] = E_q[f(z)] = \int q(z|x) log(f(z)) = \int q(z|x) log(q(z|x)/p(z)) = \int q(z|x) ( log(q(z|x)) - log(p(z)) ) dz
+        # KL[q(z|x)||p(z)] = E_q[f(z)] = E_q[log(q(z|x)/p(z))] = 
+        #  E_q[log(q(z|x))] - E_q[log(p(z))]
         KL = log_q_z_given_x - log_p_z
         
         # if self.latent_distribution_name == "gaussian mixture":
         #     KL_qp_all = tf.reduce_mean(self.q_z_given_x.entropy_lower_bound(), axis = 0)
         # else:
-        KL_qp_all = tf.reduce_mean(tf.reshape(KL, [-1, self.latent_size]), axis = 0)
+        KL_qp_all = tf.reduce_mean(
+            tf.reshape(KL, [-1, self.latent_size])
+            , axis = 0
+        )
         
         self.KL_all = KL_qp_all
 
