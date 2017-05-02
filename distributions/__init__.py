@@ -204,8 +204,9 @@ latent_distributions = {
         "prior": {
             "name": "gaussian",
             "parameters": {
-                "mu": tf.constant(0.0, dtype = tf.float32),
-                "log_sigma": tf.constant(1.0, dtype = tf.float32)}
+                "mu": 0.0,
+                "log_sigma": 0.0
+            }
         }
     },
     "gaussian mixture": {
