@@ -37,9 +37,9 @@ distributions = {
 
     "gaussian mixture": {
         "parameters": {
-            "p": {
-                "support": [0, 1],
-                "activation function": softmax
+            "logits": {
+                "support": [-inf, inf],
+                "activation function": identity
             },
             "mus": {
                 "support": [-inf, inf],
@@ -51,7 +51,7 @@ distributions = {
             }
         },
         "class": lambda theta: Mixture(
-            cat = Categorical(probs = theta["p"]), 
+            cat = Categorical(logits = theta["logits"]), 
             components = [Normal(loc = m, scale = tf.exp(s)) for m, s in 
                 zip(theta["mus"], theta["log_sigmas"])]
         )
@@ -192,5 +192,40 @@ distributions = {
             ),
             pi = theta["pi"]
         )
+    }
+}
+
+latent_distributions = {
+    "gaussian": {
+        "posterior": {
+            "name": "gaussian",
+            "parameters": {}
+            }, 
+        "prior": {
+            "name": "gaussian",
+            "parameters": {
+                "mu": tf.constant(0.0, dtype = tf.float32),
+                "log_sigma": tf.constant(1.0, dtype = tf.float32)}
+        }
+    },
+    "gaussian mixture": {
+        "posterior": {
+            "name": "gaussian", 
+            "parameters": {}
+            },
+        "prior": {
+            "name": "gaussian mixture",
+            "parameters": {}
+        }
+    },
+    "alternative gaussian mixture": {
+        "posterior": {
+            "name": "gaussian mixture", 
+            "parameters": {}
+            },
+        "prior": {
+            "name": "gaussian mixture",
+            "parameters": {}
+        }
     }
 }
