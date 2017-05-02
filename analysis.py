@@ -714,11 +714,12 @@ def plotLatentSpace(latent_set, colour_coding = None, feature_index = None,
         
         latent_palette = seaborn.color_palette("hls", len(label_indices))
         
-        for i, (label, indices) in enumerate(label_indices.items()):
+        for i, (label, indices) in enumerate(sorted(label_indices.items())):
             axis.scatter(values[indices, 0], values[indices, 1], label = label,
                 color = latent_palette[i])
         
-        axis.legend()
+        if len(label_indices) < 20:
+            axis.legend(loc = "best")
     
     elif colour_coding == "count sum":
         
