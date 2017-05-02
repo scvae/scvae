@@ -6,7 +6,7 @@ from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
 
 from tensorflow.contrib.distributions import Normal, Bernoulli, kl, Categorical
-from distributions import distributions, Categorized
+from distributions import distributions, latent_distributions, Categorized
 
 import numpy
 from numpy import inf
@@ -20,7 +20,7 @@ from data import DataSet
 class VariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         latent_distribution = "gaussian",  
-        number_of_latent_clusters = 2,
+        number_of_latent_clusters = 1,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
@@ -38,7 +38,7 @@ class VariationalAutoEncoder(object):
         self.hidden_sizes = hidden_sizes
         
         self.latent_distribution_name = latent_distribution
-        self.latent_distribution = distributions[latent_distribution]
+        self.latent_distribution = latent_distributions[latent_distribution]
         self.number_of_latent_clusters = number_of_latent_clusters
 
         self.reconstruction_distribution_name = reconstruction_distribution
@@ -179,43 +179,88 @@ class VariationalAutoEncoder(object):
                     scope = '{:d}'.format(i + 1)
                 )
         
-        with tf.variable_scope("Z"):
-            z_phi = {}
-        
-            # Retrieving layers for all latent distribution parameters
-            for parameter in self.latent_distribution["parameters"]:
+        # Parameterising the approximate posterior and prior over z
+
+        ## NOTE: tf.expand_dims(tf.expand_dims(x, 0), 0) allows broadcasting 
+        ## on first, importance weight, and second, monte carlo, sample dim.
+        for part in self.latent_distribution:
+            with tf.variable_scope(part.upper()):
+                part_name = self.latent_distribution[part]["name"]
+                print(part, ": ", part_name)
+                distribution = distributions[part_name]
+                # Retrieving layers for all latent distribution parameters
+                for parameter in distribution["parameters"]:
+                    print(parameter)
+                    if parameter in self.latent_distribution[part]["parameters"]:
+                        print("is already set.")
+                        continue
+                    parameter_activation_function = \
+                        distribution["parameters"]\
+                        [parameter]["activation function"]
+                    p_min, p_max = \
+                        distribution["parameters"]\
+                        [parameter]["support"]
+                    
+                    # Switch: Use single or mixture (list) of distributions
+                    if "mixture" in self.latent_distribution[part]["name"]:
+                        print("Setting up mixture parameter:", parameter)
+                        if parameter == "logits":
+                            logits = tf.expand_dims(tf.expand_dims(dense_layer(
+                                inputs = encoder,
+                                num_outputs = self.latent_size\
+                                    * self.number_of_latent_clusters,
+                                activation_fn = lambda x: tf.clip_by_value(
+                                    parameter_activation_function(x),
+                                    p_min + self.epsilon,
+                                    p_max - self.epsilon
+                                ),
+                                is_training = self.is_training,
+                                scope = parameter.upper()+"_FLAT"
+                            ), 0), 0)
                 
-                parameter_activation_function = \
-                    self.latent_distribution["parameters"]\
-                    [parameter]["activation function"]
-                p_min, p_max = \
-                    self.latent_distribution["parameters"]\
-                    [parameter]["support"]
-                
-                if self.latent_distribution_name == "gaussian mixture":
-                    print("Setting up Gaussian mixture posterior")
-                    print("Setting up " + parameter)
-                    if parameter == "mus" or parameter == "log_sigmas":
-                        z_phi[parameter] = []
-                        for k in range(self.number_of_latent_clusters):
-                            z_phi[parameter].append(
-                                dense_layer(
-                                    inputs = encoder,
-                                    num_outputs = self.latent_size,
-                                    activation_fn = lambda x: tf.clip_by_value(
-                                        parameter_activation_function(x),
-                                        p_min + self.epsilon,
-                                        p_max - self.epsilon
-                                    ),
-                                    is_training = self.is_training,
-                                    scope = parameter.upper()[:-1] + str(k)
-                                )
+                            self.latent_distribution[part]["parameters"]\
+                            [parameter] = tf.reshape(
+                                logits,
+                                [1, 1, -1, 
+                                    self.latent_size, 
+                                    self.number_of_latent_clusters
+                                ],
+                                name=parameter.upper()
                             )
-                        print("Number of " + parameter + " in gaussian mixture:", len(z_phi[parameter]))
+                        else:
+                            self.latent_distribution[part]["parameters"]\
+                            [parameter] = []
+                            for k in range(self.number_of_latent_clusters):
+                                self.latent_distribution[part]["parameters"]\
+                                    [parameter].append(
+                                    tf.expand_dims(tf.expand_dims(
+                                        dense_layer(
+                                        inputs = encoder,
+                                        num_outputs = self.latent_size,
+                                        activation_fn = lambda x: 
+                                            tf.clip_by_value(
+                                            parameter_activation_function(x),
+                                            p_min + self.epsilon,
+                                            p_max - self.epsilon
+                                        ),
+                                        is_training = self.is_training,
+                                        scope = parameter.upper()[:-1] + "_" + str(k)
+                                    ), 0), 0)
+                                )
+                                print(parameter.upper()[:-1] + str(k) + ":", 
+                                    self.latent_distribution[part]["parameters"]\
+                                    [parameter][-1].shape
+                                )
+                            print("Number of " + parameter +\
+                                " in gaussian mixture:", 
+                                len(self.latent_distribution[part]["parameters"]\
+                                    [parameter])
+                            )
                     else:
-                        z_phi[parameter] = dense_layer(
+                        self.latent_distribution[part]["parameters"][parameter]\
+                            = tf.expand_dims(tf.expand_dims(dense_layer(
                             inputs = encoder,
-                            num_outputs = self.number_of_latent_clusters,
+                            num_outputs = self.latent_size,
                             activation_fn = lambda x: tf.clip_by_value(
                                 parameter_activation_function(x),
                                 p_min + self.epsilon,
@@ -223,28 +268,41 @@ class VariationalAutoEncoder(object):
                             ),
                             is_training = self.is_training,
                             scope = parameter.upper()
-                        )
-                else:
-                    z_phi[parameter] = dense_layer(
-                        inputs = encoder,
-                        num_outputs = self.latent_size,
-                        activation_fn = lambda x: tf.clip_by_value(
-                            parameter_activation_function(x),
-                            p_min + self.epsilon,
-                            p_max - self.epsilon
-                        ),
-                        is_training = self.is_training,
-                        scope = parameter.upper()
-                    )
+                        ), 0), 0)
+                self.latent_distribution[part] =\
+                    self.latent_distribution[part]
 
-            # Parameterise latent distribution 
-            self.q_z_given_x = self.latent_distribution["class"](z_phi)
+        ## Latent posterior distribution
+        ### Parameterise:
+        self.q_z_given_x =\
+        distributions[
+            self.latent_distribution["posterior"]["name"]
+        ]["class"](
+            self.latent_distribution["posterior"]["parameters"]
+        )
 
-            # Mean of latent distribution
-            self.z_mean = self.q_z_given_x.mean()
+        ### Analytical mean:
+        self.z_mean = self.q_z_given_x.mean()
         
-            # Stochastic layer sampling with reparameterisation trick
-            self.z = tf.cast(self.q_z_given_x.sample(), tf.float32)
+        ### Sampling of
+            ### 1st dim.: importance weighting samples
+            ### 2nd dim.: monte carlo samples
+        self.z = tf.cast(
+            tf.reshape(
+                self.q_z_given_x.sample(
+                    self.number_of_iw_samples*self.number_of_mc_samples
+                    ),
+                [-1, self.latent_size]
+            ), tf.float32)
+
+        ## Latent prior distribution
+        ### Parameterise:
+        self.p_z =\
+        distributions[
+            self.latent_distribution["prior"]["name"]
+        ]["class"](
+            self.latent_distribution["prior"]["parameters"]
+        )
         
 
         
