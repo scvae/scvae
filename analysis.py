@@ -95,7 +95,7 @@ def analyseModel(model, results_directory = "results"):
     
     # Setup
     
-    results_directory = os.path.join(results_directory, model.type, model.name)
+    results_directory = os.path.join(results_directory, model.directory_suffix)
     
     learning_curves, KL_neurons = parseSummaries(model)
     
@@ -153,7 +153,7 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
     
     # Setup
     
-    results_directory = os.path.join(results_directory, model.type, model.name)
+    results_directory = os.path.join(results_directory, model.directory_suffix)
     
     M = x_test.number_of_examples
     

@@ -47,7 +47,8 @@ class SimpleNeuralNetwork(object):
 
         self.epsilon = epsilon
         
-        self.log_directory = os.path.join(log_directory, self.type, self.name)
+        self.directory_suffix = os.path.join(self.type, self.name)
+        self.log_directory = os.path.join(log_directory, self.directory_suffix)
         
         print("Model setup:")
         print("    type: {}".format(self.type))

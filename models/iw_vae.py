@@ -70,12 +70,12 @@ class ImportanceWeightedVariationalAutoEncoder(object):
 
         self.epsilon = epsilon
         
-        self.log_directory = os.path.join(
-            log_directory,
+        self.directory_suffix = os.path.join(
             self.type,
             normaliseString(self.latent_distribution_name),
             self.name
         )
+        self.log_directory = os.path.join(log_directory, self.directory_suffix)
         
         print("Model setup:")
         print("    type: {}".format(self.type))
