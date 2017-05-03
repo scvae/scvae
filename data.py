@@ -660,7 +660,8 @@ def preprocessValues(values, preprocessing_methods = [], preprocessPath = None):
             preprocess = lambda x: (x != 0).astype('float')
         
         elif preprocessing_method in ["gini", "idf"]:
-            preprocess = lambda x: applyWeights(x, preprocessing_method,
+            weight_method = preprocessing_method
+            preprocess = lambda x: applyWeights(x, weight_method,
                 preprocessPath)
         
         elif preprocessing_method == "normalise":
