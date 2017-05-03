@@ -10,6 +10,8 @@ from matplotlib import pyplot
 import seaborn
 
 import os
+import gzip
+import pickle
 
 from time import time
 from auxiliary import formatDuration, normaliseString
@@ -196,11 +198,13 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     
     ## Saving
     
-    metrics_path = os.path.join(results_directory, "test_metrics.log")
+    metrics_log_path = os.path.join(results_directory, "test_metrics.log")
+    metrics_dictionary_path = os.path.join(results_directory,
+        "test_metrics.pkl.gz")
     
     metrics_saving_time_start = time()
     
-    with open(metrics_path, "w") as metrics_file:
+    with open(metrics_log_path, "w") as metrics_file:
         metrics_string = "Evaluation:\n"
         if model.type == "SNN":
             metrics_string += \
@@ -214,6 +218,14 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
         metrics_string += "\n" + formatStatistics(x_statistics)
         metrics_string += "\n" + formatCountAccuracies(count_accuracies)
         metrics_file.write(metrics_string)
+    
+    with gzip.open(metrics_dictionary_path, "w") as metrics_file:
+        metrics_dictionary = {
+            "evaluation": evaluation_test,
+            "statistics": statistics,
+            "count accuracies": count_accuracies
+        }
+        pickle.dump(metrics_dictionary, metrics_file)
     
     metrics_saving_duration = time() - metrics_saving_time_start
     print("Metrics saved ({}).".format(formatDuration(
