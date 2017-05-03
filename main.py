@@ -182,8 +182,8 @@ def main(data_set_name, data_directory = "data",
         
         print()
         
-        reconstructed_test_set, latent_test_set, evaluation_test = \
-            model.evaluate(test_set, batch_size)
+        reconstructed_test_set, latent_test_set = model.evaluate(
+            test_set, batch_size)
         
         print()
         
@@ -191,23 +191,23 @@ def main(data_set_name, data_directory = "data",
         
         if analyse:
             
-            learning_curves = analysis.analyseModel(model, results_directory)
+            analysis.analyseModel(model, results_directory)
             
             analysis.analyseResults(test_set, reconstructed_test_set,
-                latent_test_set, evaluation_test, model, results_directory)
+                latent_test_set, model, results_directory)
             
-            models_summaries[model.name] = {
-                "type": model.type,
-                "description": model.description,
-                "configuration": model_configuration,
-                "learning curves": learning_curves,
-                "test evaluation": evaluation_test
-            }
+            # models_summaries[model.name] = {
+            #     "type": model.type,
+            #     "description": model.description,
+            #     "configuration": model_configuration,
+            #     "learning curves": learning_curves,
+            #     "test evaluation": evaluation_test
+            # }
             
             print()
     
-    if analyse and len(models_summaries.keys()) > 1:
-        analysis.analyseAllModels(models_summaries, results_directory)
+    # if analyse and len(models_summaries.keys()) > 1:
+    #     analysis.analyseAllModels(models_summaries, results_directory)
 
 def setUpModelConfigurations(model_configurations_path, model_type,
     latent_size, hidden_sizes,

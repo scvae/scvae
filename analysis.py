@@ -127,8 +127,6 @@ def analyseModel(model, results_directory = "results"):
         saveFigure(figure, name, results_directory)
         
         print()
-    
-    return learning_curves
 
 def analyseAllModels(models_summaries, results_directory = "results"):
     
@@ -150,14 +148,18 @@ def analyseAllModels(models_summaries, results_directory = "results"):
     
     print()
 
-def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
-    model, results_directory = "results"):
+def analyseResults(x_test, x_tilde_test, z_test, model,
+    results_directory = "results"):
     
     # Setup
     
     results_directory = os.path.join(results_directory, model.directory_suffix)
     
     M = x_test.number_of_examples
+    
+    # Loading
+    
+    evaluation_test = loadLearningCurves(model, "test")
     
     # Metrics
     
@@ -202,12 +204,13 @@ def analyseResults(x_test, x_tilde_test, z_test, evaluation_test,
         metrics_string = "Evaluation:\n"
         if model.type == "SNN":
             metrics_string += \
-                "    log-likelihood: {:.5g}.\n".format(evaluation_test["log-likelihood"])
+                "    log-likelihood: {:.5g}.\n".format(evaluation_test["log_likelihood"])
         elif "VAE" in model.type:
             metrics_string += \
-                "    ELBO: {:.5g}.\n".format(evaluation_test["ELBO"]) + \
-                "    ENRE: {:.5g}.\n".format(evaluation_test["ENRE"]) + \
-                "    KL:   {:.5g}.\n".format(evaluation_test["KL"])
+                "    ELBO: {:.5g}.\n".format(evaluation_test["lower_bound"]) + \
+                "    ENRE: {:.5g}.\n".format(
+                    evaluation_test["reconstruction_error"]) + \
+                "    KL:   {:.5g}.\n".format(evaluation_test["kl_divergence"])
         metrics_string += "\n" + formatStatistics(x_statistics)
         metrics_string += "\n" + formatCountAccuracies(count_accuracies)
         metrics_file.write(metrics_string)
@@ -786,6 +789,8 @@ def loadLearningCurves(model, data_set_kinds = "all"):
     ## Data set kinds
     if data_set_kinds == "all":
         data_set_kinds = ["training", "validation", "test"]
+    elif not isinstance(data_set_kinds, list):
+        data_set_kinds = [data_set_kinds]
     
     ## Losses depending on model type
     if model.type == "SNN":
@@ -808,14 +813,20 @@ def loadLearningCurves(model, data_set_kinds = "all"):
             
             scalars = multiplexer.Scalars(data_set_kind, "losses/" + loss)
             
-            learning_curve = numpy.empty(len(scalars))
+            if len(scalars) == 1:
+                learning_curve = scalars[0].value
+            else:
+                learning_curve = numpy.empty(len(scalars))
             
-            for scalar in scalars:
-                learning_curve[scalar.step - 1] = scalar.value
+                for scalar in scalars:
+                    learning_curve[scalar.step - 1] = scalar.value
             
             learning_curve_set[loss] = learning_curve
         
         learning_curve_sets[data_set_kind] = learning_curve_set
+    
+    if len(data_set_kinds) == 1:
+        learning_curve_sets = learning_curve_sets[data_set_kinds[0]]
     
     return learning_curve_sets
 

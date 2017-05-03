@@ -930,12 +930,6 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                 ELBO_test, ENRE_test, KL_test))
             
-            evaluation_test = {
-                "ELBO": ELBO_test,
-                "ENRE": ENRE_test,
-                "KL": KL_test
-            }
-            
             reconstructed_test_set = DataSet(
                 name = test_set.name,
                 values = x_tilde_test,
@@ -963,4 +957,4 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 version = "latent"
             )
             
-            return reconstructed_test_set, latent_test_set, evaluation_test
+            return reconstructed_test_set, latent_test_set

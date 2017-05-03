@@ -572,10 +572,6 @@ class SimpleNeuralNetwork(object):
                 formatDuration(evaluating_duration)) + \
                 "log-likelihood: {:.5g}".format(log_likelihood_test))
             
-            evaluation_test = {
-                "log-likelihood": log_likelihood_test,
-            }
-            
             reconstructed_test_set = DataSet(
                 name = test_set.name,
                 values = x_tilde_test,
@@ -589,4 +585,4 @@ class SimpleNeuralNetwork(object):
                 version = "reconstructed"
             )
             
-            return reconstructed_test_set, None, evaluation_test
+            return reconstructed_test_set, None
