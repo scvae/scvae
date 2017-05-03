@@ -585,4 +585,4 @@ class SimpleNeuralNetwork(object):
                 version = "reconstructed"
             )
             
-            return reconstructed_test_set, None
+            return reconstructed_test_set

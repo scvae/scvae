@@ -182,8 +182,12 @@ def main(data_set_name, data_directory = "data",
         
         print()
         
-        reconstructed_test_set, latent_test_set = model.evaluate(
-            test_set, batch_size)
+        if "AE" in model.type:
+            reconstructed_test_set, latent_test_set = model.evaluate(
+                test_set, batch_size)
+        else:
+            reconstructed_test_set = model.evaluate(test_set, batch_size)
+            latent_test_set = None
         
         print()
         
