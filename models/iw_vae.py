@@ -848,7 +848,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
         test_summary_directory = os.path.join(self.log_directory, "test")
-        shutil.rmtree(test_summary_directory)
+        if os.path.exists(test_summary_directory):
+            shutil.rmtree(test_summary_directory)
         
         with tf.Session(graph = self.graph) as session:
             
