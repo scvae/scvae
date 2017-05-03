@@ -102,11 +102,17 @@ def analyseModel(model, results_directory = "results"):
     # Learning curves
     
     print("Plotting learning curves.")
+    learning_curves_time_start = time()
     
-    learning_curves = loadLearningCurves(model, data_set_kinds = ["training", "validation"])
+    learning_curves = loadLearningCurves(model,
+        data_set_kinds = ["training", "validation"])
     
     figure, name = plotLearningCurves(learning_curves, model.type)
     saveFigure(figure, name, results_directory)
+    
+    learning_curves_duration = time() - learning_curves_time_start
+    print("Learning curves plotted and saved ({}).".format(
+        formatDuration(learning_curves_duration)))
     
     print()
     
@@ -115,6 +121,7 @@ def analyseModel(model, results_directory = "results"):
     if "AE" in model.type:
         
         print("Plotting logarithm of KL divergence heat map.")
+        heat_map_time_start = time()
         
         KL_neurons = loadKLDivergences(model)
     
@@ -127,6 +134,10 @@ def analyseModel(model, results_directory = "results"):
             z_name = "$\log$ KL$(p_i|q_i)$",
             name = "kl_divergence")
         saveFigure(figure, name, results_directory)
+        
+        heat_map_duration = time() - heat_map_time_start
+        print("Heat map plotted and saved ({}).".format(
+            formatDuration(heat_map_duration)))
         
         print()
 
