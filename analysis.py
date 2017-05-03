@@ -235,7 +235,7 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     
     with gzip.open(metrics_dictionary_path, "w") as metrics_file:
         metrics_dictionary = {
-            "timestamp:" metrics_saving_time_start,
+            "timestamp": metrics_saving_time_start,
             "evaluation": evaluation_test,
             "statistics": statistics,
             "count accuracies": count_accuracies
