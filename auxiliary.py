@@ -1,11 +1,15 @@
 import os
 import sys
+import time
 
 from math import floor
 
 import urllib.request
 
 # Time
+
+def formatTime(t):
+    return time.strftime("%Y-%m-%d %H:%M:%S %Z", time.localtime(t))
 
 def formatDuration(seconds):
     if seconds < 0.001:
