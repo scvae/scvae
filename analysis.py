@@ -14,7 +14,7 @@ import gzip
 import pickle
 
 from time import time
-from auxiliary import formatDuration, normaliseString
+from auxiliary import formatTime, formatDuration, normaliseString
 
 palette = seaborn.color_palette('Set2', 8)
 seaborn.set(style='ticks', palette = palette)
@@ -216,7 +216,10 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     metrics_saving_time_start = time()
     
     with open(metrics_log_path, "w") as metrics_file:
-        metrics_string = "Evaluation:\n"
+        metrics_string = "Timestamp: {}".format(formatTime(metrics_saving_time_start))
+        metrics_string += "\n"*2
+        metrics_string += "Evaluation:"
+        metrics_string += "\n"
         if model.type == "SNN":
             metrics_string += \
                 "    log-likelihood: {:.5g}.\n".format(evaluation_test["log_likelihood"])
@@ -232,6 +235,7 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     
     with gzip.open(metrics_dictionary_path, "w") as metrics_file:
         metrics_dictionary = {
+            "timestamp:" metrics_saving_time_start,
             "evaluation": evaluation_test,
             "statistics": statistics,
             "count accuracies": count_accuracies
