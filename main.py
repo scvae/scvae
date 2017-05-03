@@ -137,10 +137,10 @@ def main(data_set_name, data_directory = "data",
             
             # Dictionary holding number of samples needed for the "monte carlo" estimator and "importance weighting" during both "train" and "test" time.  
             numbers_of_samples = model_configuration["numbers_of_samples"] 
- 
+            use_analytic_kl = latent_distribution == "gaussian"
             model = ImportanceWeightedVariationalAutoEncoder(
                 feature_size, latent_size, hidden_sizes, numbers_of_samples,
-                latent_distribution, 
+                use_analytic_kl, latent_distribution, 
                 number_of_latent_clusters,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,

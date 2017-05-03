@@ -21,13 +21,10 @@ from data import DataSet
 
 class ImportanceWeightedVariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
-        numbers_of_samples,
-        latent_distribution = "gaussian",
-        number_of_latent_clusters = 1,
-        reconstruction_distribution = None,
-        number_of_reconstruction_classes = None,
-        batch_normalisation = True, count_sum = True,
-        number_of_warm_up_epochs = 0, epsilon = 1e-6,
+        numbers_of_samples, use_analytic_kl, latent_distribution = "gaussian",
+        number_of_latent_clusters = 1, reconstruction_distribution = None,
+        number_of_reconstruction_classes = None, batch_normalisation = True, 
+        count_sum = True, number_of_warm_up_epochs = 0, epsilon = 1e-6,
         log_directory = "log"):
         
         # Class setup
@@ -43,9 +40,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         self.latent_distribution = copy.deepcopy(
             latent_distributions[latent_distribution]
         )
-
         self.number_of_latent_clusters = number_of_latent_clusters
-
+        self.use_analytic_kl = use_analytic_kl
         # Dictionary holding number of samples needed for the "monte carlo" 
         # estimator and "importance weighting" during both "train" and "test" time.  
         self.numbers_of_samples = numbers_of_samples
@@ -459,28 +455,30 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         tf.add_to_collection('losses', self.ENRE)
 
         # Recognition error
-        ### Evaluate all log(q(z|x)) and log(p(z)) on (N_iw, N_mc, batchsize, N_x) latent sample values.
-        ### shape =  (N_iw, N_mc, batchsize, N_z)
-        log_q_z_given_x = self.q_z_given_x.log_prob(z_reshaped)
-        ### shape =  (N_iw, N_mc, batchsize, N_z)
-        log_p_z = self.p_z.log_prob(z_reshaped)
+        if self.use_analytic_kl:
+            ## Evaluate Kullback-Leibler divergence analytically without sampling
+            KL = kl(self.q_z_given_x, self.p_z)
+        else:
+            ## Evaluate Kullback-Leibler divergence numerically with sampling
+            ### Evaluate all log(q(z|x)) and log(p(z)) on (N_iw, N_mc, batchsize, N_z) latent sample values.
+            ### shape =  (N_iw, N_mc, batchsize, N_z)
+            log_q_z_given_x = self.q_z_given_x.log_prob(z_reshaped)
+            ### shape =  (N_iw, N_mc, batchsize, N_z)
+            log_p_z = self.p_z.log_prob(z_reshaped)
 
-        # The log of fraction, f(z)=q(z|x)/p(z) in the Kullback-Leibler Divergence: 
-        # KL[q(z|x)||p(z)] = E_q[f(z)] = E_q[log(q(z|x)/p(z))] = 
-        #  E_q[log(q(z|x))] - E_q[log(p(z))]
-        KL = log_q_z_given_x - log_p_z
+            # The log of fraction, f(z)=q(z|x)/p(z) in the Kullback-Leibler Divergence: 
+            # KL[q(z|x)||p(z)] = E_q[f(z)] = E_q[log(q(z|x)/p(z))] = 
+            #  E_q[log(q(z|x))] - E_q[log(p(z))]
+            KL = log_q_z_given_x - log_p_z
         
-        # if self.latent_distribution_name == "gaussian mixture":
-        #     KL_qp_all = tf.reduce_mean(self.q_z_given_x.entropy_lower_bound(), axis = 0)
-        # else:
+        # Get mean KL for all N_z dim. --> shape = (N_z)
         KL_qp_all = tf.reduce_mean(
             tf.reshape(KL, [-1, self.latent_size])
             , axis = 0
         )
-        
         self.KL_all = KL_qp_all
 
-        ## Regularisation
+        ## KL Regularisation term: Sum up KL over all latent dim.: shape --> () 
         KL_qp = tf.reduce_sum(KL_qp_all, name = "kl_divergence")
         tf.add_to_collection('losses', KL_qp)
         self.KL = KL_qp
