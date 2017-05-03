@@ -97,11 +97,11 @@ def analyseModel(model, results_directory = "results"):
     
     results_directory = os.path.join(results_directory, model.directory_suffix)
     
-    learning_curves, KL_neurons = parseSummaries(model)
-    
     # Learning curves
     
     print("Plotting learning curves.")
+    
+    learning_curves = loadLearningCurves(model, data_set_kinds = ["training", "validation"])
     
     figure, name = plotLearningCurves(learning_curves, model.type)
     saveFigure(figure, name, results_directory)
@@ -110,10 +110,12 @@ def analyseModel(model, results_directory = "results"):
     
     # Heat map of KL for all latent neurons
     
-    if KL_neurons is not None:
+    if "AE" in model.type:
         
         print("Plotting logarithm of KL divergence heat map.")
         
+        KL_neurons = loadKLDivergences(model)
+    
         KL_neurons = numpy.sort(KL_neurons, axis = 1)
         log_KL_neurons = numpy.log(KL_neurons)
         
@@ -775,22 +777,28 @@ def saveFigure(figure, figure_name, results_directory, no_spine = True):
     figure_path = os.path.join(results_directory, figure_name) + figure_extension
     figure.savefig(figure_path, bbox_inches = 'tight')
 
-def parseSummaries(model):
+def loadLearningCurves(model, data_set_kinds = "all"):
     
-    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
-        model.log_directory)
-    multiplexer.Reload()
+    # Setup
     
-    # Learning curves
+    learning_curve_sets = {}
     
-    data_set_kinds = ["training", "validation"]
+    ## Data set kinds
+    if data_set_kinds == "all":
+        data_set_kinds = ["training", "validation", "test"]
     
+    ## Losses depending on model type
     if model.type == "SNN":
         losses = ["log_likelihood"]
     elif "AE" in model.type:
         losses = ["lower_bound", "kl_divergence", "reconstruction_error"]
     
-    learning_curve_sets = {}
+    ## TensorBoard class with summaries
+    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
+        model.log_directory)
+    multiplexer.Reload()
+    
+    # Loading
     
     for data_set_kind in data_set_kinds:
         
@@ -809,21 +817,28 @@ def parseSummaries(model):
         
         learning_curve_sets[data_set_kind] = learning_curve_set
     
-    # KL divergence for all latent neurons
+    return learning_curve_sets
+
+def loadKLDivergences(model):
     
-    try:
-        N_epochs = len(multiplexer.Scalars("training",
-            "kl_divergence_neurons/0"))
-        
-        KL_neurons = numpy.empty([N_epochs, model.latent_size])
-        
-        for i in range(model.latent_size):
-            scalars = multiplexer.Scalars("training",
-                "kl_divergence_neurons/{}".format(i))
-            
-            for scalar in scalars:
-                KL_neurons[scalar.step - 1][i] = scalar.value
-    except:
-        KL_neurons = None
+    # Setup
     
-    return learning_curve_sets, KL_neurons
+    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
+        model.log_directory)
+    multiplexer.Reload()
+    
+    N_epochs = len(multiplexer.Scalars("training",
+        "kl_divergence_neurons/0"))
+    
+    KL_neurons = numpy.empty([N_epochs, model.latent_size])
+    
+    # Loading
+    
+    for i in range(model.latent_size):
+        scalars = multiplexer.Scalars("training",
+            "kl_divergence_neurons/{}".format(i))
+        
+        for scalar in scalars:
+            KL_neurons[scalar.step - 1][i] = scalar.value
+    
+    return KL_neurons
