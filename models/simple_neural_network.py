@@ -514,10 +514,21 @@ class SimpleNeuralNetwork(object):
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
-        with tf.Session(graph = self.graph) as session:
+        test_summary_directory = os.path.join(self.log_directory, "test")
+        shutil.rmtree(test_summary_directory)
         
+        with tf.Session(graph = self.graph) as session:
+            
+            test_summary_writer = tf.summary.FileWriter(
+                test_summary_directory)
+            
             if checkpoint:
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
+                epoch = int(os.path.split(
+                    checkpoint.model_checkpoint_path)[-1].split('-')[-1])
+            else:
+                raise BaseError(
+                    "Cannot evaluate model when it has not been trained.")
             
             evaluating_time_start = time()
             
@@ -547,6 +558,13 @@ class SimpleNeuralNetwork(object):
                 x_tilde_test[subset] = x_tilde_i
             
             log_likelihood_test /= M_test / batch_size
+            
+            summary = tf.Summary()
+            summary.value.add(tag="losses/log_likelihood",
+                simple_value = log_likelihood_test)
+            test_summary_writer.add_summary(summary,
+                global_step = epoch)
+            test_summary_writer.flush()
             
             evaluating_duration = time() - evaluating_time_start
             print("Test set ({}): ".format(

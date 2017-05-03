@@ -749,10 +749,21 @@ class VariationalAutoEncoder(object):
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
-        with tf.Session(graph = self.graph) as session:
+        test_summary_directory = os.path.join(self.log_directory, "test")
+        shutil.rmtree(test_summary_directory)
         
+        with tf.Session(graph = self.graph) as session:
+            
+            test_summary_writer = tf.summary.FileWriter(
+                test_summary_directory)
+            
             if checkpoint:
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
+                epoch = int(os.path.split(
+                    checkpoint.model_checkpoint_path)[-1].split('-')[-1])
+            else:
+                raise BaseError(
+                    "Cannot evaluate model when it has not been trained.")
             
             evaluating_time_start = time()
             
@@ -792,6 +803,17 @@ class VariationalAutoEncoder(object):
             ELBO_test /= M_test / batch_size
             KL_test /= M_test / batch_size
             ENRE_test /= M_test / batch_size
+            
+            summary = tf.Summary()
+            summary.value.add(tag="losses/lower_bound",
+                simple_value = ELBO_test)
+            summary.value.add(tag="losses/reconstruction_error",
+                simple_value = ENRE_test)
+            summary.value.add(tag="losses/kl_divergence",
+                simple_value = KL_test)
+            test_summary_writer.add_summary(summary,
+                global_step = epoch)
+            test_summary_writer.flush()
             
             evaluating_duration = time() - evaluating_time_start
             print("Test set ({}): ".format(
