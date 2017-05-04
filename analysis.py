@@ -892,9 +892,12 @@ def loadLearningCurves(model, data_set_kinds = "all"):
             scalars = multiplexer.Scalars(data_set_kind, "losses/" + loss)
             
             learning_curve = numpy.empty(len(scalars))
-        
-            for scalar in scalars:
-                learning_curve[scalar.step - 1] = scalar.value
+            
+            if len(scalars) == 1:
+                learning_curve[0] = scalars[0].value
+            else:
+                for scalar in scalars:
+                    learning_curve[scalar.step - 1] = scalar.value
             
             learning_curve_set[loss] = learning_curve
         
