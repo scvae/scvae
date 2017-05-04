@@ -919,11 +919,16 @@ def loadKLDivergences(model):
     N_epochs = len(multiplexer.Scalars("training",
         "kl_divergence_neurons/0"))
     
-    KL_neurons = numpy.empty([N_epochs, model.latent_size])
+    if "mixture" in model.latent_distribution_name:
+        latent_size = 1
+    else:
+        latent_size = model.latent_size
+
+    KL_neurons = numpy.empty([N_epochs, latent_size])
     
     # Loading
     
-    for i in range(model.latent_size):
+    for i in range(latent_size):
         scalars = multiplexer.Scalars("training",
             "kl_divergence_neurons/{}".format(i))
         
