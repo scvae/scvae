@@ -17,7 +17,7 @@ import os, shutil
 from time import time
 from auxiliary import formatDuration, normaliseString
 
-from data import DataSet
+from data import DataSet, binarise
 
 class ImportanceWeightedVariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
@@ -568,8 +568,12 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         x_train = training_set.preprocessed_values
         x_valid = validation_set.preprocessed_values
         
-        t_train = training_set.values
-        t_valid = validation_set.values
+        if self.reconstruction_distribution_name == "bernoulli":
+            t_train = binarise(training_set.values)
+            t_valid = binarise(validation_set.values)
+        else:
+            t_train = training_set.values
+            t_valid = validation_set.values
         
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
@@ -841,7 +845,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         
         x_test = test_set.preprocessed_values
         
-        t_test = test_set.values
+        if self.reconstruction_distribution_name == "bernoulli":
+            t_test = binarise(test_set.values)
+        else:
+            t_test = test_set.values
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
@@ -928,6 +935,22 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                 ELBO_test, ENRE_test, KL_test))
             
+            if self.reconstruction_distribution_name == "bernoulli":
+                transformed_test_set = DataSet(
+                    name = test_set.name,
+                    values = t_test,
+                    preprocessed_values = None,
+                    labels = test_set.labels,
+                    example_names = test_set.example_names,
+                    feature_names = test_set.feature_names,
+                    feature_selection = test_set.feature_selection,
+                    preprocessing_methods = test_set.preprocessing_methods,
+                    kind = "test",
+                    version = "binarised"
+                )
+            else:
+                transformed_test_set = test_set
+            
             reconstructed_test_set = DataSet(
                 name = test_set.name,
                 values = x_tilde_test,
@@ -955,4 +978,4 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 version = "latent"
             )
             
-            return reconstructed_test_set, latent_test_set
+            return transformed_test_set, reconstructed_test_set, latent_test_set
