@@ -173,6 +173,7 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     # Loading
     
     evaluation_test = loadLearningCurves(model, "test")
+    number_of_epochs_trained = loadNumberOfEpochsTrained(model)
     
     # Metrics
     
@@ -216,7 +217,11 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     metrics_saving_time_start = time()
     
     with open(metrics_log_path, "w") as metrics_file:
-        metrics_string = "Timestamp: {}".format(formatTime(metrics_saving_time_start))
+        metrics_string = "Timestamp: {}".format(
+            formatTime(metrics_saving_time_start))
+        metrics_string += "\n"
+        metrics_string += "Number of epochs trained: {}".format(
+            number_of_epochs_trained)
         metrics_string += "\n"*2
         metrics_string += "Evaluation:"
         metrics_string += "\n"
@@ -236,6 +241,7 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     with gzip.open(metrics_dictionary_path, "w") as metrics_file:
         metrics_dictionary = {
             "timestamp": metrics_saving_time_start,
+            "number of epochs trained": number_of_epochs_trained,
             "evaluation": evaluation_test,
             "statistics": statistics,
             "count accuracies": count_accuracies
@@ -806,6 +812,42 @@ def saveFigure(figure, figure_name, results_directory, no_spine = True):
     
     figure_path = os.path.join(results_directory, figure_name) + figure_extension
     figure.savefig(figure_path, bbox_inches = 'tight')
+
+def loadNumberOfEpochsTrained(model):
+    
+    # Seup
+    
+    ## Data set kind
+    data_set_kind = "training"
+    
+    ## Loss depending on model type
+    if model.type == "SNN":
+        loss = "log_likelihood"
+    elif "AE" in model.type:
+        loss = "lower_bound"
+    
+    ## TensorBoard class with summaries
+    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
+        model.log_directory)
+    multiplexer.Reload()
+    
+    # Loading
+    
+    # Losses for every epochs
+    scalars = multiplexer.Scalars(data_set_kind, "losses/" + loss)
+    
+    # First estimate of number of epochs
+    E_1 = len(scalars)
+    
+    # Second estimate of number of epochs
+    E_2 = 0
+    
+    for scalar in scalars:
+        E_2 = max(E_2, scalar.step)
+    
+    assert E_1 == E_2
+    
+    return E_1
 
 def loadLearningCurves(model, data_set_kinds = "all"):
     
