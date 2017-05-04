@@ -232,26 +232,18 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         if parameter == "logits":
                             logits = tf.expand_dims(tf.expand_dims(dense_layer(
                                 inputs = encoder,
-                                num_outputs = self.latent_size\
-                                    * self.number_of_latent_clusters,
+                                num_outputs = self.number_of_latent_clusters,
                                 activation_fn = lambda x: tf.clip_by_value(
                                     parameter_activation_function(x),
                                     p_min + self.epsilon,
                                     p_max - self.epsilon
                                 ),
                                 is_training = self.is_training,
-                                scope = parameter.upper()+"_FLAT"
+                                scope = parameter.upper()
                             ), 0), 0)
                 
                             self.latent_distribution[part]["parameters"]\
-                            [parameter] = tf.reshape(
-                                logits,
-                                [1, 1, -1, 
-                                    self.latent_size, 
-                                    self.number_of_latent_clusters
-                                ],
-                                name=parameter.upper()
-                            )
+                            [parameter] = logits
                         else:
                             self.latent_distribution[part]["parameters"]\
                             [parameter] = []
@@ -455,10 +447,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         tf.add_to_collection('losses', self.ENRE)
 
         # Recognition error
-        if self.use_analytic_kl:
-            ## Evaluate Kullback-Leibler divergence analytically without sampling
-            KL = kl(self.q_z_given_x, self.p_z)
-        else:
+        if "mixture" in self.latent_distribution_name:
             ## Evaluate Kullback-Leibler divergence numerically with sampling
             ### Evaluate all log(q(z|x)) and log(p(z)) on (N_iw, N_mc, batchsize, N_z) latent sample values.
             ### shape =  (N_iw, N_mc, batchsize, N_z)
@@ -466,26 +455,52 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             ### shape =  (N_iw, N_mc, batchsize, N_z)
             log_p_z = self.p_z.log_prob(z_reshaped)
 
-            # The log of fraction, f(z)=q(z|x)/p(z) in the Kullback-Leibler Divergence: 
-            # KL[q(z|x)||p(z)] = E_q[f(z)] = E_q[log(q(z|x)/p(z))] = 
-            #  E_q[log(q(z|x))] - E_q[log(p(z))]
+            if "mixture" not in self.latent_distribution["posterior"]["name"]:
+                log_q_z_given_x = tf.reduce_sum(log_q_z_given_x, axis=-1)
+            if "mixture" not in self.latent_distribution["prior"]["name"]:
+                log_p_z = tf.reduce_sum(log_p_z, axis=-1)
+            
+            # Kullback-Leibler Divergence:  KL[q(z|x)||p(z)] =
+            # E_q[log(q(z|x)/p(z))] = E_q[log(q(z|x))] - E_q[log(p(z))]
             KL = log_q_z_given_x - log_p_z
-        
-        # Get mean KL for all N_z dim. --> shape = (N_z)
-        KL_qp_all = tf.reduce_mean(
-            tf.reshape(KL, [-1, self.latent_size])
-            , axis = 0
-        )
-        self.KL_all = KL_qp_all
 
-        ## KL Regularisation term: Sum up KL over all latent dim.: shape --> () 
-        KL_qp = tf.reduce_sum(KL_qp_all, name = "kl_divergence")
-        tf.add_to_collection('losses', KL_qp)
-        self.KL = KL_qp
+            ## KL Regularisation term: 
+            KL_qp = tf.reduce_mean(KL, name = "kl_divergence")
+            tf.add_to_collection('losses', KL_qp)
+            self.KL = KL_qp
+            # Get mean KL for all N_z dim. --> shape = (1)
+            self.KL_all = tf.expand_dims(tf.reduce_mean(KL), -1)
+        else:
+            if self.use_analytic_kl:
+                ## Evaluate Kullback-Leibler divergence analytically without sampling
+                KL = kl(self.q_z_given_x, self.p_z)
+            else:
+                ## Evaluate Kullback-Leibler divergence numerically with sampling
+                ### Evaluate all log(q(z|x)) and log(p(z)) on (N_iw, N_mc, batchsize, N_z) latent sample values.
+                ### shape =  (N_iw, N_mc, batchsize, N_z)
+                log_q_z_given_x = self.q_z_given_x.log_prob(z_reshaped)
+                ### shape =  (N_iw, N_mc, batchsize, N_z)
+                log_p_z = self.p_z.log_prob(z_reshaped)
+
+                # Kullback-Leibler Divergence:  KL[q(z|x)||p(z)] =
+                # E_q[log(q(z|x)/p(z))] = E_q[log(q(z|x))] - E_q[log(p(z))]
+                KL = log_q_z_given_x - log_p_z
+
+            # Get mean KL for all N_z dim. --> shape = (N_z)
+            self.KL_all = tf.reduce_mean(
+                tf.reshape(KL, [-1, self.latent_size])
+                , axis = 0
+            )
+            ## KL Regularisation term: Sum up KL over all latent dim.: shape --> () 
+            KL_qp = tf.reduce_sum(self.KL_all, name = "kl_divergence")
+            tf.add_to_collection('losses', KL_qp)
+            self.KL = KL_qp
+
+            KL = tf.reduce_sum(KL, axis = -1)
 
         # log-mean-exp (to avoid over- and underflow) over iw_samples dimension
         ## -> shape: (N_mc, batch_size)
-        LL = log_reduce_exp(log_p_x_given_z - self.warm_up_weight * tf.reduce_sum(KL, axis=-1), reduction_function=tf.reduce_mean, axis = 0)
+        LL = log_reduce_exp(log_p_x_given_z - self.warm_up_weight * KL, reduction_function=tf.reduce_mean, axis = 0)
 
         # average over eq_samples, batch_size dimensions    -> shape: ()
         self.lower_bound = tf.reduce_mean(LL) # scalar
@@ -704,7 +719,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 KL_train = 0
                 ENRE_train = 0
                 
-                z_KL = numpy.zeros(self.latent_size)
+                if "mixture" in self.latent_distribution_name: 
+                    z_KL = numpy.zeros(1)                
+                else:    
+                    z_KL = numpy.zeros(self.latent_size)
                 
                 for i in range(0, M_train, batch_size):
                     subset = slice(i, (i + batch_size))
@@ -748,7 +766,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 summary.value.add(tag="losses/kl_divergence",
                     simple_value = KL_train)
                 
-                for i in range(self.latent_size):
+                for i in range(z_KL.size):
                     summary.value.add(tag="kl_divergence_neurons/{}".format(i),
                         simple_value = z_KL[i])
                 
