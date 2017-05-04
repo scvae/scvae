@@ -727,7 +727,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 for i in range(0, M_train, batch_size):
                     subset = slice(i, (i + batch_size))
                     x_batch = x_train[subset]
-                    t_batch = x_train[subset]
+                    t_batch = t_train[subset]
                     feed_dict_batch = {
                         self.x: x_batch,
                         self.t: t_batch,
