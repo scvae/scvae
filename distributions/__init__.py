@@ -4,7 +4,7 @@ from numpy import inf
 from tensorflow.contrib.distributions import (
     Bernoulli,
     Poisson, NegativeBinomial,
-    Normal, Multinomial,
+    Normal, MultivariateNormalDiag, Multinomial,
     Categorical, Mixture
 )
 
@@ -52,7 +52,8 @@ distributions = {
         },
         "class": lambda theta: Mixture(
             cat = Categorical(logits = theta["logits"]), 
-            components = [Normal(loc = m, scale = tf.exp(s)) for m, s in 
+            components = [MultivariateNormalDiag(
+                loc = m, scale_diag = tf.exp(s)) for m, s in 
                 zip(theta["mus"], theta["log_sigmas"])]
         )
     },    
@@ -222,6 +223,16 @@ latent_distributions = {
     "alternative gaussian mixture": {
         "posterior": {
             "name": "gaussian mixture", 
+            "parameters": {}
+            },
+        "prior": {
+            "name": "gaussian mixture",
+            "parameters": {}
+        }
+    },
+    "fixed gaussian mixture": {
+        "posterior": {
+            "name": "gaussian", 
             "parameters": {}
             },
         "prior": {
