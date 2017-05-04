@@ -227,13 +227,16 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
         metrics_string += "\n"
         if model.type == "SNN":
             metrics_string += \
-                "    log-likelihood: {:.5g}.\n".format(evaluation_test["log_likelihood"])
+                "    log-likelihood: {:.5g}.\n".format(
+                    evaluation_test["log_likelihood"][-1])
         elif "VAE" in model.type:
             metrics_string += \
-                "    ELBO: {:.5g}.\n".format(evaluation_test["lower_bound"]) + \
+                "    ELBO: {:.5g}.\n".format(
+                    evaluation_test["lower_bound"][-1]) + \
                 "    ENRE: {:.5g}.\n".format(
-                    evaluation_test["reconstruction_error"]) + \
-                "    KL:   {:.5g}.\n".format(evaluation_test["kl_divergence"])
+                    evaluation_test["reconstruction_error"][-1]) + \
+                "    KL:   {:.5g}.\n".format(
+                    evaluation_test["kl_divergence"][-1])
         metrics_string += "\n" + formatStatistics(x_statistics)
         metrics_string += "\n" + formatCountAccuracies(count_accuracies)
         metrics_file.write(metrics_string)
@@ -717,7 +720,10 @@ def plotHeatMap(data_set, x_name, y_name, z_name = None,
 def plotLatentSpace(latent_set, colour_coding = None, feature_index = None,
     test_set = None, name = None):
     
-    figure_name = "latent_space-" + normaliseString(colour_coding)
+    figure_name = "latent_space"
+    
+    if colour_coding:
+        figure_name += "-" + normaliseString(colour_coding)
     
     M = latent_set.number_of_examples
     L = latent_set.number_of_features
@@ -788,14 +794,17 @@ def plotLatentSpace(latent_set, colour_coding = None, feature_index = None,
         
         f_test = test_set.values[:, feature_index].reshape(-1, 1)
         
-        f_normalised = f_test / f_test.max()
+        if f_test.max() != 0:
+            f_normalised = f_test / f_test.max()
+        else:
+            f_normalised = f_test
         
         colours = numpy.array([palette[0]]) * f_normalised
         
         axis.scatter(values[:, 0], values[:, 1], color = colours)
     
     else:
-        axis.scatter(values[indices, 0], values[indices, 1])
+        axis.scatter(values[:, 0], values[:, 1])
     
     if name:
         figure_name = figure_name + "_" + name
@@ -882,13 +891,10 @@ def loadLearningCurves(model, data_set_kinds = "all"):
             
             scalars = multiplexer.Scalars(data_set_kind, "losses/" + loss)
             
-            if len(scalars) == 1:
-                learning_curve = scalars[0].value
-            else:
-                learning_curve = numpy.empty(len(scalars))
-            
-                for scalar in scalars:
-                    learning_curve[scalar.step - 1] = scalar.value
+            learning_curve = numpy.empty(len(scalars))
+        
+            for scalar in scalars:
+                learning_curve[scalar.step - 1] = scalar.value
             
             learning_curve_set[loss] = learning_curve
         
