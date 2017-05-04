@@ -179,7 +179,7 @@ data_sets = {
 
 class DataSet(object):
     def __init__(self, name,
-        values = None, preprocessed_values = None, count_sum = None,
+        values = None, preprocessed_values = None,
         labels = None, example_names = None, feature_names = None,
         feature_selection = None, preprocessing_methods = [],
         preprocessed = None, kind = "full", version = "original",
@@ -656,17 +656,17 @@ def preprocessValues(values, preprocessing_methods = [], preprocessPath = None):
     preprocesses = []
     
     for preprocessing_method in preprocessing_methods:
-        if preprocessing_method == "binarise":
-            preprocess = lambda x: (x != 0).astype('float')
         
-        elif preprocessing_method in ["gini", "idf"]:
+        if preprocessing_method in ["gini", "idf"]:
             weight_method = preprocessing_method
             preprocess = lambda x: applyWeights(x, weight_method,
                 preprocessPath)
         
         elif preprocessing_method == "normalise":
-            preprocess = lambda x: sklearn.preprocessing.normalize(
-                x, norm = 'l2', axis = 1)
+            preprocess = normalise
+        
+        elif preprocessing_method == "binarise":
+            preprocess = binarise
         
         else:
             preprocess = lambda x: x
@@ -1176,6 +1176,12 @@ def computeGiniIndices(data, epsilon = 1e-16, batch_size = 5000):
     print("Gini indices computed ({}).".format(formatDuration(duration)))
     
     return gini_indices
+
+def normalise(data):
+    return sklearn.preprocessing.normalize(data, norm = 'l2', axis = 1)
+
+def binarise(data):
+    return sklearn.preprocessing.binarize(data, threshold = 0.5)
 
 def computeInverseGlobalFrequencyWeights(data):
     
