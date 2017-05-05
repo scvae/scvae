@@ -49,7 +49,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
 
         self.reconstruction_distribution_name = reconstruction_distribution
         self.reconstruction_distribution = distributions\
-        [reconstruction_distribution]
+            [reconstruction_distribution]
         
         self.k_max = number_of_reconstruction_classes
         

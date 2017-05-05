@@ -110,42 +110,45 @@ def main(data_set_name, data_directory = "data",
             number_of_latent_clusters = \
                 model_configuration["number_of_latent_clusters"]
         
+        if "AE" in model_type:
+            latent_size = model_configuration["latent_size"]
+            number_of_warm_up_epochs = \
+                model_configuration["number_of_warm_up_epochs"]
+            analytical_kl_term = latent_distribution == "gaussian"
+        
         # Modeling
         
         if model_type == "VAE":
             
-            latent_size = model_configuration["latent_size"]
-            number_of_warm_up_epochs = \
-                model_configuration["number_of_warm_up_epochs"]
+            number_of_monte_carlo_samples = model_configuration[
+                "number_of_monte_carlo_samples"]
             
             model = VariationalAutoEncoder(
-                feature_size, latent_size, hidden_sizes, 
-                latent_distribution,
-                number_of_latent_clusters,
+                feature_size, latent_size, hidden_sizes,
+                number_of_monte_carlo_samples, analytical_kl_term,
+                latent_distribution, number_of_latent_clusters,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum, number_of_warm_up_epochs,
                 log_directory = log_directory
             )
-
+        
         elif model_type == "IWVAE":
             
-            latent_size = model_configuration["latent_size"]
-            number_of_warm_up_epochs = \
-                model_configuration["number_of_warm_up_epochs"]
+            # Dictionary holding number of samples needed for the "monte carlo"
+            # estimator and "importance weighting" during both "train" and
+            # "test" time.
+            numbers_of_samples = model_configuration["numbers_of_samples"]
             
-            # Dictionary holding number of samples needed for the "monte carlo" estimator and "importance weighting" during both "train" and "test" time.  
-            numbers_of_samples = model_configuration["numbers_of_samples"] 
-            use_analytic_kl = latent_distribution == "gaussian"
             model = ImportanceWeightedVariationalAutoEncoder(
-                feature_size, latent_size, hidden_sizes, numbers_of_samples,
-                use_analytic_kl, latent_distribution, 
-                number_of_latent_clusters,
+                feature_size, latent_size, hidden_sizes,
+                numbers_of_samples, analytical_kl_term,
+                latent_distribution, number_of_latent_clusters,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum, number_of_warm_up_epochs,
                 log_directory = log_directory
-            )    
+            )
         
         elif model_type == "SNN":
             
@@ -264,11 +267,15 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                     if "IW" in model_type:
                         base_model_configuration["numbers_of_samples"] = \
                             type_configuration["numbers of samples"]
+                    else:
+                        base_model_configuration[
+                            "number_of_monte_carlo_samples"] = \
+                            type_configuration["number_of_monte_carlo_samples"]
                 
                 sub_model_configurations = []
                 
                 if latent_distribution == "gaussian mixture" and \
-                    "VAE" in model_type:
+                    "AE" in model_type:
                     
                     sub_configurations_product = itertools.product(
                         likelihood["numbers of latent clusters"],
@@ -301,15 +308,15 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                     sub_model_configurations.append(base_model_configuration)
                 
                 for model_configuration in sub_model_configurations:
-                
+                    
                     validity, errors = \
                         validateModelConfiguration(model_configuration)
-                
+                    
                     if validity:
                         model_configurations.append(model_configuration)
                     else:
                         configuration_errors.append(errors)
-        
+
     else:
         model_configuration = {
             "model_type": model_type,
@@ -333,6 +340,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
             model_configuration["latent_size"] = latent_size
             model_configuration["number_of_warm_up_epochs"] = \
                 number_of_warm_up_epochs
+            
             if "IW" in model_type:
                 numbers_of_samples = {
                     "training": {
@@ -355,6 +363,23 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                         number_of_monte_carlo_samples[1]
                 
                 model_configuration["numbers_of_samples"] = numbers_of_samples
+            
+            else:
+                
+                
+                if len(number_of_monte_carlo_samples) > 1:
+                    number_of_monte_carlo_samples = {
+                        "training": number_of_monte_carlo_samples[0],
+                        "evaluation": number_of_monte_carlo_samples[1]
+                    }
+                else:
+                    number_of_monte_carlo_samples = {
+                        "training": number_of_monte_carlo_samples[0],
+                        "evaluation": number_of_monte_carlo_samples[0]
+                    }
+                
+                model_configuration["number_of_monte_carlo_samples"] = \
+                    number_of_monte_carlo_samples
         
         validity, errors = validateModelConfiguration(model_configuration)
         
@@ -460,20 +485,20 @@ parser.add_argument(
 parser.add_argument(
     "--feature-selection",
     type = str,
-    default = None, 
+    default = None,
     help = "method for selecting features"
 )
 parser.add_argument(
     "--preprocessing-methods", "-p",
     type = str,
     nargs = "+",
-    default = None, 
+    default = None,
     help = "methods for preprocessing data (applied in order)"
 )
 parser.add_argument(
     "--splitting-method", "-s",
     type = str,
-    default = "random", 
+    default = "random",
     help = "method for splitting data into training, validation, and test sets"
 )
 parser.add_argument(
