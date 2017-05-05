@@ -12,7 +12,7 @@ from numpy import inf
 
 import os, shutil
 from time import time
-from auxiliary import formatDuration
+from auxiliary import formatDuration, normaliseString
 
 from data import DataSet, binarise
 
@@ -47,22 +47,7 @@ class SimpleNeuralNetwork(object):
 
         self.epsilon = epsilon
         
-        self.directory_suffix = os.path.join(self.type, self.name)
-        self.log_directory = os.path.join(log_directory, self.directory_suffix)
-        
-        print("Model setup:")
-        print("    type: {}".format(self.type))
-        print("    feature size: {}".format(self.feature_size))
-        print("    hidden sizes: {}".format(", ".join(map(str, self.hidden_sizes))))
-        print("    reconstruction distribution: " + self.reconstruction_distribution_name)
-        if self.k_max > 0:
-            print("    reconstruction classes: {}".format(self.k_max),
-                  " (including 0s)")
-        if self.batch_normalisation:
-            print("    using batch normalisation")
-        if self.count_sum_feature:
-            print("    using count sums")
-        print("")
+        self.main_log_directory = log_directory
         
         # Graph setup
         
@@ -87,16 +72,6 @@ class SimpleNeuralNetwork(object):
             self.training()
             
             self.saver = tf.train.Saver(max_to_keep = 1)
-            
-            print("Trainable parameters:")
-        
-            trainable_parameters = tf.trainable_variables()
-        
-            width = max(map(len, [p.name for p in trainable_parameters]))
-        
-            for parameter in trainable_parameters:
-                print("    {:{}}  {}".format(
-                    parameter.name, width, parameter.get_shape()))
     
     @property
     def name(self):
@@ -115,11 +90,33 @@ class SimpleNeuralNetwork(object):
             model_name += "_bn"
         
         return model_name
+        
+        reconstruction_part = normaliseString(
+            self.reconstruction_distribution_name)
+        
+        if self.k_max:
+            reconstruction_part += "_c_" + str(self.k_max)
+        
+        if self.count_sum_feature:
+            reconstruction_part += "_sum"
+        
+        reconstruction_part += "_h_" + "_".join(map(str, self.hidden_sizes))
+        
+        if self.batch_normalisation:
+            reconstruction_part += "_bn"
+        
+        model_name = os.path.join(self.type, reconstruction_part)
+        
+        return model_name
     
     @property
-    def description(self):
+    def log_directory(self):
+        return os.path.join(self.main_log_directory, self.name)
+    
+    @property
+    def title(self):
         
-        description = "SNN"
+        title = model.type
         
         configuration = [
             self.reconstruction_distribution_name.capitalize(),
@@ -135,9 +132,59 @@ class SimpleNeuralNetwork(object):
         if self.batch_normalisation:
             configuration.append("BN")
         
-        description += " (" + ", ".join(configuration) + ")"
+        title += " (" + ", ".join(configuration) + ")"
+        
+        return title
+    
+    @property
+    def description(self):
+        
+        description_parts = ["Model setup:"]
+        
+        description_parts.append("type: {}".format(self.type))
+        description_parts.append("feature size: {}".format(self.feature_size))
+        description_parts.append("hidden sizes: {}".format(", ".join(
+            map(str, self.hidden_sizes))))
+        
+        description_parts.append("reconstruction distribution: " +
+            self.reconstruction_distribution_name)
+        if self.k_max > 0:
+            description_parts.append(
+                "reconstruction classes: {}".format(self.k_max) +
+                " (including 0s)"
+            )
+        
+        if self.batch_normalisation:
+            description_parts.append("using batch normalisation")
+        if self.count_sum_feature:
+            description_parts.append("using count sums")
+        
+        description = "\n    ".join(description_parts)
         
         return description
+    
+    @property
+    def parameters(self, trainable = True):
+        
+        if trainable:
+            
+            parameters_string_parts = ["Trainable parameters"]
+            
+            with self.graph.as_default():
+                trainable_parameters = tf.trainable_variables()
+            
+            width = max(map(len, [p.name for p in trainable_parameters]))
+            
+            for parameter in trainable_parameters:
+                parameters_string_parts.append("{:{}}  {}".format(
+                    parameter.name, width, parameter.get_shape()))
+            
+            parameters_string = "\n    ".join(parameters_string_parts)
+        
+        else:
+            raise NotImplementedError("Can only return trainable parameters.")
+        
+        return parameters_string
     
     def inference(self):
         

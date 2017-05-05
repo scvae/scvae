@@ -160,6 +160,10 @@ def main(data_set_name, data_directory = "data",
         else:
             return ValueError("Model type not found.")
         
+        print(model.description)
+        print()
+        
+        print(model.parameters)
         print()
         
         status = model.train(
