@@ -20,7 +20,8 @@ from data import DataSet, binarise
 
 class ImportanceWeightedVariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
-        numbers_of_samples, analytical_kl_term = False,
+        number_of_monte_carlo_samples, number_of_importance_samples,
+        analytical_kl_term = False,
         latent_distribution = "gaussian", number_of_latent_clusters = 1,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
@@ -43,9 +44,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         )
         self.number_of_latent_clusters = number_of_latent_clusters
         self.analytical_kl_term = analytical_kl_term
+        
         # Dictionary holding number of samples needed for the "monte carlo" 
         # estimator and "importance weighting" during both "train" and "test" time.  
-        self.numbers_of_samples = numbers_of_samples
+        self.number_of_importance_samples = number_of_importance_samples
+        self.number_of_monte_carlo_samples = number_of_monte_carlo_samples
 
         self.reconstruction_distribution_name = reconstruction_distribution
         self.reconstruction_distribution = distributions\
@@ -126,16 +129,16 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         reconstruction_part += "_l_" + str(self.latent_size) \
             + "_h_" + "_".join(map(str, self.hidden_sizes))
         
-        mc_train = self.numbers_of_samples["training"]["monte carlo"]
-        mc_eval = self.numbers_of_samples["evaluation"]["monte carlo"]
+        mc_train = self.number_of_monte_carlo_samples["training"]
+        mc_eval = self.number_of_monte_carlo_samples["evaluation"]
         
         if mc_train > 1 or mc_eval > 1:
             reconstruction_part += "_mc_" + str(mc_train)
             if mc_eval != mc_train:
                 reconstruction_part += "_" + str(mc_eval)
         
-        iw_train = self.numbers_of_samples["training"]["importance weighting"]
-        iw_eval = self.numbers_of_samples["evaluation"]["importance weighting"]
+        iw_train = self.number_of_importance_samples["training"]
+        iw_eval = self.number_of_importance_samples["evaluation"]
         
         if iw_train > 1 or iw_eval > 1:
             reconstruction_part += "_iw_" + str(iw_train)
@@ -212,8 +215,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 " (including 0s)"
             )
         
-        mc_train = self.numbers_of_samples["training"]["monte carlo"]
-        mc_eval = self.numbers_of_samples["evaluation"]["monte carlo"]
+        mc_train = self.number_of_monte_carlo_samples["training"]
+        mc_eval = self.number_of_monte_carlo_samples["evaluation"]
         
         if mc_train > 1 or mc_eval > 1:
             mc = "Monte Carlo samples: {}".format(mc_train)
@@ -221,11 +224,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 mc += " (training), {} (evaluation)".format(mc_eval)
             description_parts.append(mc)
         
-        iw_train = self.numbers_of_samples["training"]["importance weighting"]
-        iw_eval = self.numbers_of_samples["evaluation"]["importance weighting"]
+        iw_train = self.number_of_importance_samples["training"]
+        iw_eval = self.number_of_importance_samples["evaluation"]
         
         if iw_train > 1 or iw_eval > 1:
-            iw = "importance-weighting samples: {}".format(iw_train)
+            iw = "importance samples: {}".format(iw_train)
             if iw_eval != iw_train:
                 iw += " (training), {} (evaluation)".format(iw_eval)
             description_parts.append(iw)
@@ -730,8 +733,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.is_training: True,
                         self.learning_rate: learning_rate, 
                         self.warm_up_weight: warm_up_weight,
-                        self.number_of_iw_samples: self.numbers_of_samples["training"]["importance weighting"],
-                        self.number_of_mc_samples: self.numbers_of_samples["training"]["monte carlo"]
+                        self.number_of_iw_samples: self.number_of_importance_samples["training"],
+                        self.number_of_mc_samples: self.number_of_monte_carlo_samples["training"]
                     }
                     
                     if self.count_sum:
@@ -812,8 +815,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.t: t_batch,
                         self.is_training: False,
                         self.warm_up_weight: 1.0,
-                        self.number_of_iw_samples: self.numbers_of_samples["evaluation"]["importance weighting"],
-                        self.number_of_mc_samples: self.numbers_of_samples["evaluation"]["monte carlo"]
+                        self.number_of_iw_samples: self.number_of_importance_samples["evaluation"],
+                        self.number_of_mc_samples: self.number_of_monte_carlo_samples["evaluation"]
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
@@ -876,9 +879,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.is_training: False,
                         self.warm_up_weight: 1.0,
                         self.number_of_iw_samples:
-                            self.numbers_of_samples["evaluation"]["importance weighting"],
+                            self.number_of_importance_samples["evaluation"],
                         self.number_of_mc_samples:
-                            self.numbers_of_samples["evaluation"]["monte carlo"]
+                            self.number_of_monte_carlo_samples["evaluation"]
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
@@ -984,8 +987,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     self.t: t_batch,
                     self.is_training: False,
                     self.warm_up_weight: 1.0,
-                    self.number_of_iw_samples: self.numbers_of_samples["evaluation"]["importance weighting"],
-                    self.number_of_mc_samples: self.numbers_of_samples["evaluation"]["monte carlo"]
+                    self.number_of_iw_samples: self.number_of_importance_samples["evaluation"],
+                    self.number_of_mc_samples: self.number_of_monte_carlo_samples["evaluation"]
                 }
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
@@ -1003,8 +1006,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 # E[p(x|z)]: Reshape and mean over all the iw and mc samples.
                 x_tilde_test[subset] = numpy.mean(numpy.reshape(x_tilde_i, 
                     [
-                        self.numbers_of_samples["evaluation"]["importance weighting"]
-                        * self.numbers_of_samples["evaluation"]["monte carlo"] 
+                        self.number_of_importance_samples["evaluation"]
+                        * self.number_of_monte_carlo_samples["evaluation"] 
                         , -1
                         , F_test
                     ]
