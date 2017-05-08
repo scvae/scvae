@@ -607,7 +607,6 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
         
         if feature_selection:
             filename_parts.append(normaliseString(feature_selection))
-
             if feature_parameter:
                 filename_parts.append(str(feature_parameter))
         
@@ -1248,6 +1247,9 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction):
     if data_set.feature_selection:
         preprocessing_directory_parts.append(normaliseString(
             data_set.feature_selection))
+        if data_set.feature_parameter:
+            preprocessing_directory_parts.append(str(
+                data_set.feature_parameter))
     
     if data_set.preprocessing_methods:
         preprocessing_directory_parts.extend(map(normaliseString,
