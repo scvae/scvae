@@ -651,6 +651,10 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None, f
     elif feature_selection == "keep_highest_gini_indices":
         gini_indices = loadWeights(values, "gini", preprocessPath)
         gini_sorted_indices = numpy.argsort(gini_indices)
+        if feature_parameter:
+            feature_parameter = int(feature_parameter)
+        else:
+            feature_parameter = int(M/2)
         indices = numpy.sort(gini_sorted_indices[-feature_parameter:])
         
     elif feature_selection == "keep_variances_above":
@@ -662,6 +666,10 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None, f
     elif feature_selection == "keep_highest_variances":
         variances = values.var(axis = 0)
         variance_sorted_indices = numpy.argsort(variances)
+        if feature_parameter:
+            feature_parameter = int(feature_parameter)
+        else:
+            feature_parameter = int(M/2)
         indices = numpy.sort(variance_sorted_indices[-feature_parameter:])
         
     else:
