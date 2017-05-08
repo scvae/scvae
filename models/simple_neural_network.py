@@ -76,21 +76,6 @@ class SimpleNeuralNetwork(object):
     @property
     def name(self):
         
-        model_name = self.reconstruction_distribution_name.replace(" ", "_")
-        
-        if self.k_max:
-            model_name += "_c_" + str(self.k_max)
-        
-        if self.count_sum_feature:
-            model_name += "_sum"
-        
-        model_name += "_h_" + "_".join(map(str, self.hidden_sizes))
-        
-        if self.batch_normalisation:
-            model_name += "_bn"
-        
-        return model_name
-        
         reconstruction_part = normaliseString(
             self.reconstruction_distribution_name)
         
