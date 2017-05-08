@@ -12,7 +12,8 @@ import itertools
 
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
-    feature_selection = None, preprocessing_methods = None,
+    feature_selection = None, feature_parameter = None,
+    preprocessing_methods = None,
     splitting_method = "default", splitting_fraction = 0.8,
     model_configurations_path = None, model_type = "VAE",
     latent_size = 50, hidden_sizes = [500],
@@ -32,6 +33,7 @@ def main(data_set_name, data_directory = "data",
         data_set_name,
         directory = data_directory,
         feature_selection = feature_selection,
+        feature_parameter = feature_parameter,
         preprocessing_methods = preprocessing_methods
     )
     
@@ -480,6 +482,13 @@ parser.add_argument(
     nargs = "?",
     default = None,
     help = "method for selecting features"
+)
+parser.add_argument(
+    "--feature-parameter",
+    type = float,
+    nargs = "?",
+    default = None,
+    help = "parameter for feature selection"
 )
 parser.add_argument(
     "--preprocessing-methods", "-p",
