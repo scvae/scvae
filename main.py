@@ -483,15 +483,16 @@ parser.add_argument(
     help = "directory where results are saved"
 )
 parser.add_argument(
-    "--feature-selection",
+    "--feature-selection", "-f",
     type = str,
+    nargs = "?",
     default = None,
     help = "method for selecting features"
 )
 parser.add_argument(
     "--preprocessing-methods", "-p",
     type = str,
-    nargs = "+",
+    nargs = "*",
     default = None,
     help = "methods for preprocessing data (applied in order)"
 )
@@ -502,9 +503,9 @@ parser.add_argument(
     help = "method for splitting data into training, validation, and test sets"
 )
 parser.add_argument(
-    "--splitting-fraction", "-f",
+    "--splitting-fraction",
     type = float,
-    default = 0.8,
+    default = 0.9,
     help = "fraction to use when splitting data into training, validation, and test sets"
 )
 parser.add_argument(

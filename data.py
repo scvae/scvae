@@ -617,6 +617,8 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
 
 def selectFeatures(values_dictionary, feature_names, feature_selection = None, preprocessPath = None):
     
+    feature_selection = normaliseString(feature_selection)
+    
     print("Selecting features.")
     start_time = time()
     
@@ -625,11 +627,11 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None, p
     
     M, N = values.shape
     
-    if feature_selection == "remove zeros":
+    if feature_selection == "remove_zeros":
         total_feature_sum = values.sum(axis = 0)
         indices = total_feature_sum != 0
     
-    elif feature_selection == "low gini indices":
+    elif feature_selection == "low_gini_indices":
         gini_indices = loadWeights(values, "gini", preprocessPath)
         indices = gini_indices > 0.1
     
@@ -690,6 +692,8 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
             method = "indices"
         else:
             method = "random"
+    
+    method = normaliseString(mehtod)
     
     M = data_dictionary["values"].shape[0]
     
