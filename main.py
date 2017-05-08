@@ -176,8 +176,6 @@ def main(data_set_name, data_directory = "data",
         print(model.parameters)
         print()
         
-        continue # TODO Remove
-        
         status = model.train(
             training_set, validation_set,
             number_of_epochs, batch_size, learning_rate,
