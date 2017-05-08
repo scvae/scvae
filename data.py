@@ -211,7 +211,11 @@ class DataSet(object):
         
         # Feature selction and preprocessing methods
         self.feature_selection = feature_selection
-        self.feature_parameter = feature_parameter
+        if feature_parameter:
+            self.feature_parameter = feature_parameter
+        else:
+            self.feature_parameter = self.defaultFeatureParameter(
+                self.feature_selection)
         self.preprocessing_methods = preprocessing_methods
         
         if preprocessed is None:
@@ -345,6 +349,27 @@ class DataSet(object):
         
         print()
     
+    def defaultFeatureParameter(self, feature_selection):
+        
+        M = self.number_of_features
+        
+        if feature_selection == "remove_zeros":
+            feature_parameter = None
+        
+        elif feature_selection == "keep_gini_indices_above":
+            feature_parameter = 0.1
+        
+        elif feature_selection == "keep_highest_gini_indices":
+            feature_parameter = int(M/2)
+        
+        elif feature_selection == "keep_variances_above":
+            feature_parameter = 0.5
+        
+        elif feature_selection == "keep_highest_variances":
+            feature_parameter = int(M/2)
+    
+        return feature_parameter
+
     def preprocess(self):
         
         if not self.preprocessing_methods and not self.feature_selection:
