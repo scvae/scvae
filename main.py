@@ -323,16 +323,16 @@ def setUpModelConfigurations(model_configurations_path, model_type,
             "learning rate": learning_rate
         }
         
-        if latent_distribution == "gaussian mixture":
-            model_configuration["number of latent clusters"] = \
-                number_of_latent_clusters
-        
         if "AE" in model_type:
             
             # Network
             
             model_configuration["latent size"] = latent_size
-            model_configuration["latent distribution"]: latent_distribution
+            model_configuration["latent distribution"] = latent_distribution
+            
+            if latent_distribution == "gaussian mixture":
+                model_configuration["number of latent clusters"] = \
+                    number_of_latent_clusters
             
             # Monte Carlo samples
             
@@ -373,6 +373,8 @@ def setUpModelConfigurations(model_configurations_path, model_type,
             
             model_configuration["number of warm up epochs"] = \
                 number_of_warm_up_epochs
+        
+        model_configurations.append(model_configuration)
     
     for model_configuration in model_configurations:
         
