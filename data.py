@@ -353,6 +353,8 @@ class DataSet(object):
         
         M = self.number_of_features
         
+        feature_selection = normaliseString(feature_selection)
+        
         if feature_selection == "remove_zeros":
             feature_parameter = None
         
@@ -367,6 +369,9 @@ class DataSet(object):
         
         elif feature_selection == "keep_highest_variances":
             feature_parameter = int(M/2)
+        
+        else:
+            feature_parameter = None
     
         return feature_parameter
 
