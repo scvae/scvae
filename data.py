@@ -181,8 +181,9 @@ class DataSet(object):
     def __init__(self, name,
         values = None, preprocessed_values = None,
         labels = None, example_names = None, feature_names = None,
-        feature_selection = None, preprocessing_methods = [],
-        preprocessed = None, kind = "full", version = "original",
+        feature_selection = None, feature_parameter = None,
+        preprocessing_methods = [], preprocessed = None,
+        kind = "full", version = "original",
         directory = "data"):
         
         super(DataSet, self).__init__()
@@ -210,6 +211,7 @@ class DataSet(object):
         
         # Feature selction and preprocessing methods
         self.feature_selection = feature_selection
+        self.feature_parameter = feature_parameter
         self.preprocessing_methods = preprocessing_methods
         
         if preprocessed is None:
@@ -252,6 +254,10 @@ class DataSet(object):
                 print("    feature selection:", self.feature_selection)
             else:
                 print("    feature selection: none")
+            if self.feature_parameter: 
+                print("    feature parameter:", self.feature_parameter)
+            else:
+                print("    feature size: full")
             if not self.preprocessed and self.preprocessing_methods:
                 print("    processing methods:")
                 for preprocessing_method in self.preprocessing_methods:
@@ -347,7 +353,8 @@ class DataSet(object):
         
         sparse_path = self.preprocessedPath(
             preprocessing_methods = self.preprocessing_methods,
-            feature_selection = self.feature_selection
+            feature_selection = self.feature_selection, 
+            feature_parameter = self.feature_parameter
         )
         
         if os.path.isfile(sparse_path):
@@ -372,6 +379,7 @@ class DataSet(object):
                      "preprocessed": preprocessed_values},
                     self.feature_names,
                     self.feature_selection,
+                    self.feature_parameter,
                     self.preprocessedPath
                 )
                 
@@ -415,6 +423,7 @@ class DataSet(object):
         sparse_path = self.preprocessedPath(
             preprocessing_methods = self.preprocessing_methods,
             feature_selection = self.feature_selection,
+            feature_parameter = self.feature_parameter,
             splitting_method = method,
             splitting_fraction = fraction
         )
@@ -586,7 +595,7 @@ def loadOriginalDataSet(title, paths):
 def preprocessedPathFunction(preprocess_directory = "", name = ""):
     
     def preprocessedPath(base_name = None, preprocessing_methods = None,
-        feature_selection = None,
+        feature_selection = None, feature_parameter = None,
         splitting_method = None, splitting_fraction = None):
         
         base_path = os.path.join(preprocess_directory, name)
@@ -598,6 +607,9 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
         
         if feature_selection:
             filename_parts.append(normaliseString(feature_selection))
+
+            if feature_parameter:
+                filename_parts.append(str(feature_parameter))
         
         if preprocessing_methods:
             filename_parts.extend(map(normaliseString, preprocessing_methods))
@@ -615,7 +627,7 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
     
     return preprocessedPath
 
-def selectFeatures(values_dictionary, feature_names, feature_selection = None, preprocessPath = None):
+def selectFeatures(values_dictionary, feature_names, feature_selection = None, feature_parameter = None, preprocessPath = None):
     
     feature_selection = normaliseString(feature_selection)
     
@@ -631,10 +643,28 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None, p
         total_feature_sum = values.sum(axis = 0)
         indices = total_feature_sum != 0
     
-    elif feature_selection == "low_gini_indices":
+    elif feature_selection == "keep_gini_indices_above":
         gini_indices = loadWeights(values, "gini", preprocessPath)
-        indices = gini_indices > 0.1
-    
+        if not feature_parameter:
+            feature_parameter = 0.1
+        indices = gini_indices > feature_parameter
+
+    elif feature_selection == "keep_highest_gini_indices":
+        gini_indices = loadWeights(values, "gini", preprocessPath)
+        gini_sorted_indices = numpy.argsort(gini_indices)
+        indices = numpy.sort(gini_sorted_indices[-feature_parameter:])
+        
+    elif feature_selection == "keep_variances_above":
+        variances = values.var(axis = 0)
+        if not feature_parameter:
+            feature_parameter = 0.5
+        indices = variances > feature_parameter
+
+    elif feature_selection == "keep_highest_variances":
+        variances = values.var(axis = 0)
+        variance_sorted_indices = numpy.argsort(variances)
+        indices = numpy.sort(variance_sorted_indices[-feature_parameter:])
+        
     else:
         indices = slice(N)
     
