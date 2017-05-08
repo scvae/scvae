@@ -16,7 +16,7 @@ def main(data_set_name, data_directory = "data",
     splitting_method = "default", splitting_fraction = 0.8,
     model_configurations_path = None, model_type = "VAE",
     latent_size = 50, hidden_sizes = [500],
-    number_of_importance_weighted_samples = [5],
+    number_of_importance_samples = [5],
     number_of_monte_carlo_samples = [10],
     latent_distribution = "gaussian",
     number_of_latent_clusters = 1,
@@ -63,7 +63,7 @@ def main(data_set_name, data_directory = "data",
     model_configurations, configuration_errors = setUpModelConfigurations(
         model_configurations_path, model_type,
         latent_size, hidden_sizes,
-        number_of_importance_weighted_samples,
+        number_of_importance_samples,
         number_of_monte_carlo_samples,
         latent_distribution,
         number_of_latent_clusters,
@@ -92,36 +92,39 @@ def main(data_set_name, data_directory = "data",
     
     for model_configuration in model_configurations:
         
-        model_type = model_configuration["model_type"]
-        hidden_sizes = model_configuration["hidden_sizes"]
-        latent_distribution = \
-            model_configuration["latent_distribution"]
+        model_type = model_configuration["model type"]
+        hidden_sizes = model_configuration["hidden sizes"]
         reconstruction_distribution = \
-            model_configuration["reconstruction_distribution"]
+            model_configuration["reconstruction distribution"]
         number_of_reconstruction_classes = \
-            model_configuration["number_of_reconstruction_classes"]
-        batch_normalisation = model_configuration["batch_normalisation"]
-        count_sum = model_configuration["count_sum"]
-        number_of_epochs = model_configuration["number_of_epochs"]
-        batch_size = model_configuration["batch_size"]
-        learning_rate = model_configuration["learning_rate"]
-        
-        if latent_distribution == "gaussian mixture":
-            number_of_latent_clusters = \
-                model_configuration["number_of_latent_clusters"]
+            model_configuration["number of reconstruction classes"]
+        batch_normalisation = model_configuration["batch normalisation"]
+        count_sum = model_configuration["count sum"]
+        number_of_epochs = model_configuration["number of epochs"]
+        batch_size = model_configuration["batch size"]
+        learning_rate = model_configuration["learning rate"]
         
         if "AE" in model_type:
-            latent_size = model_configuration["latent_size"]
+            latent_size = model_configuration["latent size"]
+            
+            latent_distribution = \
+                model_configuration["latent distribution"]
+            
+            if latent_distribution == "gaussian mixture":
+                number_of_latent_clusters = \
+                    model_configuration["number of latent clusters"]
+            
+            number_of_monte_carlo_samples = model_configuration[
+                "number of monte carlo samples"]
+            
             number_of_warm_up_epochs = \
-                model_configuration["number_of_warm_up_epochs"]
+                model_configuration["number of warm up epochs"]
+            
             analytical_kl_term = latent_distribution == "gaussian"
         
         # Modeling
         
         if model_type == "VAE":
-            
-            number_of_monte_carlo_samples = model_configuration[
-                "number_of_monte_carlo_samples"]
             
             model = VariationalAutoEncoder(
                 feature_size, latent_size, hidden_sizes,
@@ -138,11 +141,13 @@ def main(data_set_name, data_directory = "data",
             # Dictionary holding number of samples needed for the "monte carlo"
             # estimator and "importance weighting" during both "train" and
             # "test" time.
-            numbers_of_samples = model_configuration["numbers_of_samples"]
+            number_of_importance_samples = model_configuration[
+                "number of importance samples"]
             
             model = ImportanceWeightedVariationalAutoEncoder(
                 feature_size, latent_size, hidden_sizes,
-                numbers_of_samples, analytical_kl_term,
+                number_of_monte_carlo_samples, number_of_importance_samples,
+                analytical_kl_term,
                 latent_distribution, number_of_latent_clusters,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
@@ -168,6 +173,8 @@ def main(data_set_name, data_directory = "data",
         
         print(model.parameters)
         print()
+        
+        continue # TODO Remove
         
         status = model.train(
             training_set, validation_set,
@@ -211,7 +218,7 @@ def main(data_set_name, data_directory = "data",
 
 def setUpModelConfigurations(model_configurations_path, model_type,
     latent_size, hidden_sizes,
-    number_of_importance_weighted_samples, number_of_monte_carlo_samples,
+    number_of_importance_samples, number_of_monte_carlo_samples,
     latent_distribution, number_of_latent_clusters,
     reconstruction_distribution, number_of_reconstruction_classes,
     number_of_warm_up_epochs, batch_normalisation, count_sum, number_of_epochs,
@@ -230,166 +237,151 @@ def setUpModelConfigurations(model_configurations_path, model_type,
         likelihood = configurations["likelihood"]
         training = configurations["training"]
         
-        for model_type, type_configuration in model_types.items():
+        for model_type in model_types:
             
             configurations_product = itertools.product(
                 network["structure of hidden layers"],
                 network["count sum"],
                 network["batch normalisation"],
-                likelihood["latent distributions"],
                 likelihood["reconstruction distributions"],
                 likelihood["numbers of reconstruction classes"]
             )
             
             for hidden_sizes, count_sum, batch_normalisation, \
-                latent_distribution, reconstruction_distribution, \
-                number_of_reconstruction_classes in configurations_product:
+                reconstruction_distribution, number_of_reconstruction_classes \
+                in configurations_product:
                 
-                base_model_configuration = {
-                        "model_type": model_type,
-                        "hidden_sizes": hidden_sizes,
-                        "latent_distribution":
-                            latent_distribution,
-                        "reconstruction_distribution":
+                model_configuration = {
+                        "model type": model_type,
+                        "hidden sizes": hidden_sizes,
+                        "reconstruction distribution":
                             reconstruction_distribution,
-                        "number_of_reconstruction_classes":
+                        "number of reconstruction classes":
                             number_of_reconstruction_classes,
-                        "batch_normalisation": batch_normalisation,
-                        "count_sum": count_sum,
-                        "number_of_epochs": training["number of epochs"],
-                        "batch_size": training["batch size"],
-                        "learning_rate": training["learning rate"]
+                        "batch normalisation": batch_normalisation,
+                        "count sum": count_sum,
+                        "number of epochs": training["number of epochs"],
+                        "batch size": training["batch size"],
+                        "learning rate": training["learning rate"]
                 }
                 
-                if "VAE" in model_type:
-                    base_model_configuration["number_of_warm_up_epochs"] = \
-                        type_configuration["number of warm-up epochs"]
+                if "AE" in model_type:
+                    
+                    model_configuration[
+                        "number of monte carlo samples"] = \
+                        network["number of monte carlo samples"]
+                    
                     if "IW" in model_type:
-                        base_model_configuration["numbers_of_samples"] = \
-                            type_configuration["numbers of samples"]
-                    else:
-                        base_model_configuration[
-                            "number_of_monte_carlo_samples"] = \
-                            type_configuration["number_of_monte_carlo_samples"]
-                
-                sub_model_configurations = []
-                
-                if latent_distribution == "gaussian mixture" and \
-                    "AE" in model_type:
+                        model_configuration[
+                            "number of importance samples"] = \
+                            network["number of importance samples"]
                     
-                    sub_configurations_product = itertools.product(
-                        likelihood["numbers of latent clusters"],
-                        type_configuration["latent sizes"]
-                    )
+                    model_configuration["number of warm up epochs"] = \
+                        training["number of warm-up epochs"]
                     
-                    for number_of_latent_clusters, latent_size in \
-                        sub_configurations_product:
-                        model_configuration = base_model_configuration.copy()
-                        model_configuration["number_of_latent_clusters"] = \
-                            number_of_latent_clusters
-                        model_configuration["latent_size"] = latent_size
-                        sub_model_configurations.append(model_configuration)
+                    for latent_distribution in likelihood["latent distributions"]:
+                        
+                        model_configuration["latent distribution"] = \
+                            latent_distribution
+                        
+                        if latent_distribution == "gaussian mixture":
+                            
+                            sub_configurations_product = itertools.product(
+                                likelihood["numbers of latent clusters"],
+                                network["latent sizes"]
+                            )
+                            
+                            for number_of_latent_clusters, latent_size in \
+                                sub_configurations_product:
+                                model_configuration = model_configuration.copy()
+                                model_configuration["number of latent clusters"] = \
+                                    number_of_latent_clusters
+                                model_configuration["latent size"] = latent_size
+                                model_configurations.append(model_configuration)
                 
-                elif latent_distribution == "gaussian mixture":
-                    for number_of_latent_clusters in \
-                        likelihood["numbers of latent clusters"]:
-                        model_configuration = base_model_configuration.copy()
-                        model_configuration["number_of_latent_clusters"] = \
-                            number_of_latent_clusters
-                        sub_model_configurations.append(model_configuration)
-                
-                elif "VAE" in model_type:
-                    for latent_size in type_configuration["latent sizes"]:
-                        model_configuration = base_model_configuration.copy()
-                        model_configuration["latent_size"] = latent_size
-                        sub_model_configurations.append(model_configuration)
+                        else:
+                            model_configuration["number of latent clusters"] = 1
+                            for latent_size in network["latent sizes"]:
+                                model_configuration = model_configuration.copy()
+                                model_configuration["latent size"] = latent_size
+                                model_configurations.append(model_configuration)
                 
                 else:
-                    sub_model_configurations.append(base_model_configuration)
+                    model_configurations.append(model_configuration)
                 
-                for model_configuration in sub_model_configurations:
-                    
-                    validity, errors = \
-                        validateModelConfiguration(model_configuration)
-                    
-                    if validity:
-                        model_configurations.append(model_configuration)
-                    else:
-                        configuration_errors.append(errors)
-
     else:
         model_configuration = {
-            "model_type": model_type,
-            "hidden_sizes": hidden_sizes,
-            "latent_distribution": latent_distribution,
-            "reconstruction_distribution": reconstruction_distribution,
-            "number_of_reconstruction_classes":
+            "model type": model_type,
+            "hidden sizes": hidden_sizes,
+            "reconstruction distribution": reconstruction_distribution,
+            "number of reconstruction classes":
                 number_of_reconstruction_classes,
-            "batch_normalisation": batch_normalisation,
-            "count_sum": count_sum,
-            "number_of_epochs": number_of_epochs,
-            "batch_size": batch_size,
-            "learning_rate": learning_rate
+            "batch normalisation": batch_normalisation,
+            "count sum": count_sum,
+            "number of epochs": number_of_epochs,
+            "batch size": batch_size,
+            "learning rate": learning_rate
         }
         
         if latent_distribution == "gaussian mixture":
-            model_configuration["number_of_latent_clusters"] = \
+            model_configuration["number of latent clusters"] = \
                 number_of_latent_clusters
         
-        if "VAE" in model_type:
-            model_configuration["latent_size"] = latent_size
-            model_configuration["number_of_warm_up_epochs"] = \
-                number_of_warm_up_epochs
+        if "AE" in model_type:
+            
+            # Network
+            
+            model_configuration["latent size"] = latent_size
+            model_configuration["latent distribution"]: latent_distribution
+            
+            # Monte Carlo samples
+            
+            if len(number_of_monte_carlo_samples) > 1:
+                number_of_monte_carlo_samples = {
+                    "training": number_of_monte_carlo_samples[0],
+                    "evaluation": number_of_monte_carlo_samples[1]
+                }
+            else:
+                number_of_monte_carlo_samples = {
+                    "training": number_of_monte_carlo_samples[0],
+                    "evaluation": number_of_monte_carlo_samples[0]
+                }
+            
+            model_configuration["number of monte carlo samples"] = \
+                number_of_monte_carlo_samples
+            
+            # Importance samples
             
             if "IW" in model_type:
-                numbers_of_samples = {
-                    "training": {
-                        "importance weighting": number_of_importance_weighted_samples[0],
-                        "monte carlo": number_of_monte_carlo_samples[0]
-                    },
-                    
-                    "evaluation": {
-                        "importance weighting": number_of_importance_weighted_samples[0],
-                        "monte carlo": number_of_monte_carlo_samples[0]
-                    }
-                }
                 
-                if len(number_of_importance_weighted_samples) > 1:
-                    numbers_of_samples["evaluation"]["importance weighting"] = \
-                        number_of_importance_weighted_samples[1]
-                
-                if len(number_of_monte_carlo_samples) > 1:
-                    numbers_of_samples["evaluation"]["monte carlo"] = \
-                        number_of_monte_carlo_samples[1]
-                
-                model_configuration["numbers_of_samples"] = numbers_of_samples
-            
-            else:
-                
-                
-                if len(number_of_monte_carlo_samples) > 1:
-                    number_of_monte_carlo_samples = {
-                        "training": number_of_monte_carlo_samples[0],
-                        "evaluation": number_of_monte_carlo_samples[1]
+                if len(number_of_importance_samples) > 1:
+                    number_of_importance_samples = {
+                        "training": number_of_importance_samples[0],
+                        "evaluation": number_of_importance_samples[1]
                     }
                 else:
-                    number_of_monte_carlo_samples = {
-                        "training": number_of_monte_carlo_samples[0],
-                        "evaluation": number_of_monte_carlo_samples[0]
+                    number_of_importance_samples = {
+                        "training": number_of_importance_samples[0],
+                        "evaluation": number_of_importance_samples[0]
                     }
-                
-                model_configuration["number_of_monte_carlo_samples"] = \
-                    number_of_monte_carlo_samples
-        
-        validity, errors = validateModelConfiguration(model_configuration)
-        
-        if validity:
-            model_configurations.append(model_configuration)
-        else:
-            configuration_errors.append(errors)
+            
+                model_configuration["number of importance samples"] = \
+                    number_of_importance_samples
+            
+            
+            # Training
+            
+            model_configuration["number of warm up epochs"] = \
+                number_of_warm_up_epochs
     
-    if len(configuration_errors) == 0:
-        configuration_errors = None
+    for model_configuration in model_configurations:
+        
+        model_valid, model_errors = \
+            validateModelConfiguration(model_configuration)
+        
+        if not model_valid:
+            model_configurations.remove(model_configuration)
+            configuration_errors.append(model_errors)
     
     return model_configurations, configuration_errors
 
@@ -399,9 +391,9 @@ def validateModelConfiguration(model_configuration):
     errors = []
     
     reconstruction_distribution = \
-        model_configuration["reconstruction_distribution"]
+        model_configuration["reconstruction distribution"]
     number_of_reconstruction_classes = \
-        model_configuration["number_of_reconstruction_classes"]
+        model_configuration["number of reconstruction classes"]
     
     # Likelihood
     
@@ -535,7 +527,7 @@ parser.add_argument(
     help = "sizes of hidden layers"
 )
 parser.add_argument(
-    "--number-of-importance-weighted-samples",
+    "--number-of-importance-samples",
     type = int,
     nargs = "+",
     default = [5],
