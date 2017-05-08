@@ -693,7 +693,7 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
         else:
             method = "random"
     
-    method = normaliseString(mehtod)
+    method = normaliseString(method)
     
     M = data_dictionary["values"].shape[0]
     
