@@ -211,11 +211,7 @@ class DataSet(object):
         
         # Feature selction and preprocessing methods
         self.feature_selection = feature_selection
-        if feature_parameter:
-            self.feature_parameter = feature_parameter
-        else:
-            self.feature_parameter = self.defaultFeatureParameter(
-                self.feature_selection)
+        self.feature_parameter = feature_parameter
         self.preprocessing_methods = preprocessing_methods
         
         if preprocessed is None:
@@ -256,12 +252,12 @@ class DataSet(object):
             print("    title:", self.title)
             if self.feature_selection:
                 print("    feature selection:", self.feature_selection)
+                if self.feature_parameter: 
+                    print("    feature parameter:", self.feature_parameter)
+                else:
+                    print("    feature parameter: default")
             else:
                 print("    feature selection: none")
-            if self.feature_parameter: 
-                print("    feature parameter:", self.feature_parameter)
-            else:
-                print("    feature size: full")
             if not self.preprocessed and self.preprocessing_methods:
                 print("    processing methods:")
                 for preprocessing_method in self.preprocessing_methods:
@@ -274,6 +270,10 @@ class DataSet(object):
             
             if self.values is None:
                 self.load()
+            
+            if not self.feature_parameter:
+                self.feature_parameter = self.defaultFeatureParameter(
+                    self.feature_selection)
             
             if self.preprocessed_values is None:
                 self.preprocess()
