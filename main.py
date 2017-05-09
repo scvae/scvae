@@ -284,7 +284,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                         model_configuration["latent distribution"] = \
                             latent_distribution
                         
-                        if latent_distribution == "gaussian mixture":
+                        if "mixture" in latent_distribution:
                             
                             sub_configurations_product = itertools.product(
                                 likelihood["numbers of latent clusters"],
@@ -293,18 +293,18 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                             
                             for number_of_latent_clusters, latent_size in \
                                 sub_configurations_product:
-                                model_configuration = model_configuration.copy()
-                                model_configuration["number of latent clusters"] = \
+                                sub_model_configuration = model_configuration.copy()
+                                sub_model_configuration["number of latent clusters"] = \
                                     number_of_latent_clusters
-                                model_configuration["latent size"] = latent_size
-                                model_configurations.append(model_configuration)
+                                sub_model_configuration["latent size"] = latent_size
+                                model_configurations.append(sub_model_configuration)
                 
                         else:
                             model_configuration["number of latent clusters"] = 1
                             for latent_size in network["latent sizes"]:
-                                model_configuration = model_configuration.copy()
-                                model_configuration["latent size"] = latent_size
-                                model_configurations.append(model_configuration)
+                                sub_model_configuration = model_configuration.copy()
+                                sub_model_configuration["latent size"] = latent_size
+                                model_configurations.append(sub_model_configuration)
                 
                 else:
                     model_configurations.append(model_configuration)
