@@ -23,7 +23,8 @@ figure_extension = ".png"
 
 pyplot.rcParams.update({'figure.max_open_warning': 0})
 
-def analyseData(data_sets, results_directory = "results"):
+def analyseData(data_sets, highlight_feature_indices = [],
+    results_directory = "results"):
     
     # Setup
     
@@ -85,11 +86,13 @@ def analyseData(data_sets, results_directory = "results"):
     
     print()
     
-    # Heat map for test set
+    # Find test data set
     
     for data_set in data_sets:
         if data_set.kind == "test":
             x_test = data_set
+    
+    # Heat map for test set
     
     print("Plotting heat map for test set.")
     
@@ -108,6 +111,63 @@ def analyseData(data_sets, results_directory = "results"):
         .format(formatDuration(heat_maps_duration)))
     
     print()
+    
+    # Plot test data set
+    
+    print("Plotting test data set.")
+    
+    ## No colour-coding
+    
+    plot_time_start = time()
+    
+    figure, name = plotIn2D(x_test, name = "test_set")
+    saveFigure(figure, name, results_directory)
+    
+    plot_duration = time() - plot_time_start
+    print("    Test data set plotted and saved ({}).".format(
+        formatDuration(plot_duration)))
+    
+    
+    # Labels
+    
+    if x_test.labels is not None:
+        plot_time_start = time()
+        
+        figure, name = plotIn2D(x_test, colour_coding = "labels",
+            name = "test_set")
+        saveFigure(figure, name, results_directory)
+        
+        plot_duration = time() - plot_time_start
+        print("    Test data set (with labels) plotted and saved ({}).".format(
+            formatDuration(plot_duration)))
+    
+    # Count sum
+    
+    plot_time_start = time()
+    
+    figure, name = plotIn2D(x_test, colour_coding = "count sum",
+        name = "test_set")
+    saveFigure(figure, name, results_directory)
+    
+    plot_duration = time() - plot_time_start
+    print("    Test data set (with count sum) plotted and saved ({}).".format(
+        formatDuration(plot_duration)))
+    
+    # Features
+    
+    for feature_index in highlight_feature_indices:
+    
+        plot_time_start = time()
+    
+        figure, name = plotIn2D(x_test, colour_coding = "feature",
+            feature_index = feature_index, name = "test_set")
+        saveFigure(figure, name, results_directory)
+    
+        plot_duration = time() - plot_time_start
+        print("   ",
+            "Test data set (with {}) plotted and saved ({}).".format(
+                x_test.feature_names[feature_index],
+                formatDuration(plot_duration)))
 
 def analyseModel(model, results_directory = "results"):
     
@@ -382,7 +442,8 @@ def analyseResults(x_test, x_tilde_test, z_test, highlight_feature_indices,
         if z_test.labels is not None:
             latent_space_time_start = time()
             
-            figure, name = plotLatentSpace(z_test, colour_coding = "labels")
+            figure, name = plotLatentSpace(z_test, x_test,
+                colour_coding = "labels")
             saveFigure(figure, name, results_directory)
             
             latent_space_duration = time() - latent_space_time_start
@@ -393,8 +454,8 @@ def analyseResults(x_test, x_tilde_test, z_test, highlight_feature_indices,
         
         latent_space_time_start = time()
         
-        figure, name = plotLatentSpace(z_test, colour_coding = "count sum",
-            test_set = x_test)
+        figure, name = plotLatentSpace(z_test, x_test,
+            colour_coding = "count sum")
         saveFigure(figure, name, results_directory)
         
         latent_space_duration = time() - latent_space_time_start
@@ -407,8 +468,8 @@ def analyseResults(x_test, x_tilde_test, z_test, highlight_feature_indices,
         
             latent_space_time_start = time()
         
-            figure, name = plotLatentSpace(z_test, colour_coding = "feature",
-                feature_index = feature_index, test_set = x_test)
+            figure, name = plotLatentSpace(z_test, x_test,
+                colour_coding = "feature", feature_index = feature_index)
             saveFigure(figure, name, results_directory)
         
             latent_space_duration = time() - latent_space_time_start
@@ -737,30 +798,32 @@ def plotHeatMap(data_set, x_name, y_name, z_name = None,
     
     return figure, figure_name
 
-def plotLatentSpace(latent_set, colour_coding = None, feature_index = None,
-    test_set = None, name = None):
+def plotIn2D(data_set, colouring_data_set = None, colour_coding = None,
+    feature_index = None, name = "scatter_plot"):
     
-    figure_name = "latent_space"
+    figure_name = name
     
     if colour_coding:
         figure_name += "-" + normaliseString(colour_coding)
     
-    M = latent_set.number_of_examples
-    L = latent_set.number_of_features
+    if not colouring_data_set:
+        colouring_data_set = data_set
+    
+    F = data_set.number_of_features
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
-    if L > 2:
+    if F > 2:
         pca = PCA(n_components = 2)
-        pca.fit(latent_set.values)
-        values = pca.transform(latent_set.values)
+        pca.fit(data_set.values)
+        values = pca.transform(data_set.values)
         
         axis.set_xlabel("PC 1")
         axis.set_ylabel("PC 2")
     
-    elif L == 2:
-        values = latent_set.values
+    elif F == 2:
+        values = data_set.values
         
         axis.set_xlabel("$z_1$")
         axis.set_ylabel("$z_2$")
@@ -769,28 +832,25 @@ def plotLatentSpace(latent_set, colour_coding = None, feature_index = None,
         
         label_indices = dict()
         
-        for i, label in enumerate(latent_set.labels):
+        for i, label in enumerate(colouring_data_set.labels):
         
             if label not in label_indices:
                 label_indices[label] = []
         
             label_indices[label].append(i)
         
-        latent_palette = seaborn.color_palette("hls", len(label_indices))
+        label_palette = seaborn.color_palette("hls", len(label_indices))
         
         for i, (label, indices) in enumerate(sorted(label_indices.items())):
             axis.scatter(values[indices, 0], values[indices, 1], label = label,
-                color = latent_palette[i])
+                color = label_palette[i])
         
         if len(label_indices) < 20:
             axis.legend(loc = "best")
     
     elif colour_coding == "count sum":
         
-        if test_set is None:
-            raise ValueError("Test set not given.")
-        
-        n_test = test_set.count_sum
+        n_test = colouring_data_set.count_sum
         
         n_normalised = n_test / n_test.max()
         
@@ -800,19 +860,16 @@ def plotLatentSpace(latent_set, colour_coding = None, feature_index = None,
     
     elif colour_coding == "feature":
         
-        if test_set is None:
-            raise ValueError("Test set not given.")
-        
         if feature_index is None:
             raise ValueError("Feature number not given.")
         
-        if feature_index > test_set.number_of_features:
+        if feature_index > colouring_data_set.number_of_features:
             raise ValueError("Feature number higher than number of features.")
         
         figure_name += "-{}".format(
-            normaliseString(test_set.feature_names[feature_index]))
+            normaliseString(colouring_data_set.feature_names[feature_index]))
         
-        f_test = test_set.values[:, feature_index].reshape(-1, 1)
+        f_test = colouring_data_set.values[:, feature_index].reshape(-1, 1)
         
         if f_test.max() != 0:
             f_normalised = f_test / f_test.max()
@@ -826,12 +883,27 @@ def plotLatentSpace(latent_set, colour_coding = None, feature_index = None,
     else:
         axis.scatter(values[:, 0], values[:, 1])
     
+    return figure, figure_name
+
+def plotLatentSpace(latent_set, test_set = None, colour_coding = None,
+    feature_index = None, name = None):
+    
+    figure_name = "latent_space"
+    
     if name:
-        figure_name = figure_name + "_" + name
+        figure_name += name
+    
+    if colour_coding and test_set is None:
+        raise ValueError("Test set not given.")
+    
+    figure, figure_name = plotIn2D(latent_set, test_set, colour_coding,
+        feature_index, name = figure_name)
     
     return figure, figure_name
 
 def saveFigure(figure, figure_name, results_directory, no_spine = True):
+    
+    figure_name = normaliseString(figure_name)
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
