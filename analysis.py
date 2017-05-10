@@ -2,7 +2,9 @@
 
 import numpy
 from numpy import nan
+
 from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 
 from tensorflow.tensorboard.backend.event_processing import event_multiplexer
 
@@ -126,7 +128,6 @@ def analyseData(data_sets, highlight_feature_indices = [],
     plot_duration = time() - plot_time_start
     print("    Test data set plotted and saved ({}).".format(
         formatDuration(plot_duration)))
-    
     
     # Labels
     
@@ -442,8 +443,8 @@ def analyseResults(x_test, x_tilde_test, z_test, highlight_feature_indices,
         if z_test.labels is not None:
             latent_space_time_start = time()
             
-            figure, name = plotLatentSpace(z_test, x_test,
-                colour_coding = "labels")
+            figure, name = plotLatentSpace(z_test, colour_coding = "labels",
+                test_set = x_test)
             saveFigure(figure, name, results_directory)
             
             latent_space_duration = time() - latent_space_time_start
@@ -454,8 +455,8 @@ def analyseResults(x_test, x_tilde_test, z_test, highlight_feature_indices,
         
         latent_space_time_start = time()
         
-        figure, name = plotLatentSpace(z_test, x_test,
-            colour_coding = "count sum")
+        figure, name = plotLatentSpace(z_test, colour_coding = "count sum",
+            test_set = x_test)
         saveFigure(figure, name, results_directory)
         
         latent_space_duration = time() - latent_space_time_start
@@ -468,8 +469,8 @@ def analyseResults(x_test, x_tilde_test, z_test, highlight_feature_indices,
         
             latent_space_time_start = time()
         
-            figure, name = plotLatentSpace(z_test, x_test,
-                colour_coding = "feature", feature_index = feature_index)
+            figure, name = plotLatentSpace(z_test, colour_coding = "feature",
+                test_set = x_test, feature_index = feature_index)
             saveFigure(figure, name, results_directory)
         
             latent_space_duration = time() - latent_space_time_start
@@ -798,13 +799,12 @@ def plotHeatMap(data_set, x_name, y_name, z_name = None,
     
     return figure, figure_name
 
-def plotIn2D(data_set, colouring_data_set = None, colour_coding = None,
-    feature_index = None, name = "scatter_plot"):
+def plotIn2D(data_set, colour_coding = None, colouring_data_set = None,
+    feature_index = None, decomposition = "PCA", name = "scatter_plot"):
     
     figure_name = name
     
-    if colour_coding:
-        figure_name += "-" + normaliseString(colour_coding)
+    decomposition = normaliseString(decomposition)
     
     if not colouring_data_set:
         colouring_data_set = data_set
@@ -814,19 +814,35 @@ def plotIn2D(data_set, colouring_data_set = None, colour_coding = None,
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
+    # Decomposition
+    
     if F > 2:
-        pca = PCA(n_components = 2)
-        pca.fit(data_set.values)
-        values = pca.transform(data_set.values)
         
-        axis.set_xlabel("PC 1")
-        axis.set_ylabel("PC 2")
+        figure_name += "-" + decomposition
+        
+        if decomposition == "pca":
+            decomposition_title = "PCA"
+            model = PCA(n_components = 2)
+        elif decomposition == "t_sne":
+            decomposition_title = "t-SNE"
+            model = TSNE(n_components = 2, random_state = 0)
+        
+        values = model.fit_transform(data_set.values)
+        
+        axis.set_xlabel(decomposition_title + " 1")
+        axis.set_ylabel(decomposition_title + " 2")
     
     elif F == 2:
+        
         values = data_set.values
         
         axis.set_xlabel("$z_1$")
         axis.set_ylabel("$z_2$")
+    
+    # Colour-coding
+    
+    if colour_coding:
+        figure_name += "-" + normaliseString(colour_coding)
     
     if colour_coding == "labels":
         
@@ -886,7 +902,7 @@ def plotIn2D(data_set, colouring_data_set = None, colour_coding = None,
     return figure, figure_name
 
 def plotLatentSpace(latent_set, test_set = None, colour_coding = None,
-    feature_index = None, name = None):
+    feature_index = None, decomposition = "PCA", name = None):
     
     figure_name = "latent_space"
     
@@ -896,14 +912,18 @@ def plotLatentSpace(latent_set, test_set = None, colour_coding = None,
     if colour_coding and test_set is None:
         raise ValueError("Test set not given.")
     
-    figure, figure_name = plotIn2D(latent_set, test_set, colour_coding,
-        feature_index, name = figure_name)
+    figure, figure_name = plotIn2D(
+        data_set = latent_set,
+        decomposition = decomposition,
+        colour_coding = colour_coding,
+        colouring_data_set = test_set,
+        feature_index = feature_index,
+        name = figure_name
+    )
     
     return figure, figure_name
 
 def saveFigure(figure, figure_name, results_directory, no_spine = True):
-    
-    figure_name = normaliseString(figure_name)
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)

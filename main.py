@@ -55,7 +55,7 @@ def main(data_set_name, data_directory = "data",
     if analyse_data:
         analysis.analyseData(
             [data_set, training_set, validation_set, test_set],
-            results_directory
+            highlight_feature_indices, results_directory
         )
         print()
     
