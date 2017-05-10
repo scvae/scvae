@@ -37,10 +37,17 @@ def analyseData(data_sets, results_directory = "results"):
     print("Calculating metrics for data set.")
     metrics_time_start = time()
     
-    x_statistics = [
-        statistics(data_set.values, data_set.kind, tolerance = 0.5)
-            for data_set in data_sets
-    ]
+    x_statistics = []
+    number_of_examples = {}
+    number_of_features = 0
+    
+    for data_set in data_sets:
+        number_of_examples[data_set.kind] = data_set.number_of_examples
+        if data_set.kind == "full":
+            number_of_features = data_set.number_of_features
+        x_statistics.append(
+            statistics(data_set.values, data_set.kind, tolerance = 0.5)
+        )
     
     metrics_duration = time() - metrics_time_start
     print("Metrics calculated ({}).".format(
@@ -53,8 +60,17 @@ def analyseData(data_sets, results_directory = "results"):
     metrics_saving_time_start = time()
     
     with open(metrics_path, "w") as metrics_file:
-        metrics_string = "Metrics:\n"
-        metrics_string += formatStatistics(x_statistics)
+        metrics_string = "Timestamp: {}\n".format(
+            formatTime(metrics_saving_time_start)) \
+            + "\n" \
+            + "Features: {}\n".format(number_of_features) \
+            + "Examples: {}\n".format(number_of_examples["full"]) \
+            + "\n".join(["{} examples: {}".format(kind.capitalize(), number)
+                         for kind, number in number_of_examples.items()
+                         if kind != "full"]) + "\n" \
+            + "\n" \
+            + "Metrics:\n" \
+            + formatStatistics(x_statistics)
         metrics_file.write(metrics_string)
     
     metrics_saving_duration = time() - metrics_saving_time_start
