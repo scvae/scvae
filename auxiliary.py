@@ -2,6 +2,8 @@ import os
 import sys
 import time
 
+import re
+
 from math import floor
 
 import urllib.request
@@ -40,7 +42,19 @@ def formatDuration(seconds):
 # Strings
 
 def normaliseString(s):
-    return s.lower().replace(" ", "_").replace("(", "").replace(")", "")
+    
+    s = s.lower()
+    
+    replacements = {
+        "_": [" ", "-"],
+        "": ["(", ")"]
+    }
+    
+    for replacement, characters in replacements.items():
+        pattern = r"[" + "".join(characters) + "]"
+        s = re.sub(pattern, replacement, s)
+    
+    return s
 
 # IO
 
