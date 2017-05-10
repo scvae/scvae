@@ -174,6 +174,17 @@ data_sets = {
             }
         },
         "load function": lambda x: loadSampleDataSet(x)
+    },
+    
+    "sample (sparse)": {
+        "split": False,
+        "preprocessing methods": None,
+        "URLs": {
+            "all": {
+                "full": "http://people.compute.dtu.dk/s152421/data-sets/count_samples_sparse.pkl.gz"
+            }
+        },
+        "load function": lambda x: loadSampleDataSet(x)
     }
 }
 
