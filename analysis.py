@@ -161,8 +161,8 @@ def analyseAllModels(models_summaries, results_directory = "results"):
     
     print()
 
-def analyseResults(x_test, x_tilde_test, z_test, model,
-    results_directory = "results"):
+def analyseResults(x_test, x_tilde_test, z_test, highlight_feature_indices,
+    model, results_directory = "results"):
     
     # Setup
     
@@ -350,19 +350,22 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
         
         print("Plotting latent space.")
         
-        # Labels
+        # No colour-coding
         
         latent_space_time_start = time()
         
-        if z_test.labels is None:
-            figure, name = plotLatentSpace(z_test)
-            saveFigure(figure, name, results_directory)
-            
-            latent_space_duration = time() - latent_space_time_start
-            print("    Latent space (no labels) plotted and saved ({}).".format(
-                formatDuration(latent_space_duration)))
+        figure, name = plotLatentSpace(z_test)
+        saveFigure(figure, name, results_directory)
         
-        else:
+        latent_space_duration = time() - latent_space_time_start
+        print("    Latent space plotted and saved ({}).".format(
+            formatDuration(latent_space_duration)))
+        
+        # Labels
+        
+        if z_test.labels is not None:
+            latent_space_time_start = time()
+            
             figure, name = plotLatentSpace(z_test, colour_coding = "labels")
             saveFigure(figure, name, results_directory)
             
@@ -382,20 +385,21 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
         print("    Latent space (with count sum) plotted and saved ({}).".format(
             formatDuration(latent_space_duration)))
         
-        # Feature x
+        # Features
         
-        feature_index = 0
+        for feature_index in highlight_feature_indices:
         
-        latent_space_time_start = time()
+            latent_space_time_start = time()
         
-        figure, name = plotLatentSpace(z_test, colour_coding = "feature",
-            feature_index = feature_index, test_set = x_test)
-        saveFigure(figure, name, results_directory)
+            figure, name = plotLatentSpace(z_test, colour_coding = "feature",
+                feature_index = feature_index, test_set = x_test)
+            saveFigure(figure, name, results_directory)
         
-        latent_space_duration = time() - latent_space_time_start
-        print("    Latent space (with feature {}) plotted and saved ({}).".format(
-            feature_index + 1,
-            formatDuration(latent_space_duration)))
+            latent_space_duration = time() - latent_space_time_start
+            print("   ",
+                "Latent space (with {}) plotted and saved ({}).".format(
+                    x_test.feature_names[feature_index],
+                    formatDuration(latent_space_duration)))
 
 def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
