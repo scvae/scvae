@@ -47,7 +47,7 @@ def normaliseString(s):
     
     replacements = {
         "_": [" ", "-"],
-        "": ["(", ")"]
+        "": ["(", ")", "$"]
     }
     
     for replacement, characters in replacements.items():
