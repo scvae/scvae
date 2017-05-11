@@ -92,7 +92,7 @@ def analyseData(data_sets, decomposition = "PCA",
     
     for data_set in data_sets:
         if data_set.kind == "test":
-            x_test = data_set
+            test_set = data_set
     
     # Heat map for test set
     
@@ -101,9 +101,9 @@ def analyseData(data_sets, decomposition = "PCA",
     heat_maps_time_start = time()
     
     figure, name = plotHeatMap(
-        x_test.values,
-        x_name = x_test.tags["example"].capitalize() + "s",
-        y_name = x_test.tags["feature"].capitalize() + "s",
+        test_set.values,
+        x_name = test_set.tags["example"].capitalize() + "s",
+        y_name = test_set.tags["feature"].capitalize() + "s",
         name = "test"
     )
     saveFigure(figure, name, results_directory)
@@ -122,7 +122,7 @@ def analyseData(data_sets, decomposition = "PCA",
     decompose_time_start = time()
     
     test_values, decomposition_labels = decompose(
-        x_test, decomposition, components = 2,
+        test_set, decomposition, components = 2,
         return_labels = True, symbol = "$x$"
     )
     
@@ -153,13 +153,13 @@ def analyseData(data_sets, decomposition = "PCA",
     
     # Labels
     
-    if x_test.labels is not None:
+    if test_set.labels is not None:
         plot_time_start = time()
         
         figure, name = plotValues(
             test_values,
             colour_coding = "labels",
-            colouring_data_set = x_test,
+            colouring_data_set = test_set,
             figure_labels = decomposition_labels,
             name = "test_set"
         )
@@ -176,7 +176,7 @@ def analyseData(data_sets, decomposition = "PCA",
     figure, name = plotValues(
         test_values,
         colour_coding = "count sum",
-        colouring_data_set = x_test,
+        colouring_data_set = test_set,
         figure_labels = decomposition_labels,
         name = "test_set"
     )
@@ -195,7 +195,7 @@ def analyseData(data_sets, decomposition = "PCA",
         figure, name = plotValues(
             test_values,
             colour_coding = "feature",
-            colouring_data_set = x_test,
+            colouring_data_set = test_set,
             feature_index = feature_index,
             figure_labels = decomposition_labels,
             name = "test_set"
@@ -205,7 +205,7 @@ def analyseData(data_sets, decomposition = "PCA",
         plot_duration = time() - plot_time_start
         print("   ",
             "Test data set (with {}) plotted and saved ({}).".format(
-                x_test.feature_names[feature_index],
+                test_set.feature_names[feature_index],
                 formatDuration(plot_duration)))
 
 def analyseModel(model, results_directory = "results"):
@@ -276,7 +276,7 @@ def analyseAllModels(models_summaries, results_directory = "results"):
     
     print()
 
-def analyseResults(x_test, x_tilde_test, z_test, model,
+def analyseResults(test_set, reconstructed_test_set, latent_test_set, model,
     decomposition = "PCA", highlight_feature_indices = [],
     results_directory = "results"):
     
@@ -284,7 +284,7 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     
     results_directory = os.path.join(results_directory, model.name)
     
-    M = x_test.number_of_examples
+    M = test_set.number_of_examples
     
     # Loading
     
@@ -298,25 +298,26 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     
     x_statistics = [
         statistics(data_set.values, data_set.version, tolerance = 0.5)
-            for data_set in [x_test, x_tilde_test]
+            for data_set in [test_set, reconstructed_test_set]
     ]
     
-    x_diff = x_test.values - x_tilde_test.values
+    x_diff = test_set.values - reconstructed_test_set.values
     x_statistics.append(statistics(numpy.abs(x_diff), "differences",
         skip_sparsity = True))
     
-    x_log_ratio = numpy.log((x_test.values + 1) / (x_tilde_test.values + 1))
+    x_log_ratio = numpy.log((test_set.values + 1) \
+        / (reconstructed_test_set.values + 1))
     x_statistics.append(statistics(numpy.abs(x_log_ratio), "log-ratios",
         skip_sparsity = True))
     
-    if x_test.values.max() > 20:
+    if test_set.values.max() > 20:
         count_accuracy_method = "orders of magnitude"
     else:
         count_accuracy_method = None
     
     count_accuracies = computeCountAccuracies(
-        x_test.values,
-        x_tilde_test.values,
+        test_set.values,
+        reconstructed_test_set.values,
         method = count_accuracy_method
     )
     
@@ -388,12 +389,12 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     for j, i in enumerate(subset):
         
         figure, name = plotProfileComparison(
-            x_test.values[i],
-            x_tilde_test.values[i],
-            x_name = x_test.tags["example"].capitalize() + "s",
-            y_name = x_test.tags["feature"].capitalize() + "s",
+            test_set.values[i],
+            reconstructed_test_set.values[i],
+            x_name = test_set.tags["example"].capitalize() + "s",
+            y_name = test_set.tags["feature"].capitalize() + "s",
             scale = "log",
-            title = str(x_test.example_names[i]),
+            title = str(test_set.example_names[i]),
             name = str(j)
         )
         saveFigure(figure, name, results_directory)
@@ -413,9 +414,9 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     heat_maps_time_start = time()
     
     figure, name = plotHeatMap(
-        x_tilde_test.values,
-        x_name = x_test.tags["example"].capitalize() + "s",
-        y_name = x_test.tags["feature"].capitalize() + "s",
+        reconstructed_test_set.values,
+        x_name = test_set.tags["example"].capitalize() + "s",
+        y_name = test_set.tags["feature"].capitalize() + "s",
         name = "reconstruction"
     )
     saveFigure(figure, name, results_directory)
@@ -430,8 +431,8 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     
     figure, name = plotHeatMap(
         x_diff,
-        x_name = x_test.tags["example"].capitalize() + "s",
-        y_name = x_test.tags["feature"].capitalize() + "s",
+        x_name = test_set.tags["example"].capitalize() + "s",
+        y_name = test_set.tags["feature"].capitalize() + "s",
         name = "difference",
         center = 0
     )
@@ -447,8 +448,8 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     
     figure, name = plotHeatMap(
         x_log_ratio,
-        x_name = x_test.tags["example"].capitalize() + "s",
-        y_name = x_test.tags["feature"].capitalize() + "s",
+        x_name = test_set.tags["example"].capitalize() + "s",
+        y_name = test_set.tags["feature"].capitalize() + "s",
         name = "log_ratio",
         center = 0
     )
@@ -462,7 +463,7 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
     
     # Latent space
     
-    if z_test is not None:
+    if latent_test_set is not None:
         
         # Decomposition
     
@@ -473,7 +474,7 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
         decompose_time_start = time()
     
         latent_values, decomposition_labels = decompose(
-            z_test, decomposition, components = 2,
+            latent_test_set, decomposition, components = 2,
             return_labels = True, symbol = "$z$"
         )
     
@@ -503,12 +504,12 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
         
         # Labels
         
-        if z_test.labels is not None:
+        if latent_test_set.labels is not None:
             latent_space_time_start = time()
             
             figure, name = plotLatentSpace(
                 latent_values,
-                data_set = x_test,
+                data_set = test_set,
                 colour_coding = "labels",
                 figure_labels = decomposition_labels
             )
@@ -524,7 +525,7 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
         
         figure, name = plotLatentSpace(
             latent_values,
-            data_set = x_test,
+            data_set = test_set,
             colour_coding = "count sum",
             figure_labels = decomposition_labels
         )
@@ -542,7 +543,7 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
         
             figure, name = plotLatentSpace(
                 latent_values,
-                data_set = x_test,
+                data_set = test_set,
                 colour_coding = "feature",
                 feature_index = feature_index,
                 figure_labels = decomposition_labels
@@ -552,7 +553,7 @@ def analyseResults(x_test, x_tilde_test, z_test, model,
             latent_space_duration = time() - latent_space_time_start
             print("   ",
                 "Latent space (with {}) plotted and saved ({}).".format(
-                    x_test.feature_names[feature_index],
+                    test_set.feature_names[feature_index],
                     formatDuration(latent_space_duration)))
 
 def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
