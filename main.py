@@ -10,6 +10,8 @@ import argparse
 import json
 import itertools
 
+# TODO Add argument to skip modelling.
+
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     feature_selection = None, feature_parameter = None,
@@ -26,7 +28,8 @@ def main(data_set_name, data_directory = "data",
     batch_normalisation = True, count_sum = True,
     number_of_epochs = 200, batch_size = 100, learning_rate = 1e-4,
     decomposition = "PCA", highlight_feature_indices = [],
-    reset_training = False, analyse = True, analyse_data = False):
+    reset_training = False, skip_modelling = False,
+    analyse = True, analyse_data = False):
     
     # Load and split data
     
@@ -58,6 +61,9 @@ def main(data_set_name, data_directory = "data",
             decomposition, highlight_feature_indices, results_directory
         )
         print()
+    
+    if skip_modelling:
+        return
     
     # Set up model configurations
     
@@ -643,6 +649,18 @@ parser.add_argument(
     action = "store_true",
     help = "reset already trained model"
 )
+parser.add_argument(
+    "--preform-modelling",
+    dest = "skip_modelling",
+    action = "store_false",
+    help = "perform modelling"
+)
+parser.add_argument(
+    "--skip-modelling",
+    action = "store_true",
+    help = "skip modelling"
+)
+parser.set_defaults(skip_modelling = False)
 parser.add_argument(
     "--analyse",
     action = "store_true",
