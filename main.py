@@ -25,7 +25,7 @@ def main(data_set_name, data_directory = "data",
     number_of_reconstruction_classes = 0, number_of_warm_up_epochs = 50,
     batch_normalisation = True, count_sum = True,
     number_of_epochs = 200, batch_size = 100, learning_rate = 1e-4,
-    highlight_feature_indices = [],
+    decomposition = "PCA", highlight_feature_indices = [],
     reset_training = False, analyse = True, analyse_data = False):
     
     # Load and split data
@@ -55,7 +55,7 @@ def main(data_set_name, data_directory = "data",
     if analyse_data:
         analysis.analyseData(
             [data_set, training_set, validation_set, test_set],
-            highlight_feature_indices, results_directory
+            decomposition, highlight_feature_indices, results_directory
         )
         print()
     
@@ -214,7 +214,7 @@ def main(data_set_name, data_directory = "data",
             
             analysis.analyseResults(
                 transformed_test_set, reconstructed_test_set, latent_test_set,
-                highlight_feature_indices, model,
+                model, decomposition, highlight_feature_indices,
                 results_directory
             )
             
@@ -624,6 +624,13 @@ parser.add_argument(
     help = "do not use count sum"
 )
 parser.set_defaults(count_sum = True)
+parser.add_argument(
+    "--decomposition",
+    type = str,
+    nargs = "?",
+    default = "PCA",
+    help = "method use to decompose values"
+)
 parser.add_argument(
     "--highlight-feature-indices",
     type = int,
