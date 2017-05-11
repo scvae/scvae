@@ -25,7 +25,7 @@ figure_extension = ".png"
 
 pyplot.rcParams.update({'figure.max_open_warning': 0})
 
-def analyseData(data_sets, decomposition = "PCA",
+def analyseData(data_sets, decomposition_methods = ["PCA"],
     highlight_feature_indices = [], results_directory = "results"):
     
     # Setup
@@ -114,99 +114,104 @@ def analyseData(data_sets, decomposition = "PCA",
     
     print()
     
-    # Decomposition
+    # Decompositions
     
-    decomposition = properString(decomposition, decomposition_methods)
+    for decomposition_method in decomposition_methods:
     
-    print("Decomposing test data set using {}.".format(decomposition))
-    decompose_time_start = time()
+        decomposition_method = properString(decomposition_method,
+            decomposition_method_names)
     
-    test_values, decomposition_labels = decompose(
-        test_set, decomposition, components = 2,
-        return_labels = True, symbol = "$x$"
-    )
+        print("Decomposing test data set using {}.".format(
+            decomposition_method))
+        decompose_time_start = time()
     
-    decompose_duration = time() - decompose_time_start
-    print("Test data set decomposed ({}).".format(
-        formatDuration(decompose_duration)))
+        test_values, decomposition_labels = decompose(
+            test_set, decomposition_method, components = 2,
+            return_labels = True, symbol = "$x$"
+        )
     
-    print()
+        decompose_duration = time() - decompose_time_start
+        print("Test data set decomposed ({}).".format(
+            formatDuration(decompose_duration)))
     
-    # Plot test data set
+        print()
     
-    print("Plotting decomposed test data set.")
+        # Plot test data set
     
-    ## No colour-coding
+        print("Plotting decomposed test data set.")
     
-    plot_time_start = time()
+        ## No colour-coding
     
-    figure, name = plotValues(
-        test_values,
-        figure_labels = decomposition_labels,
-        name = "test_set"
-    )
-    saveFigure(figure, name, results_directory)
-    
-    plot_duration = time() - plot_time_start
-    print("    Test data set plotted and saved ({}).".format(
-        formatDuration(plot_duration)))
-    
-    # Labels
-    
-    if test_set.labels is not None:
         plot_time_start = time()
-        
+    
         figure, name = plotValues(
             test_values,
-            colour_coding = "labels",
-            colouring_data_set = test_set,
             figure_labels = decomposition_labels,
             name = "test_set"
         )
         saveFigure(figure, name, results_directory)
-        
+    
         plot_duration = time() - plot_time_start
-        print("    Test data set (with labels) plotted and saved ({}).".format(
+        print("    Test data set plotted and saved ({}).".format(
             formatDuration(plot_duration)))
     
-    # Count sum
+        # Labels
     
-    plot_time_start = time()
+        if test_set.labels is not None:
+            plot_time_start = time()
+        
+            figure, name = plotValues(
+                test_values,
+                colour_coding = "labels",
+                colouring_data_set = test_set,
+                figure_labels = decomposition_labels,
+                name = "test_set"
+            )
+            saveFigure(figure, name, results_directory)
+        
+            plot_duration = time() - plot_time_start
+            print("    Test data set (with labels) plotted and saved ({})."\
+                .format(formatDuration(plot_duration)))
     
-    figure, name = plotValues(
-        test_values,
-        colour_coding = "count sum",
-        colouring_data_set = test_set,
-        figure_labels = decomposition_labels,
-        name = "test_set"
-    )
-    saveFigure(figure, name, results_directory)
-    
-    plot_duration = time() - plot_time_start
-    print("    Test data set (with count sum) plotted and saved ({}).".format(
-        formatDuration(plot_duration)))
-    
-    # Features
-    
-    for feature_index in highlight_feature_indices:
+        # Count sum
     
         plot_time_start = time()
     
         figure, name = plotValues(
             test_values,
-            colour_coding = "feature",
+            colour_coding = "count sum",
             colouring_data_set = test_set,
-            feature_index = feature_index,
             figure_labels = decomposition_labels,
             name = "test_set"
         )
         saveFigure(figure, name, results_directory)
     
         plot_duration = time() - plot_time_start
-        print("   ",
-            "Test data set (with {}) plotted and saved ({}).".format(
-                test_set.feature_names[feature_index],
-                formatDuration(plot_duration)))
+        print("    Test data set (with count sum) plotted and saved ({})."\
+            .format(formatDuration(plot_duration)))
+    
+        # Features
+    
+        for feature_index in highlight_feature_indices:
+    
+            plot_time_start = time()
+    
+            figure, name = plotValues(
+                test_values,
+                colour_coding = "feature",
+                colouring_data_set = test_set,
+                feature_index = feature_index,
+                figure_labels = decomposition_labels,
+                name = "test_set"
+            )
+            saveFigure(figure, name, results_directory)
+    
+            plot_duration = time() - plot_time_start
+            print("   Test data set (with {}) plotted and saved ({}).".format(
+                    test_set.feature_names[feature_index],
+                    formatDuration(plot_duration)))
+        
+        print()
 
 def analyseModel(model, results_directory = "results"):
     
@@ -277,7 +282,7 @@ def analyseAllModels(models_summaries, results_directory = "results"):
     print()
 
 def analyseResults(test_set, reconstructed_test_set, latent_test_set, model,
-    decomposition = "PCA", highlight_feature_indices = [],
+    decomposition_methods = ["PCA"], highlight_feature_indices = [],
     results_directory = "results"):
     
     # Setup
@@ -465,96 +470,100 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_set, model,
     
     if latent_test_set is not None:
         
-        # Decomposition
-    
-        decomposition = properString(decomposition, decomposition_methods)
-    
-        print("Decomposing latent representation using {}.".format(
-            decomposition))
-        decompose_time_start = time()
-    
-        latent_values, decomposition_labels = decompose(
-            latent_test_set, decomposition, components = 2,
-            return_labels = True, symbol = "$z$"
-        )
-    
-        decompose_duration = time() - decompose_time_start
-        print("Latent representation decomposed ({}).".format(
-            formatDuration(decompose_duration)))
-    
-        print()
-    
-        # Plot test data set
-    
-        print("Plotting decomposed latent representation.")
-    
-        # No colour-coding
-        
-        latent_space_time_start = time()
-        
-        figure, name = plotLatentSpace(
-            latent_values,
-            figure_labels = decomposition_labels
-        )
-        saveFigure(figure, name, results_directory)
-        
-        latent_space_duration = time() - latent_space_time_start
-        print("    Latent space plotted and saved ({}).".format(
-            formatDuration(latent_space_duration)))
-        
-        # Labels
-        
-        if latent_test_set.labels is not None:
-            latent_space_time_start = time()
+        for decomposition_method in decomposition_methods:
             
+            # Decomposition
+            
+            decomposition_method = properString(decomposition_method,
+                decomposition_method_names)
+    
+            print("Decomposing latent representation using {}.".format(
+                decomposition_method))
+            decompose_time_start = time()
+    
+            latent_values, decomposition_labels = decompose(
+                latent_test_set, decomposition_method, components = 2,
+                return_labels = True, symbol = "$z$"
+            )
+    
+            decompose_duration = time() - decompose_time_start
+            print("Latent representation decomposed ({}).".format(
+                formatDuration(decompose_duration)))
+    
+            print()
+    
+            # Plot test data set
+    
+            print("Plotting decomposed latent representation.")
+    
+            # No colour-coding
+        
+            latent_space_time_start = time()
+        
             figure, name = plotLatentSpace(
                 latent_values,
-                data_set = test_set,
-                colour_coding = "labels",
                 figure_labels = decomposition_labels
             )
             saveFigure(figure, name, results_directory)
-            
+        
             latent_space_duration = time() - latent_space_time_start
-            print("    Latent space (with labels) plotted and saved ({}).".format(
+            print("    Latent space plotted and saved ({}).".format(
                 formatDuration(latent_space_duration)))
         
-        # Count sum
+            # Labels
         
-        latent_space_time_start = time()
+            if latent_test_set.labels is not None:
+                latent_space_time_start = time()
+            
+                figure, name = plotLatentSpace(
+                    latent_values,
+                    data_set = test_set,
+                    colour_coding = "labels",
+                    figure_labels = decomposition_labels
+                )
+                saveFigure(figure, name, results_directory)
+            
+                latent_space_duration = time() - latent_space_time_start
+                print("    Latent space (with labels) plotted and saved ({})."\
+                    .format(formatDuration(latent_space_duration)))
         
-        figure, name = plotLatentSpace(
-            latent_values,
-            data_set = test_set,
-            colour_coding = "count sum",
-            figure_labels = decomposition_labels
-        )
-        saveFigure(figure, name, results_directory)
-        
-        latent_space_duration = time() - latent_space_time_start
-        print("    Latent space (with count sum) plotted and saved ({}).".format(
-            formatDuration(latent_space_duration)))
-        
-        # Features
-        
-        for feature_index in highlight_feature_indices:
+            # Count sum
         
             latent_space_time_start = time()
         
             figure, name = plotLatentSpace(
                 latent_values,
                 data_set = test_set,
-                colour_coding = "feature",
-                feature_index = feature_index,
+                colour_coding = "count sum",
                 figure_labels = decomposition_labels
             )
             saveFigure(figure, name, results_directory)
         
             latent_space_duration = time() - latent_space_time_start
-            print("   ",
-                "Latent space (with {}) plotted and saved ({}).".format(
-                    test_set.feature_names[feature_index],
-                    formatDuration(latent_space_duration)))
+            print("    Latent space (with count sum) plotted and saved ({})."\
+                .format(formatDuration(latent_space_duration)))
+        
+            # Features
+        
+            for feature_index in highlight_feature_indices:
+        
+                latent_space_time_start = time()
+        
+                figure, name = plotLatentSpace(
+                    latent_values,
+                    data_set = test_set,
+                    colour_coding = "feature",
+                    feature_index = feature_index,
+                    figure_labels = decomposition_labels
+                )
+                saveFigure(figure, name, results_directory)
+        
+                latent_space_duration = time() - latent_space_time_start
+                print("    Latent space (with {}) plotted and saved ({})."\
+                    .format(test_set.feature_names[feature_index],
+                        formatDuration(latent_space_duration)))
+            
+            print()
 
 def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
@@ -876,7 +885,7 @@ def plotHeatMap(data_set, x_name, y_name, z_name = None,
     
     return figure, figure_name
 
-decomposition_methods = {
+decomposition_method_names = {
     "PCA": ["pca"],
     "t-SNE": ["t_sne", "tsne"], 
 }
