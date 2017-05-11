@@ -364,7 +364,8 @@ class DataSet(object):
         
         M = self.number_of_features
         
-        feature_selection = normaliseString(feature_selection)
+        if feature_selection:
+            feature_selection = normaliseString(feature_selection)
         
         if feature_selection == "remove_zeros":
             feature_parameter = None
