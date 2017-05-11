@@ -56,6 +56,14 @@ def normaliseString(s):
     
     return s
 
+def properString(s, translation):
+    
+    s = normaliseString(s)
+    
+    for proper_string, normalised_strings in translation.items():
+        if s in normalised_strings:
+            return proper_string
+
 # IO
 
 def download(URL, path):
