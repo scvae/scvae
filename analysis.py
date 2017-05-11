@@ -16,7 +16,7 @@ import gzip
 import pickle
 
 from time import time
-from auxiliary import formatTime, formatDuration, normaliseString
+from auxiliary import formatTime, formatDuration, normaliseString, properString
 
 palette = seaborn.color_palette('Set2', 8)
 seaborn.set(style='ticks', palette = palette)
@@ -25,8 +25,8 @@ figure_extension = ".png"
 
 pyplot.rcParams.update({'figure.max_open_warning': 0})
 
-def analyseData(data_sets, highlight_feature_indices = [],
-    results_directory = "results"):
+def analyseData(data_sets, decomposition = "PCA",
+    highlight_feature_indices = [], results_directory = "results"):
     
     # Setup
     
@@ -116,7 +116,7 @@ def analyseData(data_sets, highlight_feature_indices = [],
     
     # Decomposition
     
-    decomposition = "PCA"
+    decomposition = properString(decomposition, decomposition_methods)
     
     print("Decomposing test data set using {}.".format(decomposition))
     decompose_time_start = time()
@@ -276,8 +276,9 @@ def analyseAllModels(models_summaries, results_directory = "results"):
     
     print()
 
-def analyseResults(x_test, x_tilde_test, z_test, highlight_feature_indices,
-    model, results_directory = "results"):
+def analyseResults(x_test, x_tilde_test, z_test, model,
+    decomposition = "PCA", highlight_feature_indices = [],
+    results_directory = "results"):
     
     # Setup
     
@@ -465,7 +466,7 @@ def analyseResults(x_test, x_tilde_test, z_test, highlight_feature_indices,
         
         # Decomposition
     
-        decomposition = "PCA"
+        decomposition = properString(decomposition, decomposition_methods)
     
         print("Decomposing latent representation using {}.".format(
             decomposition))
@@ -874,6 +875,11 @@ def plotHeatMap(data_set, x_name, y_name, z_name = None,
     
     return figure, figure_name
 
+decomposition_methods = {
+    "PCA": ["pca"],
+    "t-SNE": ["t_sne", "tsne"], 
+}
+
 def decompose(data_set, decomposition = "PCA", components = 2,
     random = False, return_labels = False, symbol = ""):
     
@@ -910,6 +916,9 @@ def decompose(data_set, decomposition = "PCA", components = 2,
             
             model = TSNE(n_components = components,
                 random_state = random_state)
+        
+        else:
+            raise ValueError("Decomposition method not found.")
         
         values = model.fit_transform(data_set.values)
     
