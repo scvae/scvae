@@ -103,7 +103,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
                 'number_of_mc_samples'
             )
             # Sum up counts in replicated_n feature if needed
-            if self.count_sum or count_sum_feature:
+            if self.count_sum or self.count_sum_feature:
                 self.n = tf.placeholder(tf.float32, [None, 1], 'N')
                 self.replicated_n = tf.tile(
                     self.n,
