@@ -6,6 +6,10 @@ from tensorflow.contrib.layers import (
 
 from tensorflow.python.ops.nn import relu
 
+## N(mu=0,sigma=sqrt(2/n_in)) weight and 0-bias initialiser.
+weights_init = variance_scaling_initializer(factor=2.0, mode ='FAN_IN', 
+    uniform = False, seed = None, dtype = tf.float32)
+
 def prelu(inputs, is_training, scope):
     with tf.variable_scope(scope):
         a = tf.Variable(0.25*tf.ones([inputs.shape[-1]]), name="a")
@@ -35,6 +39,25 @@ def dense_layer(inputs, num_outputs, is_training, scope, activation_fn = None,
             outputs = batch_norm(outputs, center = center, scale = scale, is_training = is_training, scope = 'BATCH_NORM')
         if activation_fn is not None:
             outputs = activation_fn(outputs)
+    
+    return outputs
+
+# Wrapper layer for inserting batch normalization in between linear and nonlinear activation layers.
+def dense_layers(inputs, num_outputs, is_training, scope, activation_fn = None,
+    batch_normalisation = False, decay = 0.999, center = True, scale = False):
+    if not isinstance(num_outputs, list):
+        num_outputs = [num_outputs]
+    # Set up all following layers
+    for i, num_output in enumerate(num_outputs):
+        with tf.variable_scope('{:d}'.format(i + 1)):
+            outputs = fully_connected(inputs, num_outputs = num_output,
+                activation_fn = None, weights_initializer = weights_init, 
+                scope = 'DENSE')
+            if batch_normalisation:
+                outputs = batch_norm(outputs, center = center, scale = scale,   
+                    is_training = is_training, scope = 'BATCH_NORM')
+            if activation_fn is not None:
+                outputs = activation_fn(outputs)
     
     return outputs
 
@@ -72,3 +95,14 @@ def reduce_logmeanexp(input_tensor, axis=None, keep_dims=False):
         n = tf.cast(tf.reduce_prod(n[axis]), logsumexp.dtype)
 
     return -tf.log(n) + logsumexp
+
+def pairwise_distance(a, b = None):
+    if not b:
+        r = tf.reduce_sum(a*a, axis = 1, keep_dims=True)
+        D = r - 2*tf.matmul(a, a, transpose_b = True)\
+            + tf.transpose(r)
+    else:
+        r_a = tf.reduce_sum(a*a, 1, keep_dims=True)
+        r_b = tf.reshape(tf.reduce_sum(b*b, axis = 1, keep_dims=True), [1, -1])
+        D = r_a - 2*tf.matmul(a, b, transpose_b=True) + r_b
+    return D
