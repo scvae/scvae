@@ -56,7 +56,18 @@ distributions = {
                 loc = m, scale_diag = tf.exp(s)) for m, s in 
                 zip(theta["mus"], theta["log_sigmas"])]
         )
-    },    
+    },
+
+    "categorical": {
+        "parameters": {
+            "logits": {
+                "support": [-inf, inf],
+                "activation function": identity
+            }
+        },
+        "class": lambda theta: 
+            Categorical(logits = theta["logits"]), 
+    },
 
     "bernoulli": {
         "parameters": {
@@ -220,7 +231,7 @@ latent_distributions = {
             "parameters": {}
         }
     },
-    "alternative gaussian mixture": {
+    "explicit gaussian mixture": {
         "posterior": {
             "name": "gaussian mixture", 
             "parameters": {}
@@ -240,4 +251,28 @@ latent_distributions = {
             "parameters": {}
         }
     }
+}
+
+model_inference_graph = {
+    "explicit gaussian mixture": {
+        "posteriors": {
+            "q_z_given_x_y": {
+                "name": "gaussian", 
+                "parameters": {},
+                "conditioning": ["encoder", "q_y_given_x"]
+            },
+            "q_y_given_x": {
+                "name": "categorical",
+                "parameters": {},
+                "conditioning": ["encoder"]
+            }
+        },
+        "priors": {
+            "p_z_given_y": {
+                "name": "gaussian",
+                "parameters": {},
+                "conditioning": ["decoder"]
+            }
+        }
+    },
 }
