@@ -1,3 +1,4 @@
 from models.vae import VariationalAutoEncoder
 from models.iw_vae import ImportanceWeightedVariationalAutoEncoder
 from models.simple_neural_network import SimpleNeuralNetwork
+from models.gmm_vae import GaussianMixtureVariationalAutoEncoder
