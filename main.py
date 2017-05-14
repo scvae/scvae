@@ -3,7 +3,7 @@
 import data
 import analysis
 
-from models import VariationalAutoEncoder, ImportanceWeightedVariationalAutoEncoder, SimpleNeuralNetwork
+from models import VariationalAutoEncoder, ImportanceWeightedVariationalAutoEncoder, SimpleNeuralNetwork, GaussianMixtureVariationalAutoEncoder
 
 import os
 import argparse
@@ -152,17 +152,30 @@ def main(data_set_name, data_directory = "data",
             # "test" time.
             number_of_importance_samples = model_configuration[
                 "number of importance samples"]
-            
-            model = ImportanceWeightedVariationalAutoEncoder(
-                feature_size, latent_size, hidden_sizes,
-                number_of_monte_carlo_samples, number_of_importance_samples,
-                analytical_kl_term,
-                latent_distribution, number_of_latent_clusters,
-                reconstruction_distribution,
-                number_of_reconstruction_classes,
-                batch_normalisation, count_sum, number_of_warm_up_epochs,
-                log_directory = log_directory
-            )
+            if latent_distribution == "gaussian mixture":
+                model = GaussianMixtureVariationalAutoEncoder(
+                    feature_size, latent_size, hidden_sizes,
+                    number_of_monte_carlo_samples,
+                    number_of_importance_samples, 
+                    analytical_kl_term,
+                    latent_distribution, 
+                    number_of_latent_clusters,
+                    reconstruction_distribution,
+                    number_of_reconstruction_classes,
+                    batch_normalisation, count_sum,
+                    number_of_warm_up_epochs,
+                    log_directory = log_directory)
+            else:
+                model = ImportanceWeightedVariationalAutoEncoder(
+                    feature_size, latent_size, hidden_sizes,
+                    number_of_monte_carlo_samples, number_of_importance_samples,
+                    analytical_kl_term,
+                    latent_distribution, number_of_latent_clusters,
+                    reconstruction_distribution,
+                    number_of_reconstruction_classes,
+                    batch_normalisation, count_sum, number_of_warm_up_epochs,
+                    log_directory = log_directory
+                )
         
         elif model_type == "SNN":
             
@@ -173,7 +186,6 @@ def main(data_set_name, data_directory = "data",
                 batch_normalisation, count_sum,
                 log_directory = log_directory
             )
-        
         else:
             return ValueError("Model type not found.")
         
