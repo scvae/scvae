@@ -603,6 +603,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
                 [KL_y] + KL_z_mean
             )
         )
+        self.KL_all = tf.expand_dims(self.KL, -1)
         self.ENRE = tf.reduce_mean(tf.add_n(log_p_x_given_z_mean))
 
         tf.add_to_collection('losses', self.lower_bound)
