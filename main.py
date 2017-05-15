@@ -291,7 +291,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                         "number of monte carlo samples"] = \
                         network["number of monte carlo samples"]
                     
-                    if "IW" in model_type:
+                    if "IW" in model_type or model_type == "GMMVAE":
                         model_configuration[
                             "number of importance samples"] = \
                             network["number of importance samples"]
@@ -304,7 +304,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                         model_configuration["latent distribution"] = \
                             latent_distribution
                         
-                        if "mixture" in latent_distribution:
+                        if "mixture" in latent_distribution or model_type == "GMMVAE":
                             
                             sub_configurations_product = itertools.product(
                                 likelihood["numbers of latent clusters"],
@@ -372,7 +372,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
             
             # Importance samples
             
-            if "IW" in model_type:
+            if "IW" in model_type or model_type == "GMMVAE":
                 
                 if len(number_of_importance_samples) > 1:
                     number_of_importance_samples = {
