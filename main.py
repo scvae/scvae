@@ -146,36 +146,34 @@ def main(data_set_name, data_directory = "data",
             )
         
         elif model_type == "IWVAE":
-            
-            # Dictionary holding number of samples needed for the "monte carlo"
-            # estimator and "importance weighting" during both "train" and
-            # "test" time.
             number_of_importance_samples = model_configuration[
                 "number of importance samples"]
-            if latent_distribution == "gaussian mixture":
-                model = GaussianMixtureVariationalAutoEncoder(
-                    feature_size, latent_size, hidden_sizes,
-                    number_of_monte_carlo_samples,
-                    number_of_importance_samples, 
-                    analytical_kl_term,
-                    latent_distribution, 
-                    number_of_latent_clusters,
-                    reconstruction_distribution,
-                    number_of_reconstruction_classes,
-                    batch_normalisation, count_sum,
-                    number_of_warm_up_epochs,
-                    log_directory = log_directory)
-            else:
-                model = ImportanceWeightedVariationalAutoEncoder(
-                    feature_size, latent_size, hidden_sizes,
-                    number_of_monte_carlo_samples, number_of_importance_samples,
-                    analytical_kl_term,
-                    latent_distribution, number_of_latent_clusters,
-                    reconstruction_distribution,
-                    number_of_reconstruction_classes,
-                    batch_normalisation, count_sum, number_of_warm_up_epochs,
-                    log_directory = log_directory
-                )
+            model = ImportanceWeightedVariationalAutoEncoder(
+                feature_size, latent_size, hidden_sizes,
+                number_of_monte_carlo_samples, number_of_importance_samples,
+                analytical_kl_term,
+                latent_distribution, number_of_latent_clusters,
+                reconstruction_distribution,
+                number_of_reconstruction_classes,
+                batch_normalisation, count_sum, number_of_warm_up_epochs,
+                log_directory = log_directory
+            )
+
+        elif model_type == "GMMVAE":
+            number_of_importance_samples = model_configuration[
+                "number of importance samples"]
+            model = GaussianMixtureVariationalAutoEncoder(
+                feature_size, latent_size, hidden_sizes,
+                number_of_monte_carlo_samples,
+                number_of_importance_samples, 
+                analytical_kl_term,
+                "gaussian mixture", 
+                number_of_latent_clusters,
+                reconstruction_distribution,
+                number_of_reconstruction_classes,
+                batch_normalisation, count_sum,
+                number_of_warm_up_epochs,
+                log_directory = log_directory)
         
         elif model_type == "SNN":
             

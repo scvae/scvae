@@ -23,7 +23,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
         number_of_monte_carlo_samples,
         number_of_importance_samples,
         analytical_kl_term = False,
-        latent_distribution = "gaussian",
+        latent_distribution = "gaussian mixture",
         number_of_latent_clusters = 1,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
