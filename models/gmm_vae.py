@@ -354,7 +354,8 @@ class GaussianMixtureVariationalAutoEncoder(object):
                     ), 0), 0)
 
                 p_z_given_y = distribution["class"](theta)
-        return p_z_given_y
+                p_z_mean = tf.reduce_mean(p_z_given_y.mean())
+        return p_z_given_y, p_z_mean
 
     def q_y_given_x_graph(self, x, distribution_name = "categorical"):
         with tf.variable_scope(distribution_name.upper()):
@@ -493,6 +494,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
             z_mean = [None]*self.K
             self.z = [None]*self.K
             self.p_z_given_y = [None]*self.K
+            self.p_z_mean = [None]*self.K
             # Loop over parameter layers for all K gaussians.
             for k in range(self.K):
                 with tf.variable_scope("K" + "_" + str(k)):
@@ -500,8 +502,8 @@ class GaussianMixtureVariationalAutoEncoder(object):
                     self.q_z_given_x_y[k], z_mean[k], self.z[k] = \
                     self.q_z_given_x_y_graph(self.x, y[k]) 
                     # Latent prior distribution
-                    self.p_z_given_y[k] = self.p_z_given_y_graph(y[k])
-            self.z_mean = tf.add_n([z_mean[k] * tf.expand_dims(self.q_y_given_x.probs[:, k], -1) for k in range(self.K)])
+                    self.p_z_given_y[k], self.p_z_mean[k] = self.p_z_given_y_graph(y[k])
+            self.z_mean = tf.add_n([z_mean[k] * tf.expand_dims(tf.one_hot(tf.argmax(self.q_y_given_x.probs, -1), self.K)[:, k], -1) for k in range(self.K)])
         # Decoder for X 
         with tf.variable_scope("X"):
             self.p_x_given_z = [None]*self.K
@@ -1004,12 +1006,10 @@ class GaussianMixtureVariationalAutoEncoder(object):
                 }
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
-                print(x_batch.shape)
-                print(t_batch.shape)
-                ELBO_i, KL_i, ENRE_i, x_tilde_test[subset], z_mean_i = \
+                ELBO_i, KL_i, ENRE_i, x_tilde_test[subset], z_mean_i, p_z_mean = \
                 session.run(
                     [self.ELBO, self.KL, self.ENRE,
-                        self.x_mean, self.z_mean],
+                        self.x_mean, self.z_mean, self.p_z_mean],
                     feed_dict = feed_dict_batch
                 )
                 
@@ -1018,7 +1018,6 @@ class GaussianMixtureVariationalAutoEncoder(object):
                 ENRE_test += ENRE_i
                 
                 z_mean_test[subset] = z_mean_i
-            
             ELBO_test /= M_test / batch_size
             KL_test /= M_test / batch_size
             ENRE_test /= M_test / batch_size
