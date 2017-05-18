@@ -287,78 +287,72 @@ class ImportanceWeightedVariationalAutoEncoder(object):
 
         ## NOTE: tf.expand_dims(tf.expand_dims(x, 0), 0) allows broadcasting 
         ## on first, importance weight, and second, monte carlo, sample dim.
-        for part in self.latent_distribution:
-            with tf.variable_scope(part.upper()):
-                part_name = self.latent_distribution[part]["name"]
-                distribution = distributions[part_name]
-
-                # Retrieving layers for all latent distribution parameters
-                for parameter in distribution["parameters"]:
-                    if parameter in self.latent_distribution[part]["parameters"]:
-                        self.latent_distribution[part]["parameters"][parameter]\
-                        = tf.expand_dims(tf.expand_dims(tf.constant(
-                            self.latent_distribution[part]["parameters"]\
-                            [parameter],
-                            dtype = tf.float32
-                        ), 0), 0)
-                        continue
-                    parameter_activation_function = \
-                        distribution["parameters"]\
-                        [parameter]["activation function"]
-                    p_min, p_max = \
-                        distribution["parameters"]\
-                        [parameter]["support"]
-                    
-                    # Switch: Use single or mixture (list) of distributions
-                    if "mixture" in self.latent_distribution[part]["name"]:
-                        if parameter == "logits":
-                            logits = tf.expand_dims(tf.expand_dims(dense_layer(
-                                inputs = encoder,
-                                num_outputs = self.number_of_latent_clusters,
-                                activation_fn = lambda x: tf.clip_by_value(
-                                    parameter_activation_function(x),
-                                    p_min + self.epsilon,
-                                    p_max - self.epsilon
-                                ),
-                                is_training = self.is_training,
-                                scope = parameter.upper()
-                            ), 0), 0)
+        
+        for part_name in self.latent_distribution:
+            part_distribution_name = self.latent_distribution[part_name]["name"]
+            part_distribution = distributions[part_distribution_name]
+            part_parameters = self.latent_distribution[part_name]["parameters"]
+            
+            with tf.variable_scope(part_name.upper()):
                 
-                            self.latent_distribution[part]["parameters"]\
-                            [parameter] = logits
-                        else:
-                            self.latent_distribution[part]["parameters"]\
-                            [parameter] = []
-                            for k in range(self.number_of_latent_clusters):
-                                self.latent_distribution[part]["parameters"]\
-                                    [parameter].append(
-                                    tf.expand_dims(tf.expand_dims(
-                                        dense_layer(
-                                        inputs = encoder,
-                                        num_outputs = self.latent_size,
-                                        activation_fn = lambda x: 
-                                            tf.clip_by_value(
-                                            parameter_activation_function(x),
-                                            p_min + self.epsilon,
-                                            p_max - self.epsilon
-                                        ),
-                                        is_training = self.is_training,
-                                        scope = parameter.upper()[:-1] + "_" + str(k)
-                                    ), 0), 0)
-                                )
-                    else:
-                        self.latent_distribution[part]["parameters"][parameter]\
-                            = tf.expand_dims(tf.expand_dims(dense_layer(
+                # Retrieving layers for all latent distribution parameters
+                for parameter_name in part_distribution["parameters"]:
+                    if parameter_name in part_parameters:
+                        part_parameters[parameter_name] = \
+                            tf.expand_dims(tf.expand_dims(
+                                tf.constant(
+                                    part_parameters[parameter_name],
+                                    dtype = tf.float32
+                                ), 0), 0
+                            )
+                        continue
+                    
+                    parameter_activation_function = \
+                        part_distribution["parameters"]\
+                            [parameter_name]["activation function"]
+                    p_min, p_max = \
+                        part_distribution["parameters"]\
+                            [parameter_name]["support"]
+                    
+                    def parameter_layer(num_outputs, scope = parameter_name.upper()):
+                        layer = dense_layer(
                             inputs = encoder,
-                            num_outputs = self.latent_size,
+                            num_outputs = num_outputs,
                             activation_fn = lambda x: tf.clip_by_value(
                                 parameter_activation_function(x),
                                 p_min + self.epsilon,
                                 p_max - self.epsilon
                             ),
                             is_training = self.is_training,
-                            scope = parameter.upper()
-                        ), 0), 0)
+                            scope = scope
+                        )
+                        return layer
+                    
+                    # Switch: Use single or mixture (list) of distributions
+                    if "mixture" in part_distribution_name:
+                        if parameter_name == "logits":
+                            parameter = parameter_layer(
+                                num_outputs = self.number_of_latent_clusters)
+                            logits = tf.expand_dims(tf.expand_dims(
+                                parameter, 0), 0)
+                            part_parameters[parameter_name] = logits
+                        else:
+                            part_parameters[parameter_name] = []
+                            for k in range(self.number_of_latent_clusters):
+                                parameter = parameter_layer(
+                                    num_outputs = self.latent_size,
+                                    scope = parameter_name.upper()[:-1] \
+                                        + "_" + str(k)
+                                )
+                                part_parameters[parameter_name].append(
+                                    tf.expand_dims(tf.expand_dims(
+                                        parameter, 0), 0)
+                                )
+                    else:
+                        parameter = parameter_layer(
+                            num_outputs = self.latent_size)
+                        part_parameters[parameter_name] \
+                            = tf.expand_dims(tf.expand_dims(parameter, 0), 0)
 
         ## Latent posterior distribution
         ### Parameterise:
@@ -966,7 +960,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 epoch = int(os.path.split(
                     checkpoint.model_checkpoint_path)[-1].split('-')[-1])
             else:
-                raise BaseError(
+                raise Exception(
                     "Cannot evaluate model when it has not been trained.")
             
             evaluating_time_start = time()
