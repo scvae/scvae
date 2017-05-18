@@ -695,6 +695,51 @@ def decompose(data_set, decomposition = "PCA", components = 2, random = False):
     
     return values
 
+def plotHistogram(values, x_label, scale = "linear", name = None):
+    
+    figure_name = "histogram"
+    
+    if name:
+        figure_name = name + "_" + figure_name
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    seaborn.distplot(series, kde = False, ax = axis)
+    
+    axis.set_yscale(scale)
+    
+    axis.set_xlabel(x_label)
+    
+    return figure, figure_name
+
+def plotSeries(series, x_label, y_label, scale = "linear", bar = False,
+    name = None):
+    
+    figure_name = "series"
+    
+    if name:
+        figure_name = name + "_" + figure_name
+    
+    D = series.shape[0]
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    x = linspace(0, D, D)
+    
+    if bar:
+        axis.bar(x, series)
+    else:
+        axis.plot(x, series)
+    
+    axis.set_yscale(scale)
+    
+    axis.set_xlabel(x_label)
+    axis.set_ylabel(y_label)
+    
+    return figure, figure_name
+
 def plotLearningCurves(curves, model_type, name = None):
     
     figure_name = "learning_curves"
