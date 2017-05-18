@@ -22,11 +22,13 @@ distributions = {
         "parameters": {
             "mu": {
                 "support": [-inf, inf],
-                "activation function": identity
+                "activation function": identity,
+                "initial value": tf.zeros
             },
             "log_sigma": {
                 "support": [-3, 3],
-                "activation function": identity
+                "activation function": identity,
+                "initial value": tf.zeros
             }
         },
         "class": lambda theta: Normal(
@@ -39,15 +41,18 @@ distributions = {
         "parameters": {
             "logits": {
                 "support": [-inf, inf],
-                "activation function": identity
+                "activation function": identity,
+                "initial value": tf.ones
             },
             "mus": {
                 "support": [-inf, inf],
-                "activation function": identity
+                "activation function": identity,
+                "initial value": tf.random_normal
             },
             "log_sigmas": {
                 "support": [-3, 3],
-                "activation function": identity
+                "activation function": identity,
+                "initial value": tf.zeros
             }
         },
         "class": lambda theta: Mixture(
