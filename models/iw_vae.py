@@ -313,55 +313,65 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     p_min, p_max = \
                         part_distribution["parameters"]\
                             [parameter_name]["support"]
+                    initial_value = \
+                        part_distribution["parameters"]\
+                            [parameter_name]["initial value"]
                     
-                    def parameter_layer(num_outputs, scope = parameter_name.upper()):
-                        layer = dense_layer(
-                            inputs = encoder,
-                            num_outputs = num_outputs,
-                            activation_fn = lambda x: tf.clip_by_value(
-                                parameter_activation_function(x),
-                                p_min + self.epsilon,
-                                p_max - self.epsilon
-                            ),
-                            is_training = self.is_training,
-                            scope = scope
+                    def parameter_variable(num_outputs, name):
+                        activation_fn = lambda x: tf.clip_by_value(
+                            parameter_activation_function(x),
+                            p_min + self.epsilon,
+                            p_max - self.epsilon
                         )
-                        return layer
+                        if part_name == "posterior":
+                            variable = dense_layer(
+                                inputs = encoder,
+                                num_outputs = num_outputs,
+                                activation_fn = activation_fn,
+                                is_training = self.is_training,
+                                scope = name
+                            )
+                        elif part_name == "prior":
+                            variable = tf.Variable(
+                                activation_fn(initial_value([num_outputs])),
+                                name = name
+                            )
+                        return variable
                     
                     # Switch: Use single or mixture (list) of distributions
                     if "mixture" in part_distribution_name:
                         if parameter_name == "logits":
-                            parameter = parameter_layer(
-                                num_outputs = self.number_of_latent_clusters)
                             logits = tf.expand_dims(tf.expand_dims(
-                                parameter, 0), 0)
+                                parameter_variable(
+                                    num_outputs =
+                                        self.number_of_latent_clusters,
+                                    name = parameter_name.upper()
+                                ), 0), 0)
                             part_parameters[parameter_name] = logits
                         else:
                             part_parameters[parameter_name] = []
                             for k in range(self.number_of_latent_clusters):
-                                parameter = parameter_layer(
-                                    num_outputs = self.latent_size,
-                                    scope = parameter_name.upper()[:-1] \
-                                        + "_" + str(k)
-                                )
                                 part_parameters[parameter_name].append(
                                     tf.expand_dims(tf.expand_dims(
-                                        parameter, 0), 0)
+                                        parameter_variable(
+                                            num_outputs = self.latent_size,
+                                            name = parameter_name[:-1].upper()\
+                                                + "_" + str(k)
+                                        ), 0), 0)
                                 )
                     else:
-                        parameter = parameter_layer(
-                            num_outputs = self.latent_size)
                         part_parameters[parameter_name] \
-                            = tf.expand_dims(tf.expand_dims(parameter, 0), 0)
+                            = tf.expand_dims(tf.expand_dims(
+                                parameter_variable(
+                                    num_outputs = self.latent_size,
+                                    name = parameter_name.upper()
+                                ), 0), 0)
 
         ## Latent posterior distribution
         ### Parameterise:
-        self.q_z_given_x =\
-        distributions[
-            self.latent_distribution["posterior"]["name"]
-        ]["class"](
-            self.latent_distribution["posterior"]["parameters"]
-        )
+        self.q_z_given_x = \
+            distributions[self.latent_distribution["posterior"]["name"]]\
+                ["class"](self.latent_distribution["posterior"]["parameters"])
 
         ### Analytical mean:
         self.z_mean = self.q_z_given_x.mean()
@@ -379,12 +389,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
 
         ## Latent prior distribution
         ### Parameterise:
-        self.p_z =\
-        distributions[
-            self.latent_distribution["prior"]["name"]
-        ]["class"](
-            self.latent_distribution["prior"]["parameters"]
-        )
+        self.p_z = \
+            distributions[self.latent_distribution["prior"]["name"]]\
+                ["class"](self.latent_distribution["prior"]["parameters"])
         
         # Decoder - Generative model, p(x|z)
         
@@ -497,7 +504,6 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         # elif self.latent_distribution_name == "bernoulli":
         #     p_z_p = tf.constant(0.0, dtype = tf.float32)
         #     p_z = Bernoulli(p = p_z_p)
-
         
         # Prepare replicated and reshaped arrays
         ## Replicate out batches in tiles pr. sample into: 
