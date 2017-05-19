@@ -31,7 +31,7 @@ class VariationalAutoEncoder(object):
         
         super(VariationalAutoEncoder, self).__init__()
         
-        self.type = "VAE"
+        self.type = "OVAE"
         
         self.feature_size = feature_size
         self.latent_size = latent_size

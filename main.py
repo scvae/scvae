@@ -3,7 +3,13 @@
 import data
 import analysis
 
-from models import VariationalAutoEncoder, ImportanceWeightedVariationalAutoEncoder, SimpleNeuralNetwork, GaussianMixtureVariationalAutoEncoder
+from models import (
+    VariationalAutoEncoder,
+    OriginalVariationalAutoEncoder,
+    ImportanceWeightedVariationalAutoEncoder,
+    SimpleNeuralNetwork,
+    GaussianMixtureVariationalAutoEncoder
+)
 
 import os
 import argparse
@@ -134,10 +140,19 @@ def main(data_set_name, data_directory = "data",
         # Modeling
         
         if model_type == "VAE":
-            
             model = VariationalAutoEncoder(
                 feature_size, latent_size, hidden_sizes,
                 number_of_monte_carlo_samples, analytical_kl_term,
+                latent_distribution, number_of_latent_clusters,
+                reconstruction_distribution,
+                number_of_reconstruction_classes,
+                batch_normalisation, count_sum, number_of_warm_up_epochs,
+                log_directory = log_directory
+            )
+        
+        elif model_type == "OVAE":
+            model = OriginalVariationalAutoEncoder(
+                feature_size, latent_size, hidden_sizes,
                 latent_distribution, number_of_latent_clusters,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
@@ -412,6 +427,8 @@ def validateModelConfiguration(model_configuration):
     validity = True
     errors = []
     
+    model_type = model_configuration["model type"]
+    latent_distribution = model_configuration["latent distribution"]
     reconstruction_distribution = \
         model_configuration["reconstruction distribution"]
     number_of_reconstruction_classes = \
@@ -462,6 +479,19 @@ def validateModelConfiguration(model_configuration):
     
     validity = validity and likelihood_validity
     errors.append(likelihood_error)
+    
+    # Latent distribution
+    
+    latent_distribution_validity = True
+    latent_distribution_error = ""
+    
+    if model_type == "OVAE" and "mixture" in latent_distribution:
+        latent_distribution_error = "Mixture latent distribution with " + \
+            "original variational auto-encoder."
+        latent_distribution_validity = False
+    
+    validity = validity and latent_distribution_validity
+    errors.append(latent_distribution_error)
     
     # Return
     
