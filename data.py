@@ -800,8 +800,10 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
             validation_indices = split_indices["validation"]
         else:
             M_training_validation = training_indices.stop
+            M_all = test_indices.stop
             
-            M_training = int(fraction * M_training_validation)
+            M_training = M_training_validation - (M_all - M_training_validation)
+            # M_training = int(fraction * M_training_validation)
             
             training_indices = slice(M_training)
             validation_indices = slice(M_training, M_training_validation)
