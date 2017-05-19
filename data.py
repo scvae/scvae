@@ -472,7 +472,8 @@ class DataSet(object):
         
         print("Splitting:")
         print("    method:", method)
-        print("    fraction: {:.1f} %".format(100 * fraction))
+        if method != "indices":
+            print("    fraction: {:.1f} %".format(100 * fraction))
         print()
         
         if os.path.isfile(sparse_path):
