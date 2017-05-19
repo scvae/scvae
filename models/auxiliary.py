@@ -1,7 +1,8 @@
 import tensorflow as tf
 
 from tensorflow.contrib.layers import (
-    fully_connected, batch_norm, variance_scaling_initializer
+    fully_connected, batch_norm,
+    variance_scaling_initializer, xavier_initializer
 )
 
 from tensorflow.python.ops.nn import relu
@@ -24,16 +25,18 @@ def dense_layer(inputs, num_outputs, is_training, scope, activation_fn = None,
         if activation_fn == relu: 
             # For relu use:
             ## N(mu=0,sigma=sqrt(2/n_in)) weight initialization
-            weights_init = variance_scaling_initializer(factor=2.0, 
-                mode ='FAN_IN', uniform = False, seed = None, dtype = tf.float32)
+            # weights_init = variance_scaling_initializer(factor=2.0,
+            #     mode ='FAN_IN', uniform = False, seed = None, dtype = tf.float32)
             # and 0 bias initialization.
+            weights_init = xavier_initializer()
             outputs = fully_connected(inputs, num_outputs = num_outputs, activation_fn = None, weights_initializer = weights_init, scope = 'DENSE')
         else:
             # For all other activation functions use (the same):
             ## N(mu=0,sigma=sqrt(2/n_in) weight initialization
-            weights_init = variance_scaling_initializer(factor=2.0,
-                mode = 'FAN_IN', uniform = False, seed = None, dtype = tf.float32)
+            # weights_init = variance_scaling_initializer(factor=2.0,
+            #     mode = 'FAN_IN', uniform = False, seed = None, dtype = tf.float32)
             ## and 0 bias initialization.
+            weights_init = xavier_initializer()
             outputs = fully_connected(inputs, num_outputs = num_outputs, activation_fn = None, weights_initializer = weights_init, scope = 'DENSE')
         if batch_normalisation:
             outputs = batch_norm(outputs, center = center, scale = scale, is_training = is_training, scope = 'BATCH_NORM')
