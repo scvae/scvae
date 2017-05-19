@@ -248,23 +248,25 @@ class ImportanceWeightedVariationalAutoEncoder(object):
     @property
     def parameters(self, trainable = True):
         
-        if trainable:
-            
-            parameters_string_parts = ["Trainable parameters"]
-            
-            with self.graph.as_default():
-                trainable_parameters = tf.trainable_variables()
-            
-            width = max(map(len, [p.name for p in trainable_parameters]))
-            
-            for parameter in trainable_parameters:
-                parameters_string_parts.append("{:{}}  {}".format(
-                    parameter.name, width, parameter.get_shape()))
-            
-            parameters_string = "\n    ".join(parameters_string_parts)
+        with self.graph.as_default():
+            all_parameters = tf.global_variables()
+            trainable_parameters = tf.trainable_variables()
         
-        else:
-            raise NotImplementedError("Can only return trainable parameters.")
+        if trainable:
+            parameters_string_parts = ["Trainable parameters"]
+            parameters = trainable_parameters
+        elif not trainable:
+            parameters_string_parts = ["Non-trainable parameters"]
+            parameters = [p for p in all_parameters
+                if p not in trainable_parameters]
+        
+        width = max(map(len, [p.name for p in parameters]))
+        
+        for parameter in parameters:
+            parameters_string_parts.append("{:{}}  {}".format(
+                parameter.name, width, parameter.get_shape()))
+        
+        parameters_string = "\n    ".join(parameters_string_parts)
         
         return parameters_string
     
