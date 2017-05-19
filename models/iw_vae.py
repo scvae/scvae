@@ -520,9 +520,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         ### 3. and reshape it back to (N_iw, N_mc, batchsize) 
         log_p_x_given_z = tf.reshape(
             tf.reduce_sum(
-                self.p_x_given_z.log_prob(t_tiled), axis=-1
+                self.p_x_given_z.log_prob(t_tiled),
+                axis = -1
             ),
-            [self.number_of_iw_samples, self.number_of_mc_samples, -1])
+            [self.number_of_iw_samples, self.number_of_mc_samples, -1]
+        )
 
         # Average over all samples and examples and add to losses in summary
         self.ENRE = tf.reduce_mean(log_p_x_given_z)
@@ -538,9 +540,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             log_p_z = self.p_z.log_prob(z_reshaped)
 
             if "mixture" not in self.latent_distribution["posterior"]["name"]:
-                log_q_z_given_x = tf.reduce_sum(log_q_z_given_x, axis=-1)
+                log_q_z_given_x = tf.reduce_sum(log_q_z_given_x, axis = -1)
             if "mixture" not in self.latent_distribution["prior"]["name"]:
-                log_p_z = tf.reduce_sum(log_p_z, axis=-1)
+                log_p_z = tf.reduce_sum(log_p_z, axis = -1)
             
             # Kullback-Leibler Divergence:  KL[q(z|x)||p(z)] =
             # E_q[log(q(z|x)/p(z))] = E_q[log(q(z|x))] - E_q[log(p(z))]
@@ -570,8 +572,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
 
             # Get mean KL for all N_z dim. --> shape = (N_z)
             self.KL_all = tf.reduce_mean(
-                tf.reshape(KL, [-1, self.latent_size])
-                , axis = 0
+                tf.reshape(KL, [-1, self.latent_size]),
+                axis = 0
             )
             ## KL Regularisation term: Sum up KL over all latent dim.: shape --> () 
             KL_qp = tf.reduce_sum(self.KL_all, name = "kl_divergence")
