@@ -48,11 +48,11 @@ data_sets = {
         "load function": lambda x: loadMouseRetinaDataSet(x)
     },
     
-    "MNIST": {
+    "MNIST (original)": {
         "tags": {
             "example": "digit",
             "feature": "pixel",
-            "value": "pixel value"
+            "value": "intensity count"
         },
         "split": ["training", "test"],
         "preprocessing methods": None,
@@ -70,7 +70,24 @@ data_sets = {
                         "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz"
             },
         },
-        "load function": lambda x: loadMNISTDataSet(x)
+        "load function": lambda x: loadMNISTDataSet(x),
+        "maximum value": 255
+    },
+    
+    "MNIST (normalised)": {
+        "tags": {
+            "example": "digit",
+            "feature": "pixel",
+            "value": "value"
+        },
+        "split": ["training", "validation", "test"],
+        "preprocessing methods": None,
+        "URLs": {
+            "all": {
+                    "full": "http://deeplearning.net/data/mnist/mnist.pkl.gz"
+            }
+        },
+        "load function": lambda x: loadNormalisedMNISTDataSet(x)
     },
     
     "MNIST (binarised)": {
@@ -404,7 +421,6 @@ class DataSet(object):
             data_dictionary = loadFromSparseData(sparse_path)
         
         else:
-            
             if not self.preprocessed and self.preprocessing_methods:
                 preprocessed_values = preprocessValues(self.values,
                     self.preprocessing_methods, self.preprocessedPath)
@@ -412,7 +428,6 @@ class DataSet(object):
                 print()
             
             else:
-                
                 preprocessed_values = self.values
             
             if self.feature_selection:
@@ -972,6 +987,48 @@ def loadMNISTDataSet(paths):
     labels = numpy.concatenate((labels["training"], labels["test"]))
     
     values = values.astype(float)
+    
+    example_names = numpy.array(["image {}".format(i + 1) for i in range(M)])
+    feature_names = numpy.array(["pixel {}".format(j + 1) for j in range(N)])
+    
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names,
+        "split indices": split_indices
+    }
+    
+    return data_dictionary
+
+def loadNormalisedMNISTDataSet(paths):
+    
+    with gzip.open(paths["all"]["full"], "r") as data_file:
+        (values_training, labels_training), (values_validation, \
+            labels_validation), (values_test, labels_test) \
+            = pickle.load(data_file, encoding = "latin1")
+    
+    M_training = values_training.shape[0]
+    M_validation = values_validation.shape[0]
+    M_training_validation = M_training + M_validation
+    M_test = values_test.shape[0]
+    M = M_training_validation + M_test
+    
+    split_indices = {
+        "training": slice(0, M_training),
+        "validation": slice(M_training, M_training_validation),
+        "test": slice(M_training_validation, M)
+    }
+    
+    values = numpy.concatenate((
+        values_training, values_validation, values_test
+    ))
+    
+    labels = numpy.concatenate((
+        labels_training, labels_validation, labels_test
+    ))
+    
+    N = values.shape[1]
     
     example_names = numpy.array(["image {}".format(i + 1) for i in range(M)])
     feature_names = numpy.array(["pixel {}".format(j + 1) for j in range(N)])
