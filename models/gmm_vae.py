@@ -967,12 +967,20 @@ class GaussianMixtureVariationalAutoEncoder(object):
         M_test = test_set.number_of_examples
         F_test = test_set.number_of_features
         
-        x_test = test_set.preprocessed_values
+        noisy_preprocess = test_set.noisy_preprocess
         
-        if self.reconstruction_distribution_name == "bernoulli":
-            t_test = binarise(test_set.values)
+        if not noisy_preprocess:
+            
+            x_test = test_set.preprocessed_values
+        
+            if self.reconstruction_distribution_name == "bernoulli":
+                t_test = binarise(test_set.values)
+            else:
+                t_test = test_set.values
+            
         else:
-            t_test = test_set.values
+            x_test = noisy_preprocess(test_set.values)
+            t_test = x_test
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         

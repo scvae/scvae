@@ -374,7 +374,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         self.q_z_given_x = \
             distributions[self.latent_distribution["posterior"]["name"]]\
                 ["class"](self.latent_distribution["posterior"]["parameters"])
-
+        
         ### Analytical mean:
         self.z_mean = self.q_z_given_x.mean()
         
@@ -969,8 +969,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 t_test = test_set.values
             
         else:
-            x_test_original = noisy_preprocess(test_set.values)
-            t_test_original = x_test_original
+            x_test = noisy_preprocess(test_set.values)
+            t_test = x_test
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
