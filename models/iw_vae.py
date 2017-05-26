@@ -395,6 +395,19 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             distributions[self.latent_distribution["prior"]["name"]]\
                 ["class"](self.latent_distribution["prior"]["parameters"])
         
+        self.p_z_probabilities = []
+        self.p_z_mean = []
+        self.p_z_covariance = []
+        
+        if "mixture" in self.latent_distribution["prior"]["name"]:
+            for k in range(self.number_of_latent_clusters):
+                self.p_z_probabilities.append(
+                    tf.squeeze(self.p_z.cat.probs)[k])
+                self.p_z_mean.append(
+                    tf.squeeze(self.p_z.components[k].mean()))
+                self.p_z_covariance.append(
+                    tf.squeeze(self.p_z.components[k].covariance()))
+        
         # Decoder - Generative model, p(x|z)
         
         # Make sure we use a replication pr. sample of the feature sum, 
@@ -1056,6 +1069,15 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 formatDuration(evaluating_duration)) + \
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                 ELBO_test, ENRE_test, KL_test))
+            
+            # Centroids
+            
+            p_z_mean, p_z_covariance, p_z_probabilities = session.run(
+                [self.p_z_mean, self.p_z_covariance,
+                    self.p_z_probabilities]
+            )
+            
+            # Data sets
             
             if self.reconstruction_distribution_name == "bernoulli":
                 transformed_test_set = DataSet(
