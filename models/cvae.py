@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from models.auxiliary import dense_layer, dense_layers, log_reduce_exp, reduce_logmeanexp
 
-from tensorflow.python.ops.nn import relu, softmax
+from tensorflow.python.ops.nn import relu, softmax, softplus
 from tensorflow import sigmoid, identity
 
 from tensorflow.contrib.distributions import Normal, Bernoulli, kl, Categorical
@@ -16,9 +16,9 @@ import os, shutil
 from time import time
 from auxiliary import formatDuration, normaliseString
 
-from data import DataSet, binarise
+from data import DataSet
 
-class ClusterAwareGenerativeModel(object):
+class ClusterVariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         number_of_monte_carlo_samples, number_of_importance_samples,
         analytical_kl_term = False,
@@ -30,9 +30,9 @@ class ClusterAwareGenerativeModel(object):
         log_directory = "log"):
         
         # Class setup
-        super(ImportanceWeightedVariationalAutoEncoder, self).__init__()
+        super(ClusterVariationalAutoEncoder, self).__init__()
         
-        self.type = "CaGeM"
+        self.type = "CVAE"
         
         self.Dim_x = feature_size
         self.Dim_z = latent_size
@@ -281,69 +281,70 @@ class ClusterAwareGenerativeModel(object):
         '''
         
         # q(z_1| x) #
-        ## (B, H)
-        q_z1_NN = dense_layers(
-            inputs = self.x,
-            num_outputs = self.hidden_sizes,
-            activation_fn = relu,
-            batch_normalisation = self.batch_normalisation,
-            is_training = self.is_training,
-            scope="q_z1_NN"
-        )
+        with tf.variable_scope("q_z1"):
+            ## (B, H)
+            q_z1_NN = dense_layers(
+                inputs = self.x,
+                num_outputs = self.hidden_sizes,
+                activation_fn = relu,
+                batch_normalisation = self.batch_normalisation,
+                is_training = self.is_training,
+                scope="NN"
+            )
 
-        ## (1, B, L)
-        q_z1_mu = tf.reshape(fully_connected(q_z1_NN, self.Dim_z, activation_fn=None, scope="q_z1_mu"), [1, -1, self.Dim_z])
-        q_z1_log_sigma = tf.reshape(fully_connected(q_z1_NN, self.Dim_z, activation_fn=None, scope="q_z1_log_sigma"), [1, -1, self.Dim_z])
+            ## (1, B, L)
+            q_z1_mu = tf.reshape(dense_layer(q_z1_NN, self.Dim_z, activation_fn=None, scope="mu"), [1, -1, self.Dim_z])
+            q_z1_log_sigma = tf.reshape(dense_layer(q_z1_NN, self.Dim_z, activation_fn=None, scope="log_sigma"), [1, -1, self.Dim_z])
 
-        ## (1, B, L)
-        self.q_z1_given_x = Normal(loc=q_z1_mu, scale=softplus(q_z1_log_sigma), validate_args=True)
+            ## (1, B, L)
+            self.q_z1_given_x = Normal(loc=q_z1_mu, scale=softplus(q_z1_log_sigma), validate_args=True)
 
-        ## (1, B, L) -> (B, L)
-        self.z1_mean = self.q_z1_given_x.mean()
+            ## (1, B, L) -> (B, L)
+            self.z1_mean = self.q_z1_given_x.mean()
 
-        ## (S_1, B, L)
-        self.z1 = tf.reshape(
-            q_z1_given_x.sample(self.S_mc), 
-            [self.S_mc, -1, self.Dim_z]
-        )
+            ## (S_1, B, L)
+            self.z1 = tf.reshape(
+                self.q_z1_given_x.sample(self.S_mc), 
+                [self.S_mc, -1, self.Dim_z]
+            )
 
         # q(y|x,z1)
+        with tf.variable_scope("q_y"):
+            ## (S_1, B, F)
+            x_tile = tf.tile(tf.expand_dims(self.x, 0), [self.S_mc, 1, 1])
 
-        ## (S_1, B, F)
-        x_tile = tf.tile(tf.expand_dims(x, 0), [self.S_mc, 1, 1])
+            ## (S_1, B, F + L)
+            x_z1 = tf.concat((x_tile, self.z1), axis = -1)
 
-        ## (S_1, B, F + L)
-        x_z1 = tf.concat((x_tile, z1), axis = -1)
+            ## (S_1 * B, H)
+            q_y_NN = dense_layers(
+                inputs = x_z1,
+                num_outputs = self.hidden_sizes,
+                activation_fn = relu,
+                batch_normalisation = self.batch_normalisation,
+                is_training = self.is_training,
+                scope="NN"
+            )
 
-        ## (S_1 * B, H)
-        q_y_NN = dense_layers(
-            inputs = x_z1,
-            num_outputs = self.hidden_sizes,
-            activation_fn = relu,
-            batch_normalisation = self.batch_normalisation,
-            is_training = self.is_training,
-            scope="q_y_NN"
-        )
+            ## (S_1, 1, B, K)
+            q_y_logits = tf.reshape(dense_layer(q_y_NN, self.Dim_y, activation_fn=None, scope="logits"), [self.S_mc, 1, -1, self.Dim_y])
 
-        ## (S_1, 1, B, K)
-        q_y_logits = tf.reshape(fully_connected(q_y_NN, self.Dim_y, activation_fn=None, scope="q_y_logits"), [self.S_mc, 1, -1, self.Dim_y])
+            ## (S_1, 1, B, K)
+            self.q_y_given_x_z1 = Categorical(logits = q_y_logits)
 
-        ## (S_1, 1, B, K)
-        self.q_y_given_x_z1 = Categorical(logits = q_y_logits)
+            # (S_1, 1, B, K) --> (S_1, K, B)
+            self.q_y_given_x_z1_probs = tf.reshape(
+                tf.transpose(
+                    self.q_y_given_x_z1.probs, 
+                    [0, 3, 2, 1]
+                ),
+                [self.S_mc, self.Dim_y, -1]
+            )
 
-        # (S_1, 1, B, K) --> (S_1, K, B)
-        self.q_y_given_x_z1_probs = tf.reshape(
-            tf.transpose(
-                self.q_y_given_x_z1.probs, 
-                [0, 3, 2, 1]
-            ),
-            [self.S_mc, self.Dim_y, -1]
-        )
-
-        q_y_mean = tf.transpose(tf.reduce_mean(self.q_y_given_x_z1_probs, 0), [1, 0])
+            q_y_mean = tf.transpose(tf.reduce_mean(self.q_y_given_x_z1_probs, 0), [1, 0])
 
         # q(z_2| y, z_1)
-        with tf.variable_scope("q_z2")
+        with tf.variable_scope("q_z2"):
             # (K, K)
             y_onehot = tf.diag(tf.ones(self.Dim_y))
 
@@ -353,11 +354,11 @@ class ClusterAwareGenerativeModel(object):
                     y_onehot, 
                     [1, self.Dim_y, 1, self.Dim_y]
                 ), 
-                [self.S_mc, 1, tf.shape(x)[0], 1]
+                [self.S_mc, 1, tf.shape(self.x)[0], 1]
             )
 
             # (S_1, B, L) --> (S_1, K, B, L)
-            self.z1_tile = tf.tile(tf.expand_dims(z1, 1), [1, self.Dim_y, 1, 1])
+            self.z1_tile = tf.tile(tf.expand_dims(self.z1, 1), [1, self.Dim_y, 1, 1])
 
             # (S_1, K, B, L + K)
             z1_y = tf.concat((self.z1_tile, self.q_y_tile), axis = -1)
@@ -374,12 +375,12 @@ class ClusterAwareGenerativeModel(object):
 
             ## (S_1 * K * B, L) --> (1, S_1, K, B, L) 
             q_z2_mu = tf.reshape(
-                fully_connected(
+                dense_layer(
                     q_z2_NN, self.Dim_z, activation_fn=None, scope="mu"
                 ), [1, self.S_mc, self.Dim_y, -1, self.Dim_z]
             )
             q_z2_log_sigma = tf.reshape(
-                fully_connected(
+                dense_layer(
                     q_z2_NN, self.Dim_z, activation_fn=None, scope="log_sigma"
                 ), 
                 [1, self.S_mc, self.Dim_y, -1, self.Dim_z]
@@ -394,7 +395,7 @@ class ClusterAwareGenerativeModel(object):
             z2_mean = tf.reduce_mean(tf.reduce_sum(tf.squeeze(self.q_z2_given_y_z1.mean()) * tf.expand_dims(self.q_y_given_x_z1_probs, -1), axis = 1), 0)
 
             ## (S_2, S_1, K, B, L)
-            z2 = tf.reshape(
+            self.z2 = tf.reshape(
                 self.q_z2_given_y_z1.sample(self.S_mc), 
                 [self.S_mc, self.S_mc, self.Dim_y, -1, self.Dim_z]
             )
@@ -411,7 +412,7 @@ class ClusterAwareGenerativeModel(object):
         # Add a feature which is the total number of counts in an example. 
 
         with tf.variable_scope("count_sum"):
-            if: self.count_sum or self.count_sum_feature:
+            if self.count_sum or self.count_sum_feature:
                 # (B, 1) --> (S_2, S_1, K, B, 1) 
                 n_tile = tf.tile(
                     tf.reshape(self.n, [1, 1, 1, -1, 1]
@@ -425,13 +426,13 @@ class ClusterAwareGenerativeModel(object):
 
 
         # p(y| z_2)
-        with tf.variable_scope("p_y")
+        with tf.variable_scope("p_y"):
             if self.count_sum_feature:
                 # Add count_sum to z_2 dim.
                 # (S_2, S_1, K, B, L) --> (S_2, S_1, K, B, L + 1)
-                z2_input = tf.concat((z2, n_tile), axis = -1, name = "z2_n")
+                z2_input = tf.concat((self.z2, n_tile), axis = -1, name = "z2_n")
             else: 
-                z2_input = z2
+                z2_input = self.z2
 
             ## (S_2 * S_1 * K * B, H)
             p_y_NN = dense_layers(
@@ -445,7 +446,7 @@ class ClusterAwareGenerativeModel(object):
 
             ## (S_2, S_1, K, B, K)
             p_y_logits = tf.reshape(
-                fully_connected(
+                dense_layer(
                     p_y_NN, self.Dim_y, activation_fn=None, scope="logits"
                 ), 
                 [self.S_mc, self.S_mc, 
@@ -453,24 +454,24 @@ class ClusterAwareGenerativeModel(object):
             )
 
             ## (S_2, S_1, K, B, K)
-            p_y_given_z2 = Categorical(logits = p_y_logits)
+            self.p_y_given_z2 = Categorical(logits = p_y_logits)
 
 
         # p(z_1|z_2, y)
-        with tf.variable_scope("p_z1_given")
+        with tf.variable_scope("p_z1"):
             # (S_1, K, B, K) --> (S_2, S_1, K, B, K)
             self.p_z1_tile_y = tf.tile(
                 tf.expand_dims(self.q_y_tile, 0), 
-                [self.S_mc, 1, 1, 1, 1]
+                [self.S_mc, 1, 1, 1, 1], name = "y_tile"
             )
             if self.count_sum_feature:
                 # Add count_sum to y and z_2 features concatenated.
                 ## (S_2, S_1, K, B, L + K + 1)
-                z2_y = tf.concat((z2, self.p_z1_tile_y, n_tile), axis = -1, name = "z2_y_n")
+                z2_y = tf.concat((self.z2, self.p_z1_tile_y, n_tile), axis = -1, name = "z2_y_n")
             else: 
                 # Concat y and z2 features.
                 ## (S_2, S_1, K, B, L + K + 1)
-                z2_y = tf.concat((z2, self.p_z1_tile_y), axis = -1, name = "z2_y")
+                z2_y = tf.concat((self.z2, self.p_z1_tile_y), axis = -1, name = "z2_y")
 
             ## (S_2 * S_1 * K * B, H)
             p_z1_NN = dense_layers(
@@ -484,13 +485,13 @@ class ClusterAwareGenerativeModel(object):
 
             ## (S_2 * S_1 * K * B, L) --> (S_2, S_1, K, B, L)
             p_z1_mu = tf.reshape(
-                fully_connected(
+                dense_layer(
                     p_z1_NN, self.Dim_z, activation_fn=None, scope="mu"
                 ), 
                 [self.S_mc, self.S_mc, self.Dim_y, -1, self.Dim_z]
             )
             p_z1_log_sigma = tf.reshape(
-                fully_connected(
+                dense_layer(
                     p_z1_NN, self.Dim_z, activation_fn=None, scope="log_sigma"
                 ), 
                 [self.S_mc, self.S_mc, self.Dim_y, -1, self.Dim_z]
@@ -543,12 +544,12 @@ class ClusterAwareGenerativeModel(object):
                 "multinomial" in self.reconstruction_distribution_name:
                 self.p_x_given_z1_y = self.reconstruction_distribution["class"](
                     x_theta,
-                    replicated_n
+                    n_tile[0]
                 )
             elif "multinomial" in self.reconstruction_distribution_name:
                 self.p_x_given_z1_y = self.reconstruction_distribution["class"](
                     x_theta,
-                    replicated_n
+                    n_tile[0]
                 )
             else:
                 self.p_x_given_z1_y = self.reconstruction_distribution["class"](
@@ -573,7 +574,7 @@ class ClusterAwareGenerativeModel(object):
                 )
             
             # (S_1, K, B, F) --> (S_1, B, F) --> (B, F)
-            self.x_tilde_mean = tf.reduce_mean(tf.reduce_sum(self.p_x_given_z1_y.mean() * tf.expand_dims(self.q_y_given_x_z1_probs, -1), axis = 1), 0)
+            self.x_mean = tf.reduce_mean(tf.reduce_sum(self.p_x_given_z1_y.mean() * tf.expand_dims(self.q_y_given_x_z1_probs, -1), axis = 1), 0)
         
         # Add histogram summaries for the trainable parameters
         for parameter in tf.trainable_variables():
@@ -588,7 +589,7 @@ class ClusterAwareGenerativeModel(object):
         t_tiled = tf.tile(
             tf.reshape(
                 self.t, 
-                [1, 1, -1, feature_size]
+                [1, 1, -1, self.Dim_x]
             ),
             [self.S_mc, self.Dim_y, 1, 1]
         )
@@ -632,7 +633,7 @@ class ClusterAwareGenerativeModel(object):
         log_p_y_given_z2 = tf.reduce_mean(
             tf.reduce_sum(
                 self.q_y_given_x_z1_probs * tf.reduce_mean(
-                    p_y_given_z2.log_prob(
+                    self.p_y_given_z2.log_prob(
                         tf.argmax(self.p_z1_tile_y, axis = -1)
                     ),
                     0
@@ -720,10 +721,8 @@ class ClusterAwareGenerativeModel(object):
         tf.add_to_collection('losses', self.ELBO)
 
         # loss objective with Warm-up and term-specific KL weighting 
-        self.loss = ENRE - warmup_weight * (
-            self.KL_z1_weight * self.KL_z1 +\
-            self.KL_z2_weight * self.KL_z2 +\
-            self.KL_y_weight * self.KL_y
+        self.loss = self.ENRE - self.warm_up_weight * (
+            self.KL_z1 + self.KL_z2 + self.KL_y
         )
     
     def training(self):
@@ -791,15 +790,19 @@ class ClusterAwareGenerativeModel(object):
         M_train = training_set.number_of_examples
         M_valid = validation_set.number_of_examples
         
-        x_train = training_set.preprocessed_values
-        x_valid = validation_set.preprocessed_values
+        noisy_preprocess = training_set.noisy_preprocess
         
-        if self.reconstruction_distribution_name == "bernoulli":
-            t_train = binarise(training_set.values)
-            t_valid = binarise(validation_set.values)
-        else:
-            t_train = training_set.values
-            t_valid = validation_set.values
+        if not noisy_preprocess:
+            
+            x_train = training_set.preprocessed_values
+            x_valid = validation_set.preprocessed_values
+        
+            if self.reconstruction_distribution_name == "bernoulli":
+                t_train = training_set.binarised_values
+                t_valid = validation_set.binarised_values
+            else:
+                t_train = training_set.values
+                t_valid = validation_set.values
         
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
@@ -835,6 +838,12 @@ class ClusterAwareGenerativeModel(object):
             for epoch in range(epoch_start, number_of_epochs):
                 
                 epoch_time_start = time()
+                
+                if noisy_preprocess:
+                    x_train = noisy_preprocess(training_set.values)
+                    t_train = x_train
+                    x_valid = noisy_preprocess(validation_set.values)
+                    t_valid = x_valid
 
                 if self.number_of_warm_up_epochs:
                     warm_up_weight = float(min(
@@ -927,10 +936,10 @@ class ClusterAwareGenerativeModel(object):
                 evaluating_time_start = time()
                 
                 ELBO_train = 0
+                ENRE_train = 0
                 KL_z1_train = 0
                 KL_z2_train = 0
                 KL_y_train = 0
-                ENRE_train = 0
                 
                 
                 for i in range(0, M_train, batch_size):
@@ -948,18 +957,22 @@ class ClusterAwareGenerativeModel(object):
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
                     
-                    ELBO_i, KL_i, ENRE_i = session.run(
-                        [self.ELBO, self.KL, self.ENRE, self.KL_all],
+                    ELBO_i, ENRE_i, KL_z1_i, KL_z2_i, KL_y_i = session.run(
+                        [self.ELBO, self.ENRE, self.KL_z1, self.KL_z2, self.KL_y],
                         feed_dict = feed_dict_batch
                     )
                     
                     ELBO_train += ELBO_i
-                    KL_train += KL_i
                     ENRE_train += ENRE_i
+                    KL_z1_train += KL_z1_i
+                    KL_z2_train += KL_z2_i
+                    KL_y_train += KL_y_i
                                     
                 ELBO_train /= M_train / batch_size
-                KL_train /= M_train / batch_size
                 ENRE_train /= M_train / batch_size
+                KL_z1_train /= M_train / batch_size
+                KL_z2_train /= M_train / batch_size
+                KL_y_train /= M_train / batch_size
                                 
                 evaluating_duration = time() - evaluating_time_start
                 
@@ -968,12 +981,12 @@ class ClusterAwareGenerativeModel(object):
                     simple_value = ELBO_train)
                 summary.value.add(tag="losses/reconstruction_error",
                     simple_value = ENRE_train)
-                summary.value.add(tag="losses/kl_divergence",
-                    simple_value = KL_train)
-                
-                for i in range(z_KL.size):
-                    summary.value.add(tag="kl_divergence_neurons/{}".format(i),
-                        simple_value = z_KL[i])
+                summary.value.add(tag="losses/kl_divergence_z1",
+                    simple_value = KL_z1_train)                
+                summary.value.add(tag="losses/kl_divergence_z2",
+                    simple_value = KL_z2_train)
+                summary.value.add(tag="losses/kl_divergence_y",
+                    simple_value = KL_y_train)
                 
                 training_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
@@ -981,16 +994,18 @@ class ClusterAwareGenerativeModel(object):
                 
                 print("    Training set ({}): ".format(
                     formatDuration(evaluating_duration)) + \
-                    "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
-                    ELBO_train, ENRE_train, KL_train))
+                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z1: {:.5g}, KL_z2: {:.5g}, KL_y: {:.5g}.".format(
+                    ELBO_train, ENRE_train, KL_z1_train, KL_z2_train, KL_y_train))
                 
                 ## Validation
                 
                 evaluating_time_start = time()
                 
                 ELBO_valid = 0
-                KL_valid = 0
                 ENRE_valid = 0
+                KL_z1_valid = 0
+                KL_z2_valid = 0
+                KL_y_valid = 0
                 
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
@@ -1009,35 +1024,45 @@ class ClusterAwareGenerativeModel(object):
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
                     
-                    ELBO_i, KL_i, ENRE_i = session.run(
-                        [self.ELBO, self.KL, self.ENRE],
+                    ELBO_i, ENRE_i, KL_z1_i, KL_z2_i, KL_y_i = session.run(
+                        [self.ELBO, self.ENRE, self.KL_z1, self.KL_z2, self.KL_y],
                         feed_dict = feed_dict_batch
                     )
                     
                     ELBO_valid += ELBO_i
-                    KL_valid += KL_i
                     ENRE_valid += ENRE_i
-                
+                    KL_z1_valid += KL_z1_i
+                    KL_z2_valid += KL_z2_i
+                    KL_y_valid += KL_y_i
+                                    
                 ELBO_valid /= M_valid / batch_size
-                KL_valid /= M_valid / batch_size
                 ENRE_valid /= M_valid / batch_size
+                KL_z1_valid /= M_valid / batch_size
+                KL_z2_valid /= M_valid / batch_size
+                KL_y_valid /= M_valid / batch_size
+                                
+                evaluating_duration = time() - evaluating_time_start
                 
                 summary = tf.Summary()
                 summary.value.add(tag="losses/lower_bound",
                     simple_value = ELBO_valid)
                 summary.value.add(tag="losses/reconstruction_error",
                     simple_value = ENRE_valid)
-                summary.value.add(tag="losses/kl_divergence",
-                    simple_value = KL_valid)
-                validation_summary_writer.add_summary(summary,
-                    global_step = epoch + 1)
-                validation_summary_writer.flush()
+                summary.value.add(tag="losses/kl_divergence_z1",
+                    simple_value = KL_z1_valid)                
+                summary.value.add(tag="losses/kl_divergence_z2",
+                    simple_value = KL_z2_valid)
+                summary.value.add(tag="losses/kl_divergence_y",
+                    simple_value = KL_y_valid)
                 
-                evaluating_duration = time() - evaluating_time_start
+                training_summary_writer.add_summary(summary,
+                    global_step = epoch + 1)
+                training_summary_writer.flush()
+                
                 print("    Validation set ({}): ".format(
                     formatDuration(evaluating_duration)) + \
-                    "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
-                    ELBO_valid, ENRE_valid, KL_valid))
+                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z1: {:.5g}, KL_z2: {:.5g}, KL_y: {:.5g}.".format(
+                    ELBO_valid, ENRE_valid, KL_z1_valid, KL_z2_valid, KL_y_valid))
                 
                 print()
             
@@ -1066,12 +1091,20 @@ class ClusterAwareGenerativeModel(object):
         M_test = test_set.number_of_examples
         F_test = test_set.number_of_features
         
-        x_test = test_set.preprocessed_values
+        noisy_preprocess = test_set.noisy_preprocess
         
-        if self.reconstruction_distribution_name == "bernoulli":
-            t_test = binarise(test_set.values)
+        if not noisy_preprocess:
+            
+            x_test = test_set.preprocessed_values
+        
+            if self.reconstruction_distribution_name == "bernoulli":
+                t_test = binarise(test_set.values)
+            else:
+                t_test = test_set.values
+            
         else:
-            t_test = test_set.values
+            x_test = noisy_preprocess(test_set.values)
+            t_test = x_test
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
@@ -1095,12 +1128,16 @@ class ClusterAwareGenerativeModel(object):
             evaluating_time_start = time()
             
             ELBO_test = 0
-            KL_test = 0
             ENRE_test = 0
+            KL_z1_test = 0
+            KL_z2_test = 0
+            KL_y_test = 0
             
-            x_tilde_test = numpy.empty([M_test, F_test])
-            z_mean_test = numpy.empty([M_test, self.Dim_z])
-            
+            x_mean_test = numpy.empty([M_test, F_test])
+            z1_mean_test = numpy.empty([M_test, self.Dim_z])
+            z2_mean_test = numpy.empty([M_test, self.Dim_z])
+            y_mean_test = numpy.empty([M_test, self.Dim_y])
+
             for i in range(0, M_test, batch_size):
                 subset = slice(i, (i + batch_size))
                 x_batch = x_test[subset]
@@ -1116,47 +1153,46 @@ class ClusterAwareGenerativeModel(object):
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
                 
-                ELBO_i, KL_i, ENRE_i, x_tilde_i, z_mean_i = session.run(
+                ELBO_i, KL_i, ENRE_i, x_mean_i, z1_mean_i, z2_mean_i, y_mean_i = session.run(
                     [self.ELBO, self.KL, self.ENRE,
-                        self.x_tilde_mean, self.z_mean],
+                        self.x_mean, self.z1_mean, self.z2_mean, self.y_mean],
                     feed_dict = feed_dict_batch
                 )
                 
                 ELBO_test += ELBO_i
-                KL_test += KL_i
                 ENRE_test += ENRE_i
+                KL_z1_test += KL_z1_i
+                KL_z2_test += KL_z2_i
+                KL_y_test += KL_y_i
                 
-                # E[p(x|z)]: Reshape and mean over all the iw and mc samples.
-                x_tilde_test[subset] = numpy.mean(numpy.reshape(x_tilde_i, 
-                    [
-                        self.number_of_importance_samples["evaluation"]
-                        * self.number_of_monte_carlo_samples["evaluation"] 
-                        , -1
-                        , F_test
-                    ]
-                ), axis = 0)
-                z_mean_test[subset] = z_mean_i
+                x_mean_test[subset] = x_mean_i
+                z1_mean_test[subset] = z1_mean_i
+                z2_mean_test[subset] = z2_mean_i
+                y_mean_test[subset] = y_mean_i
             
             ELBO_test /= M_test / batch_size
-            KL_test /= M_test / batch_size
             ENRE_test /= M_test / batch_size
+            KL_z1_test /= M_test / batch_size
+            KL_z2_test /= M_test / batch_size
+            KL_y_test /= M_test / batch_size
             
             summary = tf.Summary()
             summary.value.add(tag="losses/lower_bound",
                 simple_value = ELBO_test)
             summary.value.add(tag="losses/reconstruction_error",
                 simple_value = ENRE_test)
-            summary.value.add(tag="losses/kl_divergence",
-                simple_value = KL_test)
-            test_summary_writer.add_summary(summary,
-                global_step = epoch)
-            test_summary_writer.flush()
+            summary.value.add(tag="losses/kl_divergence_z1",
+                simple_value = KL_z1_test)                
+            summary.value.add(tag="losses/kl_divergence_z2",
+                simple_value = KL_z2_test)
+            summary.value.add(tag="losses/kl_divergence_y",
+                simple_value = KL_y_test)
             
             evaluating_duration = time() - evaluating_time_start
-            print("Test set ({}): ".format(
-                formatDuration(evaluating_duration)) + \
-                "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
-                ELBO_test, ENRE_test, KL_test))
+            print("    Test set ({}): ".format(
+                    formatDuration(evaluating_duration)) + \
+                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z1: {:.5g}, KL_z2: {:.5g}, KL_y: {:.5g}.".format(
+                    ELBO_test, ENRE_test, KL_z1_test, KL_z2_test, KL_y_test))
             
             if self.reconstruction_distribution_name == "bernoulli":
                 transformed_test_set = DataSet(
@@ -1176,7 +1212,7 @@ class ClusterAwareGenerativeModel(object):
             
             reconstructed_test_set = DataSet(
                 name = test_set.name,
-                values = x_tilde_test,
+                values = x_mean_test,
                 preprocessed_values = None,
                 labels = test_set.labels,
                 example_names = test_set.example_names,
@@ -1187,18 +1223,46 @@ class ClusterAwareGenerativeModel(object):
                 version = "reconstructed"
             )
             
-            latent_test_set = DataSet(
+            z1_test_set = DataSet(
                 name = test_set.name,
-                values = z_mean_test,
+                values = z1_mean_test,
                 preprocessed_values = None,
                 labels = test_set.labels,
                 example_names = test_set.example_names,
-                feature_names = numpy.array(["latent variable {}".format(
+                feature_names = numpy.array(["z_1 variable {}".format(
                     i + 1) for i in range(self.Dim_z)]),
                 feature_selection = test_set.feature_selection,
                 preprocessing_methods = test_set.preprocessing_methods,
                 kind = "test",
-                version = "latent"
+                version = "z1"
             )
             
+            z2_test_set = DataSet(
+                name = test_set.name,
+                values = z2_mean_test,
+                preprocessed_values = None,
+                labels = test_set.labels,
+                example_names = test_set.example_names,
+                feature_names = numpy.array(["z_2 variable {}".format(
+                    i + 1) for i in range(self.Dim_z)]),
+                feature_selection = test_set.feature_selection,
+                preprocessing_methods = test_set.preprocessing_methods,
+                kind = "test",
+                version = "z2"
+            )
+
+            y_test_set = DataSet(
+                name = test_set.name,
+                values = y_mean_test,
+                preprocessed_values = None,
+                labels = test_set.labels,
+                example_names = test_set.example_names,
+                feature_names = numpy.array(["y variable {}".format(
+                    i + 1) for i in range(self.Dim_y)]),
+                feature_selection = test_set.feature_selection,
+                preprocessing_methods = test_set.preprocessing_methods,
+                kind = "test",
+                version = "y"
+            )
+
             return transformed_test_set, reconstructed_test_set, latent_test_set
