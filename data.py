@@ -260,7 +260,7 @@ class DataSet(object):
         
         # Noisy preprocessing
         self.noisy_preprocessing = noisy_preprocessing
-        self.noisy_preprocess = lambda x: x
+        self.noisy_preprocess = None
         
         if self.preprocessed or not self.preprocessing_methods:
             self.noisy_preprocessing = False
@@ -493,9 +493,8 @@ class DataSet(object):
                 "feature names": feature_names
             }
             
-            # TODO Reeanble
-            # print("Saving preprocessed data set in sparse representation.")
-            # saveAsSparseData(data_dictionary, sparse_path)
+            print("Saving preprocessed data set in sparse representation.")
+            saveAsSparseData(data_dictionary, sparse_path)
         
         self.update(
             values = data_dictionary["values"],
@@ -547,9 +546,8 @@ class DataSet(object):
                 "feature names": self.feature_names
             }
             
-            # TODO Reeanble
-            # print("Saving binarised data set in sparse representation.")
-            # saveAsSparseData(data_dictionary, sparse_path)
+            print("Saving binarised data set in sparse representation.")
+            saveAsSparseData(data_dictionary, sparse_path)
         
         self.update(
             binarised_values = data_dictionary["preprocessed values"],
@@ -602,9 +600,8 @@ class DataSet(object):
             
             print()
             
-            # TODO Reeanble
-            # print("Saving split data sets in sparse representation.")
-            # saveAsSparseData(split_data_dictionary, sparse_path)
+            print("Saving split data sets in sparse representation.")
+            saveAsSparseData(split_data_dictionary, sparse_path)
         
         training_set = DataSet(
             name = self.name,

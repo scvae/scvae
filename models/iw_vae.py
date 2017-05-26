@@ -16,7 +16,7 @@ import os, shutil
 from time import time
 from auxiliary import formatDuration, normaliseString
 
-from data import DataSet, binarise
+from data import DataSet
 
 class ImportanceWeightedVariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
@@ -666,16 +666,20 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         M_train = training_set.number_of_examples
         M_valid = validation_set.number_of_examples
         
-        x_train = training_set.preprocessed_values
-        x_valid = validation_set.preprocessed_values
+        noisy_preprocess = training_set.noisy_preprocess
         
-        if self.reconstruction_distribution_name == "bernoulli":
-            t_train = binarise(training_set.values)
-            t_valid = binarise(validation_set.values)
-        else:
-            t_train = training_set.values
-            t_valid = validation_set.values
+        if not noisy_preprocess:
+            
+            x_train = training_set.preprocessed_values
+            x_valid = validation_set.preprocessed_values
         
+            if self.reconstruction_distribution_name == "bernoulli":
+                t_train = training_set.binarised_values
+                t_valid = validation_set.binarised_values
+            else:
+                t_train = training_set.values
+                t_valid = validation_set.values
+            
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
         
@@ -710,7 +714,13 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             for epoch in range(epoch_start, number_of_epochs):
                 
                 epoch_time_start = time()
-
+                
+                if noisy_preprocess:
+                    x_train = noisy_preprocess(training_set.values)
+                    t_train = x_train
+                    x_valid = noisy_preprocess(validation_set.values)
+                    t_valid = x_valid
+                
                 if self.number_of_warm_up_epochs:
                     warm_up_weight = float(min(
                         epoch / (self.number_of_warm_up_epochs), 1.0))
@@ -947,12 +957,20 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         M_test = test_set.number_of_examples
         F_test = test_set.number_of_features
         
-        x_test = test_set.preprocessed_values
+        noisy_preprocess = test_set.noisy_preprocess
         
-        if self.reconstruction_distribution_name == "bernoulli":
-            t_test = binarise(test_set.values)
+        if not noisy_preprocess:
+            
+            x_test = test_set.preprocessed_values
+        
+            if self.reconstruction_distribution_name == "bernoulli":
+                t_test = binarise(test_set.values)
+            else:
+                t_test = test_set.values
+            
         else:
-            t_test = test_set.values
+            x_test_original = noisy_preprocess(test_set.values)
+            t_test_original = x_test_original
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
