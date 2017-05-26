@@ -209,7 +209,7 @@ data_sets = {
 
 class DataSet(object):
     def __init__(self, name,
-        values = None, preprocessed_values = None,
+        values = None, preprocessed_values = None, binarised_values = None,
         labels = None, example_names = None, feature_names = None,
         feature_selection = None, feature_parameter = None,
         preprocessing_methods = [], preprocessed = None,
@@ -231,12 +231,13 @@ class DataSet(object):
         self.values = None
         self.count_sum = None
         self.preprocessed_values = None
+        self.binarised_values = None
         self.labels = None
         self.example_names = None
         self.feature_names = None
         self.number_of_examples = None
         self.number_of_features = None
-        self.update(values, preprocessed_values, labels, example_names,
+        self.update(values, preprocessed_values, binarised_values, labels, example_names,
             feature_names)
         
         # Feature selction and preprocessing methods
@@ -315,8 +316,11 @@ class DataSet(object):
             
             if self.preprocessed_values is None:
                 self.preprocess()
+                if not noisy_preprocessing:
+                    self.binarise()
     
-    def update(self, values = None, preprocessed_values = None, labels = None,
+    def update(self, values = None, preprocessed_values = None,
+        binarised_values = None, labels = None,
         example_names = None, feature_names = None):
         
         if values is not None:
@@ -352,6 +356,9 @@ class DataSet(object):
         
         if preprocessed_values is not None:
             self.preprocessed_values = preprocessed_values
+        
+        if binarised_values is not None:
+            self.binarised_values = binarised_values
     
     def load(self):
         
@@ -439,12 +446,18 @@ class DataSet(object):
         else:
             if not self.preprocessed and not self.noisy_preprocessing \
                 and self.preprocessing_methods:
-                    preprocessing_function = preprocessingFunctionForDataSet(
-                        self.title, self.preprocessing_methods, self.preprocessedPath)
-                    preprocessed_values = preprocessValues(
-                        self.values, preprocessing_function)
                     
-                    print()
+                print("Preprocessing values.")
+                start_time = time()
+                
+                preprocessing_function = preprocessingFunctionForDataSet(
+                    self.title, self.preprocessing_methods, self.preprocessedPath)
+                preprocessed_values = preprocessing_function(self.values)
+                
+                duration = time() - start_time
+                print("Values preprocessed ({}).".format(formatDuration(duration)))
+                
+                print()
             
             else:
                 if self.noisy_preprocessing:
@@ -480,13 +493,66 @@ class DataSet(object):
                 "feature names": feature_names
             }
             
-            print("Saving preprocessed data set in sparse representation.")
-            saveAsSparseData(data_dictionary, sparse_path)
+            # TODO Reeanble
+            # print("Saving preprocessed data set in sparse representation.")
+            # saveAsSparseData(data_dictionary, sparse_path)
         
         self.update(
             values = data_dictionary["values"],
             preprocessed_values = data_dictionary["preprocessed values"],
             feature_names = data_dictionary["feature names"]
+        )
+        
+        print()
+    
+    def binarise(self):
+        
+        if self.preprocessed_values is None:
+            raise NotImplementedError("Data set values have to have been preprocessed",
+                "and feature selected first.")
+        
+        binarise_preprocessing = ["binarise"]
+        
+        sparse_path = self.preprocessedPath(
+            preprocessing_methods = binarise_preprocessing,
+            feature_selection = self.feature_selection, 
+            feature_parameter = self.feature_parameter
+        )
+        
+        if os.path.isfile(sparse_path):
+            print("Loading binarised data from sparse representation.")
+            data_dictionary = loadFromSparseData(sparse_path)
+        
+        else:
+            if self.preprocessing_methods != binarise_preprocessing:
+                
+                print("Binarising values.")
+                start_time = time()
+                
+                binarisation_function = preprocessingFunctionForDataSet(
+                    self.title, binarise_preprocessing, self.preprocessedPath)
+                binarised_values = binarisation_function(self.values)
+                
+                duration = time() - start_time
+                print("Values binarised ({}).".format(formatDuration(duration)))
+                
+                print()
+            
+            elif self.preprocessing_methods == binarise_preprocessing:
+                binarised_values = self.preprocessed_values
+            
+            data_dictionary = {
+                "values": self.values,
+                "preprocessed values": binarised_values,
+                "feature names": self.feature_names
+            }
+            
+            # TODO Reeanble
+            # print("Saving binarised data set in sparse representation.")
+            # saveAsSparseData(data_dictionary, sparse_path)
+        
+        self.update(
+            binarised_values = data_dictionary["preprocessed values"],
         )
         
         print()
@@ -525,6 +591,7 @@ class DataSet(object):
             data_dictionary = {
                 "values": self.values,
                 "preprocessed values": self.preprocessed_values,
+                "binarised values": self.binarised_values,
                 "labels": self.labels,
                 "example names": self.example_names,
                 "split indices": self.split_indices
@@ -535,14 +602,17 @@ class DataSet(object):
             
             print()
             
-            print("Saving split data sets in sparse representation.")
-            saveAsSparseData(split_data_dictionary, sparse_path)
+            # TODO Reeanble
+            # print("Saving split data sets in sparse representation.")
+            # saveAsSparseData(split_data_dictionary, sparse_path)
         
         training_set = DataSet(
             name = self.name,
             values = split_data_dictionary["training set"]["values"],
             preprocessed_values = \
                 split_data_dictionary["training set"]["preprocessed values"],
+            binarised_values = \
+                split_data_dictionary["training set"]["binarised values"],
             labels = split_data_dictionary["training set"]["labels"],
             example_names = split_data_dictionary["training set"]["example names"],
             feature_names = self.feature_names,
@@ -556,6 +626,8 @@ class DataSet(object):
             values = split_data_dictionary["validation set"]["values"],
             preprocessed_values = \
                 split_data_dictionary["validation set"]["preprocessed values"],
+            binarised_values = \
+                split_data_dictionary["validation set"]["binarised values"],
             labels = split_data_dictionary["validation set"]["labels"],
             example_names = split_data_dictionary["validation set"]["example names"],
             feature_names = self.feature_names,
@@ -569,6 +641,8 @@ class DataSet(object):
             values = split_data_dictionary["test set"]["values"],
             preprocessed_values = \
                 split_data_dictionary["test set"]["preprocessed values"],
+            binarised_values = \
+                split_data_dictionary["test set"]["binarised values"],
             labels = split_data_dictionary["test set"]["labels"],
             example_names = split_data_dictionary["test set"]["example names"],
             feature_names = self.feature_names,
@@ -773,30 +847,37 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None, f
 def normalisationFunctionForDataSet(title):
     if "maximum value" in data_sets[title]:
         maximum_value = data_sets[title]["maximum value"]
-        normalisation_function = lambda x: x / maximum_value
+        normalisation_function = lambda values: values / maximum_value
+        if not "original maximum value" in data_sets[title]:
+            data_sets[title]["original maximum value"] = maximum_value
+        data_sets[title]["maximum value"] = 1
     else:
-        normalisation_function = lambda x: sklearn.preprocessing.normalize(
-            x, norm = 'l2', axis = 1)
+        normalisation_function = lambda values: sklearn.preprocessing.normalize(
+            values, norm = 'l2', axis = 1)
     return normalisation_function
 
 def bernoulliSample(x):
     return numpy.random.binomial(1, x)
 
-def binarisationFunction(noisy = False):
-    if noisy:
-        binarisation_function = bernoulliSample
+def binarisationFunctionForDataSet(title, noisy = False):
+    if "maximum value" in data_sets[title]:
+        normalisation = data_sets[title]["maximum value"]
     else:
-        binarisation_function = lambda x: sklearn.preprocessing.binarize(
-            x, threshold = 0.5)
+        normalisation = 1
+    
+    if noisy:
+        binarisation_function = lambda values: bernoulliSample(
+            values / normalisation)
+    else:
+        binarisation_function = lambda values: sklearn.preprocessing.binarize(
+            values / normalisation, threshold = 0.5)
+    
     return binarisation_function
 
 def preprocessingFunctionForDataSet(title, preprocessing_methods = [],
     preprocessPath = None, noisy = False):
     
     preprocesses = []
-    
-    normalise = normalisationFunctionForDataSet(title)
-    binarise = binarisationFunction(noisy)
     
     for preprocessing_method in preprocessing_methods:
         
@@ -806,10 +887,10 @@ def preprocessingFunctionForDataSet(title, preprocessing_methods = [],
                 preprocessPath)
         
         elif preprocessing_method == "normalise":
-            preprocess = normalise
+            preprocess = normalisationFunctionForDataSet(title)
         
         elif preprocessing_method == "binarise":
-            preprocess = binarise
+            preprocess = binarisationFunctionForDataSet(title, noisy)
         
         else:
             preprocess = lambda x: x
@@ -822,19 +903,11 @@ def preprocessingFunctionForDataSet(title, preprocessing_methods = [],
         x
     )
     
+    if "original maximum value" in data_sets[title]:
+        data_sets[title]["maximum value"] = \
+            data_sets[title]["original maximum value"]
+    
     return preprocessing_function
-
-def preprocessValues(values, preprocessing_function = None):
-    
-    print("Preprocessing values.")
-    start_time = time()
-    
-    preprocessed_values = preprocessing_function(values)
-    
-    duration = time() - start_time
-    print("Values preprocessed ({}).".format(formatDuration(duration)))
-    
-    return preprocessed_values
 
 def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
     
@@ -887,18 +960,21 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
         "training set": {
             "values": data_dictionary["values"][training_indices],
             "preprocessed values": None,
+            "binarised values": None,
             "labels": None,
             "example names": data_dictionary["example names"][training_indices]
         },
         "validation set": {
             "values": data_dictionary["values"][validation_indices],
             "preprocessed values": None,
+            "binarised values": None,
             "labels": None,
             "example names": data_dictionary["example names"][validation_indices]
         },
         "test set": {
             "values": data_dictionary["values"][test_indices],
             "preprocessed values": None,
+            "binarised values": None,
             "labels": None,
             "example names": data_dictionary["example names"][test_indices]
         },
@@ -919,6 +995,14 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
             data_dictionary["preprocessed values"][validation_indices]
         split_data_dictionary["test set"]["preprocessed values"] = \
             data_dictionary["preprocessed values"][test_indices]
+    
+    if "binarised values" in data_dictionary:
+        split_data_dictionary["training set"]["binarised values"] = \
+            data_dictionary["binarised values"][training_indices]
+        split_data_dictionary["validation set"]["binarised values"] = \
+            data_dictionary["binarised values"][validation_indices]
+        split_data_dictionary["test set"]["binarised values"] = \
+            data_dictionary["binarised values"][test_indices]
     
     duration = time() - start_time
     print("Data set split ({}).".format(formatDuration(duration)))
