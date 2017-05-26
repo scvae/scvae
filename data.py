@@ -260,7 +260,7 @@ class DataSet(object):
         
         # Noisy preprocessing
         self.noisy_preprocessing = noisy_preprocessing
-        self.noisy_preproces = lambda x: x
+        self.noisy_preprocess = lambda x: x
         
         if self.preprocessed or not self.preprocessing_methods:
             self.noisy_preprocessing = False
@@ -439,10 +439,16 @@ class DataSet(object):
                 feature_parameter = self.feature_parameter
             )
         
+        if self.noisy_preprocessing:
+            self.noisy_preprocess = preprocessingFunctionForDataSet(
+                self.title, self.preprocessing_methods, self.preprocessedPath,
+                noisy = True
+            )
+        
         if os.path.isfile(sparse_path):
             print("Loading preprocessed data from sparse representation.")
             data_dictionary = loadFromSparseData(sparse_path)
-        
+            data_dictionary["preprocessed values"] = self.values
         else:
             if not self.preprocessed and not self.noisy_preprocessing \
                 and self.preprocessing_methods:
@@ -460,12 +466,6 @@ class DataSet(object):
                 print()
             
             else:
-                if self.noisy_preprocessing:
-                    self.noisy_preproces = preprocessingFunctionForDataSet(
-                        self.title, self.preprocessing_methods, self.preprocessedPath,
-                        noisy = True
-                    )
-                
                 preprocessed_values = self.values
             
             if self.feature_selection:
@@ -620,6 +620,7 @@ class DataSet(object):
             preprocessing_methods = self.preprocessing_methods,
             kind = "training"
         )
+        training_set.noisy_preprocess = self.noisy_preprocess
         
         validation_set = DataSet(
             name = self.name,
@@ -635,6 +636,7 @@ class DataSet(object):
             preprocessing_methods = self.preprocessing_methods,
             kind = "validation"
         )
+        validation_set.noisy_preprocess = self.noisy_preprocess
         
         test_set = DataSet(
             name = self.name,
@@ -650,6 +652,7 @@ class DataSet(object):
             preprocessing_methods = self.preprocessing_methods,
             kind = "test"
         )
+        test_set.noisy_preprocess = self.noisy_preprocess
         
         print()
         
@@ -665,6 +668,8 @@ class DataSet(object):
         )
         
         print()
+        
+        numpy.random.seed()
         
         return training_set, validation_set, test_set
 
@@ -856,8 +861,8 @@ def normalisationFunctionForDataSet(title):
             values, norm = 'l2', axis = 1)
     return normalisation_function
 
-def bernoulliSample(x):
-    return numpy.random.binomial(1, x)
+def bernoulliSample(p):
+    return numpy.random.binomial(1, p)
 
 def binarisationFunctionForDataSet(title, noisy = False):
     if "maximum value" in data_sets[title]:
@@ -988,7 +993,9 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
         split_data_dictionary["test set"]["labels"] = \
             data_dictionary["labels"][test_indices]
     
-    if "preprocessed values" in data_dictionary:
+    if "preprocessed values" in data_dictionary \
+        and data_dictionary["preprocessed values"] is not None:
+        
         split_data_dictionary["training set"]["preprocessed values"] = \
             data_dictionary["preprocessed values"][training_indices]
         split_data_dictionary["validation set"]["preprocessed values"] = \
@@ -996,7 +1003,9 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
         split_data_dictionary["test set"]["preprocessed values"] = \
             data_dictionary["preprocessed values"][test_indices]
     
-    if "binarised values" in data_dictionary:
+    if "binarised values" in data_dictionary \
+        and data_dictionary["binarised values"] is not None:
+        
         split_data_dictionary["training set"]["binarised values"] = \
             data_dictionary["binarised values"][training_indices]
         split_data_dictionary["validation set"]["binarised values"] = \
