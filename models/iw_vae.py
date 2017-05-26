@@ -1079,7 +1079,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             # Data sets
             
-            if self.reconstruction_distribution_name == "bernoulli":
+            if noisy_preprocess and \
+                self.reconstruction_distribution_name == "bernoulli":
+                
                 transformed_test_set = DataSet(
                     name = test_set.name,
                     values = t_test,

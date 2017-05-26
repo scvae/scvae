@@ -888,7 +888,9 @@ class VariationalAutoEncoder(object):
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                 ELBO_test, ENRE_test, KL_test))
             
-            if self.reconstruction_distribution_name == "bernoulli":
+            if noisy_preprocess and \
+                self.reconstruction_distribution_name == "bernoulli":
+                
                 transformed_test_set = DataSet(
                     name = test_set.name,
                     values = t_test,

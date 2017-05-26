@@ -629,7 +629,9 @@ class SimpleNeuralNetwork(object):
                 formatDuration(evaluating_duration)) + \
                 "log-likelihood: {:.5g}".format(log_likelihood_test))
             
-            if self.reconstruction_distribution_name == "bernoulli":
+            if noisy_preprocess and \
+                self.reconstruction_distribution_name == "bernoulli":
+                
                 transformed_test_set = DataSet(
                     name = test_set.name,
                     values = t_test,
