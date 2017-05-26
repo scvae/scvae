@@ -8,8 +8,9 @@ from tensorflow.contrib.layers import (
 from tensorflow.python.ops.nn import relu
 
 ## N(mu=0,sigma=sqrt(2/n_in)) weight and 0-bias initialiser.
-weights_init = variance_scaling_initializer(factor=2.0, mode ='FAN_IN', 
-    uniform = False, seed = None, dtype = tf.float32)
+# weights_init = variance_scaling_initializer(factor=2.0, mode ='FAN_IN', 
+#     uniform = False, seed = None, dtype = tf.float32)
+weights_init = xavier_initializer()
 
 def prelu(inputs, is_training, scope):
     with tf.variable_scope(scope):
@@ -18,7 +19,7 @@ def prelu(inputs, is_training, scope):
 
 
 # Wrapper layer for inserting batch normalization in between linear and nonlinear activation layers.
-def dense_layer(inputs, num_outputs, is_training, scope, activation_fn = None,
+def dense_layer(inputs, num_outputs, is_training = True, scope = "layer", activation_fn = None,
     batch_normalisation = False, decay = 0.999, center = True, scale = False):
     
     with tf.variable_scope(scope):
@@ -46,7 +47,7 @@ def dense_layer(inputs, num_outputs, is_training, scope, activation_fn = None,
     return outputs
 
 # Wrapper layer for inserting batch normalization in between linear and nonlinear activation layers.
-def dense_layers(inputs, num_outputs, is_training, scope, activation_fn = None,
+def dense_layers(inputs, num_outputs, is_training = True, scope = "layers", activation_fn = None,
     batch_normalisation = False, decay = 0.999, center = True, scale = False):
     if not isinstance(num_outputs, list):
         num_outputs = [num_outputs]
