@@ -16,8 +16,6 @@ import argparse
 import json
 import itertools
 
-# TODO Add argument to skip modelling.
-
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     feature_selection = None, feature_parameter = None,
@@ -429,7 +427,8 @@ def validateModelConfiguration(model_configuration):
     errors = []
     
     model_type = model_configuration["model type"]
-    latent_distribution = model_configuration["latent distribution"]
+    if "AE" in model_type:
+        latent_distribution = model_configuration["latent distribution"]
     reconstruction_distribution = \
         model_configuration["reconstruction distribution"]
     number_of_reconstruction_classes = \
@@ -483,16 +482,17 @@ def validateModelConfiguration(model_configuration):
     
     # Latent distribution
     
-    latent_distribution_validity = True
-    latent_distribution_error = ""
+    if "AE" in model_type:
+        latent_distribution_validity = True
+        latent_distribution_error = ""
     
-    if model_type == "OVAE" and "mixture" in latent_distribution:
-        latent_distribution_error = "Mixture latent distribution with " + \
-            "original variational auto-encoder."
-        latent_distribution_validity = False
+        if model_type == "OVAE" and "mixture" in latent_distribution:
+            latent_distribution_error = "Mixture latent distribution with " + \
+                "original variational auto-encoder."
+            latent_distribution_validity = False
     
-    validity = validity and latent_distribution_validity
-    errors.append(latent_distribution_error)
+        validity = validity and latent_distribution_validity
+        errors.append(latent_distribution_error)
     
     # Return
     
