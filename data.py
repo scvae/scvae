@@ -87,7 +87,8 @@ data_sets = {
                     "full": "http://deeplearning.net/data/mnist/mnist.pkl.gz"
             }
         },
-        "load function": lambda x: loadNormalisedMNISTDataSet(x)
+        "load function": lambda x: loadNormalisedMNISTDataSet(x),
+        "maximum value": 1
     },
     
     "MNIST (binarised)": {
@@ -113,7 +114,8 @@ data_sets = {
                     "test": None
             },
         },
-        "load function": lambda x: loadBinarisedMNISTDataSet(x)
+        "load function": lambda x: loadBinarisedMNISTDataSet(x),
+        "maximum value": 1
     },
     
     "Reuters": {
@@ -211,7 +213,7 @@ class DataSet(object):
         labels = None, example_names = None, feature_names = None,
         feature_selection = None, feature_parameter = None,
         preprocessing_methods = [], preprocessed = None,
-        kind = "full", version = "original",
+        kind = "full", version = "original", noisy_preprocessing = False,
         directory = "data"):
         
         super(DataSet, self).__init__()
@@ -255,6 +257,13 @@ class DataSet(object):
         if self.preprocessed:
             self.preprocessing_methods = data_set_preprocessing_methods
         
+        # Noisy preprocessing
+        self.noisy_preprocessing = noisy_preprocessing
+        self.noisy_preproces = lambda x: x
+        
+        if self.preprocessed or not self.preprocessing_methods:
+            self.noisy_preprocessing = False
+        
         # Kind of data set (full, training, validation, test)
         self.kind = kind
         
@@ -290,6 +299,7 @@ class DataSet(object):
                 print("    processing methods:")
                 for preprocessing_method in self.preprocessing_methods:
                     print("        ", preprocessing_method)
+                
             elif self.preprocessed:
                 print("    processing methods: already done")
             else:
@@ -403,31 +413,46 @@ class DataSet(object):
             feature_parameter = None
     
         return feature_parameter
-
+        
     def preprocess(self):
         
         if not self.preprocessing_methods and not self.feature_selection:
             self.update(preprocessed_values = self.values)
             return
         
-        sparse_path = self.preprocessedPath(
-            preprocessing_methods = self.preprocessing_methods,
-            feature_selection = self.feature_selection, 
-            feature_parameter = self.feature_parameter
-        )
+        if self.noisy_preprocessing:
+            sparse_path = self.preprocessedPath(
+                feature_selection = self.feature_selection, 
+                feature_parameter = self.feature_parameter
+            )
+        else:
+            sparse_path = self.preprocessedPath(
+                preprocessing_methods = self.preprocessing_methods,
+                feature_selection = self.feature_selection, 
+                feature_parameter = self.feature_parameter
+            )
         
         if os.path.isfile(sparse_path):
             print("Loading preprocessed data from sparse representation.")
             data_dictionary = loadFromSparseData(sparse_path)
         
         else:
-            if not self.preprocessed and self.preprocessing_methods:
-                preprocessed_values = preprocessValues(self.values,
-                    self.preprocessing_methods, self.preprocessedPath)
-                
-                print()
+            if not self.preprocessed and not self.noisy_preprocessing \
+                and self.preprocessing_methods:
+                    preprocessing_function = preprocessingFunctionForDataSet(
+                        self.title, self.preprocessing_methods, self.preprocessedPath)
+                    preprocessed_values = preprocessValues(
+                        self.values, preprocessing_function)
+                    
+                    print()
             
             else:
+                if self.noisy_preprocessing:
+                    self.noisy_preproces = preprocessingFunctionForDataSet(
+                        self.title, self.preprocessing_methods, self.preprocessedPath,
+                        noisy = True
+                    )
+                
                 preprocessed_values = self.values
             
             if self.feature_selection:
@@ -745,12 +770,33 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None, f
     
     return feature_selected_values, feature_selected_feature_names
 
-def preprocessValues(values, preprocessing_methods = [], preprocessPath = None):
-    
-    print("Preprocessing values.")
-    start_time = time()
+def normalisationFunctionForDataSet(title):
+    if "maximum value" in data_sets[title]:
+        maximum_value = data_sets[title]["maximum value"]
+        normalisation_function = lambda x: x / maximum_value
+    else:
+        normalisation_function = lambda x: sklearn.preprocessing.normalize(
+            x, norm = 'l2', axis = 1)
+    return normalisation_function
+
+def bernoulliSample(x):
+    return numpy.random.binomial(1, x)
+
+def binarisationFunction(noisy = False):
+    if noisy:
+        binarisation_function = bernoulliSample
+    else:
+        binarisation_function = lambda x: sklearn.preprocessing.binarize(
+            x, threshold = 0.5)
+    return binarisation_function
+
+def preprocessingFunctionForDataSet(title, preprocessing_methods = [],
+    preprocessPath = None, noisy = False):
     
     preprocesses = []
+    
+    normalise = normalisationFunctionForDataSet(title)
+    binarise = binarisationFunction(noisy)
     
     for preprocessing_method in preprocessing_methods:
         
@@ -770,7 +816,20 @@ def preprocessValues(values, preprocessing_methods = [], preprocessPath = None):
         
         preprocesses.append(preprocess)
     
-    preprocessed_values = reduce(lambda v, p: p(v), preprocesses, values)
+    preprocessing_function = lambda x: reduce(
+        lambda v, p: p(v),
+        preprocesses,
+        x
+    )
+    
+    return preprocessing_function
+
+def preprocessValues(values, preprocessing_function = None):
+    
+    print("Preprocessing values.")
+    start_time = time()
+    
+    preprocessed_values = preprocessing_function(values)
     
     duration = time() - start_time
     print("Values preprocessed ({}).".format(formatDuration(duration)))
@@ -1320,12 +1379,6 @@ def computeGiniIndices(data, epsilon = 1e-16, batch_size = 5000):
     
     return gini_indices
 
-def normalise(data):
-    return sklearn.preprocessing.normalize(data, norm = 'l2', axis = 1)
-
-def binarise(data):
-    return sklearn.preprocessing.binarize(data, threshold = 0.5)
-
 def computeInverseGlobalFrequencyWeights(data):
     
     print("Computing IDF weights.")
@@ -1360,6 +1413,9 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction):
         if data_set.feature_parameter:
             preprocessing_directory_parts.append(str(
                 data_set.feature_parameter))
+    
+    if data_set.noisy_preprocessing:
+        preprocessing_directory_parts.append("noisy")
     
     if data_set.preprocessing_methods:
         preprocessing_directory_parts.extend(map(normaliseString,

@@ -21,7 +21,7 @@ import itertools
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     feature_selection = None, feature_parameter = None,
-    preprocessing_methods = None,
+    preprocessing_methods = None, noisy_preprocessing = False,
     splitting_method = "default", splitting_fraction = 0.8,
     model_configurations_path = None, model_type = "VAE",
     latent_size = 50, hidden_sizes = [500],
@@ -44,7 +44,8 @@ def main(data_set_name, data_directory = "data",
         directory = data_directory,
         feature_selection = feature_selection,
         feature_parameter = feature_parameter,
-        preprocessing_methods = preprocessing_methods
+        preprocessing_methods = preprocessing_methods,
+        noisy_preprocessing = noisy_preprocessing
     )
     
     training_set, validation_set, test_set = data_set.split(
@@ -548,6 +549,18 @@ parser.add_argument(
     help = "methods for preprocessing data (applied in order)"
 )
 parser.add_argument(
+    "--noisy-preprocessing", "-N",
+    action = "store_true",
+    help = "use noisy preprocessing in every epoch"
+)
+parser.add_argument(
+    "--no-noisy-preprocessing",
+    dest = "noisy_preprocessing",
+    action = "store_false",
+    help = "only preprocess once before training"
+)
+parser.set_defaults(noisy_preprocessing = False)
+parser.add_argument(
     "--splitting-method", "-s",
     type = str,
     default = "random",
@@ -690,7 +703,7 @@ parser.add_argument(
     help = "reset already trained model"
 )
 parser.add_argument(
-    "--preform-modelling",
+    "--perform-modelling",
     dest = "skip_modelling",
     action = "store_false",
     help = "perform modelling"
