@@ -15,6 +15,8 @@ import os
 import gzip
 import pickle
 
+import re
+
 from time import time
 from auxiliary import formatTime, formatDuration, normaliseString, properString
 
@@ -150,7 +152,7 @@ def analyseModel(model, results_directory = "results"):
     
     # Heat map of KL for all latent neurons
     
-    if "AE" in model.type:
+    if "AE" in model.type and model.type != "CVAE":
         
         print("Plotting logarithm of KL divergence heat map.")
         heat_map_time_start = time()
@@ -193,7 +195,7 @@ def analyseAllModels(models_summaries, results_directory = "results"):
     
     print()
 
-def analyseResults(test_set, reconstructed_test_set, latent_test_set, model,
+def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     results_directory = "results"):
     
@@ -263,14 +265,24 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_set, model,
             metrics_string += \
                 "    log-likelihood: {:.5g}.\n".format(
                     evaluation_test["log_likelihood"][-1])
-        elif "VAE" in model.type:
+        elif "AE" in model.type:
             metrics_string += \
                 "    ELBO: {:.5g}.\n".format(
                     evaluation_test["lower_bound"][-1]) + \
                 "    ENRE: {:.5g}.\n".format(
-                    evaluation_test["reconstruction_error"][-1]) + \
-                "    KL:   {:.5g}.\n".format(
-                    evaluation_test["kl_divergence"][-1])
+                    evaluation_test["reconstruction_error"][-1])
+            if model.type != "CVAE":
+                metrics_string += \
+                    "    KL:   {:.5g}.\n".format(
+                        evaluation_test["kl_divergence"][-1])
+            else:
+                metrics_string += \
+                    "    KL_z1:   {:.5g}.\n".format(
+                        evaluation_test["kl_divergence_z1"][-1]) + \
+                    "    KL_z2:   {:.5g}.\n".format(
+                        evaluation_test["kl_divergence_z2"][-1]) + \
+                    "    KL_y:   {:.5g}.\n".format(
+                        evaluation_test["kl_divergence_y"][-1])
         metrics_string += "\n" + formatStatistics(x_statistics)
         metrics_string += "\n" + formatCountAccuracies(count_accuracies)
         metrics_file.write(metrics_string)
@@ -380,150 +392,172 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_set, model,
     
     # Latent space
     
-    if latent_test_set is not None:
+    if latent_test_sets is not None:
         
         analyseDecompositions(
-            latent_test_set,
+            latent_test_sets,
             colouring_data_set = test_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
             symbol = "$z$",
             title = "latent space",
+            specifier = lambda data_set: data_set.version,
             results_directory = results_directory
         )
 
-def analyseDecompositions(data_set, colouring_data_set = None,
+def analyseDecompositions(data_sets, colouring_data_set = None,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
-    symbol = "$x$", title = "data set", results_directory = "results"):
+    symbol = "$x$", title = "data set", specifier = None,
+    results_directory = "results"):
     
-    name = normaliseString(title)
+    if not isinstance(data_sets, (list, tuple)):
+        data_sets = [data_sets]
     
-    if not colouring_data_set:
-        colouring_data_set = data_set
+    ID = None
     
-    decomposition_methods.insert(0, None)
-    
-    for decomposition_method in decomposition_methods:
+    for data_set in data_sets:
         
-        if not decomposition_method:
-            if data_set.number_of_features == 2:
-                figure_labels = {
-                    "title": None,
-                    "x label": symbol + "$_1$",
-                    "y label": symbol + "$_2$"
-                }
+        name = normaliseString(title)
+        
+        if specifier:
+            ID = specifier(data_set)
+        
+        if ID:
+            name += "-" + str(ID)
+            title_with_ID = title + " for " + ID
+        else:
+            title_with_ID = title
+        
+        if not colouring_data_set:
+            colouring_data_set = data_set
+    
+        decomposition_methods.insert(0, None)
+    
+        for decomposition_method in decomposition_methods:
+        
+            if not decomposition_method:
+                if data_set.number_of_features == 2:
+                    figure_labels = {
+                        "title": None,
+                        "x label": symbol + "$_1$",
+                        "y label": symbol + "$_2$"
+                    }
                 
-                values = data_set.values
-            else:
-                continue
-        else:    
-            decomposition_method = properString(decomposition_method,
-                decomposition_method_names)
+                    values = data_set.values
+                else:
+                    continue
+            else:    
+                decomposition_method = properString(decomposition_method,
+                    decomposition_method_names)
+                
+                print("Decomposing {} using {}.".format(
+                    title_with_ID, decomposition_method))
+                decompose_time_start = time()
     
-            print("Decomposing {} using {}.".format(
-                title, decomposition_method))
-            decompose_time_start = time()
+                values = decompose(data_set, decomposition_method, components = 2)
     
-            values = decompose(data_set, decomposition_method, components = 2)
-    
-            decompose_duration = time() - decompose_time_start
-            print("{} decomposed ({}).".format(title.capitalize(),
-                formatDuration(decompose_duration)))
+                decompose_duration = time() - decompose_time_start
+                print("{} decomposed ({}).".format(
+                    title_with_ID.capitalize(),
+                    formatDuration(decompose_duration)
+                ))
             
-            if decomposition_method == "PCA":
-                figure_labels = {
-                    "title": "PCA",
-                    "x label": "PC 1",
-                    "y label": "PC 2"
-                }
-            elif decomposition_method == "t-SNE":
-                figure_labels = {
-                    "title": "$t$-SNE",
-                    "x label": "$t$-SNE 1",
-                    "y label": "$t$-SNE 2"
-                }
+                if decomposition_method == "PCA":
+                    figure_labels = {
+                        "title": "PCA",
+                        "x label": "PC 1",
+                        "y label": "PC 2"
+                    }
+                elif decomposition_method == "t-SNE":
+                    figure_labels = {
+                        "title": "$t$-SNE",
+                        "x label": "$t$-SNE 1",
+                        "y label": "$t$-SNE 2"
+                    }
             
-            print()
+                print()
         
-        # Plot test data set
+            # Plot test data set
         
-        print("Plotting {}{}.".format(
-            "decomposed " if decomposition_method else "", title))
+            print("Plotting {}{}.".format(
+                "decomposed " if decomposition_method else "", title_with_ID))
         
-        ## No colour-coding
+            ## No colour-coding
         
-        plot_time_start = time()
-        
-        figure, figure_name = plotValues(
-            values,
-            figure_labels = figure_labels,
-            name = name
-        )
-        saveFigure(figure, figure_name, results_directory)
-    
-        plot_duration = time() - plot_time_start
-        print("    {} plotted and saved ({}).".format(title.capitalize(),
-            formatDuration(plot_duration)))
-        
-        # Labels
-        
-        if data_set.labels is not None:
             plot_time_start = time()
-            
+        
             figure, figure_name = plotValues(
                 values,
-                colour_coding = "labels",
-                colouring_data_set = colouring_data_set,
                 figure_labels = figure_labels,
                 name = name
             )
             saveFigure(figure, figure_name, results_directory)
-        
+    
             plot_duration = time() - plot_time_start
-            print("    {} (with labels) plotted and saved ({}).".format(
-                title.capitalize(), formatDuration(plot_duration)))
-        
-        # Count sum
-        
-        plot_time_start = time()
-        
-        figure, figure_name = plotValues(
-            values,
-            colour_coding = "count sum",
-            colouring_data_set = colouring_data_set,
-            figure_labels = figure_labels,
-            name = name
-        )
-        saveFigure(figure, figure_name, results_directory)
-        
-        plot_duration = time() - plot_time_start
-        print("    {} (with count sum) plotted and saved ({}).".format(
-            title.capitalize(), formatDuration(plot_duration)))
-        
-        # Features
-        
-        for feature_index in highlight_feature_indices:
-            
-            plot_time_start = time()
-            
-            figure, figure_name = plotValues(
-                values,
-                colour_coding = "feature",
-                colouring_data_set = colouring_data_set,
-                feature_index = feature_index,
-                figure_labels = figure_labels,
-                name = name
-            )
-            saveFigure(figure, figure_name, results_directory)
-            
-            plot_duration = time() - plot_time_start
-            print("   {} (with {}) plotted and saved ({}).".format(
-                title.capitalize(),
-                data_set.feature_names[feature_index],
+            print("    {} plotted and saved ({}).".format(
+                title_with_ID.capitalize(),
                 formatDuration(plot_duration)
             ))
         
-        print()
+            # Labels
+        
+            if data_set.labels is not None:
+                plot_time_start = time()
+            
+                figure, figure_name = plotValues(
+                    values,
+                    colour_coding = "labels",
+                    colouring_data_set = colouring_data_set,
+                    figure_labels = figure_labels,
+                    name = name
+                )
+                saveFigure(figure, figure_name, results_directory)
+        
+                plot_duration = time() - plot_time_start
+                print("    {} (with labels) plotted and saved ({}).".format(
+                    title_with_ID.capitalize(), formatDuration(plot_duration)))
+        
+            # Count sum
+        
+            plot_time_start = time()
+        
+            figure, figure_name = plotValues(
+                values,
+                colour_coding = "count sum",
+                colouring_data_set = colouring_data_set,
+                figure_labels = figure_labels,
+                name = name
+            )
+            saveFigure(figure, figure_name, results_directory)
+        
+            plot_duration = time() - plot_time_start
+            print("    {} (with count sum) plotted and saved ({}).".format(
+                title_with_ID.capitalize(), formatDuration(plot_duration)))
+        
+            # Features
+        
+            for feature_index in highlight_feature_indices:
+            
+                plot_time_start = time()
+            
+                figure, figure_name = plotValues(
+                    values,
+                    colour_coding = "feature",
+                    colouring_data_set = colouring_data_set,
+                    feature_index = feature_index,
+                    figure_labels = figure_labels,
+                    name = name
+                )
+                saveFigure(figure, figure_name, results_directory)
+            
+                plot_duration = time() - plot_time_start
+                print("   {} (with {}) plotted and saved ({}).".format(
+                    title_with_ID.capitalize(),
+                    data_set.feature_names[feature_index],
+                    formatDuration(plot_duration)
+                ))
+        
+            print()
 
 def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
@@ -750,30 +784,54 @@ def plotLearningCurves(curves, model_type, name = None):
     if model_type == "SNN":
         figure = pyplot.figure()
         axis_1 = figure.add_subplot(1, 1, 1)
+    elif model_type == "CVAE":
+        figure, (axis_1, axis_2, axis_3) = pyplot.subplots(3, sharex = True,
+            figsize = (6.4, 14.4))
     elif "AE" in model_type:
         figure, (axis_1, axis_2) = pyplot.subplots(2, sharex = True,
             figsize = (6.4, 9.6))
     
-    for i, (curve_set_name, curve_set) in enumerate(sorted(curves.items())):
+    for curve_set_name, curve_set in sorted(curves.items()):
         
-        colour = palette[i]
+        if curve_set_name == "training":
+            line_style = "solid"
+            colour_index_offset = 0
+        elif curve_set_name == "validation":
+            line_style = "dashed"
+            colour_index_offset = 1
+        
+        curve_colour = lambda i: palette[len(curves) * i + colour_index_offset]
         
         for curve_name, curve in sorted(curve_set.items()):
             if curve_name == "lower_bound":
                 curve_name = "$\\mathcal{L}$"
-                line_style = "solid"
+                colour = curve_colour(0)
                 axis = axis_1
             elif curve_name == "reconstruction_error":
                 curve_name = "$\\log p(x|z)$"
-                line_style = "dashed"
+                colour = curve_colour(1)
                 axis = axis_1
-            elif curve_name == "kl_divergence":
-                line_style = "dashed"
-                curve_name = "KL$(p||q)$"
-                axis = axis_2
-            if curve_name == "log_likelihood":
+            elif "kl_divergence" in curve_name:
+                if curve_name == "kl_divergence":
+                    index = ""
+                    colour = curve_colour(0)
+                    axis = axis_2
+                else:
+                    latent_variable = curve_name.replace("kl_divergence_", "")
+                    latent_variable = re.sub(r"(\w)(\d)", r"\1_\2", latent_variable)
+                    index = "$_{" + latent_variable + "}$"
+                    if latent_variable == "z_2":
+                        colour = curve_colour(0)
+                        axis = axis_2
+                    elif latent_variable == "z_1":
+                        colour = curve_colour(1)
+                        axis = axis_2
+                    elif latent_variable == "y":
+                        colour = curve_colour(0)
+                        axis = axis_3
+                curve_name = "KL" + index + "$(p||q)$"
+            elif curve_name == "log_likelihood":
                 curve_name = "$L$"
-                line_style = "solid"
                 axis = axis_1
             epochs = numpy.arange(len(curve)) + 1
             label = curve_name + " ({} set)".format(curve_set_name)
@@ -788,8 +846,17 @@ def plotLearningCurves(curves, model_type, name = None):
     if model_type == "SNN":
         axis_1.set_xlabel("Epoch")
     elif "AE" in model_type:
-        axis_2.legend(loc = "best")
-        axis_2.set_xlabel("Epoch")
+        handles, labels = axis_2.get_legend_handles_labels()
+        labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+        axis_2.legend(handles, labels, loc = "best")
+        if model_type == "CVAE":
+            axis_3.legend(loc = "best")
+            handles, labels = axis_3.get_legend_handles_labels()
+            labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+            axis_3.legend(handles, labels, loc = "best")
+            axis_3.set_xlabel("Epoch")
+        else:
+            axis_2.set_xlabel("Epoch")
     
     return figure, figure_name
 
@@ -1084,8 +1151,11 @@ def loadLearningCurves(model, data_set_kinds = "all"):
     ## Losses depending on model type
     if model.type == "SNN":
         losses = ["log_likelihood"]
+    elif model.type == "CVAE":
+        losses = ["lower_bound", "reconstruction_error",
+            "kl_divergence_z1", "kl_divergence_z2", "kl_divergence_y"]
     elif "AE" in model.type:
-        losses = ["lower_bound", "kl_divergence", "reconstruction_error"]
+        losses = ["lower_bound", "reconstruction_error", "kl_divergence"]
     
     ## TensorBoard class with summaries
     multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
