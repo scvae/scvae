@@ -341,7 +341,7 @@ class ClusterVariationalAutoEncoder(object):
                 [self.S_mc, self.Dim_y, -1]
             )
 
-            q_y_mean = tf.transpose(tf.reduce_mean(self.q_y_given_x_z1_probs, 0), [1, 0])
+            self.q_y_mean = tf.transpose(tf.reduce_mean(self.q_y_given_x_z1_probs, 0), [1, 0])
 
         # q(z_2| y, z_1)
         with tf.variable_scope("q_z2"):
@@ -390,9 +390,8 @@ class ClusterVariationalAutoEncoder(object):
             self.q_z2_given_y_z1 = Normal(loc=q_z2_mu, scale=softplus(q_z2_log_sigma), validate_args=True)
 
 
-            # TODO: Reduce dim. of mean.
             ##  (1, S_1, K, B, L)  -> (S_1, K, B, L) --> (S_1, B, L) --> (B, L)
-            z2_mean = tf.reduce_mean(tf.reduce_sum(tf.squeeze(self.q_z2_given_y_z1.mean()) * tf.expand_dims(self.q_y_given_x_z1_probs, -1), axis = 1), 0)
+            self.z2_mean = tf.reduce_mean(tf.reduce_sum(tf.squeeze(self.q_z2_given_y_z1.mean()) * tf.expand_dims(self.q_y_given_x_z1_probs, -1), axis = 1), 0)
 
             ## (S_2, S_1, K, B, L)
             self.z2 = tf.reshape(
@@ -1107,7 +1106,7 @@ class ClusterVariationalAutoEncoder(object):
             x_test = test_set.preprocessed_values
         
             if self.reconstruction_distribution_name == "bernoulli":
-                t_test = binarise(test_set.values)
+                t_test = test_set.binarised_values
             else:
                 t_test = test_set.values
             
@@ -1162,9 +1161,10 @@ class ClusterVariationalAutoEncoder(object):
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
                 
-                ELBO_i, KL_i, ENRE_i, x_mean_i, z1_mean_i, z2_mean_i, y_mean_i = session.run(
-                    [self.ELBO, self.KL, self.ENRE,
-                        self.x_mean, self.z1_mean, self.z2_mean, self.y_mean],
+                ELBO_i, ENRE_i, KL_z1_i, KL_z2_i, KL_y_i, \
+                    x_mean_i, z1_mean_i, z2_mean_i, y_mean_i = session.run(
+                    [self.ELBO, self.ENRE, self.KL_z1, self.KL_z2, self.KL_y,
+                        self.x_mean, self.z1_mean, self.z2_mean, self.q_y_mean],
                     feed_dict = feed_dict_batch
                 )
                 
