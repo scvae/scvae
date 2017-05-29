@@ -1057,8 +1057,8 @@ class ClusterVariationalAutoEncoder(object):
                         self.t: t_batch,
                         self.is_training: False,
                         self.warm_up_weight: 1.0,
-                        self.S_iw: self.number_of_importance_samples["evaluation"],
-                        self.S_mc: self.number_of_monte_carlo_samples["evaluation"]
+                        self.S_iw: self.number_of_importance_samples["training"],
+                        self.S_mc: self.number_of_monte_carlo_samples["training"]
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
@@ -1123,9 +1123,9 @@ class ClusterVariationalAutoEncoder(object):
                         self.is_training: False,
                         self.warm_up_weight: 1.0,
                         self.S_iw:
-                            self.number_of_importance_samples["evaluation"],
+                            self.number_of_importance_samples["training"],
                         self.S_mc:
-                            self.number_of_monte_carlo_samples["evaluation"]
+                            self.number_of_monte_carlo_samples["training"]
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
