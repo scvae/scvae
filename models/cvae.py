@@ -1264,5 +1264,6 @@ class ClusterVariationalAutoEncoder(object):
                 kind = "test",
                 version = "y"
             )
+            latent_test_sets = (z1_test_set, z2_test_set, y_test_set)
 
-            return transformed_test_set, reconstructed_test_set, z2_test_set
+            return transformed_test_set, reconstructed_test_set, latent_test_sets
