@@ -609,18 +609,18 @@ class ClusterVariationalAutoEncoder(object):
             [self.S_iw_mc, self.Dim_y, 1, 1]
         )
 
-        # log(sum_k p(x|y,z1_k))
         # log(p(x|y,z1))
         ## (S_iw * S_mc, K, B, F) -->
+        ## (S_iw * S_mc, K, B) -->
+        p_x_given_z1_y_log_prob = tf.reduce_sum(
+            self.p_x_given_z1_y.log_prob(t_tiled), -1
+        )
         ## (S_iw * S_mc, K, B) -->
         ## (S_iw * S_mc, B) -->
         ## (B)
         log_p_x_given_z1_y = tf.reduce_mean(
             tf.reduce_sum(
-                self.q_y_given_x_z1_probs * tf.reduce_sum(
-                    self.p_x_given_z1_y.log_prob(t_tiled),
-                    -1
-                ), 
+                self.q_y_given_x_z1_probs * p_x_given_z1_y_log_prob, 
                 1
             ),
             0
@@ -628,6 +628,15 @@ class ClusterVariationalAutoEncoder(object):
 
         # log(p(z_1|z_2, y))
         ## (S_iw * S_mc, S_iw * S_mc, K, B, L) -->
+        ## (S_iw * S_mc, S_iw * S_mc, K, B)
+        p_z1_given_y_z2_log_prob = tf.reduce_sum(
+            self.p_z1_given_y_z2.log_prob(
+                tf.tile(tf.expand_dims(self.z1_tile, 0), 
+                    [self.S_iw_mc, 1, 1, 1, 1]
+                )
+            ),
+            -1
+        )
         ## (S_iw * S_mc, S_iw * S_mc, K, B) -->
         ## (S_iw * S_mc, K, B) -->
         ## (S_iw * S_mc, B) -->
@@ -635,13 +644,7 @@ class ClusterVariationalAutoEncoder(object):
         log_p_z1_given_y_z2 = tf.reduce_mean(
             tf.reduce_sum(
                 self.q_y_given_x_z1_probs * tf.reduce_mean(
-                    tf.reduce_sum(
-                        self.p_z1_given_y_z2.log_prob(
-                            tf.tile(tf.expand_dims(self.z1_tile, 0), 
-                                [self.S_iw_mc, 1, 1, 1, 1])
-                        ),
-                        -1
-                    ), 
+                    p_z1_given_y_z2_log_prob, 
                     0
                 ), 
                 1
@@ -652,6 +655,10 @@ class ClusterVariationalAutoEncoder(object):
 
         # log(p(y|z_2))
         ## (S_iw * S_mc, S_iw * S_mc, K, B, K) -->
+        ## (S_iw * S_mc, S_iw * S_mc, K, B)
+        p_y_given_z2_log_prob = self.p_y_given_z2.log_prob(
+            tf.argmax(self.p_z1_tile_y, axis = -1)
+        )
         ## (S_iw * S_mc, S_iw * S_mc, K, B) -->
         ## (S_iw * S_mc, K, B) -->
         ## (S_iw * S_mc, B) -->
@@ -659,9 +666,7 @@ class ClusterVariationalAutoEncoder(object):
         log_p_y_given_z2 = tf.reduce_mean(
             tf.reduce_sum(
                 self.q_y_given_x_z1_probs * tf.reduce_mean(
-                    self.p_y_given_z2.log_prob(
-                        tf.argmax(self.p_z1_tile_y, axis = -1)
-                    ),
+                    p_y_given_z2_log_prob,
                     0
                 ), 
                 1
@@ -672,6 +677,9 @@ class ClusterVariationalAutoEncoder(object):
 
         # log(p(z_2))
         ## (S_iw * S_mc, S_iw * S_mc, K, B, L) -->
+        ## (S_iw * S_mc, S_iw * S_mc, K, B)
+        p_z2_log_prob = tf.reduce_sum(self.p_z2.log_prob(self.z2), -1)
+
         ## (S_iw * S_mc, S_iw * S_mc, K, B) -->
         ## (S_iw * S_mc, K, B) -->
         ## (S_iw * S_mc, B) -->
@@ -679,10 +687,7 @@ class ClusterVariationalAutoEncoder(object):
         log_p_z2 = tf.reduce_mean(
             tf.reduce_sum(
                 self.q_y_given_x_z1_probs * tf.reduce_mean(
-                    tf.reduce_sum(
-                        self.p_z2.log_prob(self.z2),
-                        -1
-                    ), 
+                    p_z2_log_prob, 
                     0
                 ), 
                 1
@@ -692,6 +697,11 @@ class ClusterVariationalAutoEncoder(object):
 
         # log(q(z_2|y, z_1))
         ## (S_iw * S_mc, S_iw * S_mc, K, B, L) -->
+        ## (S_iw * S_mc, S_iw * S_mc, K, B)
+        q_z2_given_y_z1_log_prob = tf.reduce_sum(
+            self.q_z2_given_y_z1.log_prob(self.z2),
+            -1
+        )
         ## (S_iw * S_mc, S_iw * S_mc, K, B) -->
         ## (S_iw * S_mc, K, B) -->
         ## (S_iw * S_mc, B) -->
@@ -699,10 +709,7 @@ class ClusterVariationalAutoEncoder(object):
         log_q_z2_given_y_z1 = tf.reduce_mean(
             tf.reduce_sum(
                 self.q_y_given_x_z1_probs * tf.reduce_mean(
-                    tf.reduce_sum(
-                        self.q_z2_given_y_z1.log_prob(self.z2),
-                        -1
-                    ), 
+                    q_z2_given_y_z1_log_prob, 
                     0
                 ), 
                 1
@@ -712,14 +719,16 @@ class ClusterVariationalAutoEncoder(object):
 
         # log(q(y|z_1, x))
         ## (S_iw * S_mc, K, B, K) -->
+        ## (S_iw * S_mc, K, B)
+        q_y_given_x_z1_log_prob = self.q_y_given_x_z1.log_prob(
+                    tf.argmax(self.q_y_tile, axis = -1)
+        )
         ## (S_iw * S_mc, K, B) -->
         ## (S_iw * S_mc, B) -->
         ## (B)
         log_q_y_given_x_z1 = tf.reduce_mean(
             tf.reduce_sum(
-                self.q_y_given_x_z1_probs * self.q_y_given_x_z1.log_prob(
-                    tf.argmax(self.q_y_tile, axis = -1)
-                ),
+                self.q_y_given_x_z1_probs * q_y_given_x_z1_log_prob, 
                 1
             ),
             0
@@ -727,15 +736,60 @@ class ClusterVariationalAutoEncoder(object):
 
         # log(q(z_1|x))
         ## (S_iw * S_mc, B, L) -->
+        ## (S_iw * S_mc, B)
+        q_z1_given_x_log_prob = tf.reduce_sum(
+            self.q_z1_given_x.log_prob(self.z1),
+            -1
+        )
         ## (S_iw * S_mc, B) -->
         ## (B)
         log_q_z1_given_x = tf.reduce_mean(
-            tf.reduce_sum(
-                self.q_z1_given_x.log_prob(self.z1),
-                -1
-            ), 
+            q_z1_given_x_log_prob, 
             0
         )
+
+        # Importance weighted log likelihood
+        # Put all log_prob tensors together in one.
+        ## (S_iw * S_mc, S_iw * S_mc, K, B) -->
+        ## (S_iw, S_mc, S_iw, S_mc, K, B)
+        KL_all_iw = tf.reshape(
+            tf.add_n([
+                -p_z2_log_prob, 
+                -p_z1_given_y_z2_log_prob, 
+                -p_y_given_z2_log_prob, 
+                q_z2_given_y_z1_log_prob, 
+                tf.expand_dims(q_y_given_x_z1_log_prob +\
+                        tf.expand_dims(q_z1_given_x_log_prob, 0), 
+                    0), 
+                ]
+            ),
+            [self.S_iw, self.S_mc, self.S_iw, self.S_mc, self.Dim_y, -1]
+        )
+        # log-mean-exp trick for stable marginalisation of importance weights.
+        ## (S_iw, S_mc, S_iw, S_mc, K, B) -->
+        ## (S_mc, S_mc, K, B)
+        log_mean_exp_iw = log_reduce_exp(
+            tf.expand_dims(p_x_given_z1_y_log_prob, 0) -\
+                self.warm_up_weight * KL_all_iw, 
+            reduction_function=tf.reduce_mean, axis = (0, 2))
+
+        # Marginalise all Monte Carlo samples, classes and examples into total
+        # importance weighted loss
+        ## (S_mc, S_mc, K, B) -->
+        ## (S_mc, K, B) -->
+        ## (S_mc, B) -->
+        ## ()
+        self.ELBO = tf.reduce_mean(
+            tf.reduce_sum(
+                self.q_y_given_x_z1_probs * tf.reduce_mean(
+                    log_mean_exp_iw, 
+                    0
+                ), 
+                1
+            ),
+        )
+        self.loss = self.ELBO
+        tf.add_to_collection('losses', self.ELBO)
 
         # KL_z1
         self.KL_z1 = tf.reduce_mean(log_q_z1_given_x - log_p_z1_given_y_z2)
@@ -756,13 +810,12 @@ class ClusterVariationalAutoEncoder(object):
         tf.add_to_collection('losses', self.ENRE)
 
         # ELBO
-        self.ELBO = tf.subtract(self.ENRE, self.KL, name = "ELBO")
-        tf.add_to_collection('losses', self.ELBO)
+        self.ELBO_mc = tf.subtract(self.ENRE, self.KL, name = "ELBO")
 
         # loss objective with Warm-up and term-specific KL weighting 
-        self.loss = self.ENRE - self.warm_up_weight * (
-            self.KL_z1 + self.KL_z2 + self.KL_y
-        )
+        # self.loss = self.ENRE - self.warm_up_weight * (
+        #     self.KL_z1 + self.KL_z2 + self.KL_y
+        # )
     
     def training(self):
         
