@@ -299,7 +299,7 @@ class ClusterVariationalAutoEncoder(object):
             q_z1_log_sigma = tf.reshape(dense_layer(q_z1_NN, self.Dim_z, activation_fn=None, scope="log_sigma"), [1, -1, self.Dim_z])
 
             ## (1, B, L)
-            self.q_z1_given_x = Normal(loc=q_z1_mu, scale=softplus(q_z1_log_sigma), validate_args=True)
+            self.q_z1_given_x = Normal(loc=q_z1_mu, scale=softplus(q_z1_log_sigma))
 
             ## (1, B, L) -> (B, L)
             self.z1_mean = self.q_z1_given_x.mean()
@@ -393,7 +393,7 @@ class ClusterVariationalAutoEncoder(object):
             )
 
             ## (1, S_iw * S_mc, K, B, L) 
-            self.q_z2_given_y_z1 = Normal(loc=q_z2_mu, scale=softplus(q_z2_log_sigma), validate_args=True)
+            self.q_z2_given_y_z1 = Normal(loc=q_z2_mu, scale=softplus(q_z2_log_sigma))
 
             # TODO: Reduce dim. of mean.
             ##  (1, S_iw * S_mc, K, B, L)  -> (S_iw * S_mc, K, B, L) -->
@@ -509,7 +509,7 @@ class ClusterVariationalAutoEncoder(object):
             )
 
             ## (S_iw * S_mc, S_iw * S_mc, K, B, L)
-            self.p_z1_given_y_z2 = Normal(loc=p_z1_mu, scale=softplus(p_z1_log_sigma), validate_args=True)
+            self.p_z1_given_y_z2 = Normal(loc=p_z1_mu, scale=softplus(p_z1_log_sigma))
 
 # Reconstruction distribution parameterisation
         
@@ -779,7 +779,7 @@ class ClusterVariationalAutoEncoder(object):
             self.q_y_given_x_z1_probs, 
             [self.S_iw, self.S_mc, self.Dim_y, -1]
         )[0]
-        
+
         ## (S_mc, S_mc, K, B) -->
         ## (S_mc, K, B) -->
         ## (S_mc, B) -->
