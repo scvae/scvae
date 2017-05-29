@@ -1265,4 +1265,4 @@ class ClusterVariationalAutoEncoder(object):
                 version = "y"
             )
 
-            return transformed_test_set, reconstructed_test_set, latent_test_set
+            return transformed_test_set, reconstructed_test_set, z2_test_set
