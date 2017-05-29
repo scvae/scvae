@@ -561,7 +561,7 @@ class SimpleNeuralNetwork(object):
             x_test = test_set.preprocessed_values
         
             if self.reconstruction_distribution_name == "bernoulli":
-                t_test = binarise(test_set.values)
+                t_test = test_set.binarised_values
             else:
                 t_test = test_set.values
             

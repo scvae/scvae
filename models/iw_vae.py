@@ -396,16 +396,16 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 ["class"](self.latent_distribution["prior"]["parameters"])
         
         self.p_z_probabilities = []
-        self.p_z_mean = []
-        self.p_z_covariance = []
+        self.p_z_means = []
+        self.p_z_covariances = []
         
         if "mixture" in self.latent_distribution["prior"]["name"]:
             for k in range(self.number_of_latent_clusters):
                 self.p_z_probabilities.append(
                     tf.squeeze(self.p_z.cat.probs)[k])
-                self.p_z_mean.append(
+                self.p_z_means.append(
                     tf.squeeze(self.p_z.components[k].mean()))
-                self.p_z_covariance.append(
+                self.p_z_covariances.append(
                     tf.squeeze(self.p_z.components[k].covariance()))
         
         # Decoder - Generative model, p(x|z)
@@ -977,7 +977,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             x_test = test_set.preprocessed_values
         
             if self.reconstruction_distribution_name == "bernoulli":
-                t_test = binarise(test_set.values)
+                t_test = test_set.binarised_values
             else:
                 t_test = test_set.values
             
@@ -1072,10 +1072,17 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             # Centroids
             
-            p_z_mean, p_z_covariance, p_z_probabilities = session.run(
-                [self.p_z_mean, self.p_z_covariance,
-                    self.p_z_probabilities]
+            p_z_probabilities, p_z_means, p_z_covariances = session.run(
+                [self.p_z_probabilities, self.p_z_means, self.p_z_covariances]
             )
+            
+            latent_centroids = {
+                "prior": {
+                    "probabilities": p_z_probabilities,
+                    "means": p_z_means,
+                    "covariances": p_z_covariances
+                }
+            }
             
             # Data sets
             
@@ -1124,4 +1131,5 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 version = "latent"
             )
             
-            return transformed_test_set, reconstructed_test_set, latent_test_set
+            return transformed_test_set, reconstructed_test_set, \
+                latent_test_set#, latent_centroids
