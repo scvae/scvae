@@ -732,7 +732,7 @@ class ClusterVariationalAutoEncoder(object):
             
             # Optimizer and training objective of negative loss
             optimiser = tf.train.AdamOptimizer(self.learning_rate)
-            
+            # clipped_optimiser = tf.contrib.opt.VariableClippingOptimizer(optimiser, ) 
             # Create a variable to track the global step.
             self.global_step = tf.Variable(0, name = 'global_step',
                 trainable = False)
@@ -741,12 +741,21 @@ class ClusterVariationalAutoEncoder(object):
             # (and also increment the global step counter) as a single training
             # step.
             # self.train_op = optimiser.minimize(
-            #     -self.ELBO,
+            #     -self.loss,
             #     global_step = self.global_step
             # )
         
             gradients = optimiser.compute_gradients(-self.loss)
-            clipped_gradients = [(tf.clip_by_value(gradient, -1., 1.), variable) for gradient, variable in gradients]
+            # for gradient, variable in gradients:
+            #     if not gradient.:
+            #         print(variable)
+            clipped_gradients = []
+            for gradient, variable in gradients:
+                if gradient is not None:
+                    clipped_gradients.append((tf.clip_by_value(gradient, -1., 1.), variable))
+                else:
+                    clipped_gradients.append((gradient, variable))
+            # clipped_gradients = [(tf.clip_by_value(gradient, -1., 1.), variable) for gradient, variable in gradients if gradient is not None else (gradient, variable)]
             self.train_op = optimiser.apply_gradients(clipped_gradients, global_step = self.global_step)
         # Make sure that the updates of the moving_averages in batch_norm
         # layers are performed before the train_step.
