@@ -295,8 +295,8 @@ class ClusterVariationalAutoEncoder(object):
             )
 
             ## (1, B, L)
-            q_z1_mu = tf.reshape(dense_layer(q_z1_NN, self.Dim_z, activation_fn=None, scope="mu"), [1, 1, -1, self.Dim_z])
-            q_z1_log_sigma = tf.reshape(dense_layer(q_z1_NN, self.Dim_z, activation_fn=None, scope="log_sigma"), [1, 1, -1, self.Dim_z])
+            q_z1_mu = tf.reshape(dense_layer(q_z1_NN, self.Dim_z, activation_fn=None, scope="mu"), [1, -1, self.Dim_z])
+            q_z1_log_sigma = tf.reshape(dense_layer(q_z1_NN, self.Dim_z, activation_fn=None, scope="log_sigma"), [1, -1, self.Dim_z])
 
             ## (1, B, L)
             self.q_z1_given_x = Normal(loc=q_z1_mu, scale=softplus(q_z1_log_sigma), validate_args=True)
@@ -741,6 +741,7 @@ class ClusterVariationalAutoEncoder(object):
             self.q_z1_given_x.log_prob(self.z1),
             -1
         )
+
         ## (S_iw * S_mc, B) -->
         ## (B)
         log_q_z1_given_x = tf.reduce_mean(
@@ -752,36 +753,40 @@ class ClusterVariationalAutoEncoder(object):
         # Put all log_prob tensors together in one.
         ## (S_iw * S_mc, S_iw * S_mc, K, B) -->
         ## (S_iw, S_mc, S_iw, S_mc, K, B)
-        KL_all_iw = tf.reshape(
-            tf.add_n([
-                -p_z2_log_prob, 
-                -p_z1_given_y_z2_log_prob, 
-                -p_y_given_z2_log_prob, 
-                q_z2_given_y_z1_log_prob, 
-                tf.expand_dims(q_y_given_x_z1_log_prob +\
-                        tf.expand_dims(q_z1_given_x_log_prob, 0), 
-                    0), 
-                ]
-            ),
+        all_log_prob_iw = tf.reshape(
+            tf.expand_dims(p_x_given_z1_y_log_prob, 0)\
+            - self.warm_up_weight * (q_z2_given_y_z1_log_prob \
+                + tf.expand_dims(q_y_given_x_z1_log_prob, 0) \
+                + tf.expand_dims(tf.expand_dims(q_z1_given_x_log_prob, 1), 0) \
+                - p_z2_log_prob \
+                - p_z1_given_y_z2_log_prob \
+                - p_y_given_z2_log_prob
+                ), 
             [self.S_iw, self.S_mc, self.S_iw, self.S_mc, self.Dim_y, -1]
         )
+
         # log-mean-exp trick for stable marginalisation of importance weights.
         ## (S_iw, S_mc, S_iw, S_mc, K, B) -->
         ## (S_mc, S_mc, K, B)
         log_mean_exp_iw = log_reduce_exp(
-            tf.expand_dims(p_x_given_z1_y_log_prob, 0) -\
-                self.warm_up_weight * KL_all_iw, 
+            all_log_prob_iw, 
             reduction_function=tf.reduce_mean, axis = (0, 2))
 
         # Marginalise all Monte Carlo samples, classes and examples into total
         # importance weighted loss
+        # (S_iw * S_mc, K, B) --> (S_iw, S_mc, K, B) --> (S_mc, K, B)
+        q_y_given_x_z1_probs_mc = tf.reshape(
+            self.q_y_given_x_z1_probs, 
+            [self.S_iw, self.S_mc, self.Dim_y, -1]
+        )[0]
+        
         ## (S_mc, S_mc, K, B) -->
         ## (S_mc, K, B) -->
         ## (S_mc, B) -->
         ## ()
         self.ELBO = tf.reduce_mean(
             tf.reduce_sum(
-                self.q_y_given_x_z1_probs * tf.reduce_mean(
+                q_y_given_x_z1_probs_mc * tf.reduce_mean(
                     log_mean_exp_iw, 
                     0
                 ), 
