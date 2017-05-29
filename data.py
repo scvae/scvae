@@ -372,15 +372,16 @@ class DataSet(object):
             
             print()
             
-            data_dictionary = loadOriginalDataSet(self.title, original_paths)
+            data_dictionary, duration = loadOriginalDataSet(self.title, original_paths)
             
             print()
             
             if not os.path.exists(self.preprocess_directory):
                 os.makedirs(self.preprocess_directory)
             
-            print("Saving data set in sparse representation.")
-            saveAsSparseData(data_dictionary, sparse_path)
+            if duration > 10:
+                print("Saving data set in sparse representation.")
+                saveAsSparseData(data_dictionary, sparse_path)
         
         self.update(
             values = data_dictionary["values"],
@@ -493,8 +494,9 @@ class DataSet(object):
                 "feature names": feature_names
             }
             
-            print("Saving preprocessed data set in sparse representation.")
-            saveAsSparseData(data_dictionary, sparse_path)
+            if self.number_of_features > 1000:
+                print("Saving preprocessed data set in sparse representation.")
+                saveAsSparseData(data_dictionary, sparse_path)
         
         self.update(
             values = data_dictionary["values"],
@@ -546,8 +548,9 @@ class DataSet(object):
                 "feature names": self.feature_names
             }
             
-            print("Saving binarised data set in sparse representation.")
-            saveAsSparseData(data_dictionary, sparse_path)
+            if self.number_of_features > 1000:
+                print("Saving binarised data set in sparse representation.")
+                saveAsSparseData(data_dictionary, sparse_path)
         
         self.update(
             binarised_values = data_dictionary["preprocessed values"],
@@ -600,8 +603,9 @@ class DataSet(object):
             
             print()
             
-            print("Saving split data sets in sparse representation.")
-            saveAsSparseData(split_data_dictionary, sparse_path)
+            if self.number_of_features > 1000:
+                print("Saving split data sets in sparse representation.")
+                saveAsSparseData(split_data_dictionary, sparse_path)
         
         training_set = DataSet(
             name = self.name,
@@ -749,7 +753,7 @@ def loadOriginalDataSet(title, paths):
     duration = time() - start_time
     print("Original data set loaded ({}).".format(formatDuration(duration)))
     
-    return data_dictionary
+    return data_dictionary, duration
 
 def preprocessedPathFunction(preprocess_directory = "", name = ""):
     
