@@ -1161,9 +1161,9 @@ class ClusterVariationalAutoEncoder(object):
                 summary.value.add(tag="losses/kl_divergence_y",
                     simple_value = KL_y_valid)
                 
-                training_summary_writer.add_summary(summary,
+                validation_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
-                training_summary_writer.flush()
+                validation_summary_writer.flush()
                 
                 print("    Validation set ({}): ".format(
                     formatDuration(evaluating_duration)) + \
@@ -1295,8 +1295,12 @@ class ClusterVariationalAutoEncoder(object):
             summary.value.add(tag="losses/kl_divergence_y",
                 simple_value = KL_y_test)
             
+            test_summary_writer.add_summary(summary,
+                global_step = epoch + 1)
+            test_summary_writer.flush()
+            
             evaluating_duration = time() - evaluating_time_start
-            print("    Test set ({}): ".format(
+            print("Test set ({}): ".format(
                     formatDuration(evaluating_duration)) + \
                     "ELBO: {:.5g}, ENRE: {:.5g}, KL_z1: {:.5g}, KL_z2: {:.5g}, KL_y: {:.5g}.".format(
                     ELBO_test, ENRE_test, KL_z1_test, KL_z2_test, KL_y_test))

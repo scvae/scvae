@@ -202,7 +202,8 @@ def main(data_set_name, data_directory = "data",
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum,
                 number_of_warm_up_epochs,
-                log_directory = log_directory)
+                log_directory = log_directory
+            )
         
         elif model_type == "SNN":
             
@@ -242,12 +243,12 @@ def main(data_set_name, data_directory = "data",
         print()
         
         if "AE" in model.type:
-            transformed_test_set, reconstructed_test_set, latent_test_set = \
+            transformed_test_set, reconstructed_test_set, latent_test_sets = \
                 model.evaluate(test_set, batch_size)
         else:
             transformed_test_set, reconstructed_test_set = \
                 model.evaluate(test_set, batch_size)
-            latent_test_set = None
+            latent_test_sets = None
         
         print()
         
@@ -258,7 +259,7 @@ def main(data_set_name, data_directory = "data",
             analysis.analyseModel(model, results_directory)
             
             analysis.analyseResults(
-                transformed_test_set, reconstructed_test_set, latent_test_set,
+                transformed_test_set, reconstructed_test_set, latent_test_sets,
                 model, decomposition_methods, highlight_feature_indices,
                 results_directory
             )
