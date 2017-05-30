@@ -397,7 +397,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         
         self.p_z_probabilities = []
         self.p_z_means = []
-        self.p_z_covariances = []
+        self.p_z_standard_deviations = []
         
         if "mixture" in self.latent_distribution["prior"]["name"]:
             for k in range(self.number_of_latent_clusters):
@@ -405,8 +405,12 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     tf.squeeze(self.p_z.cat.probs)[k])
                 self.p_z_means.append(
                     tf.squeeze(self.p_z.components[k].mean()))
-                self.p_z_covariances.append(
-                    tf.squeeze(self.p_z.components[k].covariance()))
+                self.p_z_standard_deviations.append(
+                    tf.diag_part(tf.squeeze(self.p_z.components[k].covariance())))
+        else:
+            self.p_z_probabilities.append(tf.constant(1.))
+            self.p_z_means.append(tf.squeeze(self.p_z.mean()))
+            self.p_z_standard_deviations.append(tf.squeeze(self.p_z.stddev()))
         
         # Decoder - Generative model, p(x|z)
         
@@ -867,6 +871,17 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 
                 evaluating_duration = time() - evaluating_time_start
                 
+                ## Centroids
+            
+                p_z_probabilities, p_z_means, p_z_standard_deviations = \
+                    session.run(
+                    [self.p_z_probabilities, self.p_z_means,
+                        self.p_z_standard_deviations]
+                )
+                
+                ## Summaries
+                
+                ### Losses
                 summary = tf.Summary()
                 summary.value.add(tag="losses/lower_bound",
                     simple_value = ELBO_train)
@@ -875,10 +890,37 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 summary.value.add(tag="losses/kl_divergence",
                     simple_value = KL_train)
                 
+                ### KL divergence
                 for i in range(z_KL.size):
                     summary.value.add(tag="kl_divergence_neurons/{}".format(i),
                         simple_value = z_KL[i])
                 
+                ### Centroids
+                for k in range(len(p_z_probabilities)):
+                    summary.value.add(
+                        tag="prior/cluster_{}/probability".format(k),
+                        simple_value = p_z_probabilities[k]
+                    )
+                    for l in range(self.latent_size):
+                        # The same Gaussian for all
+                        if not p_z_means[k].shape:
+                            p_z_mean_k_l = p_z_means[k]
+                            p_z_standard_deviations_k_l = p_z_standard_deviations[k]
+                        # Different Gaussians for all
+                        else:
+                            p_z_mean_k_l = p_z_means[k][l]
+                            p_z_standard_deviations_k_l = p_z_standard_deviations[k][l]
+                        summary.value.add(
+                            tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
+                            simple_value = p_z_mean_k_l
+                        )
+                        summary.value.add(
+                            tag="prior/cluster_{}/standard_deviation/dimension_{}"\
+                                .format(k, l),
+                            simple_value = p_z_standard_deviations_k_l
+                        )
+                
+                ### Writing
                 training_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
                 training_summary_writer.flush()
@@ -1053,6 +1095,14 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             KL_test /= M_test / batch_size
             ENRE_test /= M_test / batch_size
             
+            ## Centroids
+            
+            p_z_probabilities, p_z_means, p_z_standard_deviations = session.run(
+                [self.p_z_probabilities, self.p_z_means, self.p_z_standard_deviations]
+            )
+            
+            ## Summaries
+            
             summary = tf.Summary()
             summary.value.add(tag="losses/lower_bound",
                 simple_value = ELBO_test)
@@ -1060,6 +1110,31 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 simple_value = ENRE_test)
             summary.value.add(tag="losses/kl_divergence",
                 simple_value = KL_test)
+            
+            for k in range(len(p_z_probabilities)):
+                summary.value.add(
+                    tag="prior/cluster_{}/probability".format(k),
+                    simple_value = p_z_probabilities[k]
+                )
+                for l in range(self.latent_size):
+                    # The same Gaussian for all
+                    if not p_z_means[k].shape:
+                        p_z_mean_k_l = p_z_means[k]
+                        p_z_standard_deviations_k_l = p_z_standard_deviations[k]
+                    # Different Gaussians for all
+                    else:
+                        p_z_mean_k_l = p_z_means[k][l]
+                        p_z_standard_deviations_k_l = p_z_standard_deviations[k][l]
+                    summary.value.add(
+                        tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
+                        simple_value = p_z_mean_k_l
+                    )
+                    summary.value.add(
+                        tag="prior/cluster_{}/standard_deviation/dimension_{}"\
+                            .format(k, l),
+                        simple_value = p_z_standard_deviations_k_l
+                    )
+            
             test_summary_writer.add_summary(summary,
                 global_step = epoch)
             test_summary_writer.flush()
@@ -1069,20 +1144,6 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 formatDuration(evaluating_duration)) + \
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                 ELBO_test, ENRE_test, KL_test))
-            
-            # Centroids
-            
-            p_z_probabilities, p_z_means, p_z_covariances = session.run(
-                [self.p_z_probabilities, self.p_z_means, self.p_z_covariances]
-            )
-            
-            latent_centroids = {
-                "prior": {
-                    "probabilities": p_z_probabilities,
-                    "means": p_z_means,
-                    "covariances": p_z_covariances
-                }
-            }
             
             # Data sets
             
@@ -1131,5 +1192,4 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 version = "latent"
             )
             
-            return transformed_test_set, reconstructed_test_set, \
-                latent_test_set#, latent_centroids
+            return transformed_test_set, reconstructed_test_set, latent_test_set
