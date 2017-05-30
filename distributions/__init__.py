@@ -47,7 +47,7 @@ distributions = {
             "mus": {
                 "support": [-inf, inf],
                 "activation function": identity,
-                "initial value": tf.random_normal
+                "initial value": lambda x: tf.random_normal(x, stddev = 3)
             },
             "log_sigmas": {
                 "support": [-3, 3],
@@ -214,45 +214,45 @@ distributions = {
 
 latent_distributions = {
     "gaussian": {
-        "posterior": {
-            "name": "gaussian",
-            "parameters": {}
-            }, 
         "prior": {
             "name": "gaussian",
             "parameters": {
                 "mu": 0.0,
                 "log_sigma": 0.0
             }
+        },
+        "posterior": {
+            "name": "gaussian",
+            "parameters": {}
         }
     },
     "gaussian mixture": {
-        "posterior": {
-            "name": "gaussian", 
-            "parameters": {}
-            },
         "prior": {
             "name": "gaussian mixture",
             "parameters": {}
-        }
-    },
-    "explicit gaussian mixture": {
+        },
         "posterior": {
             "name": "gaussian mixture", 
             "parameters": {}
-            },
+        }
+    },
+    "half gaussian mixture": {
         "prior": {
             "name": "gaussian mixture",
+            "parameters": {}
+        },
+        "posterior": {
+            "name": "gaussian", 
             "parameters": {}
         }
     },
     "fixed gaussian mixture": {
-        "posterior": {
-            "name": "gaussian", 
-            "parameters": {}
-            },
         "prior": {
             "name": "gaussian mixture",
+            "parameters": {}
+        },
+        "posterior": {
+            "name": "gaussian", 
             "parameters": {}
         }
     }
