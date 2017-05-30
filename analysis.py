@@ -9,6 +9,8 @@ from sklearn.manifold import TSNE
 from tensorflow.tensorboard.backend.event_processing import event_multiplexer
 
 from matplotlib import pyplot
+import matplotlib.patches
+import matplotlib.gridspec
 import seaborn
 
 import os
@@ -174,6 +176,19 @@ def analyseModel(model, results_directory = "results"):
             formatDuration(heat_map_duration)))
         
         print()
+    
+    # Evolution of latent centroids
+    
+    if model.type in ["VAE", "IWVAE"]:
+    # if "AE" in model.type:
+        
+        centroids = loadCentroids(model, data_set_kinds = "training")
+        
+        for distribution, distribution_centroids in centroids.items():
+            if distribution_centroids:
+                print(distribution)
+                for parameter, values in distribution_centroids.items():
+                    print(parameter, values.shape)
 
 def analyseAllModels(models_summaries, results_directory = "results"):
     
@@ -205,199 +220,206 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     M = test_set.number_of_examples
     
-    # Loading
-    
-    evaluation_test = loadLearningCurves(model, "test")
-    number_of_epochs_trained = loadNumberOfEpochsTrained(model)
-    
-    # Metrics
-    
-    print("Calculating metrics for results.")
-    metrics_time_start = time()
-    
-    x_statistics = [
-        statistics(data_set.values, data_set.version, tolerance = 0.5)
-            for data_set in [test_set, reconstructed_test_set]
-    ]
-    
-    x_diff = test_set.values - reconstructed_test_set.values
-    x_statistics.append(statistics(numpy.abs(x_diff), "differences",
-        skip_sparsity = True))
-    
-    x_log_ratio = numpy.log((test_set.values + 1) \
-        / (reconstructed_test_set.values + 1))
-    x_statistics.append(statistics(numpy.abs(x_log_ratio), "log-ratios",
-        skip_sparsity = True))
-    
-    if test_set.values.max() > 20:
-        count_accuracy_method = "orders of magnitude"
-    else:
-        count_accuracy_method = None
-    
-    count_accuracies = computeCountAccuracies(
-        test_set.values,
-        reconstructed_test_set.values,
-        method = count_accuracy_method
-    )
-    
-    metrics_duration = time() - metrics_time_start
-    print("Metrics calculated ({}).".format(
-        formatDuration(metrics_duration)))
-    
-    ## Saving
-    
-    metrics_log_path = os.path.join(results_directory, "test_metrics.log")
-    metrics_dictionary_path = os.path.join(results_directory,
-        "test_metrics.pkl.gz")
-    
-    metrics_saving_time_start = time()
-    
-    with open(metrics_log_path, "w") as metrics_file:
-        metrics_string = "Timestamp: {}".format(
-            formatTime(metrics_saving_time_start))
-        metrics_string += "\n"
-        metrics_string += "Number of epochs trained: {}".format(
-            number_of_epochs_trained)
-        metrics_string += "\n"*2
-        metrics_string += "Evaluation:"
-        metrics_string += "\n"
-        if model.type == "SNN":
-            metrics_string += \
-                "    log-likelihood: {:.5g}.\n".format(
-                    evaluation_test["log_likelihood"][-1])
-        elif "AE" in model.type:
-            metrics_string += \
-                "    ELBO: {:.5g}.\n".format(
-                    evaluation_test["lower_bound"][-1]) + \
-                "    ENRE: {:.5g}.\n".format(
-                    evaluation_test["reconstruction_error"][-1])
-            if model.type != "CVAE":
-                metrics_string += \
-                    "    KL:   {:.5g}.\n".format(
-                        evaluation_test["kl_divergence"][-1])
-            else:
-                metrics_string += \
-                    "    KL_z1:   {:.5g}.\n".format(
-                        evaluation_test["kl_divergence_z1"][-1]) + \
-                    "    KL_z2:   {:.5g}.\n".format(
-                        evaluation_test["kl_divergence_z2"][-1]) + \
-                    "    KL_y:   {:.5g}.\n".format(
-                        evaluation_test["kl_divergence_y"][-1])
-        metrics_string += "\n" + formatStatistics(x_statistics)
-        metrics_string += "\n" + formatCountAccuracies(count_accuracies)
-        metrics_file.write(metrics_string)
-    
-    with gzip.open(metrics_dictionary_path, "w") as metrics_file:
-        metrics_dictionary = {
-            "timestamp": metrics_saving_time_start,
-            "number of epochs trained": number_of_epochs_trained,
-            "evaluation": evaluation_test,
-            "statistics": statistics,
-            "count accuracies": count_accuracies
-        }
-        pickle.dump(metrics_dictionary, metrics_file)
-    
-    metrics_saving_duration = time() - metrics_saving_time_start
-    print("Metrics saved ({}).".format(formatDuration(
-        metrics_saving_duration)))
-    
-    print()
-    
-    ## Displaying
-    
-    print(formatStatistics(x_statistics))
-    print(formatCountAccuracies(count_accuracies))
-    
-    # Profile comparisons
-    
-    print("Plotting profile comparisons.")
-    profile_comparisons_time_start = time()
-    
-    subset = numpy.random.randint(M, size = 10)
-    
-    for j, i in enumerate(subset):
-        
-        figure, name = plotProfileComparison(
-            test_set.values[i],
-            reconstructed_test_set.values[i],
-            x_name = test_set.tags["example"].capitalize() + "s",
-            y_name = test_set.tags["feature"].capitalize() + "s",
-            scale = "log",
-            title = str(test_set.example_names[i]),
-            name = str(j)
-        )
-        saveFigure(figure, name, results_directory)
-    
-    profile_comparisons_duration = time() - profile_comparisons_time_start
-    print("Profile comparisons plotted and saved ({}).".format(
-        formatDuration(profile_comparisons_duration)))
-    
-    print()
-    
-    # Heat maps
-    
-    print("Plotting heat maps.")
-    
-    # Reconstructions
-    
-    heat_maps_time_start = time()
-    
-    figure, name = plotHeatMap(
-        reconstructed_test_set.values,
-        x_name = test_set.tags["example"].capitalize() + "s",
-        y_name = test_set.tags["feature"].capitalize() + "s",
-        name = "reconstruction"
-    )
-    saveFigure(figure, name, results_directory)
-    
-    heat_maps_duration = time() - heat_maps_time_start
-    print("    Reconstruction heat map plotted and saved ({})." \
-        .format(formatDuration(heat_maps_duration)))
-    
-    # Differences
-    
-    heat_maps_time_start = time()
-    
-    figure, name = plotHeatMap(
-        x_diff,
-        x_name = test_set.tags["example"].capitalize() + "s",
-        y_name = test_set.tags["feature"].capitalize() + "s",
-        name = "difference",
-        center = 0
-    )
-    saveFigure(figure, name, results_directory)
-    
-    heat_maps_duration = time() - heat_maps_time_start
-    print("    Difference heat map plotted and saved ({})." \
-        .format(formatDuration(heat_maps_duration)))
-    
-    # log-ratios
-    
-    heat_maps_time_start = time()
-    
-    figure, name = plotHeatMap(
-        x_log_ratio,
-        x_name = test_set.tags["example"].capitalize() + "s",
-        y_name = test_set.tags["feature"].capitalize() + "s",
-        name = "log_ratio",
-        center = 0
-    )
-    saveFigure(figure, name, results_directory)
-    
-    heat_maps_duration = time() - heat_maps_time_start
-    print("    log-ratio heat map plotted and saved ({})." \
-        .format(formatDuration(heat_maps_duration)))
-    
-    print()
+    # # Loading
+    #
+    # evaluation_test = loadLearningCurves(model, "test")
+    # number_of_epochs_trained = loadNumberOfEpochsTrained(model)
+    #
+    # # Metrics
+    #
+    # print("Calculating metrics for results.")
+    # metrics_time_start = time()
+    #
+    # x_statistics = [
+    #     statistics(data_set.values, data_set.version, tolerance = 0.5)
+    #         for data_set in [test_set, reconstructed_test_set]
+    # ]
+    #
+    # x_diff = test_set.values - reconstructed_test_set.values
+    # x_statistics.append(statistics(numpy.abs(x_diff), "differences",
+    #     skip_sparsity = True))
+    #
+    # x_log_ratio = numpy.log((test_set.values + 1) \
+    #     / (reconstructed_test_set.values + 1))
+    # x_statistics.append(statistics(numpy.abs(x_log_ratio), "log-ratios",
+    #     skip_sparsity = True))
+    #
+    # if test_set.values.max() > 20:
+    #     count_accuracy_method = "orders of magnitude"
+    # else:
+    #     count_accuracy_method = None
+    #
+    # count_accuracies = computeCountAccuracies(
+    #     test_set.values,
+    #     reconstructed_test_set.values,
+    #     method = count_accuracy_method
+    # )
+    #
+    # metrics_duration = time() - metrics_time_start
+    # print("Metrics calculated ({}).".format(
+    #     formatDuration(metrics_duration)))
+    #
+    # ## Saving
+    #
+    # metrics_log_path = os.path.join(results_directory, "test_metrics.log")
+    # metrics_dictionary_path = os.path.join(results_directory,
+    #     "test_metrics.pkl.gz")
+    #
+    # metrics_saving_time_start = time()
+    #
+    # with open(metrics_log_path, "w") as metrics_file:
+    #     metrics_string = "Timestamp: {}".format(
+    #         formatTime(metrics_saving_time_start))
+    #     metrics_string += "\n"
+    #     metrics_string += "Number of epochs trained: {}".format(
+    #         number_of_epochs_trained)
+    #     metrics_string += "\n"*2
+    #     metrics_string += "Evaluation:"
+    #     metrics_string += "\n"
+    #     if model.type == "SNN":
+    #         metrics_string += \
+    #             "    log-likelihood: {:.5g}.\n".format(
+    #                 evaluation_test["log_likelihood"][-1])
+    #     elif "AE" in model.type:
+    #         metrics_string += \
+    #             "    ELBO: {:.5g}.\n".format(
+    #                 evaluation_test["lower_bound"][-1]) + \
+    #             "    ENRE: {:.5g}.\n".format(
+    #                 evaluation_test["reconstruction_error"][-1])
+    #         if model.type != "CVAE":
+    #             metrics_string += \
+    #                 "    KL:   {:.5g}.\n".format(
+    #                     evaluation_test["kl_divergence"][-1])
+    #         else:
+    #             metrics_string += \
+    #                 "    KL_z1:   {:.5g}.\n".format(
+    #                     evaluation_test["kl_divergence_z1"][-1]) + \
+    #                 "    KL_z2:   {:.5g}.\n".format(
+    #                     evaluation_test["kl_divergence_z2"][-1]) + \
+    #                 "    KL_y:   {:.5g}.\n".format(
+    #                     evaluation_test["kl_divergence_y"][-1])
+    #     metrics_string += "\n" + formatStatistics(x_statistics)
+    #     metrics_string += "\n" + formatCountAccuracies(count_accuracies)
+    #     metrics_file.write(metrics_string)
+    #
+    # with gzip.open(metrics_dictionary_path, "w") as metrics_file:
+    #     metrics_dictionary = {
+    #         "timestamp": metrics_saving_time_start,
+    #         "number of epochs trained": number_of_epochs_trained,
+    #         "evaluation": evaluation_test,
+    #         "statistics": statistics,
+    #         "count accuracies": count_accuracies
+    #     }
+    #     pickle.dump(metrics_dictionary, metrics_file)
+    #
+    # metrics_saving_duration = time() - metrics_saving_time_start
+    # print("Metrics saved ({}).".format(formatDuration(
+    #     metrics_saving_duration)))
+    #
+    # print()
+    #
+    # ## Displaying
+    #
+    # print(formatStatistics(x_statistics))
+    # print(formatCountAccuracies(count_accuracies))
+    #
+    # # Profile comparisons
+    #
+    # print("Plotting profile comparisons.")
+    # profile_comparisons_time_start = time()
+    #
+    # subset = numpy.random.randint(M, size = 10)
+    #
+    # for j, i in enumerate(subset):
+    #
+    #     figure, name = plotProfileComparison(
+    #         test_set.values[i],
+    #         reconstructed_test_set.values[i],
+    #         x_name = test_set.tags["example"].capitalize() + "s",
+    #         y_name = test_set.tags["feature"].capitalize() + "s",
+    #         scale = "log",
+    #         title = str(test_set.example_names[i]),
+    #         name = str(j)
+    #     )
+    #     saveFigure(figure, name, results_directory)
+    #
+    # profile_comparisons_duration = time() - profile_comparisons_time_start
+    # print("Profile comparisons plotted and saved ({}).".format(
+    #     formatDuration(profile_comparisons_duration)))
+    #
+    # print()
+    #
+    # # Heat maps
+    #
+    # print("Plotting heat maps.")
+    #
+    # # Reconstructions
+    #
+    # heat_maps_time_start = time()
+    #
+    # figure, name = plotHeatMap(
+    #     reconstructed_test_set.values,
+    #     x_name = test_set.tags["example"].capitalize() + "s",
+    #     y_name = test_set.tags["feature"].capitalize() + "s",
+    #     name = "reconstruction"
+    # )
+    # saveFigure(figure, name, results_directory)
+    #
+    # heat_maps_duration = time() - heat_maps_time_start
+    # print("    Reconstruction heat map plotted and saved ({})." \
+    #     .format(formatDuration(heat_maps_duration)))
+    #
+    # # Differences
+    #
+    # heat_maps_time_start = time()
+    #
+    # figure, name = plotHeatMap(
+    #     x_diff,
+    #     x_name = test_set.tags["example"].capitalize() + "s",
+    #     y_name = test_set.tags["feature"].capitalize() + "s",
+    #     name = "difference",
+    #     center = 0
+    # )
+    # saveFigure(figure, name, results_directory)
+    #
+    # heat_maps_duration = time() - heat_maps_time_start
+    # print("    Difference heat map plotted and saved ({})." \
+    #     .format(formatDuration(heat_maps_duration)))
+    #
+    # # log-ratios
+    #
+    # heat_maps_time_start = time()
+    #
+    # figure, name = plotHeatMap(
+    #     x_log_ratio,
+    #     x_name = test_set.tags["example"].capitalize() + "s",
+    #     y_name = test_set.tags["feature"].capitalize() + "s",
+    #     name = "log_ratio",
+    #     center = 0
+    # )
+    # saveFigure(figure, name, results_directory)
+    #
+    # heat_maps_duration = time() - heat_maps_time_start
+    # print("    log-ratio heat map plotted and saved ({})." \
+    #     .format(formatDuration(heat_maps_duration)))
+    #
+    # print()
     
     # Latent space
     
     if latent_test_sets is not None:
         
+        if model.type in ["VAE", "IWVAE"]:
+        # if "AE" in model.type:
+            centroids = loadCentroids(model, data_set_kinds = "test")
+        else:
+            centroids = None
+        
         analyseDecompositions(
             latent_test_sets,
             colouring_data_set = test_set,
             decomposition_methods = decomposition_methods,
+            centroids = centroids,
             highlight_feature_indices = highlight_feature_indices,
             symbol = "$z$",
             title = "latent space",
@@ -406,8 +428,9 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         )
 
 def analyseDecompositions(data_sets, colouring_data_set = None,
-    decomposition_methods = ["PCA"], highlight_feature_indices = [],
-    symbol = "$x$", title = "data set", specifier = None,
+    decomposition_methods = ["PCA"], centroids = None,
+    highlight_feature_indices = [], symbol = "$x$",
+    title = "data set", specifier = None,
     results_directory = "results"):
     
     if not isinstance(data_sets, (list, tuple)):
@@ -443,7 +466,8 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                         "y label": symbol + "$_2$"
                     }
                 
-                    values = data_set.values
+                    values_decomposed = data_set.values
+                    centroids_decomposed = centroids
                 else:
                     continue
             else:    
@@ -454,7 +478,12 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                     title_with_ID, decomposition_method))
                 decompose_time_start = time()
     
-                values = decompose(data_set, decomposition_method, components = 2)
+                values_decomposed, centroids_decomposed = decompose(
+                    data_set,
+                    centroids,
+                    decomposition_method,
+                    components = 2
+                )
     
                 decompose_duration = time() - decompose_time_start
                 print("{} decomposed ({}).".format(
@@ -474,20 +503,21 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                         "x label": "$t$-SNE 1",
                         "y label": "$t$-SNE 2"
                     }
-            
+                
                 print()
-        
-            # Plot test data set
-        
+            
+            # Plot data set
+            
             print("Plotting {}{}.".format(
                 "decomposed " if decomposition_method else "", title_with_ID))
-        
+                
             ## No colour-coding
-        
+            
             plot_time_start = time()
-        
+            
             figure, figure_name = plotValues(
-                values,
+                values_decomposed,
+                centroids = centroids_decomposed,
                 figure_labels = figure_labels,
                 name = name
             )
@@ -505,9 +535,10 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                 plot_time_start = time()
             
                 figure, figure_name = plotValues(
-                    values,
+                    values_decomposed,
                     colour_coding = "labels",
                     colouring_data_set = colouring_data_set,
+                    centroids = centroids_decomposed,
                     figure_labels = figure_labels,
                     name = name
                 )
@@ -522,9 +553,10 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
             plot_time_start = time()
         
             figure, figure_name = plotValues(
-                values,
+                values_decomposed,
                 colour_coding = "count sum",
                 colouring_data_set = colouring_data_set,
+                centroids = centroids_decomposed,
                 figure_labels = figure_labels,
                 name = name
             )
@@ -541,9 +573,10 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                 plot_time_start = time()
             
                 figure, figure_name = plotValues(
-                    values,
+                    values_decomposed,
                     colour_coding = "feature",
                     colouring_data_set = colouring_data_set,
+                    centroids = centroids_decomposed,
                     feature_index = feature_index,
                     figure_labels = figure_labels,
                     name = name
@@ -705,7 +738,8 @@ def formatCountAccuracies(count_accuracies):
     
     return formatted_string
 
-def decompose(data_set, decomposition = "PCA", components = 2, random = False):
+def decompose(data_set, centroids = None, decomposition = "PCA",
+    components = 2, random = False):
     
     decomposition = normaliseString(decomposition)
     
@@ -713,8 +747,6 @@ def decompose(data_set, decomposition = "PCA", components = 2, random = False):
         random_state = None
     else:
         random_state = 42
-    
-    labels = {}
     
     F = data_set.number_of_features
     
@@ -725,9 +757,30 @@ def decompose(data_set, decomposition = "PCA", components = 2, random = False):
     else:
         raise ValueError("Decomposition method not found.")
     
-    values = model.fit_transform(data_set.values)
+    values_decomposed = model.fit_transform(data_set.values)
     
-    return values
+    # Only supports centroids without data sets as top levels and no epoch
+    # information
+    if centroids and decomposition == "pca":
+        W = model.components_
+        centroids_decomposed = {}
+        for distribution, distribution_centroids in centroids.items():
+            if distribution_centroids:
+                centroids_distribution_decomposed = {}
+                for parameter, values in distribution_centroids.items():
+                    if parameter == "means":
+                        values = model.transform(values)
+                    elif parameter == "covariance_matrices":
+                        values = W @ values @ W.T
+                    centroids_distribution_decomposed[parameter] = values
+                centroids_decomposed[distribution] = \
+                    centroids_distribution_decomposed
+            else:
+                centroids_decomposed[distribution] = None
+    else:
+        centroids_decomposed = None
+    
+    return values_decomposed, centroids_decomposed
 
 def plotHistogram(values, x_label, scale = "linear", name = None):
     
@@ -987,7 +1040,8 @@ decomposition_method_names = {
 }
 
 def plotValues(values, colour_coding = None, colouring_data_set = None,
-    feature_index = None, figure_labels = None, name = "scatter"):
+    centroids = None, feature_index = None, figure_labels = None,
+    name = "scatter"):
     
     figure_name = name
     
@@ -1010,7 +1064,17 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             raise ValueError("Colouring data set not given.")
     
     figure = pyplot.figure()
-    axis = figure.add_subplot(1, 1, 1)
+    
+    if centroids and centroids["prior"] \
+        and centroids["prior"]["probabilities"].shape[0] > 1:
+            axes = matplotlib.gridspec.GridSpec(1, 2, width_ratios=[3, 1])
+            axis = pyplot.subplot(axes[0])
+            axis_cat = pyplot.subplot(axes[1])
+        # figure, (axis, axis_cat) = pyplot.subplots(1, 2, figsize = (16, 6))
+    else:
+        axis = figure.add_subplot(1, 1, 1)
+    
+    axis.set_aspect("equal")
     
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
@@ -1068,6 +1132,32 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     else:
         axis.scatter(values[:, 0], values[:, 1])
     
+    if centroids:
+        prior_centroids = centroids["prior"]
+        
+        if prior_centroids:
+            K = prior_centroids["probabilities"].shape[0]
+        else:
+            K = 0
+        
+        if K > 1:
+            centroids_palette = seaborn.hls_palette(K, l = .4)
+            epochs = numpy.arange(K)
+            
+            probabilities = prior_centroids["probabilities"]
+            means = prior_centroids["means"]
+            covariance_matrices = prior_centroids["covariance_matrices"]
+            
+            for k in range(K):
+                axis_cat.barh(epochs[k], probabilities[k],
+                    color = centroids_palette[k])
+                axis.scatter(means[k, 0], means[k, 1], marker = "x",
+                    color = centroids_palette[k])
+                plotCovariance(covariance_matrices[k], means[k], axis,
+                    colour = centroids_palette[k])
+            
+            axis_cat.set_yticks([])
+    
     return figure, figure_name
 
 def plotLatentSpace(latent_values, data_set = None, colour_coding = None,
@@ -1088,6 +1178,16 @@ def plotLatentSpace(latent_values, data_set = None, colour_coding = None,
     )
     
     return figure, figure_name
+
+def plotCovariance(covariance, mean, axis, colour, label = None, linestyle = "solid"):
+    eigenvalues, eigenvectors = numpy.linalg.eig(covariance)
+    index = eigenvalues.argsort()[::-1]
+    eigenvalues = eigenvalues[index]
+    eigenvectors = eigenvectors[:, index]
+    lambda_1, lambda_2 = numpy.sqrt(eigenvalues)
+    alpha = numpy.rad2deg(numpy.arctan(eigenvectors[1, 0] / eigenvectors[0, 0]))
+    ellipse = matplotlib.patches.Ellipse(xy = mean, width = 2 * lambda_1, height = 2 * lambda_2, angle = alpha, linewidth = 2, linestyle = linestyle, facecolor = "none", edgecolor = colour, label = label)
+    axis.add_patch(ellipse)
 
 def saveFigure(figure, figure_name, results_directory, no_spine = True):
     
@@ -1188,6 +1288,119 @@ def loadLearningCurves(model, data_set_kinds = "all"):
         learning_curve_sets = learning_curve_sets[data_set_kinds[0]]
     
     return learning_curve_sets
+
+def loadCentroids(model, data_set_kinds = "all"):
+    
+    # Setup
+    
+    centroids_sets = {}
+    
+    ## Data set kinds
+    if data_set_kinds == "all":
+        data_set_kinds = ["training", "validation", "test"]
+    elif not isinstance(data_set_kinds, list):
+        data_set_kinds = [data_set_kinds]
+    
+    ## Exit if SNN model
+    if model.type == "SNN":
+        return None
+    
+    ## TensorBoard class with summaries
+    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
+        model.log_directory)
+    multiplexer.Reload()
+    
+    # Loading
+    
+    for data_set_kind in data_set_kinds:
+        
+        centroids_set = {}
+        
+        for distribution in ["prior", "posterior"]:
+            
+            try:
+                scalars = multiplexer.Scalars(data_set_kind,
+                    distribution + "/cluster_0/probability")
+            except KeyError:
+                centroids_set[distribution] = None
+                continue
+            
+            
+            # Number of epochs
+            E = len(scalars)
+            
+            # Number of clusters
+            if "mixture" in model.latent_distribution[distribution]["name"]:
+                K = model.number_of_latent_clusters
+            else:
+                K = 1
+            
+            # Number of latent dimensions
+            L = model.latent_size
+            
+            # Initialise
+            z_probabilities = numpy.empty((E, K))
+            z_means = numpy.empty((E, K, L))
+            z_variances = numpy.empty((E, K, L))
+            z_covariance_matrices = numpy.empty((E, K, L, L))
+            
+            # Looping
+            for k in range(K):
+                
+                probability_scalars = multiplexer.Scalars(data_set_kind,
+                    distribution + "/cluster_{}/probability".format(k))
+                
+                if len(probability_scalars) == 1:
+                    z_probabilities[0][k] = probability_scalars[0].value
+                else:
+                    for scalar in probability_scalars:
+                        z_probabilities[scalar.step - 1][k] = scalar.value
+                
+                for l in range(L):
+                    
+                    mean_scalars = multiplexer.Scalars(data_set_kind,
+                        distribution + "/cluster_{}/mean/dimension_{}".format(
+                            k, l))
+                    
+                    if len(mean_scalars) == 1:
+                        z_means[0][k][l] = mean_scalars[0].value
+                    else:
+                        for scalar in mean_scalars:
+                            z_means[scalar.step - 1][k][l] = scalar.value
+                    
+                    variance_scalars = multiplexer.Scalars(data_set_kind,
+                        distribution + 
+                            "/cluster_{}/variance/dimension_{}"
+                                .format(k, l))
+                    
+                    if len(variance_scalars) == 1:
+                        z_variances[0][k][l] = \
+                            variance_scalars[0].value
+                    else:
+                        for scalar in variance_scalars:
+                            z_variances[scalar.step - 1][k][l] = \
+                                scalar.value
+                
+                for e in range(E):
+                    z_covariance_matrices[e, k] = numpy.diag(z_variances[e, k])
+            
+            if data_set_kind == "test":
+                z_probabilities = z_probabilities[0]
+                z_means = z_means[0]
+                z_covariance_matrices = z_covariance_matrices[0]
+            
+            centroids_set[distribution] = {
+                "probabilities": z_probabilities,
+                "means": z_means,
+                "covariance_matrices": z_covariance_matrices
+            }
+        
+        centroids_sets[data_set_kind] = centroids_set
+    
+    if len(data_set_kinds) == 1:
+        centroids_sets = centroids_sets[data_set_kinds[0]]
+    
+    return centroids_sets
 
 def loadKLDivergences(model):
     
