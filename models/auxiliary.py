@@ -54,6 +54,7 @@ def dense_layers(inputs, num_outputs, reverse_order = False, is_training = True,
         num_outputs = [num_outputs]
     if reverse_order:
         num_outputs = num_outputs[::-1]
+    outputs = inputs
     # Set up all following layers
     for i, num_output in enumerate(num_outputs):
         if not reverse_order:
@@ -62,7 +63,7 @@ def dense_layers(inputs, num_outputs, reverse_order = False, is_training = True,
             layer_number = len(num_outputs) - i
 
         with tf.variable_scope('LAYER_{:d}'.format(layer_number)):
-            outputs = fully_connected(inputs, num_outputs = num_output,
+            outputs = fully_connected(outputs, num_outputs = num_output,
                 activation_fn = None, weights_initializer = weights_init, 
                 scope = 'DENSE')
             if batch_normalisation:
