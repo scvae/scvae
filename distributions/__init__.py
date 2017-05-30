@@ -82,7 +82,7 @@ distributions = {
             }
         },
         "class": lambda theta: Bernoulli(
-            probs = theta["p"]
+            probs = theta["p"], validate_args=True
         )
     },
     
