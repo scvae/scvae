@@ -397,7 +397,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         
         self.p_z_probabilities = []
         self.p_z_means = []
-        self.p_z_standard_deviations = []
+        self.p_z_variances = []
         
         if "mixture" in self.latent_distribution["prior"]["name"]:
             for k in range(self.number_of_latent_clusters):
@@ -405,12 +405,12 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     tf.squeeze(self.p_z.cat.probs)[k])
                 self.p_z_means.append(
                     tf.squeeze(self.p_z.components[k].mean()))
-                self.p_z_standard_deviations.append(
+                self.p_z_variances.append(
                     tf.diag_part(tf.squeeze(self.p_z.components[k].covariance())))
         else:
             self.p_z_probabilities.append(tf.constant(1.))
             self.p_z_means.append(tf.squeeze(self.p_z.mean()))
-            self.p_z_standard_deviations.append(tf.squeeze(self.p_z.stddev()))
+            self.p_z_variances.append(tf.squeeze(self.p_z.stddev()))
         
         # Decoder - Generative model, p(x|z)
         
@@ -873,10 +873,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 
                 ## Centroids
             
-                p_z_probabilities, p_z_means, p_z_standard_deviations = \
+                p_z_probabilities, p_z_means, p_z_variances = \
                     session.run(
                     [self.p_z_probabilities, self.p_z_means,
-                        self.p_z_standard_deviations]
+                        self.p_z_variances]
                 )
                 
                 ## Summaries
@@ -905,19 +905,19 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         # The same Gaussian for all
                         if not p_z_means[k].shape:
                             p_z_mean_k_l = p_z_means[k]
-                            p_z_standard_deviations_k_l = p_z_standard_deviations[k]
+                            p_z_variances_k_l = p_z_variances[k]
                         # Different Gaussians for all
                         else:
                             p_z_mean_k_l = p_z_means[k][l]
-                            p_z_standard_deviations_k_l = p_z_standard_deviations[k][l]
+                            p_z_variances_k_l = p_z_variances[k][l]
                         summary.value.add(
                             tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
                             simple_value = p_z_mean_k_l
                         )
                         summary.value.add(
-                            tag="prior/cluster_{}/standard_deviation/dimension_{}"\
+                            tag="prior/cluster_{}/variance/dimension_{}"\
                                 .format(k, l),
-                            simple_value = p_z_standard_deviations_k_l
+                            simple_value = p_z_variances_k_l
                         )
                 
                 ### Writing
@@ -1097,8 +1097,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             ## Centroids
             
-            p_z_probabilities, p_z_means, p_z_standard_deviations = session.run(
-                [self.p_z_probabilities, self.p_z_means, self.p_z_standard_deviations]
+            p_z_probabilities, p_z_means, p_z_variances = session.run(
+                [self.p_z_probabilities, self.p_z_means, self.p_z_variances]
             )
             
             ## Summaries
@@ -1120,19 +1120,19 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     # The same Gaussian for all
                     if not p_z_means[k].shape:
                         p_z_mean_k_l = p_z_means[k]
-                        p_z_standard_deviations_k_l = p_z_standard_deviations[k]
+                        p_z_variances_k_l = p_z_variances[k]
                     # Different Gaussians for all
                     else:
                         p_z_mean_k_l = p_z_means[k][l]
-                        p_z_standard_deviations_k_l = p_z_standard_deviations[k][l]
+                        p_z_variances_k_l = p_z_variances[k][l]
                     summary.value.add(
                         tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
                         simple_value = p_z_mean_k_l
                     )
                     summary.value.add(
-                        tag="prior/cluster_{}/standard_deviation/dimension_{}"\
+                        tag="prior/cluster_{}/variance/dimension_{}"\
                             .format(k, l),
-                        simple_value = p_z_standard_deviations_k_l
+                        simple_value = p_z_variances_k_l
                     )
             
             test_summary_writer.add_summary(summary,
