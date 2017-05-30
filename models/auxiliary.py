@@ -46,14 +46,22 @@ def dense_layer(inputs, num_outputs, is_training = True, scope = "layer", activa
     
     return outputs
 
-# Wrapper layer for inserting batch normalization in between linear and nonlinear activation layers.
-def dense_layers(inputs, num_outputs, is_training = True, scope = "layers", activation_fn = None,
+# Wrapper layer for inserting batch normalization in between several linear
+# and nonlinear activation layers in given or reverese order of num_outputs.
+def dense_layers(inputs, num_outputs, reverse_order = False, is_training = True, scope = "layers", activation_fn = None,
     batch_normalisation = False, decay = 0.999, center = True, scale = False):
     if not isinstance(num_outputs, list):
         num_outputs = [num_outputs]
+    if reverse_order:
+        num_outputs = num_outputs[::-1]
     # Set up all following layers
     for i, num_output in enumerate(num_outputs):
-        with tf.variable_scope('{:d}'.format(i + 1)):
+        if not reverse_order:
+            layer_number = i + 1
+        else: 
+            layer_number = len(num_outputs) - i
+
+        with tf.variable_scope('LAYER_{:d}'.format(layer_number)):
             outputs = fully_connected(inputs, num_outputs = num_output,
                 activation_fn = None, weights_initializer = weights_init, 
                 scope = 'DENSE')
