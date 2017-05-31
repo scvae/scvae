@@ -86,9 +86,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
             
             self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
-            parameter_summary = tf.summary.scalar('warm_up_weight',
+            warm_up_weight_summary = tf.summary.scalar('warm_up_weight',
                 self.warm_up_weight)
-            self.parameter_summary_list.append(parameter_summary)
+            self.parameter_summary_list.append(warm_up_weight_summary)
             
             self.is_training = tf.placeholder(tf.bool, [], 'is_training')
             
@@ -661,7 +661,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         
         status = {
             "completed": False,
-            "message": None
+            "message": None,
+            "trained": None,
+            "training time": None,
+            "last epoch time": None
         }
         
         # parameter_values = "lr_{:.1g}".format(learning_rate)
@@ -722,11 +725,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 epoch_start = 0
                 parameter_summary_writer.add_graph(session.graph)
             
+            status["trained"] = "{}-{}".format(epoch_start, number_of_epochs)
+            
             # Training loop
             
-            if epoch_start == number_of_epochs:
-                print("Model has already been trained for {} epochs.".format(
-                    number_of_epochs))
+            training_time_start = time()
             
             for epoch in range(epoch_start, number_of_epochs):
                 
@@ -790,6 +793,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         if numpy.isnan(batch_loss):
                             status["completed"] = False
                             status["message"] = "loss became nan"
+                            status["training time"] = formatDuration(
+                                training_time_start - time())
+                            status["last epoch time"] = formatDuration(
+                                epoch_duration)
                             return status
                 
                 print()
@@ -846,8 +853,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.t: t_batch,
                         self.is_training: False,
                         self.warm_up_weight: 1.0,
-                        self.number_of_iw_samples: self.number_of_importance_samples["evaluation"],
-                        self.number_of_mc_samples: self.number_of_monte_carlo_samples["evaluation"]
+                        self.number_of_iw_samples: self.number_of_importance_samples["training"],
+                        self.number_of_mc_samples: self.number_of_monte_carlo_samples["training"]
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
@@ -948,9 +955,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.is_training: False,
                         self.warm_up_weight: 1.0,
                         self.number_of_iw_samples:
-                            self.number_of_importance_samples["evaluation"],
+                            self.number_of_importance_samples["training"],
                         self.number_of_mc_samples:
-                            self.number_of_monte_carlo_samples["evaluation"]
+                            self.number_of_monte_carlo_samples["training"]
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
@@ -987,6 +994,16 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 
                 print()
             
+            training_duration = time() - training_time_start
+            
+            if epoch_start == number_of_epochs:
+                print("Model has already been trained for {} epochs.".format(
+                    number_of_epochs))
+                epoch_duration = training_duration
+            else:
+                print("Model trained for {} epochs ({}).".format(
+                    number_of_epochs, formatDuration(training_duration)))
+            
             # Clean up
             
             checkpoint = tf.train.get_checkpoint_state(self.log_directory)
@@ -1001,6 +1018,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         os.remove(file_path)
             
             status["completed"] = True
+            status["training time"] = formatDuration(training_duration)
+            status["last epoch time"] = formatDuration(epoch_duration)
             
             return status
     
@@ -1046,6 +1065,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 raise Exception(
                     "Cannot evaluate model when it has not been trained.")
             
+            print('Evaluating trained model.')
             evaluating_time_start = time()
             
             ELBO_test = 0
@@ -1140,7 +1160,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             test_summary_writer.flush()
             
             evaluating_duration = time() - evaluating_time_start
-            print("Test set ({}): ".format(
+            print("    Test set ({}): ".format(
                 formatDuration(evaluating_duration)) + \
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                 ELBO_test, ENRE_test, KL_test))

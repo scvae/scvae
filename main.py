@@ -231,14 +231,22 @@ def main(data_set_name, data_directory = "data",
         
         if not status["completed"]:
             print(status["message"])
-            error_path = os.path.join(model.log_directory, "error.log")
-            with open(error_path, "w") as error_file:
-                error_file.write(
-                    "completed: {}\n".format(status["completed"]) + \
-                    "message: {}\n".format(status["message"])
-                )
             print()
             continue
+        
+        status_filename = "status"
+        if "trained" in status:
+            status_filename += "-" + status["trained"]
+        status_path = os.path.join(
+            model.log_directory,
+            status_filename + ".log"
+        )
+        with open(status_path, "w") as status_file:
+            for status_field, status_value in status.items():
+                if status_value:
+                    status_file.write(
+                        status_field + ": " + str(status_value) + "\n"
+                    )
         
         print()
         
