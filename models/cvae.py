@@ -21,7 +21,6 @@ from data import DataSet
 class ClusterVariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         number_of_monte_carlo_samples, number_of_importance_samples,
-        analytical_kl_term = False,
         latent_distribution = "gaussian", number_of_latent_clusters = 10,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
@@ -43,7 +42,6 @@ class ClusterVariationalAutoEncoder(object):
             latent_distributions[latent_distribution]
         )
         self.Dim_y = number_of_latent_clusters
-        self.analytical_kl_term = analytical_kl_term
         
         # Dictionary holding number of samples needed for the "monte carlo" 
         # estimator and "importance weighting" during both "train" and "test" time.  
@@ -111,7 +109,14 @@ class ClusterVariationalAutoEncoder(object):
             self.saver = tf.train.Saver(max_to_keep = 1)
     
     @property
-    def name(self):
+    def training_name(self):
+        return self.name("training")
+    
+    @property
+    def testing_name(self):
+        return self.name("testing")
+    
+    def name(self, process):
         
         latent_part = normaliseString(self.latent_distribution_name)
         
@@ -133,21 +138,16 @@ class ClusterVariationalAutoEncoder(object):
         mc_train = self.number_of_monte_carlo_samples["training"]
         mc_eval = self.number_of_monte_carlo_samples["evaluation"]
         
-        if mc_train > 1 or mc_eval > 1:
-            reconstruction_part += "_mc_" + str(mc_train)
-            if mc_eval != mc_train:
-                reconstruction_part += "_" + str(mc_eval)
+        reconstruction_part += "_mc_" + str(mc_train)
+        if process == "testing":
+            reconstruction_part += "_" + str(mc_eval)
         
         iw_train = self.number_of_importance_samples["training"]
         iw_eval = self.number_of_importance_samples["evaluation"]
         
-        if iw_train > 1 or iw_eval > 1:
-            reconstruction_part += "_iw_" + str(iw_train)
-            if iw_eval != iw_train:
-                reconstruction_part += "_" + str(iw_eval)
-        
-        if self.analytical_kl_term:
-            reconstruction_part += "_kl"
+        reconstruction_part += "_iw_" + str(iw_train)
+        if process == "testing":
+            reconstruction_part += "_" + str(iw_eval)
         
         if self.batch_normalisation:
             reconstruction_part += "_bn"
@@ -161,7 +161,7 @@ class ClusterVariationalAutoEncoder(object):
     
     @property
     def log_directory(self):
-        return os.path.join(self.main_log_directory, self.name)
+        return os.path.join(self.main_log_directory, self.training_name)
     
     @property
     def title(self):
@@ -233,9 +233,6 @@ class ClusterVariationalAutoEncoder(object):
             if iw_eval != iw_train:
                 iw += " (training), {} (evaluation)".format(iw_eval)
             description_parts.append(iw)
-        
-        if self.analytical_kl_term:
-            description_parts.append("using analytical KL term")
         
         if self.batch_normalisation:
             description_parts.append("using batch normalisation")

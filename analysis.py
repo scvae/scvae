@@ -133,7 +133,12 @@ def analyseModel(model, results_directory = "results"):
     
     # Setup
     
-    results_directory = os.path.join(results_directory, model.name)
+    if model.type in ["VAE", "IWVAE", "CVAE"]:
+        model_name = model.testing_name
+    else:
+        model_name = model.name
+    
+    results_directory = os.path.join(results_directory, model_name)
     
     # Learning curves
     
@@ -216,7 +221,12 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     # Setup
     
-    results_directory = os.path.join(results_directory, model.name)
+    if model.type in ["VAE", "IWVAE", "CVAE"]:
+        model_name = model.testing_name
+    else:
+        model_name = model.name
+    
+    results_directory = os.path.join(results_directory, model_name)
     
     M = test_set.number_of_examples
     

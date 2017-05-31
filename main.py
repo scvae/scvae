@@ -180,7 +180,6 @@ def main(data_set_name, data_directory = "data",
             model = ClusterVariationalAutoEncoder(
                 feature_size, latent_size, hidden_sizes,
                 number_of_monte_carlo_samples, number_of_importance_samples,
-                analytical_kl_term,
                 latent_distribution, number_of_latent_clusters,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,

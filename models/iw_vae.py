@@ -110,7 +110,14 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             self.saver = tf.train.Saver(max_to_keep = 1)
     
     @property
-    def name(self):
+    def training_name(self):
+        return self.name("training")
+    
+    @property
+    def testing_name(self):
+        return self.name("testing")
+    
+    def name(self, process):
         
         latent_part = normaliseString(self.latent_distribution_name)
         
@@ -132,17 +139,16 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         mc_train = self.number_of_monte_carlo_samples["training"]
         mc_eval = self.number_of_monte_carlo_samples["evaluation"]
         
-        if mc_train > 1 or mc_eval > 1:
-            reconstruction_part += "_mc_" + str(mc_train)
-            if mc_eval != mc_train:
-                reconstruction_part += "_" + str(mc_eval)
+        reconstruction_part += "_mc_" + str(mc_train)
+        if process == "testing":
+            reconstruction_part += "_" + str(mc_eval)
         
         iw_train = self.number_of_importance_samples["training"]
         iw_eval = self.number_of_importance_samples["evaluation"]
         
-        if iw_train > 1 or iw_eval > 1:
+        if self.type == "IWVAE":
             reconstruction_part += "_iw_" + str(iw_train)
-            if iw_eval != iw_train:
+            if process == "testing":
                 reconstruction_part += "_" + str(iw_eval)
         
         if self.analytical_kl_term:
@@ -160,7 +166,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
     
     @property
     def log_directory(self):
-        return os.path.join(self.main_log_directory, self.name)
+        return os.path.join(self.main_log_directory, self.training_name)
     
     @property
     def title(self):
