@@ -76,13 +76,13 @@ distributions = {
 
     "bernoulli": {
         "parameters": {
-            "p": {
-                "support": [0, 1],
-                "activation function": sigmoid
+            "logits": {
+                "support": [-inf, inf],
+                "activation function": identity
             }
         },
         "class": lambda theta: Bernoulli(
-            probs = theta["p"], validate_args=True
+            logits = theta["logits"]
         )
     },
     
