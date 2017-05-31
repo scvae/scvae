@@ -346,10 +346,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                                 scope = name
                             )
                         elif part_name == "prior":
-                            variable = tf.Variable(
+                            variable = tf.expand_dims(tf.Variable(
                                 activation_fn(initial_value([num_outputs])),
                                 name = name
-                            )
+                            ), 0)
                         return variable
                     
                     # Switch: Use single or mixture (list) of distributions
@@ -385,8 +385,18 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         ### Parameterise:
         if self.parameterise_latent_posterior:
             for parameter in self.latent_distribution["posterior"]["parameters"]:
-                self.latent_distribution["posterior"]["parameters"][parameter] += \
-                    self.latent_distribution["prior"]["parameters"][parameter]
+                if isinstance(self.latent_distribution["posterior"]["parameters"]
+                    [parameter], list):
+                    for k in range(self.number_of_latent_clusters):
+                        self.latent_distribution["posterior"]["parameters"]\
+                            [parameter][k] += \
+                            self.latent_distribution["prior"]["parameters"]\
+                            [parameter][k]
+                else:
+                    self.latent_distribution["posterior"]["parameters"]\
+                        [parameter] += \
+                        self.latent_distribution["prior"]["parameters"]\
+                        [parameter]
         
         self.q_z_given_x = \
             distributions[self.latent_distribution["posterior"]["name"]]\
