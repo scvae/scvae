@@ -45,7 +45,8 @@ data_sets = {
                 "full": "http://mccarrolllab.com/wp-content/uploads/2015/05/retina_clusteridentities.txt"
             }
         },
-        "load function": lambda x: loadMouseRetinaDataSet(x)
+        "load function": lambda x: loadMouseRetinaDataSet(x),
+        "example type": "counts"
     },
     
     "MNIST (original)": {
@@ -71,7 +72,9 @@ data_sets = {
             },
         },
         "load function": lambda x: loadMNISTDataSet(x),
-        "maximum value": 255
+        "maximum value": 255,
+        "example type": "images",
+        "feature dimensions": (28, 28)
     },
     
     "MNIST (normalised)": {
@@ -88,7 +91,9 @@ data_sets = {
             }
         },
         "load function": lambda x: loadNormalisedMNISTDataSet(x),
-        "maximum value": 1
+        "maximum value": 1,
+        "example type": "images",
+        "feature dimensions": (28, 28)
     },
     
     "MNIST (binarised)": {
@@ -115,7 +120,9 @@ data_sets = {
             },
         },
         "load function": lambda x: loadBinarisedMNISTDataSet(x),
-        "maximum value": 1
+        "maximum value": 1,
+        "example type": "images",
+        "feature dimensions": (28, 28)
     },
     
     "Reuters": {
@@ -148,7 +155,8 @@ data_sets = {
                     "http://qwone.com/~jason/20Newsgroups/20news-bydate.tar.gz"
             }
         },
-        "load function": lambda x: load20NewsgroupsDataSet(x)
+        "load function": lambda x: load20NewsgroupsDataSet(x),
+        "example type": "counts"
     },
     
     "blobs": {
@@ -159,7 +167,8 @@ data_sets = {
                 "full": "http://people.compute.dtu.dk/s147246/datasets/blobs.pkl.gz"
             }
         },
-        "load function": lambda x: loadSampleDataSet(x)
+        "load function": lambda x: loadSampleDataSet(x),
+        "example type": "dummy"
     },
     
     "circles": {
@@ -170,7 +179,8 @@ data_sets = {
                 "full": "http://people.compute.dtu.dk/s147246/datasets/circles.pkl.gz"
             }
         },
-        "load function": lambda x: loadSampleDataSet(x)
+        "load function": lambda x: loadSampleDataSet(x),
+        "example type": "dummy"
     },
     
     "moons": {
@@ -181,7 +191,8 @@ data_sets = {
                 "full": "http://people.compute.dtu.dk/s147246/datasets/moons.pkl.gz"
             }
         },
-        "load function": lambda x: loadSampleDataSet(x)
+        "load function": lambda x: loadSampleDataSet(x),
+        "example type": "dummy"
     },
     
     "sample": {
@@ -192,7 +203,8 @@ data_sets = {
                 "full": "http://people.compute.dtu.dk/s152421/data-sets/count_samples.pkl.gz"
             }
         },
-        "load function": lambda x: loadSampleDataSet(x)
+        "load function": lambda x: loadSampleDataSet(x),
+        "example type": "counts"
     },
     
     "sample (sparse)": {
@@ -203,7 +215,8 @@ data_sets = {
                 "full": "http://people.compute.dtu.dk/s152421/data-sets/count_samples_sparse.pkl.gz"
             }
         },
-        "load function": lambda x: loadSampleDataSet(x)
+        "load function": lambda x: loadSampleDataSet(x),
+        "example type": "counts"
     }
 }
 
@@ -227,6 +240,12 @@ class DataSet(object):
         # Tags (with names for examples, feature, and values) of data set
         self.tags = dataSetTags(self.title)
         
+        # Example type for data set
+        self.example_type = dataSetExampleType(self.title)
+        
+        # Example type for data set
+        self.feature_dimensions = dataSetFeatureDimensions(self.title)
+        
         # Values and their names as well as labels in data set
         self.values = None
         self.count_sum = None
@@ -237,8 +256,8 @@ class DataSet(object):
         self.feature_names = None
         self.number_of_examples = None
         self.number_of_features = None
-        self.update(values, preprocessed_values, binarised_values, labels, example_names,
-            feature_names)
+        self.update(values, preprocessed_values, binarised_values, labels,
+            example_names, feature_names)
         
         # Feature selction and preprocessing methods
         self.feature_selection = feature_selection
@@ -670,8 +689,6 @@ class DataSet(object):
         
         print()
         
-        numpy.random.seed()
-        
         return training_set, validation_set, test_set
 
 def dataSetTitle(name):
@@ -697,6 +714,18 @@ def dataSetTags(title):
             "value": "value"
         }
         return tags
+
+def dataSetExampleType(title):
+    if "example type" in data_sets[title]:
+        return data_sets[title]["example type"]
+    else:
+        return None
+
+def dataSetFeatureDimensions(title):
+    if "feature dimensions" in data_sets[title]:
+        return data_sets[title]["feature dimensions"]
+    else:
+        return None
 
 def dataSetPreprocessingMethods(title):
     return data_sets[title]["preprocessing methods"]
@@ -1016,6 +1045,8 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
     
     duration = time() - start_time
     print("Data set split ({}).".format(formatDuration(duration)))
+    
+    numpy.random.seed()
     
     return split_data_dictionary
 

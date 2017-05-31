@@ -13,6 +13,8 @@ import matplotlib.patches
 import matplotlib.gridspec
 import seaborn
 
+from PIL import Image
+
 import os
 import gzip
 import pickle
@@ -26,6 +28,9 @@ palette = seaborn.color_palette('Set2', 8)
 seaborn.set(style='ticks', palette = palette)
 
 figure_extension = ".png"
+image_extension = ".png"
+
+number_of_random_examples = 100
 
 pyplot.rcParams.update({'figure.max_open_warning': 0})
 
@@ -97,6 +102,21 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
     for data_set in data_sets:
         if data_set.kind == "test":
             test_set = data_set
+    
+    # Examples
+    
+    if test_set.example_type == "images":
+        print("Saving image of {} random examples from test set.".format(
+            number_of_random_examples))
+        image_time_start = time()
+        image, image_name = combineRandomImagesFromDataSet(
+            test_set,
+            number_of_random_examples
+        )
+        saveImage(image, image_name, results_directory)
+        image_duration = time() - image_time_start
+        print("Image saved ({}).".format(formatDuration(image_duration)))
+        print()
     
     # Heat map for test set
     
@@ -231,12 +251,12 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     M = test_set.number_of_examples
     
     # Loading
-
+    
     evaluation_test = loadLearningCurves(model, "test")
     number_of_epochs_trained = loadNumberOfEpochsTrained(model)
-
+    
     # Metrics
-
+    
     print("Calculating metrics for results.")
     metrics_time_start = time()
 
@@ -325,14 +345,29 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     metrics_saving_duration = time() - metrics_saving_time_start
     print("Metrics saved ({}).".format(formatDuration(
         metrics_saving_duration)))
-
+    
     print()
-
+    
     ## Displaying
-
+    
     print(formatStatistics(x_statistics))
     print(formatCountAccuracies(count_accuracies))
-
+    
+    # Examples
+    
+    if reconstructed_test_set.example_type == "images":
+        print("Saving image of {} random examples".format(
+            number_of_random_examples), "from reconstructed test set.")
+        image_time_start = time()
+        image, image_name = combineRandomImagesFromDataSet(
+            reconstructed_test_set,
+            number_of_random_examples
+        )
+        saveImage(image, image_name, results_directory)
+        image_duration = time() - image_time_start
+        print("Image saved ({}).".format(formatDuration(image_duration)))
+        print()
+    
     # Profile comparisons
 
     print("Plotting profile comparisons.")
@@ -1198,6 +1233,52 @@ def plotCovariance(covariance, mean, axis, colour, label = None, linestyle = "so
     alpha = numpy.rad2deg(numpy.arctan(eigenvectors[1, 0] / eigenvectors[0, 0]))
     ellipse = matplotlib.patches.Ellipse(xy = mean, width = 2 * lambda_1, height = 2 * lambda_2, angle = alpha, linewidth = 2, linestyle = linestyle, facecolor = "none", edgecolor = colour, label = label)
     axis.add_patch(ellipse)
+
+def combineRandomImagesFromDataSet(data_set, number_of_random_examples):
+    
+    image_name = "random_examples"
+    M = number_of_random_examples
+    
+    numpy.random.seed(60)
+    indices = numpy.random.permutation(data_set.number_of_examples)[:M]
+    numpy.random.seed()
+    
+    W, H = data_set.feature_dimensions
+    examples = data_set.values[indices].reshape(M, W, H)
+    
+    C = int(numpy.ceil(numpy.sqrt(M)))
+    R = int(numpy.ceil(M / C))
+    
+    image = numpy.zeros((R * W, C * H))
+    
+    for m in range(M):
+        c = int(m % C)
+        r = int(numpy.floor(m / C))
+        rows = slice(r*W, (r+1)*W)
+        columns = slice(c*H, (c+1)*H)
+        image[rows, columns] = examples[m]
+    
+    return image, image_name
+
+def saveImage(image, image_name, results_directory):
+    
+    shape = image.shape
+    
+    if not os.path.exists(results_directory):
+        os.makedirs(results_directory)
+    
+    minimum = image.min()
+    maximum = image.max()
+    if 0 < minimum and minimum < 1 and 0 < maximum and maximum < 1:
+        rescaled_image = 255 * image
+    else:
+        rescaled_image = (255 / (maximum - minimum) * (image - minimum))
+    
+    image = Image.fromarray(rescaled_image.astype(numpy.uint8))
+    
+    image_name += image_extension
+    image_path = os.path.join(results_directory, image_name)
+    image.save(image_path)
 
 def saveFigure(figure, figure_name, results_directory, no_spine = True):
     
