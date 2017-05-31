@@ -220,190 +220,190 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     M = test_set.number_of_examples
     
-    # # Loading
-    #
-    # evaluation_test = loadLearningCurves(model, "test")
-    # number_of_epochs_trained = loadNumberOfEpochsTrained(model)
-    #
-    # # Metrics
-    #
-    # print("Calculating metrics for results.")
-    # metrics_time_start = time()
-    #
-    # x_statistics = [
-    #     statistics(data_set.values, data_set.version, tolerance = 0.5)
-    #         for data_set in [test_set, reconstructed_test_set]
-    # ]
-    #
-    # x_diff = test_set.values - reconstructed_test_set.values
-    # x_statistics.append(statistics(numpy.abs(x_diff), "differences",
-    #     skip_sparsity = True))
-    #
-    # x_log_ratio = numpy.log((test_set.values + 1) \
-    #     / (reconstructed_test_set.values + 1))
-    # x_statistics.append(statistics(numpy.abs(x_log_ratio), "log-ratios",
-    #     skip_sparsity = True))
-    #
-    # if test_set.values.max() > 20:
-    #     count_accuracy_method = "orders of magnitude"
-    # else:
-    #     count_accuracy_method = None
-    #
-    # count_accuracies = computeCountAccuracies(
-    #     test_set.values,
-    #     reconstructed_test_set.values,
-    #     method = count_accuracy_method
-    # )
-    #
-    # metrics_duration = time() - metrics_time_start
-    # print("Metrics calculated ({}).".format(
-    #     formatDuration(metrics_duration)))
-    #
-    # ## Saving
-    #
-    # metrics_log_path = os.path.join(results_directory, "test_metrics.log")
-    # metrics_dictionary_path = os.path.join(results_directory,
-    #     "test_metrics.pkl.gz")
-    #
-    # metrics_saving_time_start = time()
-    #
-    # with open(metrics_log_path, "w") as metrics_file:
-    #     metrics_string = "Timestamp: {}".format(
-    #         formatTime(metrics_saving_time_start))
-    #     metrics_string += "\n"
-    #     metrics_string += "Number of epochs trained: {}".format(
-    #         number_of_epochs_trained)
-    #     metrics_string += "\n"*2
-    #     metrics_string += "Evaluation:"
-    #     metrics_string += "\n"
-    #     if model.type == "SNN":
-    #         metrics_string += \
-    #             "    log-likelihood: {:.5g}.\n".format(
-    #                 evaluation_test["log_likelihood"][-1])
-    #     elif "AE" in model.type:
-    #         metrics_string += \
-    #             "    ELBO: {:.5g}.\n".format(
-    #                 evaluation_test["lower_bound"][-1]) + \
-    #             "    ENRE: {:.5g}.\n".format(
-    #                 evaluation_test["reconstruction_error"][-1])
-    #         if model.type != "CVAE":
-    #             metrics_string += \
-    #                 "    KL:   {:.5g}.\n".format(
-    #                     evaluation_test["kl_divergence"][-1])
-    #         else:
-    #             metrics_string += \
-    #                 "    KL_z1:   {:.5g}.\n".format(
-    #                     evaluation_test["kl_divergence_z1"][-1]) + \
-    #                 "    KL_z2:   {:.5g}.\n".format(
-    #                     evaluation_test["kl_divergence_z2"][-1]) + \
-    #                 "    KL_y:   {:.5g}.\n".format(
-    #                     evaluation_test["kl_divergence_y"][-1])
-    #     metrics_string += "\n" + formatStatistics(x_statistics)
-    #     metrics_string += "\n" + formatCountAccuracies(count_accuracies)
-    #     metrics_file.write(metrics_string)
-    #
-    # with gzip.open(metrics_dictionary_path, "w") as metrics_file:
-    #     metrics_dictionary = {
-    #         "timestamp": metrics_saving_time_start,
-    #         "number of epochs trained": number_of_epochs_trained,
-    #         "evaluation": evaluation_test,
-    #         "statistics": statistics,
-    #         "count accuracies": count_accuracies
-    #     }
-    #     pickle.dump(metrics_dictionary, metrics_file)
-    #
-    # metrics_saving_duration = time() - metrics_saving_time_start
-    # print("Metrics saved ({}).".format(formatDuration(
-    #     metrics_saving_duration)))
-    #
-    # print()
-    #
-    # ## Displaying
-    #
-    # print(formatStatistics(x_statistics))
-    # print(formatCountAccuracies(count_accuracies))
-    #
-    # # Profile comparisons
-    #
-    # print("Plotting profile comparisons.")
-    # profile_comparisons_time_start = time()
-    #
-    # subset = numpy.random.randint(M, size = 10)
-    #
-    # for j, i in enumerate(subset):
-    #
-    #     figure, name = plotProfileComparison(
-    #         test_set.values[i],
-    #         reconstructed_test_set.values[i],
-    #         x_name = test_set.tags["example"].capitalize() + "s",
-    #         y_name = test_set.tags["feature"].capitalize() + "s",
-    #         scale = "log",
-    #         title = str(test_set.example_names[i]),
-    #         name = str(j)
-    #     )
-    #     saveFigure(figure, name, results_directory)
-    #
-    # profile_comparisons_duration = time() - profile_comparisons_time_start
-    # print("Profile comparisons plotted and saved ({}).".format(
-    #     formatDuration(profile_comparisons_duration)))
-    #
-    # print()
-    #
-    # # Heat maps
-    #
-    # print("Plotting heat maps.")
-    #
-    # # Reconstructions
-    #
-    # heat_maps_time_start = time()
-    #
-    # figure, name = plotHeatMap(
-    #     reconstructed_test_set.values,
-    #     x_name = test_set.tags["example"].capitalize() + "s",
-    #     y_name = test_set.tags["feature"].capitalize() + "s",
-    #     name = "reconstruction"
-    # )
-    # saveFigure(figure, name, results_directory)
-    #
-    # heat_maps_duration = time() - heat_maps_time_start
-    # print("    Reconstruction heat map plotted and saved ({})." \
-    #     .format(formatDuration(heat_maps_duration)))
-    #
-    # # Differences
-    #
-    # heat_maps_time_start = time()
-    #
-    # figure, name = plotHeatMap(
-    #     x_diff,
-    #     x_name = test_set.tags["example"].capitalize() + "s",
-    #     y_name = test_set.tags["feature"].capitalize() + "s",
-    #     name = "difference",
-    #     center = 0
-    # )
-    # saveFigure(figure, name, results_directory)
-    #
-    # heat_maps_duration = time() - heat_maps_time_start
-    # print("    Difference heat map plotted and saved ({})." \
-    #     .format(formatDuration(heat_maps_duration)))
-    #
-    # # log-ratios
-    #
-    # heat_maps_time_start = time()
-    #
-    # figure, name = plotHeatMap(
-    #     x_log_ratio,
-    #     x_name = test_set.tags["example"].capitalize() + "s",
-    #     y_name = test_set.tags["feature"].capitalize() + "s",
-    #     name = "log_ratio",
-    #     center = 0
-    # )
-    # saveFigure(figure, name, results_directory)
-    #
-    # heat_maps_duration = time() - heat_maps_time_start
-    # print("    log-ratio heat map plotted and saved ({})." \
-    #     .format(formatDuration(heat_maps_duration)))
-    #
-    # print()
+    # Loading
+
+    evaluation_test = loadLearningCurves(model, "test")
+    number_of_epochs_trained = loadNumberOfEpochsTrained(model)
+
+    # Metrics
+
+    print("Calculating metrics for results.")
+    metrics_time_start = time()
+
+    x_statistics = [
+        statistics(data_set.values, data_set.version, tolerance = 0.5)
+            for data_set in [test_set, reconstructed_test_set]
+    ]
+
+    x_diff = test_set.values - reconstructed_test_set.values
+    x_statistics.append(statistics(numpy.abs(x_diff), "differences",
+        skip_sparsity = True))
+
+    x_log_ratio = numpy.log((test_set.values + 1) \
+        / (reconstructed_test_set.values + 1))
+    x_statistics.append(statistics(numpy.abs(x_log_ratio), "log-ratios",
+        skip_sparsity = True))
+
+    if test_set.values.max() > 20:
+        count_accuracy_method = "orders of magnitude"
+    else:
+        count_accuracy_method = None
+
+    count_accuracies = computeCountAccuracies(
+        test_set.values,
+        reconstructed_test_set.values,
+        method = count_accuracy_method
+    )
+
+    metrics_duration = time() - metrics_time_start
+    print("Metrics calculated ({}).".format(
+        formatDuration(metrics_duration)))
+
+    ## Saving
+
+    metrics_log_path = os.path.join(results_directory, "test_metrics.log")
+    metrics_dictionary_path = os.path.join(results_directory,
+        "test_metrics.pkl.gz")
+
+    metrics_saving_time_start = time()
+
+    with open(metrics_log_path, "w") as metrics_file:
+        metrics_string = "Timestamp: {}".format(
+            formatTime(metrics_saving_time_start))
+        metrics_string += "\n"
+        metrics_string += "Number of epochs trained: {}".format(
+            number_of_epochs_trained)
+        metrics_string += "\n"*2
+        metrics_string += "Evaluation:"
+        metrics_string += "\n"
+        if model.type == "SNN":
+            metrics_string += \
+                "    log-likelihood: {:.5g}.\n".format(
+                    evaluation_test["log_likelihood"][-1])
+        elif "AE" in model.type:
+            metrics_string += \
+                "    ELBO: {:.5g}.\n".format(
+                    evaluation_test["lower_bound"][-1]) + \
+                "    ENRE: {:.5g}.\n".format(
+                    evaluation_test["reconstruction_error"][-1])
+            if model.type != "CVAE":
+                metrics_string += \
+                    "    KL:   {:.5g}.\n".format(
+                        evaluation_test["kl_divergence"][-1])
+            else:
+                metrics_string += \
+                    "    KL_z1:   {:.5g}.\n".format(
+                        evaluation_test["kl_divergence_z1"][-1]) + \
+                    "    KL_z2:   {:.5g}.\n".format(
+                        evaluation_test["kl_divergence_z2"][-1]) + \
+                    "    KL_y:   {:.5g}.\n".format(
+                        evaluation_test["kl_divergence_y"][-1])
+        metrics_string += "\n" + formatStatistics(x_statistics)
+        metrics_string += "\n" + formatCountAccuracies(count_accuracies)
+        metrics_file.write(metrics_string)
+
+    with gzip.open(metrics_dictionary_path, "w") as metrics_file:
+        metrics_dictionary = {
+            "timestamp": metrics_saving_time_start,
+            "number of epochs trained": number_of_epochs_trained,
+            "evaluation": evaluation_test,
+            "statistics": statistics,
+            "count accuracies": count_accuracies
+        }
+        pickle.dump(metrics_dictionary, metrics_file)
+
+    metrics_saving_duration = time() - metrics_saving_time_start
+    print("Metrics saved ({}).".format(formatDuration(
+        metrics_saving_duration)))
+
+    print()
+
+    ## Displaying
+
+    print(formatStatistics(x_statistics))
+    print(formatCountAccuracies(count_accuracies))
+
+    # Profile comparisons
+
+    print("Plotting profile comparisons.")
+    profile_comparisons_time_start = time()
+
+    subset = numpy.random.randint(M, size = 10)
+
+    for j, i in enumerate(subset):
+
+        figure, name = plotProfileComparison(
+            test_set.values[i],
+            reconstructed_test_set.values[i],
+            x_name = test_set.tags["example"].capitalize() + "s",
+            y_name = test_set.tags["feature"].capitalize() + "s",
+            scale = "log",
+            title = str(test_set.example_names[i]),
+            name = str(j)
+        )
+        saveFigure(figure, name, results_directory)
+
+    profile_comparisons_duration = time() - profile_comparisons_time_start
+    print("Profile comparisons plotted and saved ({}).".format(
+        formatDuration(profile_comparisons_duration)))
+
+    print()
+
+    # Heat maps
+
+    print("Plotting heat maps.")
+
+    # Reconstructions
+
+    heat_maps_time_start = time()
+
+    figure, name = plotHeatMap(
+        reconstructed_test_set.values,
+        x_name = test_set.tags["example"].capitalize() + "s",
+        y_name = test_set.tags["feature"].capitalize() + "s",
+        name = "reconstruction"
+    )
+    saveFigure(figure, name, results_directory)
+
+    heat_maps_duration = time() - heat_maps_time_start
+    print("    Reconstruction heat map plotted and saved ({})." \
+        .format(formatDuration(heat_maps_duration)))
+
+    # Differences
+
+    heat_maps_time_start = time()
+
+    figure, name = plotHeatMap(
+        x_diff,
+        x_name = test_set.tags["example"].capitalize() + "s",
+        y_name = test_set.tags["feature"].capitalize() + "s",
+        name = "difference",
+        center = 0
+    )
+    saveFigure(figure, name, results_directory)
+
+    heat_maps_duration = time() - heat_maps_time_start
+    print("    Difference heat map plotted and saved ({})." \
+        .format(formatDuration(heat_maps_duration)))
+
+    # log-ratios
+
+    heat_maps_time_start = time()
+
+    figure, name = plotHeatMap(
+        x_log_ratio,
+        x_name = test_set.tags["example"].capitalize() + "s",
+        y_name = test_set.tags["feature"].capitalize() + "s",
+        name = "log_ratio",
+        center = 0
+    )
+    saveFigure(figure, name, results_directory)
+
+    heat_maps_duration = time() - heat_maps_time_start
+    print("    log-ratio heat map plotted and saved ({})." \
+        .format(formatDuration(heat_maps_duration)))
+
+    print()
     
     # Latent space
     
