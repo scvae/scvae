@@ -28,6 +28,7 @@ def main(data_set_name, data_directory = "data",
     number_of_monte_carlo_samples = [10],
     latent_distribution = "gaussian",
     number_of_latent_clusters = 1,
+    parameterise_latent_posterior = False,
     reconstruction_distribution = "poisson",
     number_of_reconstruction_classes = 0, number_of_warm_up_epochs = 50,
     batch_normalisation = True, count_sum = True,
@@ -75,12 +76,15 @@ def main(data_set_name, data_directory = "data",
     
     print("Setting up model configurations.")
     
+    feature_size = data_set.number_of_features
+    
     model_configurations, configuration_errors = setUpModelConfigurations(
         model_configurations_path, model_type,
         latent_size, hidden_sizes,
         number_of_importance_samples,
         number_of_monte_carlo_samples,
         latent_distribution,
+        parameterise_latent_posterior,
         number_of_latent_clusters,
         reconstruction_distribution,
         number_of_reconstruction_classes, number_of_warm_up_epochs,
@@ -96,14 +100,9 @@ def main(data_set_name, data_directory = "data",
     
     print()
     
-    print("Looping over models.\n")
-    
-    if analyse:
-        models_summaries = {}
-    
     # Loop over models
     
-    feature_size = data_set.number_of_features
+    print("Looping over {} models.\n".format(len(model_configurations)))
     
     for model_configuration in model_configurations:
         
@@ -129,6 +128,9 @@ def main(data_set_name, data_directory = "data",
                 number_of_latent_clusters = \
                     model_configuration["number of latent clusters"]
             
+            parameterise_latent_posterior = \
+                model_configuration["parameterise latent posterior"]
+        
             number_of_monte_carlo_samples = model_configuration[
                 "number of monte carlo samples"]
             
@@ -136,7 +138,7 @@ def main(data_set_name, data_directory = "data",
                 model_configuration["number of warm up epochs"]
             
             analytical_kl_term = latent_distribution == "gaussian"
-        
+            
         # Modeling
         
         if model_type == "VAE":
@@ -144,6 +146,7 @@ def main(data_set_name, data_directory = "data",
                 feature_size, latent_size, hidden_sizes,
                 number_of_monte_carlo_samples, analytical_kl_term,
                 latent_distribution, number_of_latent_clusters,
+                parameterise_latent_posterior,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum, number_of_warm_up_epochs,
@@ -163,11 +166,14 @@ def main(data_set_name, data_directory = "data",
         elif model_type == "IWVAE":
             number_of_importance_samples = model_configuration[
                 "number of importance samples"]
+            parameterise_latent_posterior = model_configuration[
+                "parameterise latent posterior"]
             model = ImportanceWeightedVariationalAutoEncoder(
                 feature_size, latent_size, hidden_sizes,
                 number_of_monte_carlo_samples, number_of_importance_samples,
                 analytical_kl_term,
                 latent_distribution, number_of_latent_clusters,
+                parameterise_latent_posterior,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum, number_of_warm_up_epochs,
@@ -277,6 +283,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
     latent_size, hidden_sizes,
     number_of_importance_samples, number_of_monte_carlo_samples,
     latent_distribution, number_of_latent_clusters,
+    parameterise_latent_posterior,
     reconstruction_distribution, number_of_reconstruction_classes,
     number_of_warm_up_epochs, batch_normalisation, count_sum, number_of_epochs,
     batch_size, learning_rate):
@@ -328,10 +335,13 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                         "number of monte carlo samples"] = \
                         network["number of monte carlo samples"]
                     
-                    if "IW" in model_type or model_type == "GMMVAE" or model_type == "CVAE":
+                    if "IW" in model_type or model_type in ["GMMVAE", "CVAE"]:
                         model_configuration[
                             "number of importance samples"] = \
                             network["number of importance samples"]
+                    
+                    if not "parameterise latent posterior" in network:
+                        network["parameterise latent posterior"] = [False]
                     
                     model_configuration["number of warm up epochs"] = \
                         training["number of warm-up epochs"]
@@ -341,26 +351,48 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                         model_configuration["latent distribution"] = \
                             latent_distribution
                         
-                        if "mixture" in latent_distribution or model_type == "GMMVAE":
+                        if "mixture" in latent_distribution \
+                            or model_type in ["GMMVAE", "CVAE"]:
                             
                             sub_configurations_product = itertools.product(
                                 likelihood["numbers of latent clusters"],
-                                network["latent sizes"]
+                                network["latent sizes"],
+                                network["parameterise latent posterior"]
                             )
                             
-                            for number_of_latent_clusters, latent_size in \
+                            for number_of_latent_clusters, latent_size, \
+                                parameterise_latent_posterior in \
                                 sub_configurations_product:
+                                
                                 sub_model_configuration = model_configuration.copy()
-                                sub_model_configuration["number of latent clusters"] = \
-                                    number_of_latent_clusters
+                                sub_model_configuration[
+                                    "number of latent clusters"] = \
+                                        number_of_latent_clusters
                                 sub_model_configuration["latent size"] = latent_size
+                                sub_model_configuration[
+                                    "parameterise latent posterior"] = \
+                                        parameterise_latent_posterior
                                 model_configurations.append(sub_model_configuration)
                 
                         else:
-                            model_configuration["number of latent clusters"] = 1
-                            for latent_size in network["latent sizes"]:
+                            number_of_latent_clusters = 1
+                            
+                            sub_configurations_product = itertools.product(
+                                network["latent sizes"],
+                                network["parameterise latent posterior"]
+                            )
+                            
+                            for latent_size, parameterise_latent_posterior in \
+                                sub_configurations_product:
+                                
                                 sub_model_configuration = model_configuration.copy()
+                                sub_model_configuration[
+                                    "number of latent clusters"] = \
+                                        number_of_latent_clusters
                                 sub_model_configuration["latent size"] = latent_size
+                                sub_model_configuration[
+                                    "parameterise latent posterior"] = \
+                                        parameterise_latent_posterior
                                 model_configurations.append(sub_model_configuration)
                 
                 else:
@@ -425,6 +457,10 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                 model_configuration["number of importance samples"] = \
                     number_of_importance_samples
             
+            # Parameterisation of latent posterior for IW-VAE
+            if model_type in ["VAE", "IWVAE"]:
+                model_configuration["parameterise latent posterior"] = \
+                    parameterise_latent_posterior
             
             # Training
             
@@ -450,8 +486,6 @@ def validateModelConfiguration(model_configuration):
     errors = []
     
     model_type = model_configuration["model type"]
-    if "AE" in model_type:
-        latent_distribution = model_configuration["latent distribution"]
     reconstruction_distribution = \
         model_configuration["reconstruction distribution"]
     number_of_reconstruction_classes = \
@@ -506,6 +540,8 @@ def validateModelConfiguration(model_configuration):
     # Latent distribution
     
     if "AE" in model_type:
+        latent_distribution = model_configuration["latent distribution"]
+        
         latent_distribution_validity = True
         latent_distribution_error = ""
     
@@ -516,6 +552,23 @@ def validateModelConfiguration(model_configuration):
     
         validity = validity and latent_distribution_validity
         errors.append(latent_distribution_error)
+    
+    # Parameterisation of latent posterior for IWVAE
+    if "AE" in model_type:
+        parameterise_latent_posterior = model_configuration[
+            "parameterise latent posterior"]
+        
+        parameterise_validity = True
+        parameterise_error = ""
+        
+        if model_type not in ["VAE", "IWVAE"] \
+            and parameterise_latent_posterior:
+            parameterise_error = "Cannot parameterise latent posterior parameters" \
+                + " for " + model_type
+            parameterise_validity = False
+        
+        validity = validity and parameterise_validity
+        errors.append(parameterise_error)
     
     # Return
     
@@ -646,6 +699,18 @@ parser.add_argument(
     type = int,
     help = "the number of modes in the gaussian mixture"
 )
+parser.add_argument(
+    "--parameterise-latent-posterior",
+    action = "store_true",
+    help = "parameterise latent posterior parameters if possible"
+)
+parser.add_argument(
+    "--do-not-parameterise-latent-posterior",
+    dest = "parameterise_latent_posterior",
+    action = "store_false",
+    help = "do not parameterise latent posterior parameters"
+)
+parser.set_defaults(parameterise_latent_posterior = False)
 parser.add_argument(
     "--reconstruction-distribution", "-r",
     type = str,

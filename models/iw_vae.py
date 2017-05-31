@@ -23,6 +23,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         number_of_monte_carlo_samples, number_of_importance_samples,
         analytical_kl_term = False,
         latent_distribution = "gaussian", number_of_latent_clusters = 1,
+        parameterise_latent_posterior = False,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
@@ -44,6 +45,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         )
         self.number_of_latent_clusters = number_of_latent_clusters
         self.analytical_kl_term = analytical_kl_term
+        self.parameterise_latent_posterior = parameterise_latent_posterior
         
         # Dictionary holding number of samples needed for the "monte carlo" 
         # estimator and "importance weighting" during both "train" and "test" time.  
@@ -120,6 +122,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
     def name(self, process):
         
         latent_part = normaliseString(self.latent_distribution_name)
+        
+        if self.parameterise_latent_posterior:
+            latent_part += "_p"
         
         if "mixture" in self.latent_distribution_name:
             latent_part += "_c_" + str(self.number_of_latent_clusters)
@@ -212,6 +217,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         if "mixture" in self.latent_distribution_name:
             description_parts.append("latent clusters: {}".format(
                 self.number_of_latent_clusters))
+        if self.parameterise_latent_posterior:
+            description_parts.append("using parameterisation of latent posterior parameters")
         
         description_parts.append("reconstruction distribution: " +
             self.reconstruction_distribution_name)
@@ -224,16 +231,15 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         mc_train = self.number_of_monte_carlo_samples["training"]
         mc_eval = self.number_of_monte_carlo_samples["evaluation"]
         
-        if mc_train > 1 or mc_eval > 1:
-            mc = "Monte Carlo samples: {}".format(mc_train)
-            if mc_eval != mc_train:
-                mc += " (training), {} (evaluation)".format(mc_eval)
-            description_parts.append(mc)
+        mc = "Monte Carlo samples: {}".format(mc_train)
+        if mc_eval != mc_train:
+            mc += " (training), {} (evaluation)".format(mc_eval)
+        description_parts.append(mc)
         
         iw_train = self.number_of_importance_samples["training"]
         iw_eval = self.number_of_importance_samples["evaluation"]
         
-        if iw_train > 1 or iw_eval > 1:
+        if self.type == "IWVAE":
             iw = "importance samples: {}".format(iw_train)
             if iw_eval != iw_train:
                 iw += " (training), {} (evaluation)".format(iw_eval)
@@ -377,6 +383,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
 
         ## Latent posterior distribution
         ### Parameterise:
+        if self.parameterise_latent_posterior:
+            for parameter in self.latent_distribution["posterior"]["parameters"]:
+                self.latent_distribution["posterior"]["parameters"][parameter] += \
+                    self.latent_distribution["prior"]["parameters"][parameter]
+        
         self.q_z_given_x = \
             distributions[self.latent_distribution["posterior"]["name"]]\
                 ["class"](self.latent_distribution["posterior"]["parameters"])
@@ -1068,8 +1079,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 epoch = int(os.path.split(
                     checkpoint.model_checkpoint_path)[-1].split('-')[-1])
             else:
-                raise Exception(
-                    "Cannot evaluate model when it has not been trained.")
+                print("Cannot evaluate model when it has not been trained.")
+                return None, None, None
             
             print('Evaluating trained model.')
             evaluating_time_start = time()
