@@ -484,6 +484,8 @@ def validateModelConfiguration(model_configuration):
     errors = []
     
     model_type = model_configuration["model type"]
+    if "AE" in model_type:
+        latent_distribution = model_configuration["latent distribution"]
     reconstruction_distribution = \
         model_configuration["reconstruction distribution"]
     number_of_reconstruction_classes = \
@@ -538,7 +540,6 @@ def validateModelConfiguration(model_configuration):
     # Latent distribution
     
     if "AE" in model_type:
-        latent_distribution = model_configuration["latent distribution"]
         
         latent_distribution_validity = True
         latent_distribution_error = ""
@@ -559,10 +560,12 @@ def validateModelConfiguration(model_configuration):
         parameterise_validity = True
         parameterise_error = ""
         
-        if model_type not in ["VAE", "IWVAE"] \
+        if not (model_type in ["VAE", "IWVAE"]
+            and latent_distribution == "gaussian mixture") \
             and parameterise_latent_posterior:
             parameterise_error = "Cannot parameterise latent posterior parameters" \
-                + " for " + model_type
+                + " for " + model_type + " or " + latent_distribution \
+                + " distribution."
             parameterise_validity = False
         
         validity = validity and parameterise_validity
