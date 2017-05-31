@@ -84,8 +84,8 @@ def main(data_set_name, data_directory = "data",
         number_of_importance_samples,
         number_of_monte_carlo_samples,
         latent_distribution,
-        parameterise_latent_posterior,
         number_of_latent_clusters,
+        parameterise_latent_posterior,
         reconstruction_distribution,
         number_of_reconstruction_classes, number_of_warm_up_epochs,
         batch_normalisation, count_sum, number_of_epochs,
@@ -130,7 +130,7 @@ def main(data_set_name, data_directory = "data",
             
             parameterise_latent_posterior = \
                 model_configuration["parameterise latent posterior"]
-        
+            
             number_of_monte_carlo_samples = model_configuration[
                 "number of monte carlo samples"]
             
@@ -166,8 +166,6 @@ def main(data_set_name, data_directory = "data",
         elif model_type == "IWVAE":
             number_of_importance_samples = model_configuration[
                 "number of importance samples"]
-            parameterise_latent_posterior = model_configuration[
-                "parameterise latent posterior"]
             model = ImportanceWeightedVariationalAutoEncoder(
                 feature_size, latent_size, hidden_sizes,
                 number_of_monte_carlo_samples, number_of_importance_samples,
