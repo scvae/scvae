@@ -916,14 +916,6 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 
                 evaluating_duration = time() - evaluating_time_start
                 
-                ## Centroids
-            
-                p_z_probabilities, p_z_means, p_z_variances = \
-                    session.run(
-                    [self.p_z_probabilities, self.p_z_means,
-                        self.p_z_variances]
-                )
-                
                 ## Summaries
                 
                 ### Losses
@@ -939,31 +931,6 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 for i in range(z_KL.size):
                     summary.value.add(tag="kl_divergence_neurons/{}".format(i),
                         simple_value = z_KL[i])
-                
-                ### Centroids
-                for k in range(len(p_z_probabilities)):
-                    summary.value.add(
-                        tag="prior/cluster_{}/probability".format(k),
-                        simple_value = p_z_probabilities[k]
-                    )
-                    for l in range(self.latent_size):
-                        # The same Gaussian for all
-                        if not p_z_means[k].shape:
-                            p_z_mean_k_l = p_z_means[k]
-                            p_z_variances_k_l = p_z_variances[k]
-                        # Different Gaussians for all
-                        else:
-                            p_z_mean_k_l = p_z_means[k][l]
-                            p_z_variances_k_l = p_z_variances[k][l]
-                        summary.value.add(
-                            tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
-                            simple_value = p_z_mean_k_l
-                        )
-                        summary.value.add(
-                            tag="prior/cluster_{}/variance/dimension_{}"\
-                                .format(k, l),
-                            simple_value = p_z_variances_k_l
-                        )
                 
                 ### Writing
                 training_summary_writer.add_summary(summary,
@@ -1013,6 +980,17 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 KL_valid /= M_valid / batch_size
                 ENRE_valid /= M_valid / batch_size
                 
+                ## Centroids
+            
+                p_z_probabilities, p_z_means, p_z_variances = \
+                    session.run(
+                    [self.p_z_probabilities, self.p_z_means,
+                        self.p_z_variances]
+                )
+                
+                ## Summaries
+                
+                ### Losses
                 summary = tf.Summary()
                 summary.value.add(tag="losses/lower_bound",
                     simple_value = ELBO_valid)
@@ -1020,6 +998,33 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     simple_value = ENRE_valid)
                 summary.value.add(tag="losses/kl_divergence",
                     simple_value = KL_valid)
+                
+                ### Centroids
+                for k in range(len(p_z_probabilities)):
+                    summary.value.add(
+                        tag="prior/cluster_{}/probability".format(k),
+                        simple_value = p_z_probabilities[k]
+                    )
+                    for l in range(self.latent_size):
+                        # The same Gaussian for all
+                        if not p_z_means[k].shape:
+                            p_z_mean_k_l = p_z_means[k]
+                            p_z_variances_k_l = p_z_variances[k]
+                        # Different Gaussians for all
+                        else:
+                            p_z_mean_k_l = p_z_means[k][l]
+                            p_z_variances_k_l = p_z_variances[k][l]
+                        summary.value.add(
+                            tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
+                            simple_value = p_z_mean_k_l
+                        )
+                        summary.value.add(
+                            tag="prior/cluster_{}/variance/dimension_{}"\
+                                .format(k, l),
+                            simple_value = p_z_variances_k_l
+                        )
+                
+                ### Writing
                 validation_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
                 validation_summary_writer.flush()

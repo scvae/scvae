@@ -207,7 +207,7 @@ def analyseModel(model, results_directory = "results"):
     if model.type in ["VAE", "IWVAE"]:
     # if "AE" in model.type:
         
-        centroids = loadCentroids(model, data_set_kinds = "training")
+        centroids = loadCentroids(model, data_set_kinds = "validation")
         
         for distribution, distribution_centroids in centroids.items():
             if distribution_centroids:
