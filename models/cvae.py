@@ -568,6 +568,36 @@ class ClusterVariationalAutoEncoder(object):
                 validate_args=True
             )
 
+            # Gather parameters pi, mu and sigma for p(y,z) = p(z|y)p(y)
+            # p(y)
+            # (S_iw * S_mc, S_iw * S_mc, K, B, K) --> 
+            # (S_iw * S_mc, K, B, K) ---> 
+            # (S_iw * S_mc, B, K) -->
+            # (K)
+            self.p_z_probabilities = tf.reduce_mean(
+                tf.reduce_sum(
+                    tf.expand_dims(self.q_y_given_x_z1_probs, -1) *\
+                    tf.reduce_mean(self.p_y_given_z2.probs, 0),
+                    1
+                ), 
+                (0, 1)
+            ) 
+            # mu_p(z1|y)
+            # (S_iw * S_mc, S_iw * S_mc, K, B, L) --> 
+            # (K, L)
+            self.p_z_means = tf.reduce_mean(
+                self.p_z1_given_y_z2.mean(),
+                (0, 1, 3)
+            )
+
+            # sigma_p(z1|y)
+            # (S_iw * S_mc, S_iw * S_mc, K, B, L) --> 
+            # (K, L)
+            self.p_z_stddevs = tf.reduce_mean(
+                self.p_z1_given_y_z2.stddev(),
+                (0, 1, 3)
+            )
+
 # Reconstruction distribution parameterisation
         
         with tf.variable_scope("p_x_given_y_z1"):
@@ -1187,7 +1217,10 @@ class ClusterVariationalAutoEncoder(object):
                 KL_z1_valid = 0
                 KL_z2_valid = 0
                 KL_y_valid = 0
-                
+                p_z_probabilities = numpy.zeros(self.Dim_y)
+                p_z_means = numpy.zeros((self.Dim_y, self.Dim_z))
+                p_z_stddevs = numpy.zeros((self.Dim_y, self.Dim_z))
+
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
                     x_batch = x_valid[subset]
@@ -1205,8 +1238,8 @@ class ClusterVariationalAutoEncoder(object):
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
                     
-                    ELBO_i, ENRE_i, KL_z1_i, KL_z2_i, KL_y_i = session.run(
-                        [self.ELBO, self.ENRE, self.KL_z1, self.KL_z2, self.KL_y],
+                    ELBO_i, ENRE_i, KL_z1_i, KL_z2_i, KL_y_i, p_z_probabilities_i, p_z_means_i, p_z_stddevs_i = session.run(
+                        [self.ELBO, self.ENRE, self.KL_z1, self.KL_z2, self.KL_y, self.p_z_probabilities, self.p_z_means, self.p_z_stddevs],
                         feed_dict = feed_dict_batch
                     )
                     
@@ -1215,12 +1248,19 @@ class ClusterVariationalAutoEncoder(object):
                     KL_z1_valid += KL_z1_i
                     KL_z2_valid += KL_z2_i
                     KL_y_valid += KL_y_i
-                                    
+                    p_z_probabilities += p_z_probabilities_i
+                    p_z_means += p_z_means_i
+                    p_z_stddevs += p_z_stddevs_i
+
                 ELBO_valid /= M_valid / batch_size
                 ENRE_valid /= M_valid / batch_size
                 KL_z1_valid /= M_valid / batch_size
                 KL_z2_valid /= M_valid / batch_size
                 KL_y_valid /= M_valid / batch_size
+                p_z_probabilities /= M_valid / batch_size
+                p_z_means /= M_valid / batch_size
+                p_z_stddevs /= M_valid / batch_size
+                p_z_variances = numpy.power(p_z_stddevs, 2.)
                                 
                 evaluating_duration = time() - evaluating_time_start
                 
@@ -1236,6 +1276,23 @@ class ClusterVariationalAutoEncoder(object):
                 summary.value.add(tag="losses/kl_divergence_y",
                     simple_value = KL_y_valid)
                 
+                ### Centroids
+                for k in range(self.Dim_y):
+                    summary.value.add(
+                        tag="prior/cluster_{}/probability".format(k),
+                        simple_value = p_z_probabilities[k]
+                    )
+                    for l in range(self.Dim_z):
+                        summary.value.add(
+                            tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
+                            simple_value = p_z_means[k][l]
+                        )
+                        summary.value.add(
+                            tag="prior/cluster_{}/variance/dimension_{}"\
+                                .format(k, l),
+                            simple_value = p_z_variances[k][l]
+                        )
+
                 validation_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
                 validation_summary_writer.flush()
