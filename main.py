@@ -150,7 +150,8 @@ def main(data_set_name, data_directory = "data",
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum, number_of_warm_up_epochs,
-                log_directory = log_directory
+                log_directory = log_directory,
+                results_directory = results_directory
             )
         
         elif model_type == "OVAE":
@@ -175,7 +176,8 @@ def main(data_set_name, data_directory = "data",
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum, number_of_warm_up_epochs,
-                log_directory = log_directory
+                log_directory = log_directory,
+                results_directory = results_directory
             )
 
         elif model_type == "CVAE":
@@ -547,6 +549,10 @@ def validateModelConfiguration(model_configuration):
         if model_type == "OVAE" and "mixture" in latent_distribution:
             latent_distribution_error = "Mixture latent distribution with " + \
                 "original variational auto-encoder."
+            latent_distribution_validity = False
+        elif model_type == "CVAE" and "mixture" not in latent_distribution:
+            latent_distribution_error = "No mixture latent distribution with " + \
+                "cluster variational auto-encoder."
             latent_distribution_validity = False
     
         validity = validity and latent_distribution_validity

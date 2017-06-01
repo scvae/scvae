@@ -235,6 +235,76 @@ def analyseAllModels(models_summaries, results_directory = "results"):
     
     print()
 
+def analyseIntermediateResults(latent_values, data_set, centroids, epoch,
+    model_name, results_directory = "results"):
+    
+    results_directory = os.path.join(results_directory, model_name,
+        "intermediate")
+    
+    latent_set_name = "latent {} set".format(data_set.kind)
+    
+    print("Plotting {} with centroids for epoch {}.".format(
+        latent_set_name, epoch + 1))
+    
+    if latent_values.shape[1] == 2:
+        figure_labels = {
+            "title": None,
+            "x label": symbol + "$_1$",
+            "y label": symbol + "$_2$"
+        }
+        
+        latent_values_decomposed = latent_values
+        centroids_decomposed = centroids
+    else:    
+        print("Decomposing", latent_set_name, "using PCA.")
+        decompose_time_start = time()
+        
+        latent_values_decomposed, centroids_decomposed = decompose(
+            latent_values,
+            centroids,
+            method = "PCA",
+            components = 2
+        )
+
+        decompose_duration = time() - decompose_time_start
+        print("{} decomposed ({}).".format(
+            latent_set_name.capitalize(),
+            formatDuration(decompose_duration))
+        )
+        
+        figure_labels = {
+            "title": "PCA",
+            "x label": "PC 1",
+            "y label": "PC 2"
+        }
+    
+    plot_time_start = time()
+    
+    name = "latent_space-epoch-{}".format(epoch + 1)
+    
+    if data_set.labels is not None:
+        figure, figure_name = plotValues(
+            latent_values_decomposed,
+            colour_coding = "labels",
+            colouring_data_set = data_set,
+            centroids = centroids_decomposed,
+            figure_labels = figure_labels,
+            name = name
+        )
+    else:
+        figure, figure_name = plotValues(
+            latent_values_decomposed,
+            centroids = centroids_decomposed,
+            figure_labels = figure_labels,
+            name = name
+        )
+    
+    saveFigure(figure, figure_name, results_directory)
+    
+    plot_duration = time() - plot_time_start
+    print("{} plotted and saved ({}).".format(
+        latent_set_name.capitalize(), formatDuration(plot_duration)))
+
 def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     results_directory = "results"):
@@ -789,28 +859,28 @@ def formatCountAccuracies(count_accuracies):
     
     return formatted_string
 
-def decompose(values, centroids = None, decomposition = "PCA",
+def decompose(values, centroids = None, method = "PCA",
     components = 2, random = False):
     
-    decomposition = normaliseString(decomposition)
+    method = normaliseString(method)
     
     if random:
         random_state = None
     else:
         random_state = 42
     
-    if decomposition == "pca":
+    if method == "pca":
         model = PCA(n_components = components)
-    elif decomposition == "t_sne":
+    elif method == "t_sne":
         model = TSNE(n_components = components, random_state = random_state)
     else:
-        raise ValueError("Decomposition method not found.")
+        raise ValueError("method method not found.")
     
     values_decomposed = model.fit_transform(values)
     
     # Only supports centroids without data sets as top levels and no epoch
     # information
-    if centroids and decomposition == "pca":
+    if centroids and method == "pca":
         W = model.components_
         print(W)
         centroids_decomposed = {}

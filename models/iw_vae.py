@@ -20,6 +20,7 @@ from time import time
 from auxiliary import formatDuration, normaliseString
 
 from data import DataSet
+from analysis import analyseIntermediateResults
 
 class ImportanceWeightedVariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
@@ -31,7 +32,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
         number_of_warm_up_epochs = 0, epsilon = 1e-6,
-        log_directory = "log"):
+        log_directory = "log", results_directory = "results"):
         
         # Class setup
         super(ImportanceWeightedVariationalAutoEncoder, self).__init__()
@@ -73,6 +74,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         self.epsilon = epsilon
         
         self.main_log_directory = log_directory
+        self.main_results_directory = results_directory
         
         # Graph setup
         
@@ -950,6 +952,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 KL_valid = 0
                 ENRE_valid = 0
                 
+                z_mean_valid = numpy.empty([M_valid, self.latent_size])
+                
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
                     x_batch = x_valid[subset]
@@ -967,14 +971,16 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
                     
-                    ELBO_i, KL_i, ENRE_i = session.run(
-                        [self.ELBO, self.KL, self.ENRE],
+                    ELBO_i, KL_i, ENRE_i, z_mean_i = session.run(
+                        [self.ELBO, self.KL, self.ENRE, self.z_mean],
                         feed_dict = feed_dict_batch
                     )
                     
                     ELBO_valid += ELBO_i
                     KL_valid += KL_i
                     ENRE_valid += ENRE_i
+                    
+                    z_mean_valid[subset] = z_mean_i
                 
                 ELBO_valid /= M_valid / batch_size
                 KL_valid /= M_valid / batch_size
@@ -1036,6 +1042,32 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     ELBO_valid, ENRE_valid, KL_valid))
                 
                 print()
+                
+                # Plot latent validation values
+                under_10 = epoch < 10
+                under_100 = epoch < 100 and (epoch + 1) % 10 == 0
+                under_1000 = epoch < 1000 and (epoch + 1) % 50 == 0 
+                last_one = epoch == number_of_epochs - 1
+                plot_intermediate = under_10 or under_100 or under_1000 \
+                    or last_one
+                if "mixture" in self.latent_distribution_name and plot_intermediate:
+                    K = len(p_z_probabilities)
+                    L = self.latent_size
+                    p_z_covariance_matrices = numpy.empty([K, L, L])
+                    for k in range(K):
+                        p_z_covariance_matrices[k] = numpy.diag(p_z_variances[k])
+                    centroids = {
+                        "prior": {
+                            "probabilities": numpy.array(p_z_probabilities),
+                            "means": numpy.stack(p_z_means),
+                            "covariance_matrices": p_z_covariance_matrices
+                        }
+                    }
+                    analyseIntermediateResults(
+                        z_mean_valid, validation_set, centroids, epoch,
+                        self.training_name, self.main_results_directory
+                    )
+                    print()
             
             training_duration = time() - training_time_start
             
@@ -1256,7 +1288,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 feature_selection = test_set.feature_selection,
                 preprocessing_methods = test_set.preprocessing_methods,
                 kind = "test",
-                version = "latent"
+                version = "z"
             )
             
             return transformed_test_set, reconstructed_test_set, latent_test_set

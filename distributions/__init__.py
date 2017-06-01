@@ -47,7 +47,7 @@ distributions = {
             "mus": {
                 "support": [-inf, inf],
                 "activation function": identity,
-                "initial value": lambda x: tf.random_normal(x, stddev = 3)
+                "initial value": lambda x: tf.random_normal(x, stddev = 1)
             },
             "log_sigmas": {
                 "support": [-3, 3],
