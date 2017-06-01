@@ -524,7 +524,7 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                 decompose_time_start = time()
     
                 values_decomposed, centroids_decomposed = decompose(
-                    data_set,
+                    data_set.values,
                     centroids,
                     decomposition_method,
                     components = 2
@@ -783,7 +783,7 @@ def formatCountAccuracies(count_accuracies):
     
     return formatted_string
 
-def decompose(data_set, centroids = None, decomposition = "PCA",
+def decompose(values, centroids = None, decomposition = "PCA",
     components = 2, random = False):
     
     decomposition = normaliseString(decomposition)
@@ -793,8 +793,6 @@ def decompose(data_set, centroids = None, decomposition = "PCA",
     else:
         random_state = 42
     
-    F = data_set.number_of_features
-    
     if decomposition == "pca":
         model = PCA(n_components = components)
     elif decomposition == "t_sne":
@@ -802,7 +800,7 @@ def decompose(data_set, centroids = None, decomposition = "PCA",
     else:
         raise ValueError("Decomposition method not found.")
     
-    values_decomposed = model.fit_transform(data_set.values)
+    values_decomposed = model.fit_transform(values)
     
     # Only supports centroids without data sets as top levels and no epoch
     # information
