@@ -432,7 +432,7 @@ class ClusterVariationalAutoEncoder(object):
             ## (B, L)
             self.z2_mean = tf.reduce_mean(
                 tf.reduce_sum(
-                    tf.squeeze(self.q_z2_given_y_z1.mean()) *\
+                    tf.reshape(self.q_z2_given_y_z1.mean(), [self.S_iw_mc, self.Dim_y, -1, self.Dim_z]) *\
                         tf.expand_dims(self.q_y_given_x_z1_probs, -1),
                     axis = 1
                 ),
