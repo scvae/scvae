@@ -19,6 +19,7 @@ import os
 import gzip
 import pickle
 
+import copy
 import re
 
 from time import time
@@ -204,8 +205,7 @@ def analyseModel(model, results_directory = "results"):
     
     # Evolution of latent centroids
     
-    if model.type in ["VAE", "IWVAE"]:
-    # if "AE" in model.type:
+    if "AE" in model.type:
         
         centroids = loadCentroids(model, data_set_kinds = "validation")
         
@@ -454,8 +454,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     if latent_test_sets is not None:
         
-        if model.type in ["VAE", "IWVAE"]:
-        # if "AE" in model.type:
+        if "AE" in model.type:
             centroids = loadCentroids(model, data_set_kinds = "test")
         else:
             centroids = None
@@ -478,6 +477,8 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
     title = "data set", specifier = None,
     results_directory = "results"):
     
+    centroids_original = centroids
+
     if not isinstance(data_sets, (list, tuple)):
         data_sets = [data_sets]
     
@@ -498,7 +499,12 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
         
         if not colouring_data_set:
             colouring_data_set = data_set
-    
+        
+        if data_set.version in ["z", "z1"]:
+            centroids = copy.deepcopy(centroids_original)
+        else:
+            centroids = None
+
         decomposition_methods.insert(0, None)
     
         for decomposition_method in decomposition_methods:
@@ -806,6 +812,7 @@ def decompose(values, centroids = None, decomposition = "PCA",
     # information
     if centroids and decomposition == "pca":
         W = model.components_
+        print(W)
         centroids_decomposed = {}
         for distribution, distribution_centroids in centroids.items():
             if distribution_centroids:
@@ -814,7 +821,9 @@ def decompose(values, centroids = None, decomposition = "PCA",
                     if parameter == "means":
                         values = model.transform(values)
                     elif parameter == "covariance_matrices":
+                        print(values)
                         values = W @ values @ W.T
+                        print(values)
                     centroids_distribution_decomposed[parameter] = values
                 centroids_decomposed[distribution] = \
                     centroids_distribution_decomposed
