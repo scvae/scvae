@@ -709,6 +709,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         
         # Setup
         
+        batch_size /= self.number_of_importance_samples["training"] \
+            * self.number_of_monte_carlo_samples["training"]
+        batch_size = int(numpy.ceil(batch_size))
+        
         if self.count_sum:
             n_train = training_set.count_sum
             n_valid = validation_set.count_sum
@@ -1056,6 +1060,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             return status
     
     def evaluate(self, test_set, batch_size = 100):
+        
+        batch_size /= self.number_of_importance_samples["evaluation"] \
+            * self.number_of_monte_carlo_samples["evaluation"]
+        batch_size = int(numpy.ceil(batch_size))
         
         if self.count_sum:
             n_test = test_set.count_sum
