@@ -1,6 +1,9 @@
 import tensorflow as tf
 
-from models.auxiliary import dense_layer, log_reduce_exp, reduce_logmeanexp
+from models.auxiliary import (
+    dense_layer, log_reduce_exp, reduce_logmeanexp,
+    trainingString, dataString
+)
 
 from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
@@ -756,6 +759,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             # Training loop
             
+            data_string = dataString(training_set,
+                self.reconstruction_distribution_name)
+            print(trainingString(epoch_start, number_of_epochs, data_string))
+            print()
             training_time_start = time()
             
             for epoch in range(epoch_start, number_of_epochs):
@@ -1023,9 +1030,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             training_duration = time() - training_time_start
             
-            if epoch_start == number_of_epochs:
-                print("Model has already been trained for {} epochs.".format(
-                    number_of_epochs))
+            if epoch_start >= number_of_epochs:
                 epoch_duration = training_duration
             else:
                 print("Model trained for {} epochs ({}).".format(
@@ -1092,7 +1097,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 print("Cannot evaluate model when it has not been trained.")
                 return None, None, None
             
-            print('Evaluating trained model.')
+            data_string = dataString(test_set,
+                self.reconstruction_distribution_name)
+            print('Evaluating trained model on {}.'.format(data_string))
             evaluating_time_start = time()
             
             ELBO_test = 0

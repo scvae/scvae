@@ -119,3 +119,57 @@ def pairwise_distance(a, b = None):
         r_b = tf.reshape(tf.reduce_sum(b*b, axis = 1, keep_dims=True), [1, -1])
         D = r_a - 2*tf.matmul(a, b, transpose_b=True) + r_b
     return D
+
+# Strings
+
+def trainingString(epoch_start, number_of_epochs, data_string):
+    
+    if epoch_start == 0:
+        training_string = "Training model for {} epochs on {}.".format(
+            number_of_epochs, data_string)
+    elif epoch_start < number_of_epochs:
+        training_string = "Continue training model for {}".format(
+            number_of_epochs - epoch_start) + " additionally epochs" \
+            + " (up to {} epochs)".format(number_of_epochs) \
+            + " on {}.".format(data_string)
+    elif epoch_start == number_of_epochs:
+        training_string = "Model has already been trained for" \
+            + " {} epochs on {}.".format(number_of_epochs, data_string)
+    elif epoch_start > number_of_epochs:
+        training_string = "Model has already been trained for more" \
+            + " than {} epochs on {}.".format(number_of_epochs,
+                data_string) \
+            + " Loading model trained for {} epochs.".format(
+                epoch_start)
+    else:
+        raise ValueError("Cannot train a negative amount.")
+    
+    return training_string
+
+def dataString(data_set, reconstruction_distribution_name):
+    
+    if not data_set.noisy_preprocess:
+        
+        if data_set.preprocessing_methods:
+            if data_set.preprocessing_methods == ["binarise"]:
+               data_string = "binarised values"
+            else:
+                data_string = "preprocessed values"
+        else:
+            data_string = "original values"
+        
+        if reconstruction_distribution_name == "bernoulli":
+            if not data_string == "binarised values":
+                data_string += " with binarised values as targets"
+        else:
+            if not data_string == "original values":
+                data_string += " with original values as targets"
+    else:
+        if data_set.preprocessing_methods:
+            if data_set.preprocessing_methods == ["binarise"]:
+               data_string = "new Bernoulli-sampled values"
+            else: 
+                data_string = "new preprocessed values"
+            data_string += " at every epoch"
+    
+    return data_string
