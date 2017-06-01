@@ -335,7 +335,7 @@ class DataSet(object):
             
             if self.preprocessed_values is None:
                 self.preprocess()
-                if not noisy_preprocessing:
+                if not self.noisy_preprocessing:
                     self.binarise()
     
     def update(self, values = None, preprocessed_values = None,
@@ -528,8 +528,8 @@ class DataSet(object):
     def binarise(self):
         
         if self.preprocessed_values is None:
-            raise NotImplementedError("Data set values have to have been preprocessed",
-                "and feature selected first.")
+            raise NotImplementedError("Data set values have to have been",
+                "preprocessed and feature selected first.")
         
         binarise_preprocessing = ["binarise"]
         
@@ -931,6 +931,9 @@ def preprocessingFunctionForDataSet(title, preprocessing_methods = [],
             preprocess = lambda x: x
         
         preprocesses.append(preprocess)
+    
+    if not preprocessing_methods:
+        preprocesses.append(lambda x: x)
     
     preprocessing_function = lambda x: reduce(
         lambda v, p: p(v),
