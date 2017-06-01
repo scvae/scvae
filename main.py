@@ -456,7 +456,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                     number_of_importance_samples
             
             # Parameterisation of latent posterior for IW-VAE
-            if model_type in ["VAE", "IWVAE"]:
+            if "AE" in model_type:
                 model_configuration["parameterise latent posterior"] = \
                     parameterise_latent_posterior
             
