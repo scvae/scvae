@@ -882,7 +882,6 @@ def decompose(values, centroids = None, method = "PCA",
     # information
     if centroids and method == "pca":
         W = model.components_
-        print(W)
         centroids_decomposed = {}
         for distribution, distribution_centroids in centroids.items():
             if distribution_centroids:
@@ -891,9 +890,7 @@ def decompose(values, centroids = None, method = "PCA",
                     if parameter == "means":
                         values = model.transform(values)
                     elif parameter == "covariance_matrices":
-                        print(values)
                         values = W @ values @ W.T
-                        print(values)
                     centroids_distribution_decomposed[parameter] = values
                 centroids_decomposed[distribution] = \
                     centroids_distribution_decomposed

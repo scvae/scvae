@@ -10,7 +10,7 @@ class VariationalAutoEncoder(ImportanceWeightedVariationalAutoEncoder):
         batch_normalisation = True, count_sum = True,
         number_of_warm_up_epochs = 0, epsilon = 1e-6,
         log_directory = "log",
-        results_directory = results_directory):
+        results_directory = "results"):
         
         number_of_importance_samples = {
             "training": 1,
