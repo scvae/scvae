@@ -9,7 +9,8 @@ class VariationalAutoEncoder(ImportanceWeightedVariationalAutoEncoder):
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
         number_of_warm_up_epochs = 0, epsilon = 1e-6,
-        log_directory = "log"):
+        log_directory = "log",
+        results_directory = results_directory):
         
         number_of_importance_samples = {
             "training": 1,
@@ -32,6 +33,7 @@ class VariationalAutoEncoder(ImportanceWeightedVariationalAutoEncoder):
             count_sum = count_sum,
             number_of_warm_up_epochs = number_of_warm_up_epochs,
             epsilon = epsilon,
-            log_directory = log_directory)
+            log_directory = log_directory,
+            results_directory = results_directory)
         
         self.type = "VAE"
