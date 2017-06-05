@@ -203,15 +203,30 @@ def analyseModel(model, results_directory = "results"):
     
     # Evolution of latent centroids
     
-    if "AE" in model.type:
+    if "AE" in model.type and "mixture" in model.latent_distribution_name:
         
         centroids = loadCentroids(model, data_set_kinds = "validation")
+        prior_centroids = centroids["prior"]
         
-        for distribution, distribution_centroids in centroids.items():
-            if distribution_centroids:
-                print(distribution)
-                for parameter, values in distribution_centroids.items():
-                    print(parameter, values.shape)
+        if prior_centroids:
+            
+            print("Plotting evolution of latent prior parameters.")
+            centroids_time_start = time()
+            
+            prior_centroid_probailities = prior_centroids["probabilities"]
+            
+            figure, name = plotEvolutionOfLatentPriorProbabilities(
+                prior_centroid_probailities)
+            saveFigure(figure, name, results_directory)
+            
+            figure, name = plotEvolutionOfLatentPriorCentroids(centroids)
+            saveFigure(figure, name, results_directory)
+            
+            centroids_duration = time() - centroids_time_start
+            print("Evolution of latent prior parameters plotted and saved".format(
+                formatDuration(centroids_duration)))
+            
+            print()
 
 def analyseAllModels(models_summaries, results_directory = "results"):
     
@@ -914,10 +929,25 @@ def decompose(values, centroids = None, method = "PCA",
                 centroids_distribution_decomposed = {}
                 for parameter, values in distribution_centroids.items():
                     if parameter == "means":
-                        values = model.transform(values)
+                        shape = numpy.array(values.shape)
+                        L = shape[-1]
+                        reshaped_values = values.reshape(-1, L)
+                        decomposed_values = model.transform(reshaped_values)
+                        shape[-1] = 2
+                        new_values = decomposed_values.reshape(shape)
                     elif parameter == "covariance_matrices":
-                        values = W @ values @ W.T
-                    centroids_distribution_decomposed[parameter] = values
+                        shape = numpy.array(values.shape)
+                        L = shape[-1]
+                        reshaped_values = values.reshape(-1, L, L)
+                        B = reshaped_values.shape[0]
+                        decomposed_values = numpy.empty((B, 2, 2))
+                        for i in range(B):
+                            decomposed_values[i] = W @ reshaped_values[i] @ W.T
+                        shape[-2:] = 2
+                        new_values = decomposed_values.reshape(shape)
+                    else:
+                        new_values = values
+                    centroids_distribution_decomposed[parameter] = new_values
                 centroids_decomposed[distribution] = \
                     centroids_distribution_decomposed
             else:
@@ -1055,6 +1085,59 @@ def plotLearningCurves(curves, model_type, name = None):
             axis_3.set_xlabel("Epoch")
         else:
             axis_2.set_xlabel("Epoch")
+    
+    return figure, figure_name
+
+def plotEvolutionOfLatentPriorProbabilities(prior_probabilities, name = None):
+    
+    figure_name = "prior_evolution-probabilities"
+    
+    if name:
+        figure_name = figure_name + "_" + name
+    
+    E, K = prior_probabilities.shape
+    
+    centroids_palette = seaborn.hls_palette(K, l = .4)
+    epochs = numpy.arange(E) + 1
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    for k in range(K):
+        axis.plot(epochs, prior_probabilities[:, k], color = centroids_palette[k])
+    
+    return figure, figure_name
+
+def plotEvolutionOfLatentPriorCentroids(centroids, name = None):
+    
+    figure_name = "prior_evolution-centroids"
+    
+    if name:
+        figure_name = figure_name + "_" + name
+    
+    means = centroids["prior"]["means"]
+    E, K, L = centroids["prior"]["means"].shape
+    
+    if L > 2:
+        _, centroids_decomposed = decompose(means.reshape(-1, L), centroids)
+    else:
+        centroids_decomposed = centroids
+    
+    means = centroids_decomposed["prior"]["means"]
+    covariance_matrices = centroids_decomposed["prior"]["covariance_matrices"]
+    
+    centroids_palette = numpy.array(seaborn.hls_palette(K, l = .4))
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    for k in range(K):
+        for e in range(E):
+            colour = (e / (2*E) + 0.5) * centroids_palette[k]
+            axis.scatter(means[e, k, 0], means[e, k, 1],
+                color = colour)
+            if e in [0, E-1]:
+                addCovariance(covariance_matrices[e, k], means[e, k], axis, colour)
     
     return figure, figure_name
 
@@ -1330,18 +1413,18 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         
         if K > 1:
             centroids_palette = seaborn.hls_palette(K, l = .4)
-            epochs = numpy.arange(K)
+            classes = numpy.arange(K)
             
             probabilities = prior_centroids["probabilities"]
             means = prior_centroids["means"]
             covariance_matrices = prior_centroids["covariance_matrices"]
             
             for k in range(K):
-                axis_cat.barh(epochs[k], probabilities[k],
+                axis_cat.barh(classes[k], probabilities[k],
                     color = centroids_palette[k])
                 axis.scatter(means[k, 0], means[k, 1], marker = "x",
                     color = centroids_palette[k])
-                plotCovariance(covariance_matrices[k], means[k], axis,
+                addCovariance(covariance_matrices[k], means[k], axis,
                     colour = centroids_palette[k])
             
             axis_cat.set_yticks([])
@@ -1367,7 +1450,7 @@ def plotLatentSpace(latent_values, data_set = None, colour_coding = None,
     
     return figure, figure_name
 
-def plotCovariance(covariance, mean, axis, colour, label = None, linestyle = "solid"):
+def addCovariance(covariance, mean, axis, colour, label = None, linestyle = "solid"):
     eigenvalues, eigenvectors = numpy.linalg.eig(covariance)
     index = eigenvalues.argsort()[::-1]
     eigenvalues = eigenvalues[index]
