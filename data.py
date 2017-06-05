@@ -48,6 +48,7 @@ data_sets = {
         "load function": lambda x: loadMouseRetinaDataSet(x),
         "example type": "counts",
         "label palette": {
+             0: (0., 0., 0.),
              1: (0.92, 0.24, 0.10),
              2: (0.89, 0.60, 0.14),
              3: (0.78, 0.71, 0.18),
@@ -89,6 +90,7 @@ data_sets = {
             39: (0.74, 0.06, 0.38),
         },
         "label superset": {
+            "0": [0],
             "A": [1],
             "B": [2],
             "C": [i for i in range(3, 24)],
