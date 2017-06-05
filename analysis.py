@@ -33,8 +33,6 @@ image_extension = ".png"
 
 number_of_random_examples = 100
 
-pyplot.rcParams.update({'figure.max_open_warning': 0})
-
 def analyseData(data_sets, decomposition_methods = ["PCA"],
     highlight_feature_indices = [], results_directory = "results"):
     
@@ -1364,6 +1362,8 @@ def saveFigure(figure, figure_name, results_directory, no_spine = True):
     
     figure_path = os.path.join(results_directory, figure_name) + figure_extension
     figure.savefig(figure_path, bbox_inches = 'tight')
+    
+    pyplot.close(figure)
 
 def loadNumberOfEpochsTrained(model):
     
