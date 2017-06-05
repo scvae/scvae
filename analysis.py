@@ -245,6 +245,7 @@ def analyseIntermediateResults(latent_values, data_set, centroids, epoch,
         latent_set_name, epoch + 1))
     
     if latent_values.shape[1] == 2:
+        symbol = "$z$"
         figure_labels = {
             "title": None,
             "x label": symbol + "$_1$",
@@ -289,6 +290,17 @@ def analyseIntermediateResults(latent_values, data_set, centroids, epoch,
             figure_labels = figure_labels,
             name = name
         )
+        saveFigure(figure, figure_name, results_directory)
+        if data_set.label_superset is not None:
+            figure, figure_name = plotValues(
+                latent_values_decomposed,
+                colour_coding = "label superset",
+                colouring_data_set = data_set,
+                centroids = centroids_decomposed,
+                figure_labels = figure_labels,
+                name = name
+            )
+            saveFigure(figure, figure_name, results_directory)
     else:
         figure, figure_name = plotValues(
             latent_values_decomposed,
@@ -296,8 +308,7 @@ def analyseIntermediateResults(latent_values, data_set, centroids, epoch,
             figure_labels = figure_labels,
             name = name
         )
-    
-    saveFigure(figure, figure_name, results_directory)
+        saveFigure(figure, figure_name, results_directory)
     
     plot_duration = time() - plot_time_start
     print("{} plotted and saved ({}).".format(
@@ -666,10 +677,10 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                 plot_duration = time() - plot_time_start
                 print("    {} (with labels) plotted and saved ({}).".format(
                     title_with_ID.capitalize(), formatDuration(plot_duration)))
-        
+                
                 if data_set.label_superset is not None:
                     plot_time_start = time()
-            
+                    
                     figure, figure_name = plotValues(
                         values_decomposed,
                         colour_coding = "label superset",
@@ -679,7 +690,7 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                         name = name
                     )
                     saveFigure(figure, figure_name, results_directory)
-        
+                    
                     plot_duration = time() - plot_time_start
                     print("    {} (with label superset) plotted and saved ({}).".format(
                         title_with_ID.capitalize(), formatDuration(plot_duration)))
