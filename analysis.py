@@ -3,7 +3,7 @@
 import numpy
 from numpy import nan
 
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, FastICA
 from sklearn.manifold import TSNE
 
 from tensorflow.tensorboard.backend.event_processing import event_multiplexer
@@ -642,6 +642,12 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                         "x label": "PC 1",
                         "y label": "PC 2"
                     }
+                elif decomposition_method == "ICA":
+                    figure_labels = {
+                        "title": "ICA",
+                        "x label": "IC 1",
+                        "y label": "IC 2"
+                    }
                 elif decomposition_method == "t-SNE":
                     figure_labels = {
                         "title": "$t$-SNE",
@@ -912,6 +918,8 @@ def decompose(values, centroids = None, method = "PCA",
     
     if method == "pca":
         model = PCA(n_components = components)
+    elif method == "ica":
+        model = FastICA(n_components = components)
     elif method == "t_sne":
         model = TSNE(n_components = components, random_state = random_state)
     else:
@@ -1264,6 +1272,7 @@ def plotHeatMap(data_set, x_name, y_name, z_name = None,
 
 decomposition_method_names = {
     "PCA": ["pca"],
+    "ICA": ["ica"],
     "t-SNE": ["t_sne", "tsne"], 
 }
 
