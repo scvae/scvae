@@ -324,7 +324,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     number_of_epochs_trained = loadNumberOfEpochsTrained(model)
     
     # Metrics
-    
+
     print("Calculating metrics for results.")
     metrics_time_start = time()
 
@@ -413,16 +413,16 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     metrics_saving_duration = time() - metrics_saving_time_start
     print("Metrics saved ({}).".format(formatDuration(
         metrics_saving_duration)))
-    
+
     print()
-    
+
     ## Displaying
-    
+
     print(formatStatistics(x_statistics))
     print(formatCountAccuracies(count_accuracies))
-    
+
     # Examples
-    
+
     if reconstructed_test_set.example_type == "images":
         print("Saving image of {} random examples".format(
             number_of_random_examples), "from reconstructed test set.")
@@ -435,7 +435,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         image_duration = time() - image_time_start
         print("Image saved ({}).".format(formatDuration(image_duration)))
         print()
-    
+
     # Profile comparisons
 
     print("Plotting profile comparisons.")
@@ -1200,18 +1200,23 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         
         label_indices = dict()
         
-        for i, label in enumerate(colouring_data_set.labels):
+        for index, label in enumerate(colouring_data_set.labels):
         
             if label not in label_indices:
                 label_indices[label] = []
         
-            label_indices[label].append(i)
+            label_indices[label].append(index)
         
-        label_palette = seaborn.color_palette("hls", len(label_indices))
+        if colouring_data_set.label_palette:
+            label_palette = colouring_data_set.label_palette
+        else:
+            hls_palette = seaborn.color_palette("hls", len(label_indices))
+            label_palette = {label: hls_palette[i] for i, label in
+                             enumerate(sorted(label_indices.keys()))}
         
-        for i, (label, indices) in enumerate(sorted(label_indices.items())):
+        for label, indices in sorted(label_indices.items()):
             axis.scatter(values[indices, 0], values[indices, 1], label = label,
-                color = label_palette[i])
+                color = label_palette[label])
         
         if len(label_indices) < 20:
             axis.legend(loc = "best")
