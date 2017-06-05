@@ -1048,21 +1048,22 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 under_100 = epoch < 100 and (epoch + 1) % 10 == 0
                 under_1000 = epoch < 1000 and (epoch + 1) % 50 == 0 
                 last_one = epoch == number_of_epochs - 1
-                plot_intermediate = under_10 or under_100 or under_1000 \
-                    or last_one
-                if "mixture" in self.latent_distribution_name and plot_intermediate:
-                    K = len(p_z_probabilities)
-                    L = self.latent_size
-                    p_z_covariance_matrices = numpy.empty([K, L, L])
-                    for k in range(K):
-                        p_z_covariance_matrices[k] = numpy.diag(p_z_variances[k])
-                    centroids = {
-                        "prior": {
-                            "probabilities": numpy.array(p_z_probabilities),
-                            "means": numpy.stack(p_z_means),
-                            "covariance_matrices": p_z_covariance_matrices
+                if under_10 or under_100 or under_1000 or last_one:
+                    if "mixture" in self.latent_distribution_name:
+                        K = len(p_z_probabilities)
+                        L = self.latent_size
+                        p_z_covariance_matrices = numpy.empty([K, L, L])
+                        for k in range(K):
+                            p_z_covariance_matrices[k] = numpy.diag(p_z_variances[k])
+                        centroids = {
+                            "prior": {
+                                "probabilities": numpy.array(p_z_probabilities),
+                                "means": numpy.stack(p_z_means),
+                                "covariance_matrices": p_z_covariance_matrices
+                            }
                         }
-                    }
+                    else:
+                        centroids = None
                     analyseIntermediateResults(
                         z_mean_valid, validation_set, centroids, epoch,
                         self.training_name, self.main_results_directory
