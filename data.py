@@ -87,6 +87,14 @@ data_sets = {
             37: (0.74, 0.08, 0.50),
             38: (0.73, 0.06, 0.44),
             39: (0.74, 0.06, 0.38),
+        },
+        "label superset": {
+            "A": [1],
+            "B": [2],
+            "C": [i for i in range(3, 24)],
+            "D": [24, 25],
+            "E": [i for i in range(26, 34)],
+            "F": [i for i in range(34, 40)]
         }
     },
     
@@ -289,6 +297,9 @@ class DataSet(object):
         
         # Label colour function for data set
         self.label_palette = dataSetLabelPalette(self.title)
+        
+        # Label colour function for data set
+        self.label_superset = dataSetLabelSuperset(self.title)
         
         # Values and their names as well as labels in data set
         self.values = None
@@ -774,6 +785,12 @@ def dataSetFeatureDimensions(title):
 def dataSetLabelPalette(title):
     if "label palette" in data_sets[title]:
         return data_sets[title]["label palette"]
+    else:
+        return None
+
+def dataSetLabelSuperset(title):
+    if "label superset" in data_sets[title]:
+        return data_sets[title]["label superset"]
     else:
         return None
 

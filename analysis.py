@@ -667,6 +667,23 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                 print("    {} (with labels) plotted and saved ({}).".format(
                     title_with_ID.capitalize(), formatDuration(plot_duration)))
         
+                if data_set.label_superset is not None:
+                    plot_time_start = time()
+            
+                    figure, figure_name = plotValues(
+                        values_decomposed,
+                        colour_coding = "label superset",
+                        colouring_data_set = colouring_data_set,
+                        centroids = centroids_decomposed,
+                        figure_labels = figure_labels,
+                        name = name
+                    )
+                    saveFigure(figure, figure_name, results_directory)
+        
+                    plot_duration = time() - plot_time_start
+                    print("    {} (with label superset) plotted and saved ({}).".format(
+                        title_with_ID.capitalize(), formatDuration(plot_duration)))
+        
             # Count sum
         
             plot_time_start = time()
@@ -1209,6 +1226,44 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         
         if colouring_data_set.label_palette:
             label_palette = colouring_data_set.label_palette
+        else:
+            hls_palette = seaborn.color_palette("hls", len(label_indices))
+            label_palette = {label: hls_palette[i] for i, label in
+                             enumerate(sorted(label_indices.keys()))}
+        
+        for label, indices in sorted(label_indices.items()):
+            axis.scatter(values[indices, 0], values[indices, 1], label = label,
+                color = label_palette[label])
+        
+        if len(label_indices) < 20:
+            axis.legend(loc = "best")
+    
+    elif colour_coding == "label_superset":
+        
+        label_indices = dict()
+        
+        label_superset = colouring_data_set.label_superset
+        label_superset_reverse = {v: k for k, vs in label_superset.items() for v in vs}
+        
+        for index, label in enumerate(colouring_data_set.labels):
+            
+            superset_label = label_superset_reverse[label]
+            
+            if superset_label not in label_indices:
+                label_indices[superset_label] = []
+        
+            label_indices[superset_label].append(index)
+        
+        if colouring_data_set.label_palette:
+            label_palette = {}
+            for superset_label, labels_in_superset_label in label_superset.items():
+                superset_label_colours = []
+                for label_in_superset_label in labels_in_superset_label:
+                    superset_label_colours.append(
+                        colouring_data_set.label_palette[label_in_superset_label]
+                    )
+                label_palette[superset_label] = \
+                    numpy.array(superset_label_colours).mean(axis = 0)
         else:
             hls_palette = seaborn.color_palette("hls", len(label_indices))
             label_palette = {label: hls_palette[i] for i, label in
