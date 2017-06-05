@@ -266,6 +266,23 @@ data_sets = {
         },
         "load function": lambda x: loadSampleDataSet(x),
         "example type": "counts"
+    },
+    
+    "development": {
+        "split": False,
+        "preprocessing methods": None,
+        "URLs": {},
+        "load function": lambda x: loadDevelopmentDataSet(),
+        "example type": "counts",
+        "label palette": {
+             0: (1, 0, 0),
+             1: (0, 1, 0),
+             2: (0, 0, 1)
+        },
+        "label superset": {
+            "A": [0, 1],
+            "B": [2]
+        }
     }
 }
 
@@ -805,6 +822,9 @@ def downloadDataSet(title, directory):
     URLs = data_sets[title]["URLs"]
     
     paths = {}
+    
+    if not URLs:
+        return paths
     
     for values_or_labels in URLs:
         paths[values_or_labels] = {}
@@ -1451,6 +1471,65 @@ def loadSampleDataSet(paths):
     
     values = data["values"]
     labels = data["labels"]
+    
+    M, N = values.shape
+    
+    example_names = numpy.array(["example {}".format(i + 1) for i in range(M)])
+    feature_names = numpy.array(["feature {}".format(j + 1) for j in range(N)])
+    
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names
+    }
+    
+    return data_dictionary
+
+def loadDevelopmentDataSet():
+    
+    number_of_examples = 10000
+    number_of_features = 20
+    scale = 10
+    update_probability = 0.0001
+
+    numpy.random.seed(60)
+        
+    m = number_of_examples
+    n = number_of_features
+
+    samples_mean = numpy.empty((m, n))
+    samples_mean_drop_out = numpy.empty((m, n))
+    labels = numpy.empty(m, int)
+
+    row = scale * numpy.random.rand(n)
+    row_drop_out = numpy.random.rand(n)
+
+    k = 0
+
+    for i in range(m):
+        u = numpy.random.rand()
+        if u > 1 - update_probability:
+            row = scale * numpy.random.rand(n)
+            row_drop_out = numpy.random.rand(n)
+            k += 1
+        samples_mean[i] = row
+        samples_mean_drop_out[i] = row_drop_out
+        labels[i] = k
+
+    shuffled_indices = numpy.random.permutation(m)
+
+    samples = samples_mean[shuffled_indices]
+    samples_drop_out = samples_mean_drop_out[shuffled_indices]
+    labels = labels[shuffled_indices]
+
+    for i in range(m):
+        for j in range(n):
+            samples[i, j] = numpy.random.poisson(samples[i, j])
+            drop_out = numpy.random.binomial(1, samples_drop_out[i, j])
+            samples_drop_out[i, j] = drop_out * samples[i, j]
+    
+    values = samples_drop_out
     
     M, N = values.shape
     
