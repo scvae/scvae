@@ -297,7 +297,8 @@ data_sets = {
 class DataSet(object):
     def __init__(self, name,
         values = None, preprocessed_values = None, binarised_values = None,
-        labels = None, example_names = None, feature_names = None,
+        labels = None, label_names = None,
+        example_names = None, feature_names = None,
         feature_selection = None, feature_parameter = None,
         preprocessing_methods = [], preprocessed = None,
         kind = "full", version = "original", noisy_preprocessing = False,
@@ -334,10 +335,12 @@ class DataSet(object):
         self.labels = None
         self.example_names = None
         self.feature_names = None
+        self.label_names = None
         self.number_of_examples = None
         self.number_of_features = None
+        self.number_of_classes = None
         self.update(values, preprocessed_values, binarised_values, labels,
-            example_names, feature_names)
+            example_names, feature_names, label_names)
         
         # Feature selction and preprocessing methods
         self.feature_selection = feature_selection
@@ -420,7 +423,7 @@ class DataSet(object):
     
     def update(self, values = None, preprocessed_values = None,
         binarised_values = None, labels = None,
-        example_names = None, feature_names = None):
+        example_names = None, feature_names = None, label_names = None):
         
         if values is not None:
             
@@ -452,6 +455,11 @@ class DataSet(object):
         
         if labels is not None:
             self.labels = labels
+            if label_names is not None:
+                self.label_names = label_names
+            else:
+                self.label_names = numpy.unique(self.labels)
+            self.number_of_classes = self.label_names.size
         
         if preprocessed_values is not None:
             self.preprocessed_values = preprocessed_values
@@ -716,6 +724,7 @@ class DataSet(object):
             labels = split_data_dictionary["training set"]["labels"],
             example_names = split_data_dictionary["training set"]["example names"],
             feature_names = self.feature_names,
+            label_names = self.label_names,
             feature_selection = self.feature_selection,
             preprocessing_methods = self.preprocessing_methods,
             kind = "training"
@@ -732,6 +741,7 @@ class DataSet(object):
             labels = split_data_dictionary["validation set"]["labels"],
             example_names = split_data_dictionary["validation set"]["example names"],
             feature_names = self.feature_names,
+            label_names = self.label_names,
             feature_selection = self.feature_selection,
             preprocessing_methods = self.preprocessing_methods,
             kind = "validation"
@@ -748,6 +758,7 @@ class DataSet(object):
             labels = split_data_dictionary["test set"]["labels"],
             example_names = split_data_dictionary["test set"]["example names"],
             feature_names = self.feature_names,
+            label_names = self.label_names,
             feature_selection = self.feature_selection,
             preprocessing_methods = self.preprocessing_methods,
             kind = "test"
@@ -757,8 +768,10 @@ class DataSet(object):
         print()
         
         print(
-            "Data sets with {} features:\n".format(
-                training_set.number_of_features) +
+            "Data sets with {} features{}:\n".format(
+                training_set.number_of_features,
+                " and {} classes".format(self.number_of_classes)
+                    if self.number_of_classes else "") +
             "    Training sets: {} examples.\n".format(
                 training_set.number_of_examples) +
             "    Validation sets: {} examples.\n".format(
