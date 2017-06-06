@@ -122,13 +122,13 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         heat_maps_time_start = time()
         
-        figure, name = plotHeatMap(
+        figure, figure_name = plotHeatMap(
             data_set.values,
             x_name = data_set.tags["example"].capitalize() + "s",
             y_name = data_set.tags["feature"].capitalize() + "s",
             name = data_set.kind
         )
-        saveFigure(figure, name, results_directory)
+        saveFigure(figure, figure_name, results_directory)
         
         heat_maps_duration = time() - heat_maps_time_start
         print("Heat map for {} set plotted and saved ({})." \
@@ -167,8 +167,8 @@ def analyseModel(model, results_directory = "results"):
     learning_curves = loadLearningCurves(model,
         data_set_kinds = ["training", "validation"])
     
-    figure, name = plotLearningCurves(learning_curves, model.type)
-    saveFigure(figure, name, results_directory)
+    figure, figure_name = plotLearningCurves(learning_curves, model.type)
+    saveFigure(figure, figure_name, results_directory)
     
     learning_curves_duration = time() - learning_curves_time_start
     print("Learning curves plotted and saved ({}).".format(
@@ -188,12 +188,12 @@ def analyseModel(model, results_directory = "results"):
         KL_neurons = numpy.sort(KL_neurons, axis = 1)
         log_KL_neurons = numpy.log(KL_neurons)
         
-        figure, name = plotHeatMap(
+        figure, figure_name = plotHeatMap(
             log_KL_neurons, z_min = log_KL_neurons.min(),
             x_name = "Epoch", y_name = "$i$",
             z_name = "$\log$ KL$(p_i|q_i)$",
             name = "kl_divergence")
-        saveFigure(figure, name, results_directory)
+        saveFigure(figure, figure_name, results_directory)
         
         heat_map_duration = time() - heat_map_time_start
         print("Heat map plotted and saved ({}).".format(
@@ -215,12 +215,12 @@ def analyseModel(model, results_directory = "results"):
             
             prior_centroid_probailities = prior_centroids["probabilities"]
             
-            figure, name = plotEvolutionOfLatentPriorProbabilities(
+            figure, figure_name = plotEvolutionOfLatentPriorProbabilities(
                 prior_centroid_probailities)
-            saveFigure(figure, name, results_directory)
+            saveFigure(figure, figure_name, results_directory)
             
-            figure, name = plotEvolutionOfLatentPriorCentroids(centroids)
-            saveFigure(figure, name, results_directory)
+            figure, figure_name = plotEvolutionOfLatentPriorCentroids(centroids)
+            saveFigure(figure, figure_name, results_directory)
             
             centroids_duration = time() - centroids_time_start
             print("Evolution of latent prior parameters plotted and saved".format(
@@ -234,8 +234,8 @@ def analyseAllModels(models_summaries, results_directory = "results"):
     
     print("Plotting learning curves for all run models.")
     
-    figure, name = plotLearningCurvesForModels(models_summaries)
-    saveFigure(figure, name, results_directory)
+    figure, figure_name = plotLearningCurvesForModels(models_summaries)
+    saveFigure(figure, figure_name, results_directory)
     
     print()
     
@@ -243,8 +243,8 @@ def analyseAllModels(models_summaries, results_directory = "results"):
     
     print("Plotting evaluation for all run models.")
     
-    figure, name = plotEvaluationsForModels(models_summaries)
-    saveFigure(figure, name, results_directory)
+    figure, figure_name = plotEvaluationsForModels(models_summaries)
+    saveFigure(figure, figure_name, results_directory)
     
     print()
 
@@ -472,7 +472,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
 
     for j, i in enumerate(subset):
 
-        figure, name = plotProfileComparison(
+        figure, figure_name = plotProfileComparison(
             test_set.values[i],
             reconstructed_test_set.values[i],
             x_name = test_set.tags["example"].capitalize() + "s",
@@ -481,7 +481,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             title = str(test_set.example_names[i]),
             name = str(j)
         )
-        saveFigure(figure, name, results_directory)
+        saveFigure(figure, figure_name, results_directory)
 
     profile_comparisons_duration = time() - profile_comparisons_time_start
     print("Profile comparisons plotted and saved ({}).".format(
@@ -497,13 +497,13 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
 
     heat_maps_time_start = time()
 
-    figure, name = plotHeatMap(
+    figure, figure_name = plotHeatMap(
         reconstructed_test_set.values,
         x_name = test_set.tags["example"].capitalize() + "s",
         y_name = test_set.tags["feature"].capitalize() + "s",
         name = "reconstruction"
     )
-    saveFigure(figure, name, results_directory)
+    saveFigure(figure, figure_name, results_directory)
 
     heat_maps_duration = time() - heat_maps_time_start
     print("    Reconstruction heat map plotted and saved ({})." \
@@ -513,14 +513,14 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
 
     heat_maps_time_start = time()
 
-    figure, name = plotHeatMap(
+    figure, figure_name = plotHeatMap(
         x_diff,
         x_name = test_set.tags["example"].capitalize() + "s",
         y_name = test_set.tags["feature"].capitalize() + "s",
         name = "difference",
         center = 0
     )
-    saveFigure(figure, name, results_directory)
+    saveFigure(figure, figure_name, results_directory)
 
     heat_maps_duration = time() - heat_maps_time_start
     print("    Difference heat map plotted and saved ({})." \
@@ -530,14 +530,14 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
 
     heat_maps_time_start = time()
 
-    figure, name = plotHeatMap(
+    figure, figure_name = plotHeatMap(
         x_log_ratio,
         x_name = test_set.tags["example"].capitalize() + "s",
         y_name = test_set.tags["feature"].capitalize() + "s",
         name = "log_ratio",
         center = 0
     )
-    saveFigure(figure, name, results_directory)
+    saveFigure(figure, figure_name, results_directory)
 
     heat_maps_duration = time() - heat_maps_time_start
     print("    log-ratio heat map plotted and saved ({})." \
@@ -966,7 +966,7 @@ def decompose(values, centroids = None, method = "PCA",
     
     return values_decomposed, centroids_decomposed
 
-def plotHistogram(values, x_label, scale = "linear", name = None):
+def plotHistogram(series, x_label, scale = "linear", name = None):
     
     figure_name = "histogram"
     
