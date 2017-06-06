@@ -25,8 +25,10 @@ import re
 from time import time
 from auxiliary import formatTime, formatDuration, normaliseString, properString
 
-palette = seaborn.color_palette('Set2', 8)
-seaborn.set(style='ticks', palette = palette)
+standard_palette = seaborn.color_palette('Set2', 8)
+lighter_palette = lambda N: seaborn.hls_palette(N)
+darker_palette = lambda N: seaborn.hls_palette(N, l = .4)
+seaborn.set(style='ticks', palette = standard_palette)
 
 figure_extension = ".png"
 image_extension = ".png"
@@ -119,7 +121,6 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         # Heat map for data set
         
         print("Plotting heat map for {} set.".format(data_set.kind))
-        
         heat_maps_time_start = time()
         
         figure, figure_name = plotHeatMap(
@@ -1037,7 +1038,8 @@ def plotLearningCurves(curves, model_type, name = None):
             line_style = "dashed"
             colour_index_offset = 1
         
-        curve_colour = lambda i: palette[len(curves) * i + colour_index_offset]
+        curve_colour = lambda i: standard_palette[len(curves) * i
+            + colour_index_offset]
         
         for curve_name, curve in sorted(curve_set.items()):
             if curve_name == "lower_bound":
@@ -1225,9 +1227,9 @@ def plotProfileComparison(original_series, reconstructed_series,
     axis = figure.add_subplot(1, 1, 1)
     
     x = numpy.linspace(0, D, D)
-    axis.plot(x, original_series[sort_indices], color = palette[0],
+    axis.plot(x, original_series[sort_indices], color = standard_palette[0],
         label = 'Original', zorder = 1)
-    axis.scatter(x, reconstructed_series[sort_indices], color = palette[1],
+    axis.scatter(x, reconstructed_series[sort_indices], color = standard_palette[1],
         label = 'Reconstruction', zorder = 0)
     
     axis.legend()
@@ -1369,8 +1371,8 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 label_palette[superset_label] = \
                     numpy.array(superset_label_colours).mean(axis = 0)
         else:
-            hls_palette = seaborn.color_palette("hls", len(label_indices))
-            label_palette = {label: hls_palette[i] for i, label in
+            index_palette = ligther_palette(len(label_indices))
+            label_palette = {label: index_palette[i] for i, label in
                              enumerate(sorted(label_indices.keys()))}
         
         for label, indices in sorted(label_indices.items()):
@@ -1384,7 +1386,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         
         n_test = colouring_data_set.count_sum
         n_normalised = n_test / n_test.max()
-        colours = numpy.array([palette[0]]) * n_normalised
+        colours = numpy.array([standard_palette[0]]) * n_normalised
         
         axis.scatter(values[:, 0], values[:, 1], color = colours)
     
@@ -1406,7 +1408,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         else:
             f_normalised = f_test
         
-        colours = numpy.array([palette[0]]) * f_normalised
+        colours = numpy.array([standard_palette[0]]) * f_normalised
         
         axis.scatter(values[:, 0], values[:, 1], color = colours)
     
@@ -1422,7 +1424,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             K = 0
         
         if K > 1:
-            centroids_palette = seaborn.hls_palette(K, l = .4)
+            centroids_palette = darker_palette(K)
             classes = numpy.arange(K)
             
             probabilities = prior_centroids["probabilities"]
