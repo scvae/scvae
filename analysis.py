@@ -315,7 +315,7 @@ def analyseModel(model, results_directory = "results"):
             saveFigure(figure, figure_name, results_directory)
             
             centroids_duration = time() - centroids_time_start
-            print("Evolution of latent prior parameters plotted and saved".format(
+            print("Evolution of latent prior parameters plotted and saved ({})".format(
                 formatDuration(centroids_duration)))
             
             print()
@@ -592,6 +592,18 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         formatDuration(profile_comparisons_duration)))
 
     print()
+    
+    ## Reconstructions in original space
+    
+    analyseDecompositions(
+        test_set,
+        reconstructed_test_set,
+        decomposition_methods = decomposition_methods,
+        highlight_feature_indices = highlight_feature_indices,
+        symbol = "$x$",
+        title = "original space",
+        results_directory = results_directory
+    )
 
     # Heat maps
 
@@ -662,9 +674,9 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         
         analyseDecompositions(
             latent_test_sets,
+            centroids = centroids,
             colouring_data_set = test_set,
             decomposition_methods = decomposition_methods,
-            centroids = centroids,
             highlight_feature_indices = highlight_feature_indices,
             symbol = "$z$",
             title = "latent space",
@@ -672,8 +684,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             results_directory = results_directory
         )
 
-def analyseDecompositions(data_sets, colouring_data_set = None,
-    decomposition_methods = ["PCA"], centroids = None,
+def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
+    colouring_data_set = None, decomposition_methods = ["PCA"],
     highlight_feature_indices = [], symbol = "$x$",
     title = "data set", specifier = None,
     results_directory = "results"):
@@ -683,9 +695,19 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
     if not isinstance(data_sets, (list, tuple)):
         data_sets = [data_sets]
     
+    if not isinstance(other_data_sets, (list, tuple)):
+        other_data_sets = [other_data_sets]
+    elif other_data_sets == []:
+        for _ in range(len(data_sets)):
+            other_data_sets.append(None)
+    
+    if len(data_sets) != len(other_data_sets):
+        raise ValueError("Lists of data sets and alternative data sets",
+            "do not have the same length.")
+    
     ID = None
     
-    for data_set in data_sets:
+    for data_set, other_data_set in zip(data_sets, other_data_sets):
         
         name = normaliseString(title)
         
@@ -705,21 +727,32 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
             centroids = copy.deepcopy(centroids_original)
         else:
             centroids = None
-
-        decomposition_methods.insert(0, None)
-    
-        for decomposition_method in decomposition_methods:
         
+        decomposition_methods.insert(0, None)
+        
+        if other_data_set:
+            title_with_ID = "{} values in {}".format(
+                other_data_set.version, title_with_ID)
+            name = other_data_set.version + "-" + name
+        
+        for decomposition_method in decomposition_methods:
+            
+            if other_data_set:
+                other_values = other_data_set.values
+            else:
+                other_values = None
+            
             if not decomposition_method:
                 if data_set.number_of_features == 2:
                     figure_labels = {
-                        "title": None,
+                        "title": "none",
                         "x label": symbol + "$_1$",
                         "y label": symbol + "$_2$"
                     }
                 
                     values_decomposed = data_set.values
                     centroids_decomposed = centroids
+                    other_values_decomposed = other_values
                 else:
                     continue
             else:    
@@ -729,14 +762,16 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                 print("Decomposing {} using {}.".format(
                     title_with_ID, decomposition_method))
                 decompose_time_start = time()
-    
-                values_decomposed, centroids_decomposed = decompose(
-                    data_set.values,
-                    centroids = centroids,
-                    method = decomposition_method,
-                    components = 2
-                )
-    
+                
+                values_decomposed, other_values_decomposed, \
+                    centroids_decomposed = decompose(
+                        data_set.values,
+                        other_value_sets = other_values,
+                        centroids = centroids,
+                        method = decomposition_method,
+                        components = 2
+                    )
+                
                 decompose_duration = time() - decompose_time_start
                 print("{} decomposed ({}).".format(
                     title_with_ID.capitalize(),
@@ -764,6 +799,11 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                 
                 print()
             
+            if other_data_set:
+                plot_values_decomposed = other_values_decomposed
+            else:
+                plot_values_decomposed = values_decomposed
+            
             # Plot data set
             
             print("Plotting {}{}.".format(
@@ -774,7 +814,7 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
             plot_time_start = time()
             
             figure, figure_name = plotValues(
-                values_decomposed,
+                plot_values_decomposed,
                 centroids = centroids_decomposed,
                 figure_labels = figure_labels,
                 name = name
@@ -793,7 +833,7 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                 plot_time_start = time()
             
                 figure, figure_name = plotValues(
-                    values_decomposed,
+                    plot_values_decomposed,
                     colour_coding = "labels",
                     colouring_data_set = colouring_data_set,
                     centroids = centroids_decomposed,
@@ -810,7 +850,7 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                     plot_time_start = time()
                     
                     figure, figure_name = plotValues(
-                        values_decomposed,
+                        plot_values_decomposed,
                         colour_coding = "label superset",
                         colouring_data_set = colouring_data_set,
                         centroids = centroids_decomposed,
@@ -828,7 +868,7 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
             plot_time_start = time()
         
             figure, figure_name = plotValues(
-                values_decomposed,
+                plot_values_decomposed,
                 colour_coding = "count sum",
                 colouring_data_set = colouring_data_set,
                 centroids = centroids_decomposed,
@@ -848,7 +888,7 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
                 plot_time_start = time()
             
                 figure, figure_name = plotValues(
-                    values_decomposed,
+                    plot_values_decomposed,
                     colour_coding = "feature",
                     colouring_data_set = colouring_data_set,
                     centroids = centroids_decomposed,
@@ -1018,7 +1058,8 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
     
     method = normaliseString(method)
     
-    if not isinstance(other_value_sets, (list, tuple)):
+    if other_value_sets is not None \
+        and not isinstance(other_value_sets, (list, tuple)):
         other_value_sets = [other_value_sets]
     
     if random:
@@ -1044,6 +1085,9 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
             other_value_sets_decomposed.append(other_value_decomposed)
     else:
         other_value_sets_decomposed = None
+    
+    if other_value_sets_decomposed and len(other_value_sets_decomposed) == 1:
+        other_value_sets_decomposed = other_value_sets_decomposed[0]
     
     # Only supports centroids without data sets as top levels
     if centroids and method != "t_sne":
@@ -1080,12 +1124,12 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
     else:
         centroids_decomposed = None
     
-    if other_value_sets != [] and centroids_decomposed != {}:
+    if other_value_sets != [] and centroids != {}:
         return values_decomposed, other_value_sets_decomposed, \
             centroids_decomposed
-    elif other_value_sets_decomposed != []:
+    elif other_value_sets != []:
         return values_decomposed, other_value_sets_decomposed
-    elif centroids_decomposed != {}:
+    elif centroids != {}:
         return values_decomposed, centroids_decomposed
     else:
         return values_decomposed
