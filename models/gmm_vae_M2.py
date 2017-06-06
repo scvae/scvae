@@ -114,7 +114,14 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
             self.saver = tf.train.Saver(max_to_keep = 1)
     
     @property
-    def name(self):
+    def training_name(self):
+        return self.name("training")
+    
+    @property
+    def testing_name(self):
+        return self.name("testing")
+    
+    def name(self, process):
         
         latent_part = normaliseString(self.latent_distribution_name)
         
@@ -136,21 +143,16 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
         mc_train = self.number_of_monte_carlo_samples["training"]
         mc_eval = self.number_of_monte_carlo_samples["evaluation"]
         
-        if mc_train > 1 or mc_eval > 1:
-            reconstruction_part += "_mc_" + str(mc_train)
-            if mc_eval != mc_train:
-                reconstruction_part += "_" + str(mc_eval)
+        reconstruction_part += "_mc_" + str(mc_train)
+        if process == "testing":
+            reconstruction_part += "_" + str(mc_eval)
         
         iw_train = self.number_of_importance_samples["training"]
         iw_eval = self.number_of_importance_samples["evaluation"]
         
-        if iw_train > 1 or iw_eval > 1:
-            reconstruction_part += "_iw_" + str(iw_train)
-            if iw_eval != iw_train:
-                reconstruction_part += "_" + str(iw_eval)
-        
-        if self.analytical_kl_term:
-            reconstruction_part += "_kl"
+        reconstruction_part += "_iw_" + str(iw_train)
+        if process == "testing":
+            reconstruction_part += "_" + str(iw_eval)
         
         if self.batch_normalisation:
             reconstruction_part += "_bn"
@@ -161,10 +163,11 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
         model_name = os.path.join(self.type, latent_part, reconstruction_part)
         
         return model_name
+ 
     
     @property
     def log_directory(self):
-        return os.path.join(self.main_log_directory, self.name)
+        return os.path.join(self.main_log_directory, self.training_name)
     
     @property
     def title(self):
@@ -298,7 +301,13 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
             )
 
             ## (B, K)
-            q_y_logits = tf.reshape(dense_layer(q_y_NN, self.Dim_y, activation_fn=None, scope="logits"), [1, -1, self.Dim_y])
+            q_y_logits = dense_layer(
+                inputs = q_y_NN,
+                num_outputs = self.Dim_y,
+                activation_fn=None,
+                is_training=self.is_training,
+                scope="logits"
+            )
 
             ## (B, K)
             self.q_y_given_x = Categorical(
@@ -307,11 +316,10 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
             )
 
             ## (B, K) <-> (K, B)
-            self.q_y_given_x_probs = 
-                tf.transpose(
-                    self.q_y_given_x.probs, 
-                    [1, 0]
-                ),
+            self.q_y_given_x_probs = tf.transpose(
+                self.q_y_given_x.probs, 
+                [1, 0]
+            )
 
             self.q_y_mean = self.q_y_given_x.probs
         
@@ -376,10 +384,13 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
 
             ## (1, K, B, L) -> sum((K, B, 1) * (K, B, L), 0) -->
             ## (B, L)
-            self.z_mean = tf.expand_dims(self.q_y_given_x_probs, -1) *\
+            self.z_mean = tf.reduce_sum(
+                tf.expand_dims(self.q_y_given_x_probs, -1) *\
                 tf.reshape(
                     self.q_z_given_x_y.mean(), [self.Dim_y, -1, self.Dim_z]
-                )
+                ),
+                0
+            )
 
             ## (S_iw * S_mc, K, B, L)
             self.z = tf.reshape(
@@ -405,7 +416,7 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 n_tile = tf.tile(
                     tf.reshape(self.n, [1, 1, -1, 1]
                     ), 
-                    [self.S_iw_mc self.Dim_y, 1, 1]
+                    [self.S_iw_mc, self.Dim_y, 1, 1]
                 )
         
         # p(z|y) = N(z; mu(y), sigma(y))
@@ -438,7 +449,6 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 scale=tf.exp(p_z_log_sigma),
                 validate_args=True
             )
-
         # p(y)
         with tf.variable_scope("p_y"):
             p_y_logits = tf.ones((1, self.Dim_y))
@@ -576,7 +586,7 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
         ## (S_iw * S_mc, K, B, F) -->
         ## (S_iw * S_mc, K, B) -->
         p_x_given_z_log_prob = tf.reduce_sum(
-            self.p_x_given_z_y.log_prob(t_tiled), -1
+            self.p_x_given_z.log_prob(t_tiled), -1
         )
         ## (S_iw * S_mc, K, B) -->
         ## (K, B) -->
@@ -961,8 +971,6 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                     simple_value = ENRE_train)
                 summary.value.add(tag="losses/kl_divergence_z",
                     simple_value = KL_z_train)                
-                summary.value.add(tag="losses/kl_divergence_z2",
-                    simple_value = KL_z2_train)
                 summary.value.add(tag="losses/kl_divergence_y",
                     simple_value = KL_y_train)
                 
@@ -1025,8 +1033,6 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                     simple_value = ENRE_valid)
                 summary.value.add(tag="losses/kl_divergence_z",
                     simple_value = KL_z_valid)                
-                summary.value.add(tag="losses/kl_divergence_z2",
-                    simple_value = KL_z2_valid)
                 summary.value.add(tag="losses/kl_divergence_y",
                     simple_value = KL_y_valid)
                 
@@ -1154,8 +1160,6 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 simple_value = ENRE_test)
             summary.value.add(tag="losses/kl_divergence_z",
                 simple_value = KL_z_test)                
-            summary.value.add(tag="losses/kl_divergence_z2",
-                simple_value = KL_z2_test)
             summary.value.add(tag="losses/kl_divergence_y",
                 simple_value = KL_y_test)
             
@@ -1200,7 +1204,7 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
             
             z_test_set = DataSet(
                 name = test_set.name,
-                values = z1_mean_test,
+                values = z_mean_test,
                 preprocessed_values = None,
                 labels = test_set.labels,
                 example_names = test_set.example_names,

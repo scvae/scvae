@@ -188,7 +188,7 @@ def analyseModel(model, results_directory = "results"):
     
     # Setup
     
-    if model.type in ["VAE", "IWVAE", "CVAE"]:
+    if model.type in ["VAE", "IWVAE", "CVAE", "GMVAE_M2"]:
         model_name = model.testing_name
     else:
         model_name = model.name
@@ -214,7 +214,7 @@ def analyseModel(model, results_directory = "results"):
     
     # Heat map of KL for all latent neurons
     
-    if "AE" in model.type and model.type != "CVAE":
+    if "AE" in model.type and model.type not in ["CVAE", "GMVAE_M2"]:
         
         print("Plotting logarithm of KL divergence heat map.")
         heat_map_time_start = time()
@@ -371,7 +371,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     # Setup
     
-    if model.type in ["VAE", "IWVAE", "CVAE"]:
+    if model.type in ["VAE", "IWVAE", "CVAE", "GMVAE_M2"]:
         model_name = model.testing_name
     else:
         model_name = model.name
@@ -446,11 +446,17 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                     evaluation_test["lower_bound"][-1]) + \
                 "    ENRE: {:.5g}.\n".format(
                     evaluation_test["reconstruction_error"][-1])
-            if model.type != "CVAE":
+            if model.type not in ["CVAE", "GMVAE_M2"]:
                 metrics_string += \
                     "    KL:   {:.5g}.\n".format(
                         evaluation_test["kl_divergence"][-1])
-            else:
+            elif model.type == "GMVAE_M2":
+                metrics_string += \
+                    "    KL_z:   {:.5g}.\n".format(
+                        evaluation_test["kl_divergence_z"][-1]) + \
+                    "    KL_y:   {:.5g}.\n".format(
+                        evaluation_test["kl_divergence_y"][-1])
+            elif model_type == "CVAE":
                 metrics_string += \
                     "    KL_z1:   {:.5g}.\n".format(
                         evaluation_test["kl_divergence_z1"][-1]) + \
@@ -1077,7 +1083,7 @@ def plotLearningCurves(curves, model_type, name = None):
     if model_type == "SNN":
         figure = pyplot.figure()
         axis_1 = figure.add_subplot(1, 1, 1)
-    elif model_type == "CVAE":
+    elif model_type in ["CVAE", "GMVAE_M2"]:
         figure, (axis_1, axis_2, axis_3) = pyplot.subplots(3, sharex = True,
             figsize = (6.4, 14.4))
     elif "AE" in model_type:
@@ -1114,7 +1120,7 @@ def plotLearningCurves(curves, model_type, name = None):
                     latent_variable = curve_name.replace("kl_divergence_", "")
                     latent_variable = re.sub(r"(\w)(\d)", r"\1_\2", latent_variable)
                     index = "$_{" + latent_variable + "}$"
-                    if latent_variable == "z_2":
+                    if latent_variable in ["z", "z_2"]:
                         colour = curve_colour(0)
                         axis = axis_2
                     elif latent_variable == "z_1":
@@ -1143,7 +1149,7 @@ def plotLearningCurves(curves, model_type, name = None):
         handles, labels = axis_2.get_legend_handles_labels()
         labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
         axis_2.legend(handles, labels, loc = "best")
-        if model_type == "CVAE":
+        if model_type in ["CVAE", "GMVAE_M2"]:
             axis_3.legend(loc = "best")
             handles, labels = axis_3.get_legend_handles_labels()
             labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
@@ -1644,6 +1650,9 @@ def loadLearningCurves(model, data_set_kinds = "all"):
     elif model.type == "CVAE":
         losses = ["lower_bound", "reconstruction_error",
             "kl_divergence_z1", "kl_divergence_z2", "kl_divergence_y"]
+    elif model.type == "GMVAE_M2":
+        losses = ["lower_bound", "reconstruction_error",
+            "kl_divergence_z", "kl_divergence_y"]
     elif "AE" in model.type:
         losses = ["lower_bound", "reconstruction_error", "kl_divergence"]
     
