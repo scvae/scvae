@@ -118,6 +118,24 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             print("Image saved ({}).".format(formatDuration(image_duration)))
             print()
         
+        # Distributions
+        
+        print("Plotting distribution for {} set.".format(data_set.kind))
+        
+        if data_set.number_of_classes and data_set.number_of_classes < 50:
+            distribution_time_start = time()
+        
+            figure, figure_name = plotClassHistogram(
+                labels = data_set.labels,
+                palette = lighter_palette(data_set.number_of_classes),
+                scale = "linear",
+                name = "classes-{}".format(data_set.kind))
+            saveFigure(figure, figure_name, results_directory)
+        
+            distribution_duration = time() - distribution_time_start
+            print("    Class distribution plotted and saved ({})." \
+                .format(formatDuration(distribution_duration)))
+        
         # Heat map for data set
         
         print("Plotting heat map for {} set.".format(data_set.kind))
@@ -966,6 +984,25 @@ def decompose(values, centroids = None, method = "PCA",
         centroids_decomposed = None
     
     return values_decomposed, centroids_decomposed
+
+def plotClassHistogram(labels, scale = "linear", palette = None, name = None):
+    
+    figure_name = "histogram"
+    
+    if name:
+        figure_name += "-" + name
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    seaborn.countplot(series, palette = palette, ax = axis)
+    
+    # axis.set_yscale(scale)
+    
+    axis.set_xlabel("Classes")
+    axis.set_ylabel("Count")
+    
+    return figure, figure_name
 
 def plotHistogram(series, x_label, scale = "linear", name = None):
     
