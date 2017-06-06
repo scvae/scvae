@@ -13,6 +13,8 @@ from models import (
     GaussianMixtureVariationalAutoEncoder_M2
 )
 
+from auxiliary import title, subtitle
+
 import os
 import argparse
 import json
@@ -38,7 +40,11 @@ def main(data_set_name, data_directory = "data",
     reset_training = False, skip_modelling = False,
     analyse = True, analyse_data = False):
     
+    print()
+    
     # Load and split data
+    
+    title("Loading and splitting data")
     
     data_set = data.DataSet(
         data_set_name,
@@ -64,6 +70,7 @@ def main(data_set_name, data_directory = "data",
     # Analyse data
     
     if analyse_data:
+        subtitle("Analysing data")
         analysis.analyseData(
             [data_set, training_set, validation_set, test_set],
             decomposition_methods, highlight_feature_indices, results_directory
@@ -74,6 +81,8 @@ def main(data_set_name, data_directory = "data",
         return
     
     # Set up model configurations
+    
+    title("Model configurations")
     
     print("Setting up model configurations.")
     
@@ -93,6 +102,8 @@ def main(data_set_name, data_directory = "data",
         batch_size, learning_rate
     )
     
+    number_of_models = len(model_configurations)
+    
     if configuration_errors:
         print("Invalid model configurations:")
         for errors in configuration_errors:
@@ -105,7 +116,9 @@ def main(data_set_name, data_directory = "data",
     
     print("Looping over {} models.\n".format(len(model_configurations)))
     
-    for model_configuration in model_configurations:
+    for model_number, model_configuration in enumerate(model_configurations):
+        
+        title("Model {}".format(model_number + 1))
         
         model_type = model_configuration["model type"]
         hidden_sizes = model_configuration["hidden sizes"]
@@ -139,8 +152,10 @@ def main(data_set_name, data_directory = "data",
                 model_configuration["number of warm up epochs"]
             
             analytical_kl_term = latent_distribution == "gaussian"
-            
+        
         # Modeling
+        
+        subtitle("Setting up")
         
         if model_type == "VAE":
             model = VariationalAutoEncoder(
@@ -245,6 +260,10 @@ def main(data_set_name, data_directory = "data",
         print(model.parameters)
         print()
         
+        # Training
+        
+        subtitle("Training")
+        
         status = model.train(
             training_set, validation_set,
             number_of_epochs, batch_size, learning_rate,
@@ -272,6 +291,10 @@ def main(data_set_name, data_directory = "data",
         
         print()
         
+        # Evaluating
+        
+        subtitle("Evaluating")
+        
         if "AE" in model.type:
             transformed_test_set, reconstructed_test_set, latent_test_sets = \
                 model.evaluate(test_set, batch_size)
@@ -286,8 +309,10 @@ def main(data_set_name, data_directory = "data",
         
         if analyse:
             
+            subtitle("Analysing model")
             analysis.analyseModel(model, results_directory)
             
+            subtitle("Analysing results")
             analysis.analyseResults(
                 transformed_test_set, reconstructed_test_set, latent_test_sets,
                 model, decomposition_methods, highlight_feature_indices,

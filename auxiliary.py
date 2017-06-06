@@ -78,3 +78,28 @@ def download_report_hook(block_num, block_size, total_size):
             sys.stderr.write("\n")
     else:
         sys.stderr.write("\r{:d} bytes.".format(bytes_read))
+
+# Shell output
+
+RESETFORMAT = "\033[0m"
+BOLD = "\033[1m"
+
+def bold(string):
+    """Convert to bold type."""
+    return BOLD + string + RESETFORMAT
+
+def underline(string, character="="):
+    """Convert string to header marks"""
+    return character * len(string)
+
+def title(string):
+    """Display a bold title."""
+    print("{}\n{}\n".format(bold(string), underline(string, "≡")))
+
+def subtitle(string):
+    """Display a bold subtitle."""
+    print("{}\n{}\n".format(bold(string), underline(string, "=")))
+
+def heading(string):
+    """Display a bold heading."""
+    print("{}\n{}\n".format(bold(string), underline(string, "-")))

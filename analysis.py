@@ -23,7 +23,11 @@ import copy
 import re
 
 from time import time
-from auxiliary import formatTime, formatDuration, normaliseString, properString
+from auxiliary import (
+    formatTime, formatDuration,
+    normaliseString, properString,
+    heading
+)
 
 standard_palette = seaborn.color_palette('Set2', 8)
 lighter_palette = lambda N: seaborn.hls_palette(N)
@@ -46,6 +50,8 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         os.makedirs(results_directory)
     
     # Metrics
+    
+    heading("Metrics")
     
     print("Calculating metrics for data set.")
     metrics_time_start = time()
@@ -101,6 +107,8 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
     # Find test data set
     
     for data_set in data_sets:
+        
+        heading("Plots for {} set".format(data_set.kind))
         
         # Examples for data set
         
@@ -197,6 +205,8 @@ def analyseModel(model, results_directory = "results"):
     
     # Learning curves
     
+    heading("Leaning curves")
+    
     print("Plotting learning curves.")
     learning_curves_time_start = time()
     
@@ -216,6 +226,8 @@ def analyseModel(model, results_directory = "results"):
     
     if "AE" in model.type and model.type not in ["CVAE", "GMVAE_M2"]:
         
+        heading("KL divergence")
+    
         print("Plotting logarithm of KL divergence heat map.")
         heat_map_time_start = time()
         
@@ -241,6 +253,8 @@ def analyseModel(model, results_directory = "results"):
     
     if "AE" in model.type and "mixture" in model.latent_distribution_name:
         
+        heading("Latent prior distribution")
+    
         centroids = loadCentroids(model, data_set_kinds = "validation")
         prior_centroids = centroids["prior"]
         
@@ -387,6 +401,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     # Metrics
 
+    heading("Metrics")
+    
     print("Calculating metrics for results.")
     metrics_time_start = time()
 
@@ -477,20 +493,24 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             "count accuracies": count_accuracies
         }
         pickle.dump(metrics_dictionary, metrics_file)
-
+    
     metrics_saving_duration = time() - metrics_saving_time_start
     print("Metrics saved ({}).".format(formatDuration(
         metrics_saving_duration)))
-
+        
     print()
-
+    
     ## Displaying
-
+    
     print(formatStatistics(x_statistics))
     print(formatCountAccuracies(count_accuracies))
-
-    # Examples
-
+    
+    # Reconstructions
+    
+    heading("Reconstructions")
+    
+    ## Examples
+    
     if reconstructed_test_set.example_type == "images":
         print("Saving image of {} random examples".format(
             number_of_random_examples), "from reconstructed test set.")
@@ -505,7 +525,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         print("Image saved ({}).".format(formatDuration(image_duration)))
         print()
 
-    # Profile comparisons
+    ## Profile comparisons
 
     print("Plotting profile comparisons.")
     profile_comparisons_time_start = time()
@@ -535,7 +555,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
 
     print("Plotting heat maps.")
 
-    # Reconstructions
+    ## Reconstructions
 
     heat_maps_time_start = time()
 
@@ -551,7 +571,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     print("    Reconstruction heat map plotted and saved ({})." \
         .format(formatDuration(heat_maps_duration)))
 
-    # Differences
+    ## Differences
 
     heat_maps_time_start = time()
 
@@ -568,7 +588,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     print("    Difference heat map plotted and saved ({})." \
         .format(formatDuration(heat_maps_duration)))
 
-    # log-ratios
+    ## log-ratios
 
     heat_maps_time_start = time()
 
@@ -590,6 +610,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     # Latent space
     
     if latent_test_sets is not None:
+        
+        heading("Latent space")
         
         if "AE" in model.type:
             centroids = loadCentroids(model, data_set_kinds = "test")
