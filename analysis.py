@@ -112,7 +112,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         heading("Plots for {} set".format(data_set.kind))
         
         # Examples for data set
-        
+
         if data_set.example_type == "images":
             print("Saving image of {} random examples from {} set.".format(
                 number_of_random_examples, data_set.kind))
@@ -126,16 +126,16 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             image_duration = time() - image_time_start
             print("Image saved ({}).".format(formatDuration(image_duration)))
             print()
-        
+
         # Distributions
-        
+
         print("Plotting distribution for {} set.".format(data_set.kind))
-        
+
         ## Class distribution
-        
+
         if data_set.number_of_classes and data_set.number_of_classes < 50:
             distribution_time_start = time()
-            
+
             figure, figure_name = plotClassHistogram(
                 labels = data_set.labels,
                 palette = lighter_palette(data_set.number_of_classes),
@@ -143,15 +143,15 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                 name = data_set.kind
             )
             saveFigure(figure, figure_name, results_directory)
-        
+
             distribution_duration = time() - distribution_time_start
             print("    Class distribution plotted and saved ({})."\
                 .format(formatDuration(distribution_duration)))
-        
+
         ## Count distribution
-        
+
         distribution_time_start = time()
-        
+
         figure, figure_name = plotHistogram(
             series = data_set.values.reshape(-1),
             title = "Counts",
@@ -160,16 +160,16 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             name = data_set.kind
         )
         saveFigure(figure, figure_name, results_directory)
-        
+
         distribution_duration = time() - distribution_time_start
         print("    Count distribution plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
-        
+
         ## Count distribution with cut-off
-        
+
         if data_set.example_type == "counts":
             distribution_time_start = time()
-        
+
             for cutoff in range(1, 10):
                 figure, figure_name = plotHistogram(
                     series = data_set.values.reshape(-1),
@@ -181,15 +181,15 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                 )
                 saveFigure(figure, figure_name,
                     os.path.join(results_directory, "histogram-counts"))
-        
+
             distribution_duration = time() - distribution_time_start
             print("    Count distributions with cut-offs plotted and saved ({})."\
                 .format(formatDuration(distribution_duration)))
-        
+
         ## Count sum distribution
-        
+
         distribution_time_start = time()
-        
+
         figure, figure_name = plotHistogram(
             series = data_set.count_sum,
             title = "Count sum",
@@ -197,11 +197,11 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             name = data_set.kind
         )
         saveFigure(figure, figure_name, results_directory)
-        
+
         distribution_duration = time() - distribution_time_start
         print("    Count sum distribution plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
-        
+
         print()
         
         # Heat map for data set
@@ -210,10 +210,16 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             print("Plotting heat map for {} set.".format(data_set.kind))
             heat_maps_time_start = time()
             
+            if data_set.labels is not None:
+                labels = data_set.labels
+            else:
+                labels = None
+            
             figure, figure_name = plotHeatMap(
                 data_set.values,
-                x_name = data_set.tags["example"].capitalize() + "s",
-                y_name = data_set.tags["feature"].capitalize() + "s",
+                labels = labels,
+                x_name = data_set.tags["feature"].capitalize() + "s",
+                y_name = data_set.tags["example"].capitalize() + "s",
                 name = data_set.kind
             )
             saveFigure(figure, figure_name, results_directory)
@@ -281,7 +287,7 @@ def analyseModel(model, results_directory = "results"):
         log_KL_neurons = numpy.log(KL_neurons)
         
         figure, figure_name = plotHeatMap(
-            log_KL_neurons, z_min = log_KL_neurons.min(),
+            log_KL_neurons.T, z_min = log_KL_neurons.min(),
             x_name = "Epoch", y_name = "$i$",
             z_name = "$\log$ KL$(p_i|q_i)$",
             name = "kl_divergence")
@@ -623,8 +629,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
         figure, figure_name = plotHeatMap(
             reconstructed_test_set.values,
-            x_name = test_set.tags["example"].capitalize() + "s",
-            y_name = test_set.tags["feature"].capitalize() + "s",
+            x_name = test_set.tags["feature"].capitalize() + "s",
+            y_name = test_set.tags["example"].capitalize() + "s",
             name = "reconstruction"
         )
         saveFigure(figure, figure_name, results_directory)
@@ -639,8 +645,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
         figure, figure_name = plotHeatMap(
             x_diff,
-            x_name = test_set.tags["example"].capitalize() + "s",
-            y_name = test_set.tags["feature"].capitalize() + "s",
+            x_name = test_set.tags["feature"].capitalize() + "s",
+            y_name = test_set.tags["example"].capitalize() + "s",
             name = "difference",
             center = 0
         )
@@ -656,8 +662,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
         figure, figure_name = plotHeatMap(
             x_log_ratio,
-            x_name = test_set.tags["example"].capitalize() + "s",
-            y_name = test_set.tags["feature"].capitalize() + "s",
+            x_name = test_set.tags["feature"].capitalize() + "s",
+            y_name = test_set.tags["example"].capitalize() + "s",
             name = "log_ratio",
             center = 0
         )
@@ -1461,13 +1467,16 @@ def plotProfileComparison(original_series, reconstructed_series,
     
     return figure, figure_name
 
-def plotHeatMap(data_set, x_name, y_name, z_name = None,
-    z_min = None, z_max = None, center = None, name = None):
+def plotHeatMap(values, x_name, y_name, z_name = None,
+    z_min = None, z_max = None, labels = None, center = None,
+    name = None):
     
     figure_name = "heat_map"
     
     if name:
         figure_name = figure_name + "_" + name
+    
+    M, N = values.shape
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -1477,11 +1486,19 @@ def plotHeatMap(data_set, x_name, y_name, z_name = None,
     if z_name:
         cbar_dict["label"] = z_name
     
+    aspect_ratio = M / N
+    square_cells = 1/5 < aspect_ratio and aspect_ratio < 5
+    
+    if labels is not None:
+        indices = numpy.argsort(labels)
+    else:
+        indices = numpy.arange(M)
+    
     seaborn.heatmap(
-        data_set.T,
+        values[indices],
         vmin = z_min, vmax = z_max, center = center, 
         xticklabels = False, yticklabels = False,
-        cbar = True, cbar_kws = cbar_dict, square = True, ax = axis
+        cbar = True, cbar_kws = cbar_dict, square = square_cells, ax = axis
     )
     
     axis.set_xlabel(x_name)
