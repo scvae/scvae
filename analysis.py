@@ -99,54 +99,54 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
     # Find test data set
     
     for data_set in data_sets:
-        if data_set.kind == "test":
-            test_set = data_set
-    
-    # Examples
-    
-    if test_set.example_type == "images":
-        print("Saving image of {} random examples from test set.".format(
-            number_of_random_examples))
-        image_time_start = time()
-        image, image_name = combineRandomImagesFromDataSet(
-            test_set,
-            number_of_random_examples
+        
+        # Examples for data set
+        
+        if data_set.example_type == "images":
+            print("Saving image of {} random examples from {} set.".format(
+                number_of_random_examples, data_set.kind))
+            image_time_start = time()
+            image, image_name = combineRandomImagesFromDataSet(
+                data_set,
+                number_of_random_examples,
+                name = data_set.kind
+            )
+            saveImage(image, image_name, results_directory)
+            image_duration = time() - image_time_start
+            print("Image saved ({}).".format(formatDuration(image_duration)))
+            print()
+        
+        # Heat map for data set
+        
+        print("Plotting heat map for {} set.".format(data_set.kind))
+        
+        heat_maps_time_start = time()
+        
+        figure, name = plotHeatMap(
+            data_set.values,
+            x_name = data_set.tags["example"].capitalize() + "s",
+            y_name = data_set.tags["feature"].capitalize() + "s",
+            name = data_set.kind
         )
-        saveImage(image, image_name, results_directory)
-        image_duration = time() - image_time_start
-        print("Image saved ({}).".format(formatDuration(image_duration)))
+        saveFigure(figure, name, results_directory)
+        
+        heat_maps_duration = time() - heat_maps_time_start
+        print("Heat map for {} set plotted and saved ({})." \
+            .format(data_set.kind, formatDuration(heat_maps_duration)))
+        
         print()
-    
-    # Heat map for test set
-    
-    print("Plotting heat map for test set.")
-    
-    heat_maps_time_start = time()
-    
-    figure, name = plotHeatMap(
-        test_set.values,
-        x_name = test_set.tags["example"].capitalize() + "s",
-        y_name = test_set.tags["feature"].capitalize() + "s",
-        name = "test"
-    )
-    saveFigure(figure, name, results_directory)
-    
-    heat_maps_duration = time() - heat_maps_time_start
-    print("Heat map for test set plotted and saved ({})." \
-        .format(formatDuration(heat_maps_duration)))
-    
-    print()
-    
-    # Decompositions
-    
-    analyseDecompositions(
-        test_set,
-        decomposition_methods = decomposition_methods,
-        highlight_feature_indices = highlight_feature_indices,
-        symbol = "$x$",
-        title = "test set",
-        results_directory = results_directory
-    )
+        
+        # Decompositions
+        
+        analyseDecompositions(
+            data_set,
+            decomposition_methods = decomposition_methods,
+            highlight_feature_indices = highlight_feature_indices,
+            symbol = "$x$",
+            title = "original space",
+            specifier = lambda data_set: data_set.kind,
+            results_directory = results_directory
+        )
 
 def analyseModel(model, results_directory = "results"):
     
@@ -455,7 +455,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         image_time_start = time()
         image, image_name = combineRandomImagesFromDataSet(
             reconstructed_test_set,
-            number_of_random_examples
+            number_of_random_examples,
+            name = reconstructed_test_set.version
         )
         saveImage(image, image_name, results_directory)
         image_duration = time() - image_time_start
@@ -1469,9 +1470,13 @@ def addCovariance(covariance, mean, axis, colour, label = None, linestyle = "sol
     ellipse = matplotlib.patches.Ellipse(xy = mean, width = 2 * lambda_1, height = 2 * lambda_2, angle = alpha, linewidth = 2, linestyle = linestyle, facecolor = "none", edgecolor = colour, label = label)
     axis.add_patch(ellipse)
 
-def combineRandomImagesFromDataSet(data_set, number_of_random_examples):
+def combineRandomImagesFromDataSet(data_set, number_of_random_examples, name = None):
     
     image_name = "random_examples"
+    
+    if name:
+        image_name += "-" + normaliseString(name)
+    
     M = number_of_random_examples
     
     numpy.random.seed(60)
