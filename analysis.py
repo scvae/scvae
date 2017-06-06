@@ -134,7 +134,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         if data_set.number_of_classes and data_set.number_of_classes < 50:
             distribution_time_start = time()
-        
+            
             figure, figure_name = plotClassHistogram(
                 labels = data_set.labels,
                 palette = lighter_palette(data_set.number_of_classes),
@@ -144,7 +144,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             saveFigure(figure, figure_name, results_directory)
         
             distribution_duration = time() - distribution_time_start
-            print("    Class distribution plotted and saved ({})." \
+            print("    Class distribution plotted and saved ({})."\
                 .format(formatDuration(distribution_duration)))
         
         ## Count distribution
@@ -160,7 +160,25 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         saveFigure(figure, figure_name, results_directory)
         
         distribution_duration = time() - distribution_time_start
-        print("    Count distribution plotted and saved ({})." \
+        print("    Count distribution plotted and saved ({})."\
+            .format(formatDuration(distribution_duration)))
+        
+        ## Count distribution with cut-off
+        
+        distribution_time_start = time()
+        
+        for cutoff in range(1, 10):
+            figure, figure_name = plotHistogram(
+                series = data_set.values.reshape(-1),
+                title = "Counts",
+                cutoff = cutoff,
+                scale = "log",
+                name = data_set.kind
+            )
+            saveFigure(figure, figure_name, results_directory)
+        
+        distribution_duration = time() - distribution_time_start
+        print("    Count distributions with cut-offs plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
         
         ## Count sum distribution
@@ -176,7 +194,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         saveFigure(figure, figure_name, results_directory)
         
         distribution_duration = time() - distribution_time_start
-        print("    Count sum distribution plotted and saved ({})." \
+        print("    Count sum distribution plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
         
         print()
@@ -195,7 +213,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         saveFigure(figure, figure_name, results_directory)
         
         heat_maps_duration = time() - heat_maps_time_start
-        print("Heat map for {} set plotted and saved ({})." \
+        print("Heat map for {} set plotted and saved ({})."\
             .format(data_set.kind, formatDuration(heat_maps_duration)))
         
         print()
@@ -1069,7 +1087,9 @@ def plotClassHistogram(labels, scale = "linear", palette = None, name = None):
     
     return figure, figure_name
 
-def plotHistogram(series, title, scale = "linear", name = None):
+def plotHistogram(series, title, cutoff = None, scale = "linear", name = None):
+    
+    series = series.copy()
     
     figure_name = "histogram"
     figure_name += "-" + normaliseString(title)
@@ -1079,6 +1099,11 @@ def plotHistogram(series, title, scale = "linear", name = None):
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
+    
+    if cutoff:
+        figure_name += "-cutoff-{}".format(cutoff)
+        clip_indices = series > cutoff
+        series[clip_indices] = cutoff
     
     seaborn.distplot(series, kde = False, ax = axis)
     
