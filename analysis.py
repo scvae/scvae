@@ -154,6 +154,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         figure, figure_name = plotHistogram(
             series = data_set.values.reshape(-1),
             title = "Counts",
+            discrete = data_set.discreteness,
             scale = "log",
             name = data_set.kind
         )
@@ -165,21 +166,24 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         ## Count distribution with cut-off
         
-        distribution_time_start = time()
+        if data_set.example_type == "counts":
+            distribution_time_start = time()
         
-        for cutoff in range(1, 10):
-            figure, figure_name = plotHistogram(
-                series = data_set.values.reshape(-1),
-                title = "Counts",
-                cutoff = cutoff,
-                scale = "log",
-                name = data_set.kind
-            )
-            saveFigure(figure, figure_name, results_directory)
+            for cutoff in range(1, 10):
+                figure, figure_name = plotHistogram(
+                    series = data_set.values.reshape(-1),
+                    title = "Counts",
+                    discrete = data_set.discreteness,
+                    cutoff = cutoff,
+                    scale = "log",
+                    name = data_set.kind
+                )
+                saveFigure(figure, figure_name,
+                    os.path.join(results_directory, "histogram-counts"))
         
-        distribution_duration = time() - distribution_time_start
-        print("    Count distributions with cut-offs plotted and saved ({})."\
-            .format(formatDuration(distribution_duration)))
+            distribution_duration = time() - distribution_time_start
+            print("    Count distributions with cut-offs plotted and saved ({})."\
+                .format(formatDuration(distribution_duration)))
         
         ## Count sum distribution
         
@@ -1087,7 +1091,8 @@ def plotClassHistogram(labels, scale = "linear", palette = None, name = None):
     
     return figure, figure_name
 
-def plotHistogram(series, title, cutoff = None, scale = "linear", name = None):
+def plotHistogram(series, title, cutoff = None, discrete = False,
+    scale = "linear", name = None):
     
     series = series.copy()
     
@@ -1105,7 +1110,14 @@ def plotHistogram(series, title, cutoff = None, scale = "linear", name = None):
         clip_indices = series > cutoff
         series[clip_indices] = cutoff
     
-    seaborn.distplot(series, kde = False, ax = axis)
+    series_max = series.max()
+    
+    if discrete and series_max < 1000:
+        number_of_bins = int(numpy.ceil(series_max)) + 1
+    else:
+        number_of_bins = None
+    
+    seaborn.distplot(series, bins = number_of_bins, kde = False, ax = axis)
     
     axis.set_yscale(scale)
     

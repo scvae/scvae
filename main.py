@@ -69,7 +69,7 @@ def main(data_set_name, data_directory = "data",
     
     # Analyse data
     
-    if analyse_data:
+    if analyse and analyse_data:
         subtitle("Analysing data")
         analysis.analyseData(
             [data_set, training_set, validation_set, test_set],

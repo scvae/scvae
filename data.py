@@ -280,7 +280,8 @@ data_sets = {
             scale = 10,
             update_probability = 0.0001
         ),
-        "example type": "images",
+        # "example type": "images",
+        "example type": "counts",
         "feature dimensions": (5, 5),
         "label palette": {
              0: (1, 0, 0),
@@ -317,6 +318,13 @@ class DataSet(object):
         
         # Example type for data set
         self.example_type = dataSetExampleType(self.title)
+        
+        # Maximum value of data set
+        self.maximum_value = dataSetMaximumValue(self.title)
+        
+        # Discreteness
+        self.discreteness = self.example_type == "counts" \
+            or (self.maximum_value != None and self.maximum_value == 255)
         
         # Feature dimensions for data set
         self.feature_dimensions = dataSetFeatureDimensions(self.title)
@@ -811,6 +819,12 @@ def dataSetTags(title):
 def dataSetExampleType(title):
     if "example type" in data_sets[title]:
         return data_sets[title]["example type"]
+    else:
+        return None
+
+def dataSetMaximumValue(title):
+    if "maximum value" in data_sets[title]:
+        return data_sets[title]["maximum value"]
     else:
         return None
 
