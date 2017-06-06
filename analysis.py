@@ -130,6 +130,8 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         print("Plotting distribution for {} set.".format(data_set.kind))
         
+        ## Class distribution
+        
         if data_set.number_of_classes and data_set.number_of_classes < 50:
             distribution_time_start = time()
         
@@ -145,6 +147,8 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             print("    Class distribution plotted and saved ({})." \
                 .format(formatDuration(distribution_duration)))
         
+        ## Count distribution
+        
         distribution_time_start = time()
         
         figure, figure_name = plotHistogram(
@@ -157,6 +161,22 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         distribution_duration = time() - distribution_time_start
         print("    Count distribution plotted and saved ({})." \
+            .format(formatDuration(distribution_duration)))
+        
+        ## Count sum distribution
+        
+        distribution_time_start = time()
+        
+        figure, figure_name = plotHistogram(
+            series = data_set.count_sum,
+            title = "Count sum",
+            scale = "log",
+            name = data_set.kind
+        )
+        saveFigure(figure, figure_name, results_directory)
+        
+        distribution_duration = time() - distribution_time_start
+        print("    Count sum distribution plotted and saved ({})." \
             .format(formatDuration(distribution_duration)))
         
         print()
