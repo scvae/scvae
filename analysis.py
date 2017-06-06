@@ -129,12 +129,29 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                 labels = data_set.labels,
                 palette = lighter_palette(data_set.number_of_classes),
                 scale = "linear",
-                name = "classes-{}".format(data_set.kind))
+                name = data_set.kind
+            )
             saveFigure(figure, figure_name, results_directory)
         
             distribution_duration = time() - distribution_time_start
             print("    Class distribution plotted and saved ({})." \
                 .format(formatDuration(distribution_duration)))
+        
+        distribution_time_start = time()
+        
+        figure, figure_name = plotHistogram(
+            series = data_set.values.reshape(-1),
+            title = "Counts",
+            scale = "log",
+            name = data_set.kind
+        )
+        saveFigure(figure, figure_name, results_directory)
+        
+        distribution_duration = time() - distribution_time_start
+        print("    Count distribution plotted and saved ({})." \
+            .format(formatDuration(distribution_duration)))
+        
+        print()
         
         # Heat map for data set
         
@@ -987,15 +1004,15 @@ def decompose(values, centroids = None, method = "PCA",
 
 def plotClassHistogram(labels, scale = "linear", palette = None, name = None):
     
-    figure_name = "histogram"
+    figure_name = "histogram-classes"
     
     if name:
-        figure_name += "-" + name
+        figure_name += "-" + normaliseString(name)
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
-    seaborn.countplot(series, palette = palette, ax = axis)
+    seaborn.countplot(labels, palette = palette, ax = axis)
     
     # axis.set_yscale(scale)
     
@@ -1004,12 +1021,13 @@ def plotClassHistogram(labels, scale = "linear", palette = None, name = None):
     
     return figure, figure_name
 
-def plotHistogram(series, x_label, scale = "linear", name = None):
+def plotHistogram(series, title, scale = "linear", name = None):
     
     figure_name = "histogram"
+    figure_name += "-" + normaliseString(title)
     
     if name:
-        figure_name = name + "_" + figure_name
+        figure_name += "-" + normaliseString(name)
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -1018,7 +1036,7 @@ def plotHistogram(series, x_label, scale = "linear", name = None):
     
     axis.set_yscale(scale)
     
-    axis.set_xlabel(x_label)
+    axis.set_xlabel(title)
     
     return figure, figure_name
 
@@ -1028,7 +1046,7 @@ def plotSeries(series, x_label, y_label, scale = "linear", bar = False,
     figure_name = "series"
     
     if name:
-        figure_name = name + "_" + figure_name
+        figure_name += "-" + normaliseString(name)
     
     D = series.shape[0]
     
