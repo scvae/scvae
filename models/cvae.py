@@ -21,6 +21,8 @@ from time import time
 from auxiliary import formatDuration, normaliseString
 
 from data import DataSet
+from analysis import analyseIntermediateResults
+
 
 class ClusterVariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
@@ -30,7 +32,7 @@ class ClusterVariationalAutoEncoder(object):
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
         number_of_warm_up_epochs = 0, epsilon = 1e-6,
-        log_directory = "log"):
+        log_directory = "log", results_directory = "results"):
         
         # Class setup
         super(ClusterVariationalAutoEncoder, self).__init__()
@@ -73,7 +75,8 @@ class ClusterVariationalAutoEncoder(object):
         self.log_sigma_support = lambda x: tf.clip_by_value(x, -3 + self.epsilon, 3 - self.epsilon)
         
         self.main_log_directory = log_directory
-        
+        self.main_results_directory = results_directory
+
         # Graph setup
         
         self.graph = tf.Graph()
@@ -370,6 +373,7 @@ class ClusterVariationalAutoEncoder(object):
                 [self.S_iw_mc, self.Dim_y, -1]
             )
 
+            ## (B, K) <--  (S_iw * S_mc, K, B)
             self.q_y_mean = tf.transpose(tf.reduce_mean(self.q_y_given_x_z1_probs, 0), [1, 0])
 
         # q(z_2| y, z_1)
@@ -595,20 +599,16 @@ class ClusterVariationalAutoEncoder(object):
             # sigma_p(z1|y)
             # (S_iw * S_mc, S_iw * S_mc, K, B, L) --> 
             # (K, L)
-            self.p_z_stddevs = tf.reduce_mean(
-                self.p_z1_given_y_z2.stddev(),
+            self.p_z_vars = tf.reduce_mean(
+                tf.square(self.p_z1_given_y_z2.stddev()),
                 (0, 1, 3)
             )
 
-            self.p_z_stddevs = tf.clip_by_value(
-                self.p_z_stddevs,
+            self.p_z_vars = tf.clip_by_value(
+                self.p_z_vars,
                 self.epsilon, 
-                self.p_z_stddevs
+                self.p_z_vars
             )
-
-            # print(self.p_z_probabilities.shape)
-            # print(self.p_z_means.shape)
-            # print(self.p_z_stddevs.shape)
 
 # Reconstruction distribution parameterisation
         
@@ -1231,7 +1231,8 @@ class ClusterVariationalAutoEncoder(object):
                 KL_y_valid = 0
                 p_z_probabilities = numpy.zeros(self.Dim_y)
                 p_z_means = numpy.zeros((self.Dim_y, self.Dim_z))
-                p_z_stddevs = numpy.zeros((self.Dim_y, self.Dim_z))
+                p_z_vars = numpy.zeros((self.Dim_y, self.Dim_z))
+                z_mean_valid = numpy.empty([M_valid, self.Dim_z])
 
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
@@ -1250,8 +1251,9 @@ class ClusterVariationalAutoEncoder(object):
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
                     
-                    ELBO_i, ENRE_i, KL_z1_i, KL_z2_i, KL_y_i, p_z_probabilities_i, p_z_means_i, p_z_stddevs_i = session.run(
-                        [self.ELBO, self.ENRE, self.KL_z1, self.KL_z2, self.KL_y, self.p_z_probabilities, self.p_z_means, self.p_z_stddevs],
+                    ELBO_i, ENRE_i, KL_z1_i, KL_z2_i, KL_y_i, p_z_probabilities_i,\
+                    p_z_means_i, p_z_vars_i, z_mean_i = session.run(
+                        [self.ELBO, self.ENRE, self.KL_z1, self.KL_z2, self.KL_y, self.p_z_probabilities, self.p_z_means, self.p_z_vars, self.z1_mean],
                         feed_dict = feed_dict_batch
                     )
                     
@@ -1262,7 +1264,7 @@ class ClusterVariationalAutoEncoder(object):
                     KL_y_valid += KL_y_i
                     p_z_probabilities += p_z_probabilities_i
                     p_z_means += p_z_means_i
-                    p_z_stddevs += p_z_stddevs_i
+                    p_z_vars += p_z_vars_i
 
                 ELBO_valid /= M_valid / batch_size
                 ENRE_valid /= M_valid / batch_size
@@ -1271,9 +1273,10 @@ class ClusterVariationalAutoEncoder(object):
                 KL_y_valid /= M_valid / batch_size
                 p_z_probabilities /= M_valid / batch_size
                 p_z_means /= M_valid / batch_size
-                p_z_stddevs /= M_valid / batch_size
-                p_z_variances = numpy.power(p_z_stddevs, 2.)
-                                
+                p_z_vars /= M_valid / batch_size
+
+                z_mean_valid[subset] = z_mean_i
+
                 evaluating_duration = time() - evaluating_time_start
                 
                 summary = tf.Summary()
@@ -1302,7 +1305,7 @@ class ClusterVariationalAutoEncoder(object):
                         summary.value.add(
                             tag="prior/cluster_{}/variance/dimension_{}"\
                                 .format(k, l),
-                            simple_value = p_z_variances[k, l]
+                            simple_value = p_z_vars[k, l]
                         )
 
                 validation_summary_writer.add_summary(summary,
@@ -1315,7 +1318,33 @@ class ClusterVariationalAutoEncoder(object):
                     ELBO_valid, ENRE_valid, KL_z1_valid, KL_z2_valid, KL_y_valid))
                 
                 print()
-            
+
+                # Plot latent validation values
+                under_10 = epoch < 10
+                under_100 = epoch < 100 and (epoch + 1) % 10 == 0
+                under_1000 = epoch < 1000 and (epoch + 1) % 50 == 0 
+                last_one = epoch == number_of_epochs - 1
+                if under_10 or under_100 or under_1000 or last_one:
+                    if "mixture" in self.latent_distribution_name:
+                        K = self.Dim_y
+                        L = self.Dim_z
+                        p_z_covariance_matrices = numpy.empty([K, L, L])
+                        for k in range(K):
+                            p_z_covariance_matrices[k] = numpy.diag(p_z_vars[k])
+                        centroids = {
+                            "prior": {
+                                "probabilities": p_z_probabilities,
+                                "means": p_z_means,
+                                "covariance_matrices": p_z_covariance_matrices
+                            }
+                        }
+                    else:
+                        centroids = None
+                    analyseIntermediateResults(
+                        z_mean_valid, validation_set, centroids, epoch,
+                        self.training_name, self.main_results_directory
+                    )
+                    print()
             training_duration = time() - training_time_start
             
             if epoch_start >= number_of_epochs:
@@ -1406,7 +1435,7 @@ class ClusterVariationalAutoEncoder(object):
             y_mean_test = numpy.empty([M_test, self.Dim_y])
             p_z_probabilities = numpy.zeros(self.Dim_y)
             p_z_means = numpy.zeros((self.Dim_y, self.Dim_z))
-            p_z_stddevs = numpy.zeros((self.Dim_y, self.Dim_z))
+            p_z_vars = numpy.zeros((self.Dim_y, self.Dim_z))
 
             for i in range(0, M_test, batch_size):
                 subset = slice(i, (i + batch_size))
@@ -1424,11 +1453,11 @@ class ClusterVariationalAutoEncoder(object):
                     feed_dict_batch[self.n] = n_test[subset]
                 
                 ELBO_i, ENRE_i, KL_z1_i, KL_z2_i, KL_y_i, \
-                    p_z_probabilities_i, p_z_means_i, p_z_stddevs_i, \
+                    p_z_probabilities_i, p_z_means_i, p_z_vars_i, \
                     x_mean_i, z1_mean_i, z2_mean_i, y_mean_i = session.run(
                     [self.ELBO, self.ENRE, self.KL_z1, self.KL_z2, self.KL_y,
                         self.p_z_probabilities, self.p_z_means, 
-                        self.p_z_stddevs, self.x_mean, self.z1_mean, 
+                        self.p_z_vars, self.x_mean, self.z1_mean, 
                         self.z2_mean, self.q_y_mean],
                     feed_dict = feed_dict_batch
                 )
@@ -1440,7 +1469,7 @@ class ClusterVariationalAutoEncoder(object):
                 KL_y_test += KL_y_i
                 p_z_probabilities += p_z_probabilities_i
                 p_z_means += p_z_means_i
-                p_z_stddevs += p_z_stddevs_i
+                p_z_vars += p_z_vars_i
                 
                 x_mean_test[subset] = x_mean_i
                 z1_mean_test[subset] = z1_mean_i
@@ -1454,8 +1483,7 @@ class ClusterVariationalAutoEncoder(object):
             KL_y_test /= M_test / batch_size
             p_z_probabilities /= M_test / batch_size
             p_z_means /= M_test / batch_size
-            p_z_stddevs /= M_test / batch_size
-            p_z_variances = numpy.power(p_z_stddevs, 2.)
+            p_z_vars /= M_test / batch_size
             
             summary = tf.Summary()
             summary.value.add(tag="losses/lower_bound",
@@ -1483,7 +1511,7 @@ class ClusterVariationalAutoEncoder(object):
                     summary.value.add(
                         tag="prior/cluster_{}/variance/dimension_{}"\
                             .format(k, l),
-                        simple_value = p_z_variances[k, l]
+                        simple_value = p_z_vars[k, l]
                     )            
 
             test_summary_writer.add_summary(summary,

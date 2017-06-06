@@ -17,17 +17,19 @@ from time import time
 from auxiliary import formatDuration, normaliseString
 
 from data import DataSet
+from analysis import analyseIntermediateResults
+
 
 class GaussianMixtureVariationalAutoEncoder_M2(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         number_of_monte_carlo_samples, number_of_importance_samples,
         analytical_kl_term = False,
-        latent_distribution = "gaussian", number_of_latent_clusters = 10,
+        number_of_latent_clusters = 10,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
         number_of_warm_up_epochs = 0, epsilon = 1e-6,
-        log_directory = "log"):
+        log_directory = "log", results_directory = "results"):
         
         # Class setup
         super(GaussianMixtureVariationalAutoEncoder_M2, self).__init__()
@@ -39,9 +41,9 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
         self.latent_size = latent_size
         self.hidden_sizes = hidden_sizes
         
-        self.latent_distribution_name = latent_distribution
+        self.latent_distribution_name = "gaussian mixture"
         self.latent_distribution = copy.deepcopy(
-            latent_distributions[latent_distribution]
+            latent_distributions[self.latent_distribution_name]
         )
         self.Dim_y = number_of_latent_clusters
         self.number_of_latent_clusters = number_of_latent_clusters
@@ -72,7 +74,8 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
         self.log_sigma_support = lambda x: tf.clip_by_value(x, -3 + self.epsilon, 3 - self.epsilon)
         
         self.main_log_directory = log_directory
-        
+        self.main_results_directory = results_directory
+
         # Graph setup
         
         self.graph = tf.Graph()
@@ -315,6 +318,13 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 validate_args=True
             )
 
+            ## q(y) = E_x[q(y|x)]
+            ## (K)
+            self.q_y = Categorical(
+                logits = tf.reduce_mean(q_y_logits, 0),
+                validate_args=True
+            )
+
             ## (B, K) <-> (K, B)
             self.q_y_given_x_probs = tf.transpose(
                 self.q_y_given_x.probs, 
@@ -322,6 +332,13 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
             )
 
             self.q_y_mean = self.q_y_given_x.probs
+
+            # Gather parameters pi, mu and sigma for q(y,z|x) = q(z|y,x)q(y|x)
+            # q(y) = E_x[q(y|x)]
+            # (K) <-- (K, B)
+            self.q_z_probabilities = tf.reduce_mean(
+                self.q_y_given_x_probs, 1
+            )
         
         # q(z| x, y) #
         with tf.variable_scope("q_z"):
@@ -398,6 +415,29 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 [self.S_iw_mc, self.Dim_y, -1, self.Dim_z]
             )
 
+            # Gather parameters pi, mu and sigma for q(y,z|x) = q(z|y,x)q(y|x)
+            # mu_q(z|x, y)
+            # (S_iw * S_mc, K, B, L) --> 
+            # (K, L)
+            self.q_z_means = tf.reduce_mean(
+                self.q_z_given_x_y.mean(),
+                (0, 2)
+            )
+
+            # sigma_q(z|x, y)
+            # (S_iw * S_mc, K, B, L) --> 
+            # (K, L)
+            self.q_z_vars = tf.reduce_mean(
+                tf.square(self.q_z_given_x_y.stddev()),
+                (0, 2)
+            )
+
+            self.q_z_vars = tf.clip_by_value(
+                self.q_z_vars,
+                self.epsilon, 
+                self.q_z_vars
+            )
+
 
         '''
         ##########DECODER ###########
@@ -449,15 +489,44 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 scale=tf.exp(p_z_log_sigma),
                 validate_args=True
             )
+
+            # Gather parameters mu and sigma for p(z|y)
+            # mu_p(z|y)
+            # (1, K, 1, L) --> 
+            # (K, L)
+            self.p_z_means = tf.reshape(
+                self.p_z_given_y.mean(),
+                [self.Dim_y, self.Dim_z]
+            )
+
+            # sigma_p(z|y)
+            # (1, K, 1, L) --> 
+            # (K, L)
+            self.p_z_vars = tf.reshape(
+                tf.square(self.p_z_given_y.stddev()),
+                [self.Dim_y, self.Dim_z]
+            )
+
+            self.p_z_vars = tf.clip_by_value(
+                self.p_z_vars,
+                self.epsilon, 
+                self.p_z_vars
+            )
+
+
         # p(y)
         with tf.variable_scope("p_y"):
-            p_y_logits = tf.ones((1, self.Dim_y))
+            p_y_logits = tf.ones((self.Dim_y))
             ## (1, K)
             self.p_y = Categorical(
                 logits = p_y_logits,
                 validate_args=True
             )
 
+            # Gather parameters pi for p(y,z) = p(z|y)p(y)
+            # p(y)
+            # (K)
+            self.p_z_probabilities = tf.reshape(self.p_y.probs, [-1])
 
 
 # Reconstruction distribution parameterisation
@@ -689,7 +758,8 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
 
 
         # KL_y (B)
-        self.KL_y = tf.reduce_mean(kl(self.q_y_given_x, self.p_y))
+        # self.KL_y = tf.reduce_mean(kl(self.q_y_given_x, self.p_y))
+        self.KL_y = kl(self.q_y, self.p_y)
 
         self.KL = tf.add_n([self.KL_z, self.KL_y], name = 'KL')
         tf.add_to_collection('losses', self.KL)
@@ -991,7 +1061,10 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 ENRE_valid = 0
                 KL_z_valid = 0
                 KL_y_valid = 0
-                
+                q_z_probabilities = numpy.zeros(self.Dim_y)
+                q_z_means = numpy.zeros((self.Dim_y, self.Dim_z))
+                q_z_vars = numpy.zeros((self.Dim_y, self.Dim_z))
+                z_mean_valid = numpy.empty([M_valid, self.Dim_z])
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
                     x_batch = x_valid[subset]
@@ -1009,8 +1082,12 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
                     
-                    ELBO_i, ENRE_i, KL_z_i, KL_y_i = session.run(
-                        [self.ELBO, self.ENRE, self.KL_z, self.KL_y],
+                    ELBO_i, ENRE_i, KL_z_i, KL_y_i,\
+                    q_z_probabilities_i, q_z_means_i, q_z_vars_i,\
+                    z_mean_i = session.run(
+                        [self.ELBO, self.ENRE, self.KL_z, self.KL_y, 
+                            self.q_z_probabilities,
+                            self.q_z_means, self.q_z_vars, self.z_mean],
                         feed_dict = feed_dict_batch
                     )
                     
@@ -1018,12 +1095,24 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                     ENRE_valid += ENRE_i
                     KL_z_valid += KL_z_i
                     KL_y_valid += KL_y_i
+                    q_z_probabilities += q_z_probabilities_i
+                    q_z_means += q_z_means_i
+                    q_z_vars += q_z_vars_i
                                     
+                    z_mean_valid[subset] = z_mean_i
+
                 ELBO_valid /= M_valid / batch_size
                 ENRE_valid /= M_valid / batch_size
                 KL_z_valid /= M_valid / batch_size
                 KL_y_valid /= M_valid / batch_size
-                                
+                q_z_probabilities /= M_valid / batch_size
+                q_z_means /= M_valid / batch_size
+                q_z_vars /= M_valid / batch_size
+                
+                p_z_probabilities, p_z_means, p_z_vars = session.run(
+                    [self.p_z_probabilities, self.p_z_means, self.p_z_vars]
+                )
+
                 evaluating_duration = time() - evaluating_time_start
                 
                 summary = tf.Summary()
@@ -1032,9 +1121,39 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 summary.value.add(tag="losses/reconstruction_error",
                     simple_value = ENRE_valid)
                 summary.value.add(tag="losses/kl_divergence_z",
-                    simple_value = KL_z_valid)                
+                    simple_value = KL_z_valid)
                 summary.value.add(tag="losses/kl_divergence_y",
                     simple_value = KL_y_valid)
+
+                ### Centroids
+                for k in range(self.Dim_y):
+                    summary.value.add(
+                        tag="prior/cluster_{}/probability".format(k),
+                        simple_value = p_z_probabilities[k]
+                    )
+                    summary.value.add(
+                        tag="posterior/cluster_{}/probability".format(k),
+                        simple_value = q_z_probabilities[k]
+                    )
+                    for l in range(self.Dim_z):
+                        summary.value.add(
+                            tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
+                            simple_value = p_z_means[k, l]
+                        )
+                        summary.value.add(
+                            tag="posterior/cluster_{}/mean/dimension_{}".format(k, l),
+                            simple_value = q_z_means[k, l]
+                        )
+                        summary.value.add(
+                            tag="prior/cluster_{}/variance/dimension_{}"\
+                                .format(k, l),
+                            simple_value = p_z_vars[k, l]
+                        )
+                        summary.value.add(
+                            tag="posterior/cluster_{}/variance/dimension_{}"\
+                                .format(k, l),
+                            simple_value = q_z_vars[k, l]
+                        )
                 
                 validation_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
@@ -1047,6 +1166,40 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 
                 print()
             
+                # Plot latent validation values
+                under_10 = epoch < 10
+                under_100 = epoch < 100 and (epoch + 1) % 10 == 0
+                under_1000 = epoch < 1000 and (epoch + 1) % 50 == 0 
+                last_one = epoch == number_of_epochs - 1
+                if under_10 or under_100 or under_1000 or last_one:
+                    if "mixture" in self.latent_distribution_name:
+                        K = self.Dim_y
+                        L = self.Dim_z
+                        p_z_covariance_matrices = numpy.empty([K, L, L])
+                        q_z_covariance_matrices = numpy.empty([K, L, L])
+                        for k in range(K):
+                            p_z_covariance_matrices[k] = numpy.diag(p_z_vars[k])
+                            q_z_covariance_matrices[k] = numpy.diag(q_z_vars[k])
+                        centroids = {
+                            "prior": {
+                                "probabilities": p_z_probabilities,
+                                "means": p_z_means,
+                                "covariance_matrices": p_z_covariance_matrices
+                            },
+                            "posterior": {
+                                "probabilities": q_z_probabilities,
+                                "means": q_z_means,
+                                "covariance_matrices": q_z_covariance_matrices
+                            }
+                        }
+                    else:
+                        centroids = None
+                    analyseIntermediateResults(
+                        z_mean_valid, validation_set, centroids, epoch,
+                        self.training_name, self.main_results_directory
+                    )
+                    print()
+
             # Clean up
             
             checkpoint = tf.train.get_checkpoint_state(self.log_directory)
@@ -1113,6 +1266,13 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
             KL_z_test = 0
             KL_y_test = 0
             
+            p_z_probabilities = numpy.zeros(self.Dim_y)
+            p_z_means = numpy.zeros((self.Dim_y, self.Dim_z))
+            p_z_vars = numpy.zeros((self.Dim_y, self.Dim_z))
+            q_z_probabilities = numpy.zeros(self.Dim_y)
+            q_z_means = numpy.zeros((self.Dim_y, self.Dim_z))
+            q_z_vars = numpy.zeros((self.Dim_y, self.Dim_z))
+
             x_mean_test = numpy.empty([M_test, F_test])
             z_mean_test = numpy.empty([M_test, self.Dim_z])
             y_mean_test = numpy.empty([M_test, self.Dim_y])
@@ -1132,9 +1292,11 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
                 
-                ELBO_i, ENRE_i, KL_z_i, KL_y_i, \
+                ELBO_i, ENRE_i, KL_z_i, KL_y_i,\
+                    q_z_probabilities_i, q_z_means_i, q_z_vars_i,\
                     x_mean_i, z_mean_i, y_mean_i = session.run(
                     [self.ELBO, self.ENRE, self.KL_z, self.KL_y,
+                        self.q_z_probabilities, self.q_z_means, self.q_z_vars,
                         self.x_mean, self.z_mean, self.q_y_mean],
                     feed_dict = feed_dict_batch
                 )
@@ -1143,7 +1305,9 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 ENRE_test += ENRE_i
                 KL_z_test += KL_z_i
                 KL_y_test += KL_y_i
-                
+                q_z_probabilities += q_z_probabilities_i
+                q_z_means += q_z_means_i
+                q_z_vars += q_z_vars_i
                 x_mean_test[subset] = x_mean_i
                 y_mean_test[subset] = y_mean_i
                 z_mean_test[subset] = z_mean_i
@@ -1152,7 +1316,13 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
             ENRE_test /= M_test / batch_size
             KL_z_test /= M_test / batch_size
             KL_y_test /= M_test / batch_size
+            q_z_probabilities /= M_test / batch_size
+            q_z_means /= M_test / batch_size
+            q_z_vars /= M_test / batch_size
             
+            p_z_probabilities, p_z_means, p_z_vars = session.run([self.p_z_probabilities, self.p_z_means,
+                        self.p_z_vars])
+
             summary = tf.Summary()
             summary.value.add(tag="losses/lower_bound",
                 simple_value = ELBO_test)
@@ -1162,6 +1332,37 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 simple_value = KL_z_test)                
             summary.value.add(tag="losses/kl_divergence_y",
                 simple_value = KL_y_test)
+            
+            ### Centroids
+            for k in range(self.Dim_y):
+                summary.value.add(
+                    tag="prior/cluster_{}/probability".format(k),
+                    simple_value = p_z_probabilities[k]
+                )
+                summary.value.add(
+                    tag="posterior/cluster_{}/probability".format(k),
+                    simple_value = q_z_probabilities[k]
+                )
+                for l in range(self.Dim_z):
+                    summary.value.add(
+                        tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
+                        simple_value = p_z_means[k, l]
+                    )
+                    summary.value.add(
+                        tag="posterior/cluster_{}/mean/dimension_{}".format(k, l),
+                        simple_value = q_z_means[k, l]
+                    )
+                    summary.value.add(
+                        tag="prior/cluster_{}/variance/dimension_{}"\
+                            .format(k, l),
+                        simple_value = p_z_vars[k, l]
+                    )
+                    summary.value.add(
+                        tag="posterior/cluster_{}/variance/dimension_{}"\
+                            .format(k, l),
+                        simple_value = q_z_vars[k, l]
+                    )
+
             
             test_summary_writer.add_summary(summary,
                 global_step = epoch + 1)

@@ -510,7 +510,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                         evaluation_test["kl_divergence_z"][-1]) + \
                     "    KL_y:   {:.5g}.\n".format(
                         evaluation_test["kl_divergence_y"][-1])
-            elif model_type == "CVAE":
+            elif model.type == "CVAE":
                 metrics_string += \
                     "    KL_z1:   {:.5g}.\n".format(
                         evaluation_test["kl_divergence_z1"][-1]) + \

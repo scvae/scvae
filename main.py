@@ -206,7 +206,8 @@ def main(data_set_name, data_directory = "data",
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum, number_of_warm_up_epochs,
-                log_directory = log_directory
+                log_directory = log_directory,
+                results_directory = results_directory
             )
 
         elif model_type == "GMMVAE":
@@ -233,13 +234,13 @@ def main(data_set_name, data_directory = "data",
                 number_of_monte_carlo_samples,
                 number_of_importance_samples, 
                 analytical_kl_term,
-                "gaussian mixture", 
                 number_of_latent_clusters,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum,
                 number_of_warm_up_epochs,
-                log_directory = log_directory
+                log_directory = log_directory,
+                results_directory = results_directory 
             )
         
         elif model_type == "SNN":
@@ -592,7 +593,7 @@ def validateModelConfiguration(model_configuration):
             latent_distribution_error = "Mixture latent distribution with " + \
                 "original variational auto-encoder."
             latent_distribution_validity = False
-        elif model_type == "CVAE" and "mixture" not in latent_distribution:
+        elif model_type in ["CVAE", "GMVAE_M2"] and "mixture" not in latent_distribution:
             latent_distribution_error = "No mixture latent distribution with " + \
                 "cluster variational auto-encoder."
             latent_distribution_validity = False
