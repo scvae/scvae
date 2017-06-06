@@ -295,30 +295,33 @@ def analyseModel(model, results_directory = "results"):
     
     if "AE" in model.type and "mixture" in model.latent_distribution_name:
         
-        heading("Latent prior distribution")
+        heading("Latent distributions")
     
         centroids = loadCentroids(model, data_set_kinds = "validation")
-        prior_centroids = centroids["prior"]
         
-        if prior_centroids:
+        for distribution, distribution_centroids in centroids.items():
             
-            print("Plotting evolution of latent prior parameters.")
-            centroids_time_start = time()
-            
-            prior_centroid_probailities = prior_centroids["probabilities"]
-            
-            figure, figure_name = plotEvolutionOfLatentPriorProbabilities(
-                prior_centroid_probailities)
-            saveFigure(figure, figure_name, results_directory)
-            
-            figure, figure_name = plotEvolutionOfLatentPriorCentroids(centroids)
-            saveFigure(figure, figure_name, results_directory)
-            
-            centroids_duration = time() - centroids_time_start
-            print("Evolution of latent prior parameters plotted and saved ({})".format(
-                formatDuration(centroids_duration)))
-            
-            print()
+            if distribution_centroids:
+                
+                print("Plotting evolution of latent {} parameters.".format(
+                    distribution))
+                centroids_time_start = time()
+                
+                centroid_probailities = distribution_centroids["probabilities"]
+                
+                figure, figure_name = plotEvolutionOfLatentProbabilities(
+                    centroid_probailities, distribution)
+                saveFigure(figure, figure_name, results_directory)
+                
+                figure, figure_name = plotEvolutionOfLatentCentroids(
+                    centroids, distribution)
+                saveFigure(figure, figure_name, results_directory)
+                
+                centroids_duration = time() - centroids_time_start
+                print("Evolution of latent {} parameters plotted and saved ({})"\
+                    .format(distribution, formatDuration(centroids_duration)))
+                
+                print()
 
 def analyseAllModels(models_summaries, results_directory = "results"):
     
@@ -1301,35 +1304,39 @@ def plotLearningCurves(curves, model_type, name = None):
     
     return figure, figure_name
 
-def plotEvolutionOfLatentPriorProbabilities(prior_probabilities, name = None):
+def plotEvolutionOfLatentProbabilities(probabilities, distribution, name = None):
     
-    figure_name = "prior_evolution-probabilities"
+    distribution = normaliseString(distribution)
+    
+    figure_name = "latent_evolution-{}-probabilities".format(distribution)
     
     if name:
-        figure_name = figure_name + "_" + name
+        figure_name += "-" + name
     
-    E, K = prior_probabilities.shape
+    E, K = probabilities.shape
     
-    centroids_palette = seaborn.hls_palette(K, l = .4)
+    centroids_palette = darker_palette(K)
     epochs = numpy.arange(E) + 1
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
     for k in range(K):
-        axis.plot(epochs, prior_probabilities[:, k], color = centroids_palette[k])
+        axis.plot(epochs, probabilities[:, k], color = centroids_palette[k])
     
     return figure, figure_name
 
-def plotEvolutionOfLatentPriorCentroids(centroids, name = None):
+def plotEvolutionOfLatentCentroids(centroids, distribution, name = None):
     
-    figure_name = "prior_evolution-centroids"
+    distribution = normaliseString(distribution)
+    
+    figure_name = "latent_evolution-{}-centroids".format(distribution)
     
     if name:
-        figure_name = figure_name + "_" + name
+        figure_name += "-" + name
     
-    means = centroids["prior"]["means"]
-    E, K, L = centroids["prior"]["means"].shape
+    means = centroids[distribution]["means"]
+    E, K, L = centroids[distribution]["means"].shape
     
     if L > 2:
         _, centroids_decomposed = decompose(means.reshape(-1, L),
@@ -1337,8 +1344,9 @@ def plotEvolutionOfLatentPriorCentroids(centroids, name = None):
     else:
         centroids_decomposed = centroids
     
-    means = centroids_decomposed["prior"]["means"]
-    covariance_matrices = centroids_decomposed["prior"]["covariance_matrices"]
+    means = centroids_decomposed[distribution]["means"]
+    covariance_matrices = centroids_decomposed[distribution]\
+        ["covariance_matrices"]
     
     centroids_palette = numpy.array(seaborn.hls_palette(K, l = .4))
     
