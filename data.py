@@ -274,8 +274,14 @@ data_sets = {
         "split": False,
         "preprocessing methods": None,
         "URLs": {},
-        "load function": lambda x: loadDevelopmentDataSet(),
-        "example type": "counts",
+        "load function": lambda x: loadDevelopmentDataSet(
+            number_of_examples = 10000,
+            number_of_features = 5 * 5,
+            scale = 10,
+            update_probability = 0.0001
+        ),
+        "example type": "images",
+        "feature dimensions": (5, 5),
         "label palette": {
              0: (1, 0, 0),
              1: (0, 1, 0),
@@ -1488,13 +1494,9 @@ def loadSampleDataSet(paths):
     
     return data_dictionary
 
-def loadDevelopmentDataSet():
+def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
+    scale = 10, update_probability = 0.0001):
     
-    number_of_examples = 10000
-    number_of_features = 20
-    scale = 10
-    update_probability = 0.0001
-
     numpy.random.seed(60)
         
     m = number_of_examples
