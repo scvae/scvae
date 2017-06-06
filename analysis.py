@@ -367,7 +367,7 @@ def analyseIntermediateResults(latent_values, data_set, centroids, epoch,
         
         latent_values_decomposed, centroids_decomposed = decompose(
             latent_values,
-            centroids,
+            centroids = centroids,
             method = "PCA",
             components = 2
         )
@@ -732,8 +732,8 @@ def analyseDecompositions(data_sets, colouring_data_set = None,
     
                 values_decomposed, centroids_decomposed = decompose(
                     data_set.values,
-                    centroids,
-                    decomposition_method,
+                    centroids = centroids,
+                    method = decomposition_method,
                     components = 2
                 )
     
@@ -1013,10 +1013,13 @@ def formatCountAccuracies(count_accuracies):
     
     return formatted_string
 
-def decompose(values, centroids = None, method = "PCA",
+def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
     components = 2, random = False):
     
     method = normaliseString(method)
+    
+    if not isinstance(other_value_sets, (list, tuple)):
+        other_value_sets = [other_value_sets]
     
     if random:
         random_state = None
@@ -1034,9 +1037,16 @@ def decompose(values, centroids = None, method = "PCA",
     
     values_decomposed = model.fit_transform(values)
     
-    # Only supports centroids without data sets as top levels and no epoch
-    # information
-    if centroids and method == "pca":
+    if other_value_sets and method != "t_sne":
+        other_value_sets_decomposed = []
+        for other_values in other_value_sets:
+            other_value_decomposed = model.transform(other_values)
+            other_value_sets_decomposed.append(other_value_decomposed)
+    else:
+        other_value_sets_decomposed = None
+    
+    # Only supports centroids without data sets as top levels
+    if centroids and method != "t_sne":
         W = model.components_
         centroids_decomposed = {}
         for distribution, distribution_centroids in centroids.items():
@@ -1070,7 +1080,15 @@ def decompose(values, centroids = None, method = "PCA",
     else:
         centroids_decomposed = None
     
-    return values_decomposed, centroids_decomposed
+    if other_value_sets != [] and centroids_decomposed != {}:
+        return values_decomposed, other_value_sets_decomposed, \
+            centroids_decomposed
+    elif other_value_sets_decomposed != []:
+        return values_decomposed, other_value_sets_decomposed
+    elif centroids_decomposed != {}:
+        return values_decomposed, centroids_decomposed
+    else:
+        return values_decomposed
 
 def plotClassHistogram(labels, scale = "linear", palette = None, name = None):
     
@@ -1270,7 +1288,8 @@ def plotEvolutionOfLatentPriorCentroids(centroids, name = None):
     E, K, L = centroids["prior"]["means"].shape
     
     if L > 2:
-        _, centroids_decomposed = decompose(means.reshape(-1, L), centroids)
+        _, centroids_decomposed = decompose(means.reshape(-1, L),
+            centroids = centroids)
     else:
         centroids_decomposed = centroids
     
