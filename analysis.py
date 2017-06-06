@@ -37,6 +37,7 @@ seaborn.set(style='ticks', palette = standard_palette)
 figure_extension = ".png"
 image_extension = ".png"
 
+maximum_feature_size_for_heat_maps = 2000
 number_of_random_examples = 100
 
 def analyseData(data_sets, decomposition_methods = ["PCA"],
@@ -205,22 +206,23 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         # Heat map for data set
         
-        print("Plotting heat map for {} set.".format(data_set.kind))
-        heat_maps_time_start = time()
-        
-        figure, figure_name = plotHeatMap(
-            data_set.values,
-            x_name = data_set.tags["example"].capitalize() + "s",
-            y_name = data_set.tags["feature"].capitalize() + "s",
-            name = data_set.kind
-        )
-        saveFigure(figure, figure_name, results_directory)
-        
-        heat_maps_duration = time() - heat_maps_time_start
-        print("Heat map for {} set plotted and saved ({})."\
-            .format(data_set.kind, formatDuration(heat_maps_duration)))
-        
-        print()
+        if data_set.number_of_features <= maximum_feature_size_for_heat_maps:
+            print("Plotting heat map for {} set.".format(data_set.kind))
+            heat_maps_time_start = time()
+            
+            figure, figure_name = plotHeatMap(
+                data_set.values,
+                x_name = data_set.tags["example"].capitalize() + "s",
+                y_name = data_set.tags["feature"].capitalize() + "s",
+                name = data_set.kind
+            )
+            saveFigure(figure, figure_name, results_directory)
+            
+            heat_maps_duration = time() - heat_maps_time_start
+            print("Heat map for {} set plotted and saved ({})."\
+                .format(data_set.kind, formatDuration(heat_maps_duration)))
+            
+            print()
         
         # Decompositions
         
@@ -609,59 +611,62 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     )
 
     # Heat maps
-
-    print("Plotting heat maps.")
-
-    ## Reconstructions
-
-    heat_maps_time_start = time()
-
-    figure, figure_name = plotHeatMap(
-        reconstructed_test_set.values,
-        x_name = test_set.tags["example"].capitalize() + "s",
-        y_name = test_set.tags["feature"].capitalize() + "s",
-        name = "reconstruction"
-    )
-    saveFigure(figure, figure_name, results_directory)
-
-    heat_maps_duration = time() - heat_maps_time_start
-    print("    Reconstruction heat map plotted and saved ({})." \
-        .format(formatDuration(heat_maps_duration)))
-
-    ## Differences
-
-    heat_maps_time_start = time()
-
-    figure, figure_name = plotHeatMap(
-        x_diff,
-        x_name = test_set.tags["example"].capitalize() + "s",
-        y_name = test_set.tags["feature"].capitalize() + "s",
-        name = "difference",
-        center = 0
-    )
-    saveFigure(figure, figure_name, results_directory)
-
-    heat_maps_duration = time() - heat_maps_time_start
-    print("    Difference heat map plotted and saved ({})." \
-        .format(formatDuration(heat_maps_duration)))
-
-    ## log-ratios
-
-    heat_maps_time_start = time()
-
-    figure, figure_name = plotHeatMap(
-        x_log_ratio,
-        x_name = test_set.tags["example"].capitalize() + "s",
-        y_name = test_set.tags["feature"].capitalize() + "s",
-        name = "log_ratio",
-        center = 0
-    )
-    saveFigure(figure, figure_name, results_directory)
-
-    heat_maps_duration = time() - heat_maps_time_start
-    print("    log-ratio heat map plotted and saved ({})." \
-        .format(formatDuration(heat_maps_duration)))
-
+    
+    if reconstructed_test_set.number_of_features \
+        <= maximum_feature_size_for_heat_maps:
+        
+        print("Plotting heat maps.")
+    
+        ## Reconstructions
+    
+        heat_maps_time_start = time()
+    
+        figure, figure_name = plotHeatMap(
+            reconstructed_test_set.values,
+            x_name = test_set.tags["example"].capitalize() + "s",
+            y_name = test_set.tags["feature"].capitalize() + "s",
+            name = "reconstruction"
+        )
+        saveFigure(figure, figure_name, results_directory)
+    
+        heat_maps_duration = time() - heat_maps_time_start
+        print("    Reconstruction heat map plotted and saved ({})." \
+            .format(formatDuration(heat_maps_duration)))
+    
+        ## Differences
+    
+        heat_maps_time_start = time()
+    
+        figure, figure_name = plotHeatMap(
+            x_diff,
+            x_name = test_set.tags["example"].capitalize() + "s",
+            y_name = test_set.tags["feature"].capitalize() + "s",
+            name = "difference",
+            center = 0
+        )
+        saveFigure(figure, figure_name, results_directory)
+    
+        heat_maps_duration = time() - heat_maps_time_start
+        print("    Difference heat map plotted and saved ({})." \
+            .format(formatDuration(heat_maps_duration)))
+    
+        ## log-ratios
+    
+        heat_maps_time_start = time()
+    
+        figure, figure_name = plotHeatMap(
+            x_log_ratio,
+            x_name = test_set.tags["example"].capitalize() + "s",
+            y_name = test_set.tags["feature"].capitalize() + "s",
+            name = "log_ratio",
+            center = 0
+        )
+        saveFigure(figure, figure_name, results_directory)
+    
+        heat_maps_duration = time() - heat_maps_time_start
+        print("    log-ratio heat map plotted and saved ({})." \
+            .format(formatDuration(heat_maps_duration)))
+    
     print()
     
     # Latent space
