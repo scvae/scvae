@@ -1,10 +1,6 @@
 import tensorflow as tf
 
-from models.auxiliary import (
-    dense_layer, dense_layers,
-    log_reduce_exp, reduce_logmeanexp,
-    trainingString, dataString
-)
+from models.auxiliary import dense_layer, dense_layers, log_reduce_exp, reduce_logmeanexp
 
 from tensorflow.python.ops.nn import relu, softmax, softplus
 from tensorflow import sigmoid, identity
@@ -22,10 +18,11 @@ from auxiliary import formatDuration, normaliseString
 
 from data import DataSet
 
-class ClusterVariationalAutoEncoder(object):
+class GaussianMixtureVariationalAutoEncoder_M2(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         number_of_monte_carlo_samples, number_of_importance_samples,
-        number_of_latent_clusters = 10,
+        analytical_kl_term = False,
+        latent_distribution = "gaussian", number_of_latent_clusters = 10,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
         batch_normalisation = True, count_sum = True,
@@ -33,21 +30,23 @@ class ClusterVariationalAutoEncoder(object):
         log_directory = "log"):
         
         # Class setup
-        super(ClusterVariationalAutoEncoder, self).__init__()
+        super(GaussianMixtureVariationalAutoEncoder_M2, self).__init__()
         
-        self.type = "CVAE"
+        self.type = "GMVAE_M2"
         
         self.Dim_x = feature_size
         self.Dim_z = latent_size
         self.latent_size = latent_size
         self.hidden_sizes = hidden_sizes
         
-        self.latent_distribution_name = "gaussian mixture"
+        self.latent_distribution_name = latent_distribution
         self.latent_distribution = copy.deepcopy(
-            latent_distributions[self.latent_distribution_name]
+            latent_distributions[latent_distribution]
         )
         self.Dim_y = number_of_latent_clusters
         self.number_of_latent_clusters = number_of_latent_clusters
+
+        self.analytical_kl_term = analytical_kl_term
         
         # Dictionary holding number of samples needed for the "monte carlo" 
         # estimator and "importance weighting" during both "train" and "test" time.  
@@ -115,14 +114,7 @@ class ClusterVariationalAutoEncoder(object):
             self.saver = tf.train.Saver(max_to_keep = 1)
     
     @property
-    def training_name(self):
-        return self.name("training")
-    
-    @property
-    def testing_name(self):
-        return self.name("testing")
-    
-    def name(self, process):
+    def name(self):
         
         latent_part = normaliseString(self.latent_distribution_name)
         
@@ -144,16 +136,21 @@ class ClusterVariationalAutoEncoder(object):
         mc_train = self.number_of_monte_carlo_samples["training"]
         mc_eval = self.number_of_monte_carlo_samples["evaluation"]
         
-        reconstruction_part += "_mc_" + str(mc_train)
-        if process == "testing":
-            reconstruction_part += "_" + str(mc_eval)
+        if mc_train > 1 or mc_eval > 1:
+            reconstruction_part += "_mc_" + str(mc_train)
+            if mc_eval != mc_train:
+                reconstruction_part += "_" + str(mc_eval)
         
         iw_train = self.number_of_importance_samples["training"]
         iw_eval = self.number_of_importance_samples["evaluation"]
         
-        reconstruction_part += "_iw_" + str(iw_train)
-        if process == "testing":
-            reconstruction_part += "_" + str(iw_eval)
+        if iw_train > 1 or iw_eval > 1:
+            reconstruction_part += "_iw_" + str(iw_train)
+            if iw_eval != iw_train:
+                reconstruction_part += "_" + str(iw_eval)
+        
+        if self.analytical_kl_term:
+            reconstruction_part += "_kl"
         
         if self.batch_normalisation:
             reconstruction_part += "_bn"
@@ -167,7 +164,7 @@ class ClusterVariationalAutoEncoder(object):
     
     @property
     def log_directory(self):
-        return os.path.join(self.main_log_directory, self.training_name)
+        return os.path.join(self.main_log_directory, self.name)
     
     @property
     def title(self):
@@ -240,6 +237,9 @@ class ClusterVariationalAutoEncoder(object):
                 iw += " (training), {} (evaluation)".format(iw_eval)
             description_parts.append(iw)
         
+        if self.analytical_kl_term:
+            description_parts.append("using analytical KL term")
+        
         if self.batch_normalisation:
             description_parts.append("using batch normalisation")
         if self.count_sum_feature:
@@ -280,16 +280,15 @@ class ClusterVariationalAutoEncoder(object):
         '''
         ########## ENCODER ###########
         Inference model for:
-            q(y,z_1,z_2, x) = q(z_2|y, z_1) q(y|x, z_1) q(z_1|x)
-            q(z_1|x)        = N(z_1; mu_{q(z_1)}(x), sigma^2_{q(z_1)}(x)I)
-            q(z_2|y,z_1)   = N(z_2; mu_{q(z_2)}(y,z_1), sigma^2_{q(z_2)}(y,z_1)I)
-            q(y|x, z_1)     = Cat(y; pi(x, z_1))
+            q(y,z|x)    = q(y|x) q(z|x, y)
+            q(z|x, y)   = N(z; mu_{q(z)}(x, y), sigma^2_{q(z)}(x, y)I)
+            q(y|x)      = Cat(y; pi(x))
         '''
         
-        # q(z_1| x) #
-        with tf.variable_scope("q_z1"):
+        # q(y|x)
+        with tf.variable_scope("q_y"):
             ## (B, H)
-            q_z1_NN = dense_layers(
+            q_y_NN = dense_layers(
                 inputs = self.x,
                 num_outputs = self.hidden_sizes,
                 activation_fn = relu,
@@ -298,105 +297,49 @@ class ClusterVariationalAutoEncoder(object):
                 scope="NN"
             )
 
-            ## (1, B, L)
-            q_z1_mu = tf.reshape(
-                dense_layer(
-                    q_z1_NN,
-                    self.Dim_z,
-                    activation_fn=None,
-                    scope="mu"
-                    ), 
-                [1, -1, self.Dim_z]
-            )
-            q_z1_log_sigma = tf.reshape(
-                dense_layer(
-                    q_z1_NN, 
-                    self.Dim_z, 
-                    activation_fn=self.log_sigma_support,
-                    scope="log_sigma"
-                    ), 
-                [1, -1, self.Dim_z]
-            )
+            ## (B, K)
+            q_y_logits = tf.reshape(dense_layer(q_y_NN, self.Dim_y, activation_fn=None, scope="logits"), [1, -1, self.Dim_y])
 
-            ## (1, B, L)
-            self.q_z1_given_x = Normal(loc=q_z1_mu,
-                scale=tf.exp(q_z1_log_sigma),
-                validate_args=True
-            )
-
-            ## (1, B, L) -> (B, L)
-            self.z1_mean = self.q_z1_given_x.mean()
-
-            ## (S_iw * S_mc, B, L)
-            self.z1 = tf.reshape(
-                self.q_z1_given_x.sample(self.S_iw_mc), 
-                [self.S_iw_mc, -1, self.Dim_z]
-            )
-
-        # q(y|x,z1)
-        with tf.variable_scope("q_y"):
-            ## (S_iw * S_mc, B, F)
-            x_tile = tf.tile(tf.expand_dims(self.x, 0), [self.S_iw_mc, 1, 1])
-
-            ## (S_iw * S_mc, B, F + L)
-            x_z1 = tf.concat((x_tile, self.z1), axis = -1)
-
-            ## (S_iw * S_mc * B, H)
-            q_y_NN = dense_layers(
-                inputs = x_z1,
-                num_outputs = self.hidden_sizes,
-                activation_fn = relu,
-                batch_normalisation = self.batch_normalisation,
-                is_training = self.is_training,
-                scope="NN"
-            )
-
-            ## (S_iw * S_mc, 1, B, K)
-            q_y_logits = tf.reshape(dense_layer(q_y_NN, self.Dim_y, activation_fn=None, scope="logits"), [self.S_iw_mc, 1, -1, self.Dim_y])
-
-            ## (S_iw * S_mc, 1, B, K)
-            self.q_y_given_x_z1 = Categorical(
+            ## (B, K)
+            self.q_y_given_x = Categorical(
                 logits = q_y_logits,
                 validate_args=True
             )
 
-            ## (S_iw * S_mc, 1, B, K) -->
-            ## (S_iw * S_mc, K, B)
-            self.q_y_given_x_z1_probs = tf.reshape(
+            ## (B, K) <-> (K, B)
+            self.q_y_given_x_probs = 
                 tf.transpose(
-                    self.q_y_given_x_z1.probs, 
-                    [0, 3, 2, 1]
+                    self.q_y_given_x.probs, 
+                    [1, 0]
                 ),
-                [self.S_iw_mc, self.Dim_y, -1]
-            )
 
-            self.q_y_mean = tf.transpose(tf.reduce_mean(self.q_y_given_x_z1_probs, 0), [1, 0])
-
-        # q(z_2| y, z_1)
-        with tf.variable_scope("q_z2"):
+            self.q_y_mean = self.q_y_given_x.probs
+        
+        # q(z| x, y) #
+        with tf.variable_scope("q_z"):
             ## (K, K)
             y_onehot = tf.diag(tf.ones(self.Dim_y))
 
             ## (K, K) -->
-            ## (S_iw * S_mc, K, B, K)
-            self.q_y_tile = tf.tile(
+            ## (K, B, K)
+            self.y_tile = tf.tile(
                 tf.reshape(
                     y_onehot, 
-                    [1, self.Dim_y, 1, self.Dim_y]
+                    [self.Dim_y, 1, self.Dim_y]
                 ), 
-                [self.S_iw_mc, 1, tf.shape(self.x)[0], 1]
+                [1, tf.shape(self.x)[0], 1]
             )
 
-            ## (S_iw * S_mc, B, L) -->
-            ## (S_iw * S_mc, K, B, L)
-            self.z1_tile = tf.tile(tf.expand_dims(self.z1, 1), [1, self.Dim_y, 1, 1])
+            ## (B, F) -->
+            ## (K, B, F)
+            self.x_tile_q_z = tf.tile(tf.expand_dims(self.x, 0), [self.Dim_y, 1, 1])
 
-            ## (S_iw * S_mc, K, B, L + K)
-            z1_y = tf.concat((self.z1_tile, self.q_y_tile), axis = -1)
+            ## (K, B, F + K)
+            self.x_y = tf.concat((self.x_tile_q_z, self.y_tile), axis = -1)
 
-            ## (S_iw * S_mc * K * B, H)
-            q_z2_NN = dense_layers(
-                inputs = z1_y,
+            ## (K * B, H)
+            q_z_NN = dense_layers(
+                inputs = self.x_y,
                 num_outputs = self.hidden_sizes,
                 activation_fn = relu,
                 batch_normalisation = self.batch_normalisation,
@@ -404,225 +347,135 @@ class ClusterVariationalAutoEncoder(object):
                 scope="NN"
             )
 
-            ## (S_iw * S_mc * K * B, L) -->
-            ## (1, S_iw * S_mc, K, B, L) 
-            q_z2_mu = tf.reshape(
+            ## (K * B, H) ==> (1, K, B, L)
+            q_z_mu = tf.reshape(
                 dense_layer(
-                    q_z2_NN,
+                    q_z_NN,
                     self.Dim_z,
                     activation_fn=None,
                     scope="mu"
-                ),
-                [1, self.S_iw_mc, self.Dim_y, -1, self.Dim_z]
+                    ), 
+                [1, self.Dim_y, -1, self.Dim_z]
             )
-            q_z2_log_sigma = tf.reshape(
+            q_z_log_sigma = tf.reshape(
                 dense_layer(
-                    q_z2_NN, 
+                    q_z_NN, 
                     self.Dim_z, 
                     activation_fn=self.log_sigma_support,
                     scope="log_sigma"
-                ), 
-                [1, self.S_iw_mc, self.Dim_y, -1, self.Dim_z]
+                    ), 
+                [1, self.Dim_y, -1, self.Dim_z]
             )
 
-            ## (1, S_iw * S_mc, K, B, L) 
-            self.q_z2_given_y_z1 = Normal(
-                loc=q_z2_mu,
-                scale=tf.exp(q_z2_log_sigma),
+            ## (1, K, B, L)
+            self.q_z_given_x_y = Normal(
+                loc=q_z_mu,
+                scale=tf.exp(q_z_log_sigma),
                 validate_args=True
             )
 
-            # TODO: Reduce dim. of mean.
-            ##  (1, S_iw * S_mc, K, B, L)  -> (S_iw * S_mc, K, B, L) -->
-            ## (S_iw * S_mc, B, L) -->
+            ## (1, K, B, L) -> sum((K, B, 1) * (K, B, L), 0) -->
             ## (B, L)
-            self.z2_mean = tf.reduce_mean(
-                tf.reduce_sum(
-                    tf.reshape(self.q_z2_given_y_z1.mean(), [self.S_iw_mc, self.Dim_y, -1, self.Dim_z]) *\
-                        tf.expand_dims(self.q_y_given_x_z1_probs, -1),
-                    axis = 1
-                ),
-            0)
-            
-            ## (S_iw * S_mc, S_iw * S_mc, K, B, L)
-            self.z2 = tf.reshape(
-                self.q_z2_given_y_z1.sample(self.S_iw_mc), 
-                [self.S_iw_mc, self.S_iw_mc, self.Dim_y, -1, self.Dim_z]
+            self.z_mean = tf.expand_dims(self.q_y_given_x_probs, -1) *\
+                tf.reshape(
+                    self.q_z_given_x_y.mean(), [self.Dim_y, -1, self.Dim_z]
+                )
+
+            ## (S_iw * S_mc, K, B, L)
+            self.z = tf.reshape(
+                self.q_z_given_x_y.sample(self.S_iw_mc), 
+                [self.S_iw_mc, self.Dim_y, -1, self.Dim_z]
             )
+
 
         '''
         ##########DECODER ###########
         Generative model for:
-            p(x,y,z_1,z_2) = p(x|y,z_1) p(z_1|y, z_2) p(y|z_2) p(z_2) where:
-                p(z_1|y, z_2)   = N(z_1; mu(y,z_2), sigma^2(y,z_2)I)
-                p(z_2)          = N(z_2, 0, I)
-                p(y|z_2)        = Cat(y; pi(z_2))
-                p(x|y, z_1)     = f(x; gamma(y, z_1)) (some count distribution) 
+            p(x,y,z) = p(x|z) p(z|y) p(y) where:
+                p(z|y)   = N(z; mu(y), sigma^2(y)I)
+                p(y)        = Cat(y; pi=1/K)
+                p(x|z)     = f(x; gamma(y, z_1)) (some count distribution) 
         '''
+        
         # Add a feature which is the total number of counts in an example. 
-
         with tf.variable_scope("count_sum"):
             if self.count_sum or self.count_sum_feature:
                 ## (B, 1) -->
-                ## (S_iw * S_mc, S_iw * S_mc, K, B, 1) 
+                ## (S_iw * S_mc, K, B, 1) 
                 n_tile = tf.tile(
-                    tf.reshape(self.n, [1, 1, 1, -1, 1]
+                    tf.reshape(self.n, [1, 1, -1, 1]
                     ), 
-                    [self.S_iw_mc, self.S_iw_mc, self.Dim_y, 1, 1]
+                    [self.S_iw_mc self.Dim_y, 1, 1]
                 )
         
-        # p(z_2) = N(z_2; 0, 1)
-        with tf.variable_scope("p_z2"):
-            self.p_z2 = Normal(
-                loc = 0.,
-                scale = 1.,
+        # p(z|y) = N(z; mu(y), sigma(y))
+        with tf.variable_scope("p_z"):
+            ## (K, K) <:> (K, L) --> (1, K, 1, L)
+            p_z_mu = tf.reshape(
+                dense_layer(
+                    inputs = y_onehot,
+                    num_outputs = self.Dim_z,
+                    activation_fn = None,
+                    is_training = self.is_training,
+                    scope = 'mu'
+                ),
+                [1, self.Dim_y, 1, self.Dim_z]
+            )
+            p_z_log_sigma = tf.reshape(
+                dense_layer(
+                    inputs = y_onehot,
+                    num_outputs = self.Dim_z,
+                    activation_fn = self.log_sigma_support,
+                    is_training = self.is_training,
+                    scope = 'log_sigma'
+                ), 
+                [1, self.Dim_y, 1, self.Dim_z]
+            )
+
+            ## (1, K, 1, L)
+            self.p_z_given_y = Normal(
+                loc=p_z_mu,
+                scale=tf.exp(p_z_log_sigma),
                 validate_args=True
             )
 
-
-        # p(y| z_2)
+        # p(y)
         with tf.variable_scope("p_y"):
-            if self.count_sum_feature:
-                # Add count_sum to z_2 dim.
-                ## (S_iw * S_mc, S_iw * S_mc, K, B, L) -->
-                ## (S_iw * S_mc, S_iw * S_mc, K, B, L + 1)
-                z2_input = tf.concat((self.z2, n_tile), axis = -1, name = "z2_n")
-            else: 
-                z2_input = self.z2
-
-            ## (S_iw * S_mc * S_iw * S_mc * K * B, H)
-            p_y_NN = dense_layers(
-                inputs = z2_input,
-                num_outputs = self.hidden_sizes,
-                reverse_order = True,
-                activation_fn = relu,
-                batch_normalisation = self.batch_normalisation,
-                is_training = self.is_training,
-                scope="NN"
-            )
-
-            ## (S_iw * S_mc, S_iw * S_mc, K, B, K)
-            p_y_logits = tf.reshape(
-                dense_layer(
-                    p_y_NN, self.Dim_y, activation_fn=None, scope="logits"
-                ), 
-                [self.S_iw_mc, self.S_iw_mc, 
-                    self.Dim_y, -1, self.Dim_y]
-            )
-
-            ## (S_iw * S_mc, S_iw * S_mc, K, B, K)
-            self.p_y_given_z2 = Categorical(
+            p_y_logits = tf.ones((1, self.Dim_y))
+            ## (1, K)
+            self.p_y = Categorical(
                 logits = p_y_logits,
                 validate_args=True
             )
 
 
-        # p(z_1|z_2, y)
-        with tf.variable_scope("p_z1"):
-            ## (S_iw * S_mc, K, B, K) -->
-            ## (S_iw * S_mc, S_iw * S_mc, K, B, K)
-            self.y_tile_p_z1 = tf.tile(
-                tf.expand_dims(self.q_y_tile, 0), 
-                [self.S_iw_mc, 1, 1, 1, 1], name = "y_tile"
-            )
-            if self.count_sum_feature:
-                # Add count_sum to y and z_2 features concatenated.
-                ## (S_iw * S_mc, S_iw * S_mc, K, B, L + K + 1)
-                z2_y = tf.concat((self.z2, self.y_tile_p_z1, n_tile), axis = -1, name = "z2_y_n")
-            else: 
-                # Concat y and z2 features.
-                ## (S_iw * S_mc, S_iw * S_mc, K, B, L + K + 1)
-                z2_y = tf.concat((self.z2, self.y_tile_p_z1), axis = -1, name = "z2_y")
-
-            ## (S_iw * S_mc * S_iw * S_mc * K * B, H)
-            p_z1_NN = dense_layers(
-                inputs = z2_y,
-                num_outputs = self.hidden_sizes,
-                reverse_order = True,
-                activation_fn = relu,
-                batch_normalisation = self.batch_normalisation,
-                is_training = self.is_training,
-                scope="NN"
-            )
-
-            ## (S_iw * S_mc * S_iw * S_mc * K * B, L) -->
-            ## (S_iw * S_mc, S_iw * S_mc, K, B, L)
-            p_z1_mu = tf.reshape(
-                dense_layer(
-                    p_z1_NN, self.Dim_z, activation_fn=None, scope="mu"
-                ), 
-                [self.S_iw_mc, self.S_iw_mc, self.Dim_y, -1, self.Dim_z]
-            )
-            p_z1_log_sigma = tf.reshape(
-                dense_layer(
-                    p_z1_NN, 
-                    self.Dim_z, 
-                    activation_fn=self.log_sigma_support,
-                    scope="log_sigma"
-                ), 
-                [self.S_iw_mc, self.S_iw_mc, self.Dim_y, -1, self.Dim_z]
-            )
-
-            ## (S_iw * S_mc, S_iw * S_mc, K, B, L)
-            self.p_z1_given_y_z2 = Normal(
-                loc=p_z1_mu,
-                scale=tf.exp(p_z1_log_sigma),
-                validate_args=True
-            )
-
-            # Gather parameters pi, mu and sigma for p(y,z) = p(z|y)p(y)
-            # p(y)
-            # (S_iw * S_mc, S_iw * S_mc, K, B, K) --> 
-            # (S_iw * S_mc, K, B, K) ---> 
-            # (S_iw * S_mc, B, K) -->
-            # (K)
-            self.p_z_probabilities = tf.reduce_mean(
-                tf.reduce_sum(
-                    tf.expand_dims(self.q_y_given_x_z1_probs, -1) *\
-                    tf.reduce_mean(self.p_y_given_z2.probs, 0),
-                    1
-                ), 
-                (0, 1)
-            ) 
-            # mu_p(z1|y)
-            # (S_iw * S_mc, S_iw * S_mc, K, B, L) --> 
-            # (K, L)
-            self.p_z_means = tf.reduce_mean(
-                self.p_z1_given_y_z2.mean(),
-                (0, 1, 3)
-            )
-
-            # sigma_p(z1|y)
-            # (S_iw * S_mc, S_iw * S_mc, K, B, L) --> 
-            # (K, L)
-            self.p_z_stddevs = tf.reduce_mean(
-                self.p_z1_given_y_z2.stddev(),
-                (0, 1, 3)
-            )
-
-            self.p_z_stddevs = tf.clip_by_value(
-                self.p_z_stddevs,
-                self.epsilon, 
-                self.p_z_stddevs
-            )
-
-            # print(self.p_z_probabilities.shape)
-            # print(self.p_z_means.shape)
-            # print(self.p_z_stddevs.shape)
 
 # Reconstruction distribution parameterisation
         
-        with tf.variable_scope("p_x_given_y_z1"):
-            ## (S_iw * S_mc * K * B, H)
-            p_x_NN = dense_layers(
-            inputs = z1_y,
-            num_outputs = self.hidden_sizes,
-            reverse_order = True,
-            activation_fn = relu,
-            batch_normalisation = self.batch_normalisation,
-            is_training = self.is_training,
-            scope="NN"
-            )
+        with tf.variable_scope("p_x_given_z"):
+            
+            if self.count_sum_feature:
+                ## (S_iw * S_mc, K, B, L+1) <:> (S_iw * S_mc * K * B, H)
+                p_x_NN = dense_layers(
+                    inputs = tf.concat((self.z, n_tile), -1),
+                    num_outputs = self.hidden_sizes,
+                    reverse_order = True,
+                    activation_fn = relu,
+                    batch_normalisation = self.batch_normalisation,
+                    is_training = self.is_training,
+                    scope="NN"
+                )
+            else:
+                ## (S_iw * S_mc, K, B, L) <:> (S_iw * S_mc * K * B, H)
+                p_x_NN = dense_layers(
+                    inputs = self.z,
+                    num_outputs = self.hidden_sizes,
+                    reverse_order = True,
+                    activation_fn = relu,
+                    batch_normalisation = self.batch_normalisation,
+                    is_training = self.is_training,
+                    scope="NN"
+                )
 
             x_theta = {}
             ## (S_iw * S_mc, K, B, F)
@@ -635,7 +488,7 @@ class ClusterVariationalAutoEncoder(object):
                     self.reconstruction_distribution["parameters"]\
                     [parameter]["support"]
                 
-                ## (S_iw * S_mc * K * B, H) -->
+                ## (S_iw * S_mc * K * B, H) <:>
                 ## (S_iw * S_mc * K * B, F) -->
                 ## (S_iw * S_mc, K, B, F)
                 x_theta[parameter] = tf.reshape(
@@ -655,17 +508,17 @@ class ClusterVariationalAutoEncoder(object):
             
             if "constrained" in self.reconstruction_distribution_name or \
                 "multinomial" in self.reconstruction_distribution_name:
-                self.p_x_given_z1_y = self.reconstruction_distribution["class"](
+                self.p_x_given_z = self.reconstruction_distribution["class"](
                     x_theta,
-                    n_tile[0]
+                    n_tile
                 )
             elif "multinomial" in self.reconstruction_distribution_name:
-                self.p_x_given_z1_y = self.reconstruction_distribution["class"](
+                self.p_x_given_z = self.reconstruction_distribution["class"](
                     x_theta,
-                    n_tile[0]
+                    n_tile
                 )
             else:
-                self.p_x_given_z1_y = self.reconstruction_distribution["class"](
+                self.p_x_given_z = self.reconstruction_distribution["class"](
                     x_theta
                 )
             
@@ -681,15 +534,25 @@ class ClusterVariationalAutoEncoder(object):
                 x_logits = tf.reshape(x_logits,
                     [self.S_iw_mc, self.Dim_y, -1, self.Dim_x, self.k_max])
                 
-                self.p_x_given_z1_y = Categorized(
-                    dist = self.p_x_given_z1_y,
+                self.p_x_given_z = Categorized(
+                    dist = self.p_x_given_z,
                     cat = Categorical(logits = x_logits, validate_args=True)
                 )
             
             ## (S_iw * S_mc, K, B, F) -->
             ## (S_iw * S_mc, B, F) -->
             ## (B, F)
-            self.x_mean = tf.reduce_mean(tf.reduce_sum(self.p_x_given_z1_y.mean() * tf.expand_dims(self.q_y_given_x_z1_probs, -1), axis = 1), 0)
+            self.x_mean = tf.reduce_mean(
+                tf.reduce_sum(
+                    self.p_x_given_z.mean() *\
+                        tf.expand_dims(
+                            self.q_y_given_x_probs,
+                            -1
+                        ),
+                    axis = 1
+                ),
+                0
+            )
         
         # Add histogram summaries for the trainable parameters
         for parameter in tf.trainable_variables():
@@ -709,143 +572,57 @@ class ClusterVariationalAutoEncoder(object):
             [self.S_iw_mc, self.Dim_y, 1, 1]
         )
 
-        # log(p(x|y,z1))
+        # log(p(x|z))
         ## (S_iw * S_mc, K, B, F) -->
         ## (S_iw * S_mc, K, B) -->
-        p_x_given_z1_y_log_prob = tf.reduce_sum(
-            self.p_x_given_z1_y.log_prob(t_tiled), -1
+        p_x_given_z_log_prob = tf.reduce_sum(
+            self.p_x_given_z_y.log_prob(t_tiled), -1
         )
         ## (S_iw * S_mc, K, B) -->
-        ## (S_iw * S_mc, B) -->
+        ## (K, B) -->
         ## (B)
-        log_p_x_given_z1_y = tf.reduce_mean(
-            tf.reduce_sum(
-                self.q_y_given_x_z1_probs * p_x_given_z1_y_log_prob, 
-                1
+        log_p_x_given_z = tf.reduce_sum(
+            self.q_y_given_x_probs * tf.reduce_mean(
+                p_x_given_z_log_prob, 
+                0
             ),
             0
         )
 
-        # log(p(z_1|z_2, y))
-        ## (S_iw * S_mc, S_iw * S_mc, K, B, L) -->
-        ## (S_iw * S_mc, S_iw * S_mc, K, B)
-        p_z1_given_y_z2_log_prob = tf.reduce_sum(
-            self.p_z1_given_y_z2.log_prob(
-                tf.tile(tf.expand_dims(self.z1_tile, 0), 
-                    [self.S_iw_mc, 1, 1, 1, 1]
-                )
-            ),
-            -1
-        )
-        ## (S_iw * S_mc, S_iw * S_mc, K, B) -->
-        ## (S_iw * S_mc, K, B) -->
-        ## (S_iw * S_mc, B) -->
-        ## (B)
-        log_p_z1_given_y_z2 = tf.reduce_mean(
-            tf.reduce_sum(
-                self.q_y_given_x_z1_probs * tf.reduce_mean(
-                    p_z1_given_y_z2_log_prob, 
-                    0
-                ), 
-                1
-            ),
-            0
-        )
-
-
-        # log(p(y|z_2))
-        ## (S_iw * S_mc, S_iw * S_mc, K, B, K) -->
-        ## (S_iw * S_mc, S_iw * S_mc, K, B)
-        p_y_given_z2_log_prob = self.p_y_given_z2.log_prob(
-            tf.argmax(self.y_tile_p_z1, axis = -1)
-        )
-        ## (S_iw * S_mc, S_iw * S_mc, K, B) -->
-        ## (S_iw * S_mc, K, B) -->
-        ## (S_iw * S_mc, B) -->
-        ## (B)
-        log_p_y_given_z2 = tf.reduce_mean(
-            tf.reduce_sum(
-                self.q_y_given_x_z1_probs * tf.reduce_mean(
-                    p_y_given_z2_log_prob,
-                    0
-                ), 
-                1
-            ),
-            0
-        )
-
-
-        # log(p(z_2))
-        ## (S_iw * S_mc, S_iw * S_mc, K, B, L) -->
-        ## (S_iw * S_mc, S_iw * S_mc, K, B)
-        p_z2_log_prob = tf.reduce_sum(self.p_z2.log_prob(self.z2), -1)
-
-        ## (S_iw * S_mc, S_iw * S_mc, K, B) -->
-        ## (S_iw * S_mc, K, B) -->
-        ## (S_iw * S_mc, B) -->
-        ## (B)
-        log_p_z2 = tf.reduce_mean(
-            tf.reduce_sum(
-                self.q_y_given_x_z1_probs * tf.reduce_mean(
-                    p_z2_log_prob, 
-                    0
-                ), 
-                1
-            ),
-            0
-        )
-
-        # log(q(z_2|y, z_1))
-        ## (S_iw * S_mc, S_iw * S_mc, K, B, L) -->
-        ## (S_iw * S_mc, S_iw * S_mc, K, B)
-        q_z2_given_y_z1_log_prob = tf.reduce_sum(
-            self.q_z2_given_y_z1.log_prob(self.z2),
-            -1
-        )
-        ## (S_iw * S_mc, S_iw * S_mc, K, B) -->
-        ## (S_iw * S_mc, K, B) -->
-        ## (S_iw * S_mc, B) -->
-        ## (B)
-        log_q_z2_given_y_z1 = tf.reduce_mean(
-            tf.reduce_sum(
-                self.q_y_given_x_z1_probs * tf.reduce_mean(
-                    q_z2_given_y_z1_log_prob, 
-                    0
-                ), 
-                1
-            ),
-            0
-        )
-
-        # log(q(y|z_1, x))
-        ## (S_iw * S_mc, K, B, K) -->
+        # log(p(z|y))
+        ## (1, K, 1, L) --> 
         ## (S_iw * S_mc, K, B)
-        q_y_given_x_z1_log_prob = self.q_y_given_x_z1.log_prob(
-            tf.argmax(self.q_y_tile, axis = -1)
+        p_z_given_y_log_prob = tf.reduce_sum(
+            self.p_z_given_y.log_prob(self.z),
+            -1
         )
         ## (S_iw * S_mc, K, B) -->
-        ## (S_iw * S_mc, B) -->
+        ## (K, B) -->
         ## (B)
-        log_q_y_given_x_z1 = tf.reduce_mean(
-            tf.reduce_sum(
-                self.q_y_given_x_z1_probs * q_y_given_x_z1_log_prob, 
-                1
-            ),
+        log_p_z_given_y = tf.reduce_sum(
+            self.q_y_given_x_probs * tf.reduce_mean(
+                p_z_given_y_log_prob, 
+                0
+            ), 
             0
         )
 
-        # log(q(z_1|x))
-        ## (S_iw * S_mc, B, L) -->
-        ## (S_iw * S_mc, B)
-        q_z1_given_x_log_prob = tf.reduce_sum(
-            self.q_z1_given_x.log_prob(self.z1),
+        # log(q(z|x))
+        ## (S_iw * S_mc, K, B, L) -->
+        ## (S_iw * S_mc, K, B)
+        q_z_given_x_y_log_prob = tf.reduce_sum(
+           self.q_z_given_x_y.log_prob(self.z),
             -1
         )
 
-        ## (S_iw * S_mc, B) -->
+        ## (S_iw * S_mc, K, B) -->
+        ## (K, B) -->
         ## (B)
-        log_q_z1_given_x = tf.reduce_mean(
-            q_z1_given_x_log_prob, 
+        log_q_z_given_x_y = tf.reduce_sum(
+            self.q_y_given_x_probs * tf.reduce_mean(
+                q_z_given_x_y_log_prob, 
+                0
+            ),
             0
         )
 
@@ -854,12 +631,12 @@ class ClusterVariationalAutoEncoder(object):
         ## (S_iw * S_mc, S_iw * S_mc, K, B) -->
         ## (S_iw, S_mc, S_iw, S_mc, K, B)
         # all_log_prob_iw = tf.reshape(
-        #     tf.expand_dims(p_x_given_z1_y_log_prob, 0)\
-        #     - self.warm_up_weight * (q_z2_given_y_z1_log_prob \
-        #         + tf.expand_dims(q_y_given_x_z1_log_prob, 0) \
-        #         + tf.expand_dims(tf.expand_dims(q_z1_given_x_log_prob, 1), 0) \
+        #     tf.expand_dims(p_x_given_z_y_log_prob, 0)\
+        #     - self.warm_up_weight * (q_z2_given_y_z_log_prob \
+        #         + tf.expand_dims(q_y_given_x_z_log_prob, 0) \
+        #         + tf.expand_dims(tf.expand_dims(q_z_given_x_log_prob, 1), 0) \
         #         - p_z2_log_prob \
-        #         - p_z1_given_y_z2_log_prob \
+        #         - p_z_given_y_z2_log_prob \
         #         - p_y_given_z2_log_prob
         #         ), 
         #     [self.S_iw, self.S_mc, self.S_iw, self.S_mc, self.Dim_y, -1]
@@ -876,8 +653,8 @@ class ClusterVariationalAutoEncoder(object):
         # # Marginalise all Monte Carlo samples, classes and examples into total
         # # importance weighted loss
         # # (S_iw * S_mc, K, B) --> (S_iw, S_mc, K, B) --> (S_mc, K, B)
-        # q_y_given_x_z1_probs_mc = tf.reshape(
-        #     self.q_y_given_x_z1_probs, 
+        # q_y_given_x_z_probs_mc = tf.reshape(
+        #     self.q_y_given_x_probs, 
         #     [self.S_iw, self.S_mc, self.Dim_y, -1]
         # )[0]
 
@@ -887,7 +664,7 @@ class ClusterVariationalAutoEncoder(object):
         # ## ()
         # self.ELBO = tf.reduce_mean(
         #     tf.reduce_sum(
-        #         q_y_given_x_z1_probs_mc * tf.reduce_mean(
+        #         q_y_given_x_z_probs_mc * tf.reduce_mean(
         #             log_mean_exp_iw, 
         #             0
         #         ), 
@@ -897,22 +674,20 @@ class ClusterVariationalAutoEncoder(object):
         # self.loss = self.ELBO
         # tf.add_to_collection('losses', self.ELBO)
 
-        # KL_z1
-        self.KL_z1 = tf.reduce_mean(log_q_z1_given_x - log_p_z1_given_y_z2)
+        # KL_z
+        self.KL_z = tf.reduce_mean(log_q_z_given_x_y - log_p_z_given_y)
 
-        # KL_z2
-        self.KL_z2 = tf.reduce_mean(log_q_z2_given_y_z1 - log_p_z2)
 
-        # KL_y
-        self.KL_y = tf.reduce_mean(log_q_y_given_x_z1 - log_p_y_given_z2)
+        # KL_y (B)
+        self.KL_y = tf.reduce_mean(kl(self.q_y_given_x, self.p_y))
 
-        self.KL = tf.add_n([self.KL_z1, self.KL_z2, self.KL_y], name = 'KL')
+        self.KL = tf.add_n([self.KL_z, self.KL_y], name = 'KL')
         tf.add_to_collection('losses', self.KL)
 
         self.KL_all = tf.expand_dims(self.KL, -1, name = "KL_all")
 
         # ENRE
-        self.ENRE = tf.reduce_mean(log_p_x_given_z1_y, name = "ENRE")
+        self.ENRE = tf.reduce_mean(log_p_x_given_z, name = "ENRE")
         tf.add_to_collection('losses', self.ENRE)
 
         # ELBO
@@ -920,9 +695,7 @@ class ClusterVariationalAutoEncoder(object):
         tf.add_to_collection('losses', self.ELBO)
 
         # loss objective with Warm-up and term-specific KL weighting 
-        self.loss = self.ENRE - self.warm_up_weight * (
-            self.KL_z1 + self.KL_z2 + self.KL_y
-        )
+        self.loss = self.ENRE - self.warm_up_weight * self.KL
     
     def training(self):
         
@@ -976,10 +749,7 @@ class ClusterVariationalAutoEncoder(object):
         
         status = {
             "completed": False,
-            "message": None,
-            "trained": None,
-            "training time": None,
-            "last epoch time": None
+            "message": None
         }
         
         # parameter_values = "lr_{:.1g}".format(learning_rate)
@@ -993,10 +763,6 @@ class ClusterVariationalAutoEncoder(object):
         checkpoint_file = os.path.join(self.log_directory, 'model.ckpt')
         
         # Setup
-        
-        batch_size /= self.number_of_importance_samples["training"] \
-            * self.number_of_monte_carlo_samples["training"]
-        batch_size = int(numpy.ceil(batch_size))
         
         if self.count_sum:
             n_train = training_set.count_sum
@@ -1044,15 +810,11 @@ class ClusterVariationalAutoEncoder(object):
                 epoch_start = 0
                 parameter_summary_writer.add_graph(session.graph)
             
-            status["trained"] = "{}-{}".format(epoch_start, number_of_epochs)
-            
             # Training loop
             
-            data_string = dataString(training_set,
-                self.reconstruction_distribution_name)
-            print(trainingString(epoch_start, number_of_epochs, data_string))
-            print()
-            training_time_start = time()
+            if epoch_start == number_of_epochs:
+                print("Model has already been trained for {} epochs.".format(
+                    number_of_epochs))
             
             for epoch in range(epoch_start, number_of_epochs):
                 
@@ -1116,10 +878,6 @@ class ClusterVariationalAutoEncoder(object):
                         if numpy.isnan(batch_loss):
                             status["completed"] = False
                             status["message"] = "loss became nan"
-                            status["training time"] = formatDuration(
-                                training_time_start - time())
-                            status["last epoch time"] = formatDuration(
-                                epoch_duration)
                             return status
                 
                 print()
@@ -1160,8 +918,7 @@ class ClusterVariationalAutoEncoder(object):
                 
                 ELBO_train = 0
                 ENRE_train = 0
-                KL_z1_train = 0
-                KL_z2_train = 0
+                KL_z_train = 0
                 KL_y_train = 0
                 
                 
@@ -1180,21 +937,19 @@ class ClusterVariationalAutoEncoder(object):
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
                     
-                    ELBO_i, ENRE_i, KL_z1_i, KL_z2_i, KL_y_i = session.run(
-                        [self.ELBO, self.ENRE, self.KL_z1, self.KL_z2, self.KL_y],
+                    ELBO_i, ENRE_i, KL_z_i, KL_y_i = session.run(
+                        [self.ELBO, self.ENRE, self.KL_z, self.KL_y],
                         feed_dict = feed_dict_batch
                     )
                     
                     ELBO_train += ELBO_i
                     ENRE_train += ENRE_i
-                    KL_z1_train += KL_z1_i
-                    KL_z2_train += KL_z2_i
+                    KL_z_train += KL_z_i
                     KL_y_train += KL_y_i
                                     
                 ELBO_train /= M_train / batch_size
                 ENRE_train /= M_train / batch_size
-                KL_z1_train /= M_train / batch_size
-                KL_z2_train /= M_train / batch_size
+                KL_z_train /= M_train / batch_size
                 KL_y_train /= M_train / batch_size
                                 
                 evaluating_duration = time() - evaluating_time_start
@@ -1204,8 +959,8 @@ class ClusterVariationalAutoEncoder(object):
                     simple_value = ELBO_train)
                 summary.value.add(tag="losses/reconstruction_error",
                     simple_value = ENRE_train)
-                summary.value.add(tag="losses/kl_divergence_z1",
-                    simple_value = KL_z1_train)                
+                summary.value.add(tag="losses/kl_divergence_z",
+                    simple_value = KL_z_train)                
                 summary.value.add(tag="losses/kl_divergence_z2",
                     simple_value = KL_z2_train)
                 summary.value.add(tag="losses/kl_divergence_y",
@@ -1217,8 +972,8 @@ class ClusterVariationalAutoEncoder(object):
                 
                 print("    Training set ({}): ".format(
                     formatDuration(evaluating_duration)) + \
-                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z1: {:.5g}, KL_z2: {:.5g}, KL_y: {:.5g}.".format(
-                    ELBO_train, ENRE_train, KL_z1_train, KL_z2_train, KL_y_train))
+                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}.".format(
+                    ELBO_train, ENRE_train, KL_z_train, KL_y_train))
                 
                 ## Validation
                 
@@ -1226,13 +981,9 @@ class ClusterVariationalAutoEncoder(object):
                 
                 ELBO_valid = 0
                 ENRE_valid = 0
-                KL_z1_valid = 0
-                KL_z2_valid = 0
+                KL_z_valid = 0
                 KL_y_valid = 0
-                p_z_probabilities = numpy.zeros(self.Dim_y)
-                p_z_means = numpy.zeros((self.Dim_y, self.Dim_z))
-                p_z_stddevs = numpy.zeros((self.Dim_y, self.Dim_z))
-
+                
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
                     x_batch = x_valid[subset]
@@ -1250,29 +1001,20 @@ class ClusterVariationalAutoEncoder(object):
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
                     
-                    ELBO_i, ENRE_i, KL_z1_i, KL_z2_i, KL_y_i, p_z_probabilities_i, p_z_means_i, p_z_stddevs_i = session.run(
-                        [self.ELBO, self.ENRE, self.KL_z1, self.KL_z2, self.KL_y, self.p_z_probabilities, self.p_z_means, self.p_z_stddevs],
+                    ELBO_i, ENRE_i, KL_z_i, KL_y_i = session.run(
+                        [self.ELBO, self.ENRE, self.KL_z, self.KL_y],
                         feed_dict = feed_dict_batch
                     )
                     
                     ELBO_valid += ELBO_i
                     ENRE_valid += ENRE_i
-                    KL_z1_valid += KL_z1_i
-                    KL_z2_valid += KL_z2_i
+                    KL_z_valid += KL_z_i
                     KL_y_valid += KL_y_i
-                    p_z_probabilities += p_z_probabilities_i
-                    p_z_means += p_z_means_i
-                    p_z_stddevs += p_z_stddevs_i
-
+                                    
                 ELBO_valid /= M_valid / batch_size
                 ENRE_valid /= M_valid / batch_size
-                KL_z1_valid /= M_valid / batch_size
-                KL_z2_valid /= M_valid / batch_size
+                KL_z_valid /= M_valid / batch_size
                 KL_y_valid /= M_valid / batch_size
-                p_z_probabilities /= M_valid / batch_size
-                p_z_means /= M_valid / batch_size
-                p_z_stddevs /= M_valid / batch_size
-                p_z_variances = numpy.power(p_z_stddevs, 2.)
                                 
                 evaluating_duration = time() - evaluating_time_start
                 
@@ -1281,48 +1023,23 @@ class ClusterVariationalAutoEncoder(object):
                     simple_value = ELBO_valid)
                 summary.value.add(tag="losses/reconstruction_error",
                     simple_value = ENRE_valid)
-                summary.value.add(tag="losses/kl_divergence_z1",
-                    simple_value = KL_z1_valid)                
+                summary.value.add(tag="losses/kl_divergence_z",
+                    simple_value = KL_z_valid)                
                 summary.value.add(tag="losses/kl_divergence_z2",
                     simple_value = KL_z2_valid)
                 summary.value.add(tag="losses/kl_divergence_y",
                     simple_value = KL_y_valid)
                 
-                ### Centroids
-                for k in range(self.Dim_y):
-                    summary.value.add(
-                        tag="prior/cluster_{}/probability".format(k),
-                        simple_value = p_z_probabilities[k]
-                    )
-                    for l in range(self.Dim_z):
-                        summary.value.add(
-                            tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
-                            simple_value = p_z_means[k, l]
-                        )
-                        summary.value.add(
-                            tag="prior/cluster_{}/variance/dimension_{}"\
-                                .format(k, l),
-                            simple_value = p_z_variances[k, l]
-                        )
-
                 validation_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
                 validation_summary_writer.flush()
                 
                 print("    Validation set ({}): ".format(
                     formatDuration(evaluating_duration)) + \
-                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z1: {:.5g}, KL_z2: {:.5g}, KL_y: {:.5g}.".format(
-                    ELBO_valid, ENRE_valid, KL_z1_valid, KL_z2_valid, KL_y_valid))
+                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}.".format(
+                    ELBO_valid, ENRE_valid, KL_z_valid, KL_y_valid))
                 
                 print()
-            
-            training_duration = time() - training_time_start
-            
-            if epoch_start >= number_of_epochs:
-                epoch_duration = training_duration
-            else:
-                print("Model trained for {} epochs ({}).".format(
-                    number_of_epochs, formatDuration(training_duration)))
             
             # Clean up
             
@@ -1338,16 +1055,10 @@ class ClusterVariationalAutoEncoder(object):
                         os.remove(file_path)
             
             status["completed"] = True
-            status["training time"] = formatDuration(training_duration)
-            status["last epoch time"] = formatDuration(epoch_duration)
             
             return status
     
     def evaluate(self, test_set, batch_size = 100):
-        
-        batch_size /= self.number_of_importance_samples["evaluation"] \
-            * self.number_of_monte_carlo_samples["evaluation"]
-        batch_size = int(numpy.ceil(batch_size))
         
         if self.count_sum:
             n_test = test_set.count_sum
@@ -1389,24 +1100,16 @@ class ClusterVariationalAutoEncoder(object):
                 raise Exception(
                     "Cannot evaluate model when it has not been trained.")
             
-            data_string = dataString(test_set,
-                self.reconstruction_distribution_name)
-            print('Evaluating trained model on {}.'.format(data_string))
             evaluating_time_start = time()
             
             ELBO_test = 0
             ENRE_test = 0
-            KL_z1_test = 0
-            KL_z2_test = 0
+            KL_z_test = 0
             KL_y_test = 0
             
             x_mean_test = numpy.empty([M_test, F_test])
-            z1_mean_test = numpy.empty([M_test, self.Dim_z])
-            z2_mean_test = numpy.empty([M_test, self.Dim_z])
+            z_mean_test = numpy.empty([M_test, self.Dim_z])
             y_mean_test = numpy.empty([M_test, self.Dim_y])
-            p_z_probabilities = numpy.zeros(self.Dim_y)
-            p_z_means = numpy.zeros((self.Dim_y, self.Dim_z))
-            p_z_stddevs = numpy.zeros((self.Dim_y, self.Dim_z))
 
             for i in range(0, M_test, batch_size):
                 subset = slice(i, (i + batch_size))
@@ -1423,78 +1126,48 @@ class ClusterVariationalAutoEncoder(object):
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
                 
-                ELBO_i, ENRE_i, KL_z1_i, KL_z2_i, KL_y_i, \
-                    p_z_probabilities_i, p_z_means_i, p_z_stddevs_i, \
-                    x_mean_i, z1_mean_i, z2_mean_i, y_mean_i = session.run(
-                    [self.ELBO, self.ENRE, self.KL_z1, self.KL_z2, self.KL_y,
-                        self.p_z_probabilities, self.p_z_means, 
-                        self.p_z_stddevs, self.x_mean, self.z1_mean, 
-                        self.z2_mean, self.q_y_mean],
+                ELBO_i, ENRE_i, KL_z_i, KL_y_i, \
+                    x_mean_i, z_mean_i, y_mean_i = session.run(
+                    [self.ELBO, self.ENRE, self.KL_z, self.KL_y,
+                        self.x_mean, self.z_mean, self.q_y_mean],
                     feed_dict = feed_dict_batch
                 )
                 
                 ELBO_test += ELBO_i
                 ENRE_test += ENRE_i
-                KL_z1_test += KL_z1_i
-                KL_z2_test += KL_z2_i
+                KL_z_test += KL_z_i
                 KL_y_test += KL_y_i
-                p_z_probabilities += p_z_probabilities_i
-                p_z_means += p_z_means_i
-                p_z_stddevs += p_z_stddevs_i
                 
                 x_mean_test[subset] = x_mean_i
-                z1_mean_test[subset] = z1_mean_i
-                z2_mean_test[subset] = z2_mean_i
                 y_mean_test[subset] = y_mean_i
+                z_mean_test[subset] = z_mean_i
             
             ELBO_test /= M_test / batch_size
             ENRE_test /= M_test / batch_size
-            KL_z1_test /= M_test / batch_size
-            KL_z2_test /= M_test / batch_size
+            KL_z_test /= M_test / batch_size
             KL_y_test /= M_test / batch_size
-            p_z_probabilities /= M_test / batch_size
-            p_z_means /= M_test / batch_size
-            p_z_stddevs /= M_test / batch_size
-            p_z_variances = numpy.power(p_z_stddevs, 2.)
             
             summary = tf.Summary()
             summary.value.add(tag="losses/lower_bound",
                 simple_value = ELBO_test)
             summary.value.add(tag="losses/reconstruction_error",
                 simple_value = ENRE_test)
-            summary.value.add(tag="losses/kl_divergence_z1",
-                simple_value = KL_z1_test)                
+            summary.value.add(tag="losses/kl_divergence_z",
+                simple_value = KL_z_test)                
             summary.value.add(tag="losses/kl_divergence_z2",
                 simple_value = KL_z2_test)
             summary.value.add(tag="losses/kl_divergence_y",
                 simple_value = KL_y_test)
             
-            ### Centroids
-            for k in range(self.Dim_y):
-                summary.value.add(
-                    tag="prior/cluster_{}/probability".format(k),
-                    simple_value = p_z_probabilities[k]
-                )
-                for l in range(self.Dim_z):
-                    summary.value.add(
-                        tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
-                        simple_value = p_z_means[k, l]
-                    )
-                    summary.value.add(
-                        tag="prior/cluster_{}/variance/dimension_{}"\
-                            .format(k, l),
-                        simple_value = p_z_variances[k, l]
-                    )            
-
             test_summary_writer.add_summary(summary,
                 global_step = epoch + 1)
             test_summary_writer.flush()
             
             evaluating_duration = time() - evaluating_time_start
-            print("    Test set ({}): ".format(
+            print("Test set ({}): ".format(
                     formatDuration(evaluating_duration)) + \
-                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z1: {:.5g}, KL_z2: {:.5g}, KL_y: {:.5g}.".format(
-                    ELBO_test, ENRE_test, KL_z1_test, KL_z2_test, KL_y_test))
+                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}.".format(
+                    ELBO_test, ENRE_test, KL_z_test, KL_y_test))
             
             if self.reconstruction_distribution_name == "bernoulli":
                 transformed_test_set = DataSet(
@@ -1525,34 +1198,20 @@ class ClusterVariationalAutoEncoder(object):
                 version = "reconstructed"
             )
             
-            z1_test_set = DataSet(
+            z_test_set = DataSet(
                 name = test_set.name,
                 values = z1_mean_test,
                 preprocessed_values = None,
                 labels = test_set.labels,
                 example_names = test_set.example_names,
-                feature_names = numpy.array(["z_1 variable {}".format(
+                feature_names = numpy.array(["z variable {}".format(
                     i + 1) for i in range(self.Dim_z)]),
                 feature_selection = test_set.feature_selection,
                 preprocessing_methods = test_set.preprocessing_methods,
                 kind = "test",
-                version = "z1"
+                version = "z"
             )
             
-            z2_test_set = DataSet(
-                name = test_set.name,
-                values = z2_mean_test,
-                preprocessed_values = None,
-                labels = test_set.labels,
-                example_names = test_set.example_names,
-                feature_names = numpy.array(["z_2 variable {}".format(
-                    i + 1) for i in range(self.Dim_z)]),
-                feature_selection = test_set.feature_selection,
-                preprocessing_methods = test_set.preprocessing_methods,
-                kind = "test",
-                version = "z2"
-            )
-
             y_test_set = DataSet(
                 name = test_set.name,
                 values = y_mean_test,
@@ -1566,6 +1225,6 @@ class ClusterVariationalAutoEncoder(object):
                 kind = "test",
                 version = "y"
             )
-            latent_test_sets = (z1_test_set, z2_test_set, y_test_set)
+            latent_test_sets = (z_test_set, y_test_set)
 
             return transformed_test_set, reconstructed_test_set, latent_test_sets

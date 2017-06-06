@@ -9,7 +9,8 @@ from models import (
     ImportanceWeightedVariationalAutoEncoder,
     SimpleNeuralNetwork,
     GaussianMixtureVariationalAutoEncoder,
-    ClusterVariationalAutoEncoder
+    ClusterVariationalAutoEncoder,
+    GaussianMixtureVariationalAutoEncoder_M2
 )
 
 import os
@@ -209,6 +210,22 @@ def main(data_set_name, data_directory = "data",
                 number_of_warm_up_epochs,
                 log_directory = log_directory
             )
+        elif model_type == "GMVAE_M2":
+            number_of_importance_samples = model_configuration[
+                "number of importance samples"]
+            model = GaussianMixtureVariationalAutoEncoder_M2(
+                feature_size, latent_size, hidden_sizes,
+                number_of_monte_carlo_samples,
+                number_of_importance_samples, 
+                analytical_kl_term,
+                "gaussian mixture", 
+                number_of_latent_clusters,
+                reconstruction_distribution,
+                number_of_reconstruction_classes,
+                batch_normalisation, count_sum,
+                number_of_warm_up_epochs,
+                log_directory = log_directory
+            )
         
         elif model_type == "SNN":
             
@@ -352,7 +369,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                             latent_distribution
                         
                         if "mixture" in latent_distribution \
-                            or model_type in ["GMMVAE", "CVAE"]:
+                            or model_type in ["GMMVAE", "CVAE", "GMVAE_M2"]:
                             
                             sub_configurations_product = itertools.product(
                                 likelihood["numbers of latent clusters"],
@@ -441,7 +458,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
             
             # Importance samples
             
-            if "IW" in model_type or model_type == "GMMVAE" or model_type == "CVAE":
+            if "IW" in model_type or model_type == "GMMVAE" or model_type == "CVAE" or model_type == "GMVAE_M2":
                 
                 if len(number_of_importance_samples) > 1:
                     number_of_importance_samples = {
