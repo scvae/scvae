@@ -338,6 +338,7 @@ class DataSet(object):
         # Values and their names as well as labels in data set
         self.values = None
         self.count_sum = None
+        self.normalised_count_sum = None
         self.preprocessed_values = None
         self.binarised_values = None
         self.labels = None
@@ -438,6 +439,7 @@ class DataSet(object):
             self.values = values
             
             self.count_sum = self.values.sum(axis = 1).reshape(-1, 1)
+            self.normalised_count_sum = self.count_sum / self.count_sum.max()
             
             M_values, N_values = values.shape
             
@@ -1010,7 +1012,7 @@ def normalisationFunctionForDataSet(title):
         data_sets[title]["maximum value"] = 1
     else:
         normalisation_function = lambda values: sklearn.preprocessing.normalize(
-            values, norm = 'l2', axis = 1)
+            values, norm = 'l2', axis = 0)
     return normalisation_function
 
 def bernoulliSample(p):

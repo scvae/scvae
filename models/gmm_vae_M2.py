@@ -845,8 +845,8 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
         # Setup
         
         if self.count_sum:
-            n_train = training_set.count_sum
-            n_valid = validation_set.count_sum
+            n_train = training_set.normalised_count_sum
+            n_valid = validation_set.normalised_count_sum
         
         M_train = training_set.number_of_examples
         M_valid = validation_set.number_of_examples
@@ -1220,7 +1220,7 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
     def evaluate(self, test_set, batch_size = 100):
         
         if self.count_sum:
-            n_test = test_set.count_sum
+            n_test = test_set.normalised_count_sum
         
         M_test = test_set.number_of_examples
         F_test = test_set.number_of_features
