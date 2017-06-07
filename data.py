@@ -332,6 +332,7 @@ class DataSet(object):
         # Label super set for data set
         self.label_superset = dataSetLabelSuperset(self.title)
         self.superset_labels = None
+        self.number_of_superset_classes = None
         
         # Label palette for data set
         self.label_palette = dataSetLabelPalette(self.title)
@@ -473,8 +474,11 @@ class DataSet(object):
             else:
                 self.label_names = numpy.unique(self.labels)
             self.number_of_classes = self.label_names.size
-            self.superset_labels = supersetLabels(
-                self.labels, self.label_superset)
+            if self.label_superset:
+                self.superset_labels = supersetLabels(
+                    self.labels, self.label_superset)
+                self.superset_label_names = sorted(self.label_superset.keys())
+                self.number_of_superset_classes = len(self.label_superset)
         
         if preprocessed_values is not None:
             self.preprocessed_values = preprocessed_values
