@@ -298,7 +298,7 @@ data_sets = {
 class DataSet(object):
     def __init__(self, name,
         values = None, preprocessed_values = None, binarised_values = None,
-        labels = None, label_names = None,
+        labels = None, class_names = None,
         example_names = None, feature_names = None,
         feature_selection = None, feature_parameter = None,
         preprocessing_methods = [], preprocessed = None,
@@ -335,9 +335,9 @@ class DataSet(object):
         self.number_of_superset_classes = None
         
         # Label palette for data set
-        self.label_palette = dataSetLabelPalette(self.title)
-        self.superset_label_palette = supersetLabelPalette(
-            self.label_palette, self.label_superset)
+        self.class_palette = dataSetLabelPalette(self.title)
+        self.superset_class_palette = supersetLabelPalette(
+            self.class_palette, self.label_superset)
         
         # Values and their names as well as labels in data set
         self.values = None
@@ -348,12 +348,12 @@ class DataSet(object):
         self.labels = None
         self.example_names = None
         self.feature_names = None
-        self.label_names = None
+        self.class_names = None
         self.number_of_examples = None
         self.number_of_features = None
         self.number_of_classes = None
         self.update(values, preprocessed_values, binarised_values, labels,
-            example_names, feature_names, label_names)
+            example_names, feature_names, class_names)
         
         # Feature selction and preprocessing methods
         self.feature_selection = feature_selection
@@ -436,7 +436,7 @@ class DataSet(object):
     
     def update(self, values = None, preprocessed_values = None,
         binarised_values = None, labels = None,
-        example_names = None, feature_names = None, label_names = None):
+        example_names = None, feature_names = None, class_names = None):
         
         if values is not None:
             
@@ -469,15 +469,15 @@ class DataSet(object):
         
         if labels is not None:
             self.labels = labels
-            if label_names is not None:
-                self.label_names = label_names
+            if class_names is not None:
+                self.class_names = class_names
             else:
-                self.label_names = numpy.unique(self.labels)
-            self.number_of_classes = self.label_names.size
+                self.class_names = numpy.unique(self.labels)
+            self.number_of_classes = self.class_names.size
             if self.label_superset:
                 self.superset_labels = supersetLabels(
                     self.labels, self.label_superset)
-                self.superset_label_names = sorted(self.label_superset.keys())
+                self.superset_class_names = sorted(self.label_superset.keys())
                 self.number_of_superset_classes = len(self.label_superset)
         
         if preprocessed_values is not None:
@@ -743,7 +743,7 @@ class DataSet(object):
             labels = split_data_dictionary["training set"]["labels"],
             example_names = split_data_dictionary["training set"]["example names"],
             feature_names = self.feature_names,
-            label_names = self.label_names,
+            class_names = self.class_names,
             feature_selection = self.feature_selection,
             preprocessing_methods = self.preprocessing_methods,
             kind = "training"
@@ -760,7 +760,7 @@ class DataSet(object):
             labels = split_data_dictionary["validation set"]["labels"],
             example_names = split_data_dictionary["validation set"]["example names"],
             feature_names = self.feature_names,
-            label_names = self.label_names,
+            class_names = self.class_names,
             feature_selection = self.feature_selection,
             preprocessing_methods = self.preprocessing_methods,
             kind = "validation"
@@ -777,7 +777,7 @@ class DataSet(object):
             labels = split_data_dictionary["test set"]["labels"],
             example_names = split_data_dictionary["test set"]["example names"],
             feature_names = self.feature_names,
-            label_names = self.label_names,
+            class_names = self.class_names,
             feature_selection = self.feature_selection,
             preprocessing_methods = self.preprocessing_methods,
             kind = "test"
@@ -1737,23 +1737,23 @@ def supersetLabels(labels, label_superset):
     
     return superset_labels
 
-def supersetLabelPalette(label_palette, label_superset):
+def supersetLabelPalette(class_palette, label_superset):
     
     if not label_superset:
         return None
     
-    superset_label_palette = {}
+    superset_class_palette = {}
     
     for superset_label, labels_in_superset_label in label_superset.items():
         superset_label_colours = []
         for label_in_superset_label in labels_in_superset_label:
             superset_label_colours.append(
-                label_palette[label_in_superset_label]
+                class_palette[label_in_superset_label]
             )
-        superset_label_palette[superset_label] = \
+        superset_class_palette[superset_label] = \
             numpy.array(superset_label_colours).mean(axis = 0)
     
-    return superset_label_palette
+    return superset_class_palette
 
 def directory(base_directory, data_set, splitting_method, splitting_fraction):
     
