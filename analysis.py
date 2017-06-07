@@ -893,7 +893,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     
                     figure, figure_name = plotValues(
                         plot_values_decomposed,
-                        colour_coding = "label superset",
+                        colour_coding = "superset labels",
                         colouring_data_set = colouring_data_set,
                         centroids = centroids_decomposed,
                         figure_labels = figure_labels,
@@ -902,7 +902,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     saveFigure(figure, figure_name, results_directory)
                     
                     plot_duration = time() - plot_time_start
-                    print("    {} (with label superset) plotted and saved ({}).".format(
+                    print("    {} (with superset labels) plotted and saved ({}).".format(
                         title_with_ID.capitalize(), formatDuration(plot_duration)))
         
             # Count sum
@@ -1584,46 +1584,29 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
     
-    if colour_coding == "labels":
+    if colour_coding and "labels" in colour_coding:
+        
+        if colour_coding == "labels":
+            colouring_data_set_labels = colouring_data_set.labels
+            colouring_data_set_label_palette = colouring_data_set.label_palette
+        elif colour_coding == "superset_labels":
+            colouring_data_set_labels = colouring_data_set.superset_labels
+            colouring_data_set_label_palette = \
+                colouring_data_set.superset_label_palette
         
         label_indices = dict()
         
-        for index, label in enumerate(colouring_data_set.labels):
+        for index, label in enumerate(colouring_data_set_labels):
         
             if label not in label_indices:
                 label_indices[label] = []
         
             label_indices[label].append(index)
         
-        if colouring_data_set.label_palette:
-            label_palette = colouring_data_set.label_palette
+        if colouring_data_set_label_palette:
+            label_palette = colouring_data_set_label_palette
         else:
             index_palette = lighter_palette(len(label_indices))
-            label_palette = {label: index_palette[i] for i, label in
-                             enumerate(sorted(label_indices.keys()))}
-        
-        for label, indices in sorted(label_indices.items()):
-            axis.scatter(values[indices, 0], values[indices, 1], label = label,
-                color = label_palette[label])
-        
-        if len(label_indices) < 20:
-            axis.legend(loc = "best")
-    
-    elif colour_coding == "label_superset":
-        
-        label_indices = dict()
-        
-        for index, label in enumerate(colouring_data_set.superset_labels):
-            
-            if label not in label_indices:
-                label_indices[label] = []
-            
-            label_indices[label].append(index)
-        
-        if colouring_data_set.superset_label_palette:
-            label_palette = colouring_data_set.superset_label_palette
-        else:
-            index_palette = ligther_palette(len(label_indices))
             label_palette = {label: index_palette[i] for i, label in
                              enumerate(sorted(label_indices.keys()))}
         
