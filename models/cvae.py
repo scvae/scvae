@@ -1265,6 +1265,7 @@ class ClusterVariationalAutoEncoder(object):
                     p_z_probabilities += p_z_probabilities_i
                     p_z_means += p_z_means_i
                     p_z_vars += p_z_vars_i
+                    z_mean_valid[subset] = z_mean_i
 
                 ELBO_valid /= M_valid / batch_size
                 ENRE_valid /= M_valid / batch_size
@@ -1275,7 +1276,6 @@ class ClusterVariationalAutoEncoder(object):
                 p_z_means /= M_valid / batch_size
                 p_z_vars /= M_valid / batch_size
 
-                z_mean_valid[subset] = z_mean_i
 
                 evaluating_duration = time() - evaluating_time_start
                 
