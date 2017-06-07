@@ -51,16 +51,16 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         os.makedirs(results_directory)
     
     # Metrics
-
+    
     heading("Metrics")
-
+    
     print("Calculating metrics for data set.")
     metrics_time_start = time()
-
+    
     x_statistics = []
     number_of_examples = {}
     number_of_features = 0
-
+    
     for data_set in data_sets:
         number_of_examples[data_set.kind] = data_set.number_of_examples
         if data_set.kind == "full":
@@ -68,17 +68,17 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         x_statistics.append(
             statistics(data_set.values, data_set.kind, tolerance = 0.5)
         )
-
+    
     metrics_duration = time() - metrics_time_start
     print("Metrics calculated ({}).".format(
         formatDuration(metrics_duration)))
-
+    
     ## Saving
-
+    
     metrics_path = os.path.join(results_directory, "data_set_metrics.log")
-
+    
     metrics_saving_time_start = time()
-
+    
     with open(metrics_path, "w") as metrics_file:
         metrics_string = "Timestamp: {}\n".format(
             formatTime(metrics_saving_time_start)) \
@@ -92,19 +92,19 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             + "Metrics:\n" \
             + formatStatistics(x_statistics)
         metrics_file.write(metrics_string)
-
+    
     metrics_saving_duration = time() - metrics_saving_time_start
     print("Metrics saved ({}).".format(formatDuration(
         metrics_saving_duration)))
-
+    
     print()
-
+    
     ## Displaying
-
+    
     print(formatStatistics(x_statistics), end = "")
-
+    
     print()
-
+    
     # Find test data set
     
     for data_set in data_sets:
@@ -112,7 +112,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         heading("Plots for {} set".format(data_set.kind))
         
         # Examples for data set
-
+        
         if data_set.example_type == "images":
             print("Saving image of {} random examples from {} set.".format(
                 number_of_random_examples, data_set.kind))
@@ -149,7 +149,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                 name = data_set.kind
             )
             saveFigure(figure, figure_name, results_directory)
-
+            
             distribution_duration = time() - distribution_time_start
             print("    Class distribution plotted and saved ({})."\
                 .format(formatDuration(distribution_duration)))
@@ -163,7 +163,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                 else:
                     class_palette = lighter_palette(
                         len(data_set.label_superset))
-            
+                
                 figure, figure_name = plotClassHistogram(
                     labels = data_set.superset_labels,
                     palette = class_palette,
@@ -171,15 +171,15 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                     name = data_set.kind + "-superset"
                 )
                 saveFigure(figure, figure_name, results_directory)
-
+                
                 distribution_duration = time() - distribution_time_start
                 print("    Superset class distribution plotted and saved ({})."\
                     .format(formatDuration(distribution_duration)))
-
+        
         ## Count distribution
-
+        
         distribution_time_start = time()
-
+        
         figure, figure_name = plotHistogram(
             series = data_set.values.reshape(-1),
             title = "Counts",
@@ -188,16 +188,16 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             name = data_set.kind
         )
         saveFigure(figure, figure_name, results_directory)
-
+        
         distribution_duration = time() - distribution_time_start
         print("    Count distribution plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
-
+        
         ## Count distribution with cut-off
-
+        
         if data_set.example_type == "counts":
             distribution_time_start = time()
-
+            
             for cutoff in range(1, 10):
                 figure, figure_name = plotHistogram(
                     series = data_set.values.reshape(-1),
@@ -209,7 +209,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                 )
                 saveFigure(figure, figure_name,
                     os.path.join(results_directory, "histogram-counts"))
-
+            
             distribution_duration = time() - distribution_time_start
             print("    Count distributions with cut-offs plotted and saved ({})."\
                 .format(formatDuration(distribution_duration)))
@@ -225,11 +225,11 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             name = data_set.kind
         )
         saveFigure(figure, figure_name, results_directory)
-
+        
         distribution_duration = time() - distribution_time_start
         print("    Count sum distribution plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
-
+        
         print()
         
         # Heat map for data set
@@ -1587,43 +1587,45 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     if colour_coding and "labels" in colour_coding:
         
         if colour_coding == "labels":
-            colouring_data_set_labels = colouring_data_set.labels
-            colouring_data_set_label_palette = colouring_data_set.label_palette
+            labels = colouring_data_set.labels
+            label_names = colouring_data_set.label_names
+            label_palette = colouring_data_set.label_palette
+            number_of_classes = colouring_data_set.number_of_classes
         elif colour_coding == "superset_labels":
-            colouring_data_set_labels = colouring_data_set.superset_labels
-            colouring_data_set_label_palette = \
-                colouring_data_set.superset_label_palette
+            labels = colouring_data_set.superset_labels
+            label_names = colouring_data_set.superset_label_names
+            label_palette = colouring_data_set.superset_label_palette
+            number_of_classes = colouring_data_set.number_of_superset_classes
         
-        label_indices = dict()
-        
-        for index, label in enumerate(colouring_data_set_labels):
-        
-            if label not in label_indices:
-                label_indices[label] = []
-        
-            label_indices[label].append(index)
-        
-        if colouring_data_set_label_palette:
-            label_palette = colouring_data_set_label_palette
-        else:
-            index_palette = lighter_palette(len(label_indices))
+        if not label_palette:
+            index_palette = lighter_palette(number_of_classes)
             label_palette = {label: index_palette[i] for i, label in
-                             enumerate(sorted(label_indices.keys()))}
+                             enumerate(sorted(label_names))}
         
-        for label, indices in sorted(label_indices.items()):
-            axis.scatter(values[indices, 0], values[indices, 1], label = label,
-                color = label_palette[label])
+        colours = []
+        classes = set()
         
-        if len(label_indices) < 20:
-            axis.legend(loc = "best")
+        for i, label in enumerate(labels):
+            colour = label_palette[label]
+            colours.append(colour)
+            
+            # Plot one example for each class to add labels
+            if label not in classes:
+                classes.add(label)
+                axis.scatter(values[i, 0], values[i, 1], c = colour,
+                    label = label)
+        
+        if number_of_classes < 20:
+            handles, labels = axis.get_legend_handles_labels()
+            labels, handles = zip(*sorted(zip(labels, handles),
+                key=lambda t: t[0]))
+            axis.legend(handles, labels, loc = "best")
     
     elif colour_coding == "count_sum":
         
         n_test = colouring_data_set.count_sum
         n_normalised = n_test / n_test.max()
         colours = numpy.array([standard_palette[0]]) * n_normalised
-        
-        axis.scatter(values[:, 0], values[:, 1], color = colours)
     
     elif colour_coding == "feature":
         
@@ -1644,11 +1646,11 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             f_normalised = f_test
         
         colours = numpy.array([standard_palette[0]]) * f_normalised
-        
-        axis.scatter(values[:, 0], values[:, 1], color = colours)
     
     else:
-        axis.scatter(values[:, 0], values[:, 1])
+        colours = standard_palette[0]
+    
+    axis.scatter(values[:, 0], values[:, 1], c = colours)
     
     if centroids:
         prior_centroids = centroids["prior"]
