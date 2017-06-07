@@ -1576,6 +1576,8 @@ def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
         "feature names": feature_names
     }
     
+    numpy.random.seed()
+        
     return data_dictionary
 
 def createBagOfWords(documents):
