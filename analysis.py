@@ -136,15 +136,10 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         if data_set.number_of_classes and data_set.number_of_classes < 50:
             distribution_time_start = time()
             
-            if data_set.label_palette:
-                class_palette = [v for k, v in
-                    sorted(data_set.label_palette.items())]
-            else:
-                class_palette = lighter_palette(data_set.number_of_classes)
-            
             figure, figure_name = plotClassHistogram(
                 labels = data_set.labels,
-                palette = class_palette,
+                class_names = data_set.class_names,
+                class_palette = data_set.class_palette,
                 scale = "linear",
                 name = data_set.kind
             )
@@ -157,18 +152,12 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             if data_set.label_superset:
                 distribution_time_start = time()
                 
-                if data_set.superset_label_palette:
-                    class_palette = [v for k, v in
-                        sorted(data_set.superset_label_palette.items())]
-                else:
-                    class_palette = lighter_palette(
-                        len(data_set.label_superset))
-                
                 figure, figure_name = plotClassHistogram(
                     labels = data_set.superset_labels,
-                    palette = class_palette,
+                    class_names = data_set.superset_class_names,
+                    class_palette = data_set.superset_class_palette,
                     scale = "linear",
-                    name = data_set.kind + "-superset"
+                    name = [data_set.kind, "superset"]
                 )
                 saveFigure(figure, figure_name, results_directory)
                 
@@ -1179,19 +1168,55 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
     else:
         return values_decomposed
 
-def plotClassHistogram(labels, scale = "linear", palette = None, name = None):
+def plotClassHistogram(labels, class_names = None, class_palette = None,
+    scale = "linear", name = None):
     
     figure_name = "histogram-classes"
     
     if name:
-        figure_name += "-" + normaliseString(name)
+        if not isinstance(name, list):
+            name = [name]
+        figure_name += "-" + "-".join(map(normaliseString, name))
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
-    seaborn.countplot(labels, palette = palette, ax = axis)
+    if class_names is None:
+        class_names = numpy.unique(labels)
     
-    # axis.set_yscale(scale)
+    K = len(class_names)
+    
+    if not class_palette:
+        index_palette = lighter_palette(K)
+        class_palette = {class_name: index_palette[i] for i, class_name in
+                         enumerate(sorted(class_names))}
+    
+    histogram = {
+        class_name: {
+            "index": i,
+            "count": 0,
+            "colour": class_palette[class_name]
+        }
+        for i, class_name in enumerate(sorted(class_names))
+    }
+    
+    for label in labels:
+        histogram[label]["count"] += 1
+    
+    indices = []
+    class_names = []
+    
+    for class_name, class_values in sorted(histogram.items()):
+        index = class_values["index"]
+        count = class_values["count"]
+        colour = class_values["colour"]
+        indices.append(index)
+        class_names.append(class_name)
+        axis.bar(index, count, color = colour)
+    
+    axis.set_yscale(scale)
+    
+    pyplot.xticks(indices, class_names)
     
     axis.set_xlabel("Classes")
     axis.set_ylabel("Number of counts")
@@ -1224,7 +1249,8 @@ def plotHistogram(series, title, cutoff = None, discrete = False,
     else:
         number_of_bins = None
     
-    seaborn.distplot(series, bins = number_of_bins, kde = False, ax = axis)
+    seaborn.distplot(series, bins = number_of_bins, kde = False, 
+        ax = axis)
     
     axis.set_yscale(scale)
     
@@ -1265,7 +1291,7 @@ def plotLearningCurves(curves, model_type, name = None):
     figure_name = "learning_curves"
     
     if name:
-        figure_name = figure_name + "_" + name
+        figure_name += "-" + name
     
     if model_type == "SNN":
         figure = pyplot.figure()
@@ -1411,7 +1437,7 @@ def plotLearningCurvesForModels(models_summaries, name = None):
     figure_name = "learning_curves"
     
     if name:
-        figure_name = figure_name + "_" + name
+        figure_name += "-" + name
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -1437,7 +1463,7 @@ def plotEvaluationsForModels(models_summaries, name = None):
     figure_name = "evaluation"
     
     if name:
-        figure_name = figure_name + "_" + name
+        figure_name += "-" + name
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -1471,7 +1497,7 @@ def plotProfileComparison(original_series, reconstructed_series,
     figure_name = "profile_comparison"
     
     if name:
-        figure_name = figure_name + "_" + name
+        figure_name += "-" + name
     
     D = original_series.shape[0]
     
@@ -1506,7 +1532,7 @@ def plotHeatMap(values, x_name, y_name, z_name = None,
     figure_name = "heat_map"
     
     if name:
-        figure_name = figure_name + "_" + name
+        figure_name += "-" + name
     
     M, N = values.shape
     
@@ -1588,25 +1614,25 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         
         if colour_coding == "labels":
             labels = colouring_data_set.labels
-            label_names = colouring_data_set.label_names
-            label_palette = colouring_data_set.label_palette
+            class_names = colouring_data_set.class_names
+            class_palette = colouring_data_set.class_palette
             number_of_classes = colouring_data_set.number_of_classes
         elif colour_coding == "superset_labels":
             labels = colouring_data_set.superset_labels
-            label_names = colouring_data_set.superset_label_names
-            label_palette = colouring_data_set.superset_label_palette
+            class_names = colouring_data_set.superset_class_names
+            class_palette = colouring_data_set.superset_class_palette
             number_of_classes = colouring_data_set.number_of_superset_classes
         
-        if not label_palette:
+        if not class_palette:
             index_palette = lighter_palette(number_of_classes)
-            label_palette = {label: index_palette[i] for i, label in
-                             enumerate(sorted(label_names))}
+            class_palette = {class_name: index_palette[i] for i, label in
+                             enumerate(sorted(class_names))}
         
         colours = []
         classes = set()
         
         for i, label in enumerate(labels):
-            colour = label_palette[label]
+            colour = class_palette[label]
             colours.append(colour)
             
             # Plot one example for each class to add labels
