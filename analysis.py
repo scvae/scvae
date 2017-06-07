@@ -3,7 +3,7 @@
 import numpy
 from numpy import nan
 
-from sklearn.decomposition import PCA, FastICA
+from sklearn.decomposition import PCA, IncrementalPCA, FastICA
 from sklearn.manifold import TSNE
 
 from tensorflow.tensorboard.backend.event_processing import event_multiplexer
@@ -37,7 +37,7 @@ seaborn.set(style='ticks', palette = standard_palette)
 figure_extension = ".png"
 image_extension = ".png"
 
-maximum_feature_size_for_heat_maps = 2000
+maximum_feature_size_for_analyses = 2000
 number_of_random_examples = 100
 
 def analyseData(data_sets, decomposition_methods = ["PCA"],
@@ -51,16 +51,16 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         os.makedirs(results_directory)
     
     # Metrics
-    
+
     heading("Metrics")
-    
+
     print("Calculating metrics for data set.")
     metrics_time_start = time()
-    
+
     x_statistics = []
     number_of_examples = {}
     number_of_features = 0
-    
+
     for data_set in data_sets:
         number_of_examples[data_set.kind] = data_set.number_of_examples
         if data_set.kind == "full":
@@ -68,17 +68,17 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         x_statistics.append(
             statistics(data_set.values, data_set.kind, tolerance = 0.5)
         )
-    
+
     metrics_duration = time() - metrics_time_start
     print("Metrics calculated ({}).".format(
         formatDuration(metrics_duration)))
-    
+
     ## Saving
-    
+
     metrics_path = os.path.join(results_directory, "data_set_metrics.log")
-    
+
     metrics_saving_time_start = time()
-    
+
     with open(metrics_path, "w") as metrics_file:
         metrics_string = "Timestamp: {}\n".format(
             formatTime(metrics_saving_time_start)) \
@@ -92,19 +92,19 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             + "Metrics:\n" \
             + formatStatistics(x_statistics)
         metrics_file.write(metrics_string)
-    
+
     metrics_saving_duration = time() - metrics_saving_time_start
     print("Metrics saved ({}).".format(formatDuration(
         metrics_saving_duration)))
-    
+
     print()
-    
+
     ## Displaying
-    
+
     print(formatStatistics(x_statistics), end = "")
-    
+
     print()
-    
+
     # Find test data set
     
     for data_set in data_sets:
@@ -126,19 +126,25 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             image_duration = time() - image_time_start
             print("Image saved ({}).".format(formatDuration(image_duration)))
             print()
-
+        
         # Distributions
-
+        
         print("Plotting distribution for {} set.".format(data_set.kind))
-
+        
         ## Class distribution
-
+        
         if data_set.number_of_classes and data_set.number_of_classes < 50:
             distribution_time_start = time()
-
+            
+            if data_set.label_palette:
+                class_palette = [v for k, v in
+                    sorted(data_set.label_palette.items())]
+            else:
+                class_palette = lighter_palette(data_set.number_of_classes)
+            
             figure, figure_name = plotClassHistogram(
                 labels = data_set.labels,
-                palette = lighter_palette(data_set.number_of_classes),
+                palette = class_palette,
                 scale = "linear",
                 name = data_set.kind
             )
@@ -147,6 +153,28 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             distribution_duration = time() - distribution_time_start
             print("    Class distribution plotted and saved ({})."\
                 .format(formatDuration(distribution_duration)))
+            
+            if data_set.label_superset:
+                distribution_time_start = time()
+                
+                if data_set.superset_label_palette:
+                    class_palette = [v for k, v in
+                        sorted(data_set.superset_label_palette.items())]
+                else:
+                    class_palette = lighter_palette(
+                        len(data_set.label_superset))
+            
+                figure, figure_name = plotClassHistogram(
+                    labels = data_set.superset_labels,
+                    palette = class_palette,
+                    scale = "linear",
+                    name = data_set.kind + "-superset"
+                )
+                saveFigure(figure, figure_name, results_directory)
+
+                distribution_duration = time() - distribution_time_start
+                print("    Superset class distribution plotted and saved ({})."\
+                    .format(formatDuration(distribution_duration)))
 
         ## Count distribution
 
@@ -185,11 +213,11 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             distribution_duration = time() - distribution_time_start
             print("    Count distributions with cut-offs plotted and saved ({})."\
                 .format(formatDuration(distribution_duration)))
-
+        
         ## Count sum distribution
-
+        
         distribution_time_start = time()
-
+        
         figure, figure_name = plotHistogram(
             series = data_set.count_sum,
             title = "Count sum",
@@ -206,7 +234,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         # Heat map for data set
         
-        if data_set.number_of_features <= maximum_feature_size_for_heat_maps:
+        if data_set.number_of_features <= maximum_feature_size_for_analyses:
             print("Plotting heat map for {} set.".format(data_set.kind))
             heat_maps_time_start = time()
             
@@ -619,7 +647,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     # Heat maps
     
     if reconstructed_test_set.number_of_features \
-        <= maximum_feature_size_for_heat_maps:
+        <= maximum_feature_size_for_analyses:
         
         print("Plotting heat maps.")
     
@@ -1082,7 +1110,10 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
         random_state = 42
     
     if method == "pca":
-        model = PCA(n_components = components)
+        if values.shape[1] <= maximum_feature_size_for_analyses:
+            model = PCA(n_components = components)
+        else:
+            model = IncrementalPCA(n_components = components, batch_size = 100)
     elif method == "ica":
         model = FastICA(n_components = components)
     elif method == "t_sne":
@@ -1163,7 +1194,7 @@ def plotClassHistogram(labels, scale = "linear", palette = None, name = None):
     # axis.set_yscale(scale)
     
     axis.set_xlabel("Classes")
-    axis.set_ylabel("Count")
+    axis.set_ylabel("Number of counts")
     
     return figure, figure_name
 
@@ -1198,6 +1229,7 @@ def plotHistogram(series, title, cutoff = None, discrete = False,
     axis.set_yscale(scale)
     
     axis.set_xlabel(title)
+    axis.set_ylabel("Number of counts")
     
     return figure, figure_name
 
@@ -1359,7 +1391,7 @@ def plotEvolutionOfLatentCentroids(centroids, distribution, name = None):
     covariance_matrices = centroids_decomposed[distribution]\
         ["covariance_matrices"]
     
-    centroids_palette = numpy.array(seaborn.hls_palette(K, l = .4))
+    centroids_palette = numpy.array(darker_palette(K))
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -1566,8 +1598,8 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         if colouring_data_set.label_palette:
             label_palette = colouring_data_set.label_palette
         else:
-            hls_palette = seaborn.color_palette("hls", len(label_indices))
-            label_palette = {label: hls_palette[i] for i, label in
+            index_palette = lighter_palette(len(label_indices))
+            label_palette = {label: index_palette[i] for i, label in
                              enumerate(sorted(label_indices.keys()))}
         
         for label, indices in sorted(label_indices.items()):
@@ -1581,28 +1613,15 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         
         label_indices = dict()
         
-        label_superset = colouring_data_set.label_superset
-        label_superset_reverse = {v: k for k, vs in label_superset.items() for v in vs}
-        
-        for index, label in enumerate(colouring_data_set.labels):
+        for index, label in enumerate(colouring_data_set.superset_labels):
             
-            superset_label = label_superset_reverse[label]
+            if label not in label_indices:
+                label_indices[label] = []
             
-            if superset_label not in label_indices:
-                label_indices[superset_label] = []
+            label_indices[label].append(index)
         
-            label_indices[superset_label].append(index)
-        
-        if colouring_data_set.label_palette:
-            label_palette = {}
-            for superset_label, labels_in_superset_label in label_superset.items():
-                superset_label_colours = []
-                for label_in_superset_label in labels_in_superset_label:
-                    superset_label_colours.append(
-                        colouring_data_set.label_palette[label_in_superset_label]
-                    )
-                label_palette[superset_label] = \
-                    numpy.array(superset_label_colours).mean(axis = 0)
+        if colouring_data_set.superset_label_palette:
+            label_palette = colouring_data_set.superset_label_palette
         else:
             index_palette = ligther_palette(len(label_indices))
             label_palette = {label: index_palette[i] for i, label in

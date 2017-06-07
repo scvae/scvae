@@ -329,11 +329,14 @@ class DataSet(object):
         # Feature dimensions for data set
         self.feature_dimensions = dataSetFeatureDimensions(self.title)
         
-        # Label colour function for data set
-        self.label_palette = dataSetLabelPalette(self.title)
-        
-        # Label colour function for data set
+        # Label super set for data set
         self.label_superset = dataSetLabelSuperset(self.title)
+        self.superset_labels = None
+        
+        # Label palette for data set
+        self.label_palette = dataSetLabelPalette(self.title)
+        self.superset_label_palette = supersetLabelPalette(
+            self.label_palette, self.label_superset)
         
         # Values and their names as well as labels in data set
         self.values = None
@@ -470,6 +473,8 @@ class DataSet(object):
             else:
                 self.label_names = numpy.unique(self.labels)
             self.number_of_classes = self.label_names.size
+            self.superset_labels = supersetLabels(
+                self.labels, self.label_superset)
         
         if preprocessed_values is not None:
             self.preprocessed_values = preprocessed_values
@@ -1703,6 +1708,39 @@ def computeInverseGlobalFrequencyWeights(data):
     print("IDF weights computed ({}).".format(formatDuration(duration)))
     
     return idf_weights
+
+def supersetLabels(labels, label_superset):
+    
+    if not label_superset:
+        return None
+    
+    label_superset_reverse = {v: k for k, vs in label_superset.items()
+        for v in vs}
+    
+    label_to_superset_label = lambda label: label_superset_reverse[label]
+    labels_to_superset_labels = numpy.vectorize(label_to_superset_label)
+    
+    superset_labels = labels_to_superset_labels(labels)
+    
+    return superset_labels
+
+def supersetLabelPalette(label_palette, label_superset):
+    
+    if not label_superset:
+        return None
+    
+    superset_label_palette = {}
+    
+    for superset_label, labels_in_superset_label in label_superset.items():
+        superset_label_colours = []
+        for label_in_superset_label in labels_in_superset_label:
+            superset_label_colours.append(
+                label_palette[label_in_superset_label]
+            )
+        superset_label_palette[superset_label] = \
+            numpy.array(superset_label_colours).mean(axis = 0)
+    
+    return superset_label_palette
 
 def directory(base_directory, data_set, splitting_method, splitting_fraction):
     
