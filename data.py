@@ -1533,43 +1533,52 @@ def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
     
     numpy.random.seed(60)
         
-    m = number_of_examples
-    n = number_of_features
-
-    samples_mean = numpy.empty((m, n))
-    samples_mean_drop_out = numpy.empty((m, n))
-    labels = numpy.empty(m, int)
-
-    row = scale * numpy.random.rand(n)
-    row_drop_out = numpy.random.rand(n)
-
-    k = 0
-
-    for i in range(m):
+    M = number_of_examples
+    N = number_of_features
+    
+    values = numpy.empty((M, N))
+    labels = numpy.empty(M, int)
+    
+    r = numpy.empty((M, N))
+    p = numpy.empty((M, N))
+    dropout = numpy.empty((M, N))
+    
+    r_draw = lambda: scale * numpy.random.rand(N)
+    p_draw = lambda: numpy.random.rand(N)
+    dropout_draw = lambda: numpy.random.rand(N)
+    
+    r_type = r_draw()
+    p_type = p_draw()
+    dropout_type = dropout_draw()
+    
+    label = 0
+    
+    for i in range(M):
         u = numpy.random.rand()
         if u > 1 - update_probability:
-            row = scale * numpy.random.rand(n)
-            row_drop_out = numpy.random.rand(n)
-            k += 1
-        samples_mean[i] = row
-        samples_mean_drop_out[i] = row_drop_out
-        labels[i] = k
+            r_type = r_draw()
+            p_type = p_draw()
+            dropout_type = dropout_draw()
+            label += 1
+        r[i] = r_type
+        p[i] = p_type
+        dropout[i] = dropout_type
+        labels[i] = label
+    
+    shuffled_indices = numpy.random.permutation(M)
 
-    shuffled_indices = numpy.random.permutation(m)
-
-    samples = samples_mean[shuffled_indices]
-    samples_drop_out = samples_mean_drop_out[shuffled_indices]
+    r = r[shuffled_indices]
+    p = p[shuffled_indices]
+    dropout = dropout[shuffled_indices]
     labels = labels[shuffled_indices]
-
-    for i in range(m):
-        for j in range(n):
-            samples[i, j] = numpy.random.poisson(samples[i, j])
-            drop_out = numpy.random.binomial(1, samples_drop_out[i, j])
-            samples_drop_out[i, j] = drop_out * samples[i, j]
     
-    values = samples_drop_out
-    
-    M, N = values.shape
+    for i in range(M):
+        for j in range(N):
+            # value = numpy.random.poisson(r[i, j])
+            value = numpy.random.negative_binomial(r[i, j], p[i, j])
+            value_dropout = numpy.random.binomial(1, dropout[i, j])
+            # value_dropout = numpy.random.poisson(dropout[i, j])
+            values[i, j] = value_dropout * value
     
     example_names = numpy.array(["example {}".format(i + 1) for i in range(M)])
     feature_names = numpy.array(["feature {}".format(j + 1) for j in range(N)])
