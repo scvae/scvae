@@ -1685,6 +1685,11 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     centroids = None, class_name = None, feature_index = None,
     figure_labels = None, name = "scatter"):
     
+    # Randomise examples in values to remove any prior order
+    M, N = values.shape
+    shuffled_indices = numpy.random.permutation(M)
+    values = values[shuffled_indices]
+    
     figure_name = name
     
     if figure_labels:
@@ -1721,6 +1726,8 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
     
+    colour_map = seaborn.dark_palette(standard_palette[0], as_cmap = True)
+    
     if colour_coding and ("labels" in colour_coding or "class" in colour_coding):
         
         if "superset" in colour_coding:
@@ -1739,10 +1746,11 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             class_palette = {class_name: index_palette[i] for i, class_name in
                              enumerate(sorted(class_names))}
         
-        colours = []
+        # Examples are shuffled, so should their labels be
+        labels = labels[shuffled_indices]
         
         if "labels" in colour_coding:
-            index_method = "shuffled"
+            colours = []
             classes = set()
         
             for i, label in enumerate(labels):
@@ -1755,6 +1763,8 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                     axis.scatter(values[i, 0], values[i, 1], c = colour,
                         label = label)
             
+            axis.scatter(values[:, 0], values[:, 1], c = colours)
+            
             if number_of_classes < 20:
                 handles, labels = axis.get_legend_handles_labels()
                 labels, handles = zip(*sorted(zip(labels, handles),
@@ -1762,11 +1772,11 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 axis.legend(handles, labels, loc = "best")
         
         elif "class" in colour_coding:
-            index_method = "ordered"
+            colours = []
             
             figure_name += "-" + normaliseString(str(class_name))
             
-            ordered_indices_by_label = {
+            ordered_indices_set = {
                 str(class_name): [],
                 "Others": []
             }
@@ -1774,24 +1784,37 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             for i, label in enumerate(labels):
                 if label == class_name:
                     colour = class_palette[label]
-                    ordered_indices_by_label[str(class_name)].append(i)
+                    ordered_indices_set[str(class_name)].append(i)
                 else:
                     colour = (0.7, 0.7, 0.7)
-                    ordered_indices_by_label["Others"].append(i)
+                    ordered_indices_set["Others"].append(i)
                 colours.append(colour)
-        
-        colours = numpy.array(colours)
+            
+            colours = numpy.array(colours)
+            
+            z_order_index = 1
+            for label, ordered_indices in sorted(ordered_indices_set.items()):
+                if label == "Others":
+                    z_order = 0
+                else:
+                    z_order = z_order_index
+                    z_order_index += 1
+                ordered_values = values[ordered_indices]
+                ordered_colours = colours[ordered_indices]
+                axis.scatter(ordered_values[:, 0], ordered_values[:, 1],
+                    c = ordered_colours, label = label, zorder = z_order)
+                axis.legend(loc = "best")
     
     elif colour_coding == "count_sum":
         
         index_method = "shuffled"
-        n_test = colouring_data_set.count_sum
-        n_normalised = n_test / n_test.max()
-        colours = numpy.array([standard_palette[0]]) * n_normalised
+        n = colouring_data_set.count_sum[shuffled_indices]
+        scatter_plot = axis.scatter(values[:, 0], values[:, 1], c = n,
+            cmap = colour_map)
+        colour_bar = axis.figure.colorbar(scatter_plot)
+        colour_bar.outline.set_linewidth(0)
     
     elif colour_coding == "feature":
-        
-        index_method = "shuffled"
         
         if feature_index is None:
             raise ValueError("Feature number not given.")
@@ -1802,45 +1825,16 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         figure_name += "-{}".format(
             normaliseString(colouring_data_set.feature_names[feature_index]))
         
-        f_test = colouring_data_set.values[:, feature_index].reshape(-1, 1)
+        f = colouring_data_set.values[shuffled_indices,
+            feature_index].reshape(-1, 1)
         
-        if f_test.max() != 0:
-            f_normalised = f_test / f_test.max()
-        else:
-            f_normalised = f_test
-        
-        colours = numpy.array([standard_palette[0]]) * f_normalised
+        scatter_plot = axis.scatter(values[:, 0], values[:, 1], c = f,
+            cmap = colour_map)
+        colour_bar = axis.figure.colorbar(scatter_plot)
+        colour_bar.outline.set_linewidth(0)
     
     else:
-        index_method = "shuffled"
-        colours = standard_palette[0]
-    
-    if index_method == "shuffled":
-        # Randomise examples in values to remove any prior order
-        M, N = values.shape
-        shuffled_indices = numpy.random.permutation(M)
-        shuffled_values = values[shuffled_indices]
-        if colour_coding:
-            shuffled_colours = colours[shuffled_indices]
-        else:
-            shuffled_colours = colours
-    
-        axis.scatter(shuffled_values[:, 0], shuffled_values[:, 1],
-            c = shuffled_colours)
-    
-    elif index_method == "ordered":
-        z_order_index = 1
-        for label, ordered_indices in sorted(ordered_indices_by_label.items()):
-            if label == "Others":
-                z_order = 0
-            else:
-                z_order = z_order_index
-                z_order_index += 1
-            ordered_values = values[ordered_indices]
-            ordered_colours = colours[ordered_indices]
-            axis.scatter(ordered_values[:, 0], ordered_values[:, 1],
-                c = ordered_colours, label = label, zorder = z_order)
-            axis.legend(loc = "best")
+        axis.scatter(values[:, 0], values[:, 1], color = standard_palette[0])
     
     if centroids:
         prior_centroids = centroids["prior"]
