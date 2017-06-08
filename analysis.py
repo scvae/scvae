@@ -640,6 +640,17 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
 
     print()
     
+    ## Reconstructions decomposed
+    
+    analyseDecompositions(
+        reconstructed_test_set,
+        decomposition_methods = decomposition_methods,
+        highlight_feature_indices = highlight_feature_indices,
+        symbol = "$x$",
+        title = "reconstruction space",
+        results_directory = results_directory
+    )
+
     ## Reconstructions plotted in original decomposed space
     
     analyseDecompositions(
