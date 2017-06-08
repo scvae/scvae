@@ -90,13 +90,13 @@ data_sets = {
             39: (0.74, 0.06, 0.38),
         },
         "label superset": {
-            "0": [0],
             "A": [1],
             "B": [2],
             "C": [i for i in range(3, 24)],
             "D": [24, 25],
             "E": [i for i in range(26, 34)],
-            "F": [i for i in range(34, 40)]
+            "F": [i for i in range(34, 40)],
+            "No class": [0],
         }
     },
     
