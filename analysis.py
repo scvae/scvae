@@ -11,6 +11,7 @@ from tensorflow.tensorboard.backend.event_processing import event_multiplexer
 from matplotlib import pyplot
 import matplotlib.patches
 import matplotlib.gridspec
+from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
 import seaborn
 
 from PIL import Image
@@ -32,7 +33,13 @@ from auxiliary import (
 standard_palette = seaborn.color_palette('Set2', 8)
 lighter_palette = lambda N: seaborn.hls_palette(N)
 darker_palette = lambda N: seaborn.hls_palette(N, l = .4)
-seaborn.set(style='ticks', palette = standard_palette)
+
+reset_plot_look = lambda: seaborn.set(
+    context = "notebook",
+    style = "ticks",
+    palette = standard_palette
+)
+reset_plot_look()
 
 figure_extension = ".png"
 image_extension = ".png"
@@ -119,7 +126,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
     
     print()
     
-    # Find test data set
+    # Loop over data sets
     
     for data_set in data_sets:
         
@@ -256,6 +263,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                 labels = labels,
                 x_name = data_set.tags["feature"].capitalize() + "s",
                 y_name = data_set.tags["example"].capitalize() + "s",
+                z_name = data_set.tags["value"].capitalize() + "s",
                 name = data_set.kind
             )
             saveFigure(figure, figure_name, results_directory)
@@ -1324,6 +1332,8 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     else:
         axis.set_ylabel("Number of counts")
     
+    seaborn.despine()
+    
     return figure, figure_name
 
 def plotHistogram(series, title, cutoff = None, normed = False,
@@ -1368,6 +1378,8 @@ def plotHistogram(series, title, cutoff = None, normed = False,
     else:
         axis.set_ylabel("Number of counts")
     
+    seaborn.despine()
+    
     return figure, figure_name
 
 def plotSeries(series, x_label, y_label, scale = "linear", bar = False,
@@ -1394,6 +1406,8 @@ def plotSeries(series, x_label, y_label, scale = "linear", bar = False,
     
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
+    
+    seaborn.despine()
     
     return figure, figure_name
 
@@ -1482,6 +1496,8 @@ def plotLearningCurves(curves, model_type, name = None):
         else:
             axis_2.set_xlabel("Epoch")
     
+    seaborn.despine()
+    
     return figure, figure_name
 
 def plotEvolutionOfLatentProbabilities(probabilities, distribution, name = None):
@@ -1503,6 +1519,8 @@ def plotEvolutionOfLatentProbabilities(probabilities, distribution, name = None)
     
     for k in range(K):
         axis.plot(epochs, probabilities[:, k], color = centroids_palette[k])
+    
+    seaborn.despine()
     
     return figure, figure_name
 
@@ -1541,6 +1559,8 @@ def plotEvolutionOfLatentCentroids(centroids, distribution, name = None):
             if e in [0, E-1]:
                 addCovariance(covariance_matrices[e, k], means[e, k], axis, colour)
     
+    seaborn.despine()
+    
     return figure, figure_name
 
 def plotLearningCurvesForModels(models_summaries, name = None):
@@ -1566,6 +1586,8 @@ def plotLearningCurvesForModels(models_summaries, name = None):
     
     axis.set_xlabel("Epoch")
     axis.set_ylabel("Lower bound for validation set")
+    
+    seaborn.despine()
     
     return figure, figure_name
 
@@ -1599,6 +1621,8 @@ def plotEvaluationsForModels(models_summaries, name = None):
     
     axis.set_xlabel("Models")
     axis.set_ylabel("log-likelhood for validation set")
+    
+    seaborn.despine()
     
     return figure, figure_name
 
@@ -1634,6 +1658,8 @@ def plotProfileComparison(original_series, reconstructed_series,
     axis.set_xlabel(x_name + " sorted by original " + y_name.lower())
     axis.set_ylabel(y_name)
     
+    seaborn.despine()
+    
     return figure, figure_name
 
 def plotHeatMap(values, x_name, y_name, z_name = None,
@@ -1660,15 +1686,21 @@ def plotHeatMap(values, x_name, y_name, z_name = None,
     
     if labels is not None:
         indices = numpy.argsort(labels)
+        y_name += " sorted by class"
     else:
         indices = numpy.arange(M)
+    
+    seaborn.set(style = "white")
     
     seaborn.heatmap(
         values[indices],
         vmin = z_min, vmax = z_max, center = center, 
         xticklabels = False, yticklabels = False,
-        cbar = True, cbar_kws = cbar_dict, square = square_cells, ax = axis
+        cbar = True, cbar_kws = cbar_dict, square = square_cells,
+        ax = axis
     )
+    
+    reset_plot_look()
     
     axis.set_xlabel(x_name)
     axis.set_ylabel(y_name)
@@ -1720,6 +1752,8 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         # figure, (axis, axis_cat) = pyplot.subplots(1, 2, figsize = (16, 6))
     else:
         axis = figure.add_subplot(1, 1, 1)
+    
+    seaborn.despine()
     
     axis.set_aspect("equal")
     
@@ -1864,25 +1898,6 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     
     return figure, figure_name
 
-def plotLatentSpace(latent_values, data_set = None, colour_coding = None,
-    feature_index = None, figure_labels = None, name = None):
-    
-    figure_name = "latent_space"
-    
-    if name:
-        figure_name += "-" + normaliseString(name)
-    
-    figure, figure_name = plotValues(
-        values = latent_values,
-        colour_coding = colour_coding,
-        colouring_data_set = data_set,
-        feature_index = feature_index,
-        figure_labels = figure_labels,
-        name = figure_name
-    )
-    
-    return figure, figure_name
-
 def addCovariance(covariance, mean, axis, colour, label = None, linestyle = "solid"):
     eigenvalues, eigenvectors = numpy.linalg.eig(covariance)
     index = eigenvalues.argsort()[::-1]
@@ -1943,13 +1958,10 @@ def saveImage(image, image_name, results_directory):
     image_path = os.path.join(results_directory, image_name)
     image.save(image_path)
 
-def saveFigure(figure, figure_name, results_directory, no_spine = True):
+def saveFigure(figure, figure_name, results_directory):
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
-    
-    if no_spine:
-        seaborn.despine()
     
     figure_path = os.path.join(results_directory, figure_name) + figure_extension
     figure.savefig(figure_path, bbox_inches = 'tight')
