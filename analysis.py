@@ -57,7 +57,8 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
     print("Calculating metrics for data set.")
     metrics_time_start = time()
     
-    x_statistics = []
+    data_set_statistics = []
+    histogram_statistics = []
     number_of_examples = {}
     number_of_features = 0
     
@@ -65,7 +66,13 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         number_of_examples[data_set.kind] = data_set.number_of_examples
         if data_set.kind == "full":
             number_of_features = data_set.number_of_features
-        x_statistics.append(
+            histogram_statistics.extend([
+                statistics(series, series_name, skip_sparsity = True)
+                for series_name, series in {
+                    "count sum": data_set.count_sum
+                }.items()
+            ])
+        data_set_statistics.append(
             statistics(data_set.values, data_set.kind, tolerance = 0.5)
         )
     
@@ -90,7 +97,10 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                          if kind != "full"]) + "\n" \
             + "\n" \
             + "Metrics:\n" \
-            + formatStatistics(x_statistics)
+            + formatStatistics(data_set_statistics) \
+            + "\n" \
+            + "Series:\n" \
+            + formatStatistics(histogram_statistics)
         metrics_file.write(metrics_string)
     
     metrics_saving_duration = time() - metrics_saving_time_start
@@ -101,7 +111,11 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
     
     ## Displaying
     
-    print(formatStatistics(x_statistics), end = "")
+    print(formatStatistics(data_set_statistics), end = "")
+    
+    print()
+    
+    print(formatStatistics(histogram_statistics, name = "Series"), end = "")
     
     print()
     
@@ -140,6 +154,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                 labels = data_set.labels,
                 class_names = data_set.class_names,
                 class_palette = data_set.class_palette,
+                normed = True,
                 scale = "linear",
                 name = data_set.kind
             )
@@ -156,6 +171,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                     labels = data_set.superset_labels,
                     class_names = data_set.superset_class_names,
                     class_palette = data_set.superset_class_palette,
+                    normed = True,
                     scale = "linear",
                     name = [data_set.kind, "superset"]
                 )
@@ -173,6 +189,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             series = data_set.values.reshape(-1),
             title = "Counts",
             discrete = data_set.discreteness,
+            normed = True,
             scale = "log",
             name = data_set.kind
         )
@@ -192,6 +209,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                     series = data_set.values.reshape(-1),
                     title = "Counts",
                     discrete = data_set.discreteness,
+                    normed = True,
                     cutoff = cutoff,
                     scale = "log",
                     name = data_set.kind
@@ -210,6 +228,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         figure, figure_name = plotHistogram(
             series = data_set.count_sum,
             title = "Count sum",
+            normed = True,
             scale = "log",
             name = data_set.kind
         )
@@ -476,18 +495,18 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     print("Calculating metrics for results.")
     metrics_time_start = time()
 
-    x_statistics = [
+    test_set_statistics = [
         statistics(data_set.values, data_set.version, tolerance = 0.5)
             for data_set in [test_set, reconstructed_test_set]
     ]
 
     x_diff = test_set.values - reconstructed_test_set.values
-    x_statistics.append(statistics(numpy.abs(x_diff), "differences",
+    test_set_statistics.append(statistics(numpy.abs(x_diff), "differences",
         skip_sparsity = True))
 
     x_log_ratio = numpy.log((test_set.values + 1) \
         / (reconstructed_test_set.values + 1))
-    x_statistics.append(statistics(numpy.abs(x_log_ratio), "log-ratios",
+    test_set_statistics.append(statistics(numpy.abs(x_log_ratio), "log-ratios",
         skip_sparsity = True))
 
     if test_set.values.max() > 20:
@@ -550,7 +569,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                         evaluation_test["kl_divergence_z2"][-1]) + \
                     "    KL_y:   {:.5g}.\n".format(
                         evaluation_test["kl_divergence_y"][-1])
-        metrics_string += "\n" + formatStatistics(x_statistics)
+        metrics_string += "\n" + formatStatistics(test_set_statistics)
         metrics_string += "\n" + formatCountAccuracies(count_accuracies)
         metrics_file.write(metrics_string)
 
@@ -572,7 +591,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     ## Displaying
     
-    print(formatStatistics(x_statistics))
+    print(formatStatistics(test_set_statistics))
     print(formatCountAccuracies(count_accuracies))
     
     # Reconstructions
@@ -621,7 +640,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
 
     print()
     
-    ## Reconstructions in original space
+    ## Reconstructions plotted in original decomposed space
     
     analyseDecompositions(
         test_set,
@@ -964,17 +983,17 @@ def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
     return statistics
 
-def formatStatistics(statistics_sets):
+def formatStatistics(statistics_sets, name = "Data set"):
     
     if type(statistics_sets) != list:
         statistics_sets = [statistics_sets]
     
-    name_width = 0
+    name_width = len(name)
     
     for statistics_set in statistics_sets:
         name_width = max(len(statistics_set["name"]), name_width)
     
-    statistics_string = "  ".join(["{:{}}".format("Data set", name_width),
+    statistics_string = "  ".join(["{:{}}".format(name, name_width),
         " mean ", "std. dev. ", "dispersion",
         " minimum ", " maximum ","sparsity"]) + "\n"
     
@@ -985,7 +1004,7 @@ def formatStatistics(statistics_sets):
             "{:<9.5g}".format(statistics_set["standard deviation"]),
             "{:<9.5g}".format(statistics_set["dispersion"]),
             "{:<9.3g}".format(statistics_set["minimum"]),
-            "{:<9.3g}".format(statistics_set["maximum"]),
+            "{:<11.5g}".format(statistics_set["maximum"]),
             "{:<7.5g}".format(statistics_set["sparsity"]),
         ]
         
@@ -1169,9 +1188,14 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
         return values_decomposed
 
 def plotClassHistogram(labels, class_names = None, class_palette = None,
-    scale = "linear", name = None):
+    normed = False, scale = "linear", name = None):
     
-    figure_name = "histogram-classes"
+    figure_name = "histogram"
+    
+    if normed:
+        figure_name += "-normed"
+    
+    figure_name += "-classes"
     
     if name:
         if not isinstance(name, list):
@@ -1200,8 +1224,11 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
         for i, class_name in enumerate(sorted(class_names))
     }
     
+    total_count_sum = 0
+    
     for label in labels:
         histogram[label]["count"] += 1
+        total_count_sum += 1
     
     indices = []
     class_names = []
@@ -1209,26 +1236,39 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     for class_name, class_values in sorted(histogram.items()):
         index = class_values["index"]
         count = class_values["count"]
+        frequency = count / total_count_sum
         colour = class_values["colour"]
         indices.append(index)
         class_names.append(class_name)
-        axis.bar(index, count, color = colour)
+        if normed:
+            count_or_frequecny = frequency
+        else:
+            count_or_frequecny = count
+        axis.bar(index, count_or_frequecny, color = colour)
     
     axis.set_yscale(scale)
     
     pyplot.xticks(indices, class_names)
     
     axis.set_xlabel("Classes")
-    axis.set_ylabel("Number of counts")
+    
+    if normed:
+        axis.set_ylabel("Frequency")
+    else:
+        axis.set_ylabel("Number of counts")
     
     return figure, figure_name
 
-def plotHistogram(series, title, cutoff = None, discrete = False,
-    scale = "linear", name = None):
+def plotHistogram(series, title, cutoff = None, normed = False,
+    discrete = False, scale = "linear", name = None):
     
     series = series.copy()
     
     figure_name = "histogram"
+    
+    if normed:
+        figure_name += "-normed"
+    
     figure_name += "-" + normaliseString(title)
     
     if name:
@@ -1249,13 +1289,17 @@ def plotHistogram(series, title, cutoff = None, discrete = False,
     else:
         number_of_bins = None
     
-    seaborn.distplot(series, bins = number_of_bins, kde = False, 
-        ax = axis)
+    seaborn.distplot(series, bins = number_of_bins, norm_hist = normed,
+        kde = False, ax = axis)
     
     axis.set_yscale(scale)
     
     axis.set_xlabel(title)
-    axis.set_ylabel("Number of counts")
+    
+    if normed:
+        axis.set_ylabel("Frequency")
+    else:
+        axis.set_ylabel("Number of counts")
     
     return figure, figure_name
 
@@ -1625,7 +1669,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         
         if not class_palette:
             index_palette = lighter_palette(number_of_classes)
-            class_palette = {class_name: index_palette[i] for i, label in
+            class_palette = {class_name: index_palette[i] for i, class_name in
                              enumerate(sorted(class_names))}
         
         colours = []
