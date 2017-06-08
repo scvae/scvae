@@ -16,6 +16,8 @@ import seaborn
 
 from PIL import Image
 
+from pandas import DataFrame
+
 import os
 import gzip
 import pickle
@@ -31,6 +33,8 @@ from auxiliary import (
 )
 
 standard_palette = seaborn.color_palette('Set2', 8)
+standard_colour_map = seaborn.cubehelix_palette(light = .95, as_cmap = True)
+
 lighter_palette = lambda N: seaborn.hls_palette(N)
 darker_palette = lambda N: seaborn.hls_palette(N, l = .4)
 
@@ -330,11 +334,7 @@ def analyseModel(model, results_directory = "results"):
         KL_neurons = numpy.sort(KL_neurons, axis = 1)
         log_KL_neurons = numpy.log(KL_neurons)
         
-        figure, figure_name = plotHeatMap(
-            log_KL_neurons.T, z_min = log_KL_neurons.min(),
-            x_name = "Epoch", y_name = "$i$",
-            z_name = "$\log$ KL$(p_i|q_i)$",
-            name = "kl_divergence")
+        figure, figure_name = plotKLDivergenceEvolution(KL_neurons)
         saveFigure(figure, figure_name, results_directory)
         
         heat_map_duration = time() - heat_map_time_start
@@ -1178,6 +1178,12 @@ def formatCountAccuracies(count_accuracies):
     
     return formatted_string
 
+decomposition_method_names = {
+    "PCA": ["pca"],
+    "ICA": ["ica"],
+    "t-SNE": ["t_sne", "tsne"], 
+}
+
 def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
     components = 2, random = False):
     
@@ -1500,6 +1506,53 @@ def plotLearningCurves(curves, model_type, name = None):
     
     return figure, figure_name
 
+def plotKLDivergenceEvolution(KL_neurons, scale = "log", name = None):
+    
+    E, L = KL_neurons.shape
+    
+    KL_neurons = numpy.sort(KL_neurons, axis = 1)
+    
+    if scale == "log":
+        KL_neurons = numpy.log(KL_neurons)
+        scale_label = "$\log$ "
+    else:
+        scale_label = ""
+    
+    name = "kl_divergence"
+    
+    figure_name = "kl_divergence_evolution"
+    
+    if name:
+        figure_name += "-" + name
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    cbar_dict = {"label": scale_label + "KL$(p_i|q_i)$"}
+    
+    number_of_epoch_labels = 10
+    if E > 2 * number_of_epoch_labels:
+        epoch_label_frequency = int(numpy.floor(E / number_of_epoch_labels))
+    else:
+        epoch_label_frequency = True
+    
+    epochs = numpy.arange(E) + 1
+    
+    seaborn.heatmap(
+        DataFrame(KL_neurons.T, columns = epochs),
+        xticklabels = epoch_label_frequency,
+        yticklabels = False,
+        cbar = True, cbar_kws = cbar_dict, cmap = standard_colour_map,
+        ax = axis
+    )
+    
+    axis.set_xlabel("Epochs")
+    axis.set_ylabel("$i$")
+    
+    seaborn.despine(ax = axis)
+    
+    return figure, figure_name
+
 def plotEvolutionOfLatentProbabilities(probabilities, distribution, name = None):
     
     distribution = normaliseString(distribution)
@@ -1696,8 +1749,8 @@ def plotHeatMap(values, x_name, y_name, z_name = None,
         values[indices],
         vmin = z_min, vmax = z_max, center = center, 
         xticklabels = False, yticklabels = False,
-        cbar = True, cbar_kws = cbar_dict, square = square_cells,
-        ax = axis
+        cbar = True, cbar_kws = cbar_dict, cmap = standard_colour_map,
+        square = square_cells, ax = axis
     )
     
     reset_plot_look()
@@ -1706,12 +1759,6 @@ def plotHeatMap(values, x_name, y_name, z_name = None,
     axis.set_ylabel(y_name)
     
     return figure, figure_name
-
-decomposition_method_names = {
-    "PCA": ["pca"],
-    "ICA": ["ica"],
-    "t-SNE": ["t_sne", "tsne"], 
-}
 
 def plotValues(values, colour_coding = None, colouring_data_set = None,
     centroids = None, class_name = None, feature_index = None,
