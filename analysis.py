@@ -1802,7 +1802,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     
     seaborn.despine()
     
-    axis.set_aspect("equal")
+    axis.set_aspect("equal", adjustable = "datalim")
     
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
