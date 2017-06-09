@@ -34,6 +34,7 @@ from auxiliary import (
 
 standard_palette = seaborn.color_palette('Set2', 8)
 standard_colour_map = seaborn.cubehelix_palette(light = .95, as_cmap = True)
+neutral_colour = (0.7, 0.7, 0.7)
 
 lighter_palette = lambda N: seaborn.hls_palette(N)
 darker_palette = lambda N: seaborn.hls_palette(N, l = .4)
@@ -785,6 +786,9 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             specifier = lambda data_set: data_set.version,
             results_directory = results_directory
         )
+        
+        if centroids:
+            analyseCentroidProbabilities(centroids, results_directory)
 
 def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
@@ -909,7 +913,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
             
             print("Plotting {}{}.".format(
                 "decomposed " if decomposition_method else "", title_with_ID))
-                
+            
             ## No colour-coding
             
             plot_time_start = time()
@@ -921,7 +925,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 name = name
             )
             saveFigure(figure, figure_name, results_directory)
-    
+            
             plot_duration = time() - plot_time_start
             print("    {} plotted and saved ({}).".format(
                 title_with_ID.capitalize(),
@@ -1061,8 +1065,33 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     data_set.feature_names[feature_index],
                     formatDuration(plot_duration)
                 ))
-        
+            
             print()
+
+def analyseCentroidProbabilities(centroids, results_directory = "results"):
+    
+    print("Plotting centroid probabilities.")
+    plot_time_start = time()
+    
+    for distribution, distribution_centroids in centroids.items():
+        if distribution_centroids:
+            centroid_probabilities = \
+                distribution_centroids["probabilities"]
+            K = len(centroid_probabilities)
+            centroids_palette = darker_palette(K)
+            figure, figure_name = plotProbabilities(
+                centroid_probabilities,
+                x_label = None,
+                y_label = None,
+                palette = centroids_palette,
+                uniform = False,
+                name = distribution
+            )
+            saveFigure(figure, figure_name, results_directory)
+    
+    plot_duration = time() - plot_time_start
+    print("Centroid probabilities plotted and saved ({}.)".format(
+        formatDuration(plot_duration)))
 
 def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
@@ -1656,7 +1685,7 @@ def plotEvolutionOfCentroidMeans(means, distribution, decomposed = False,
     
     colour_bar_scatter_plot = axis.scatter(
         means[:, 0, 0], means[:, 0, 1], c = epochs,
-        cmap = seaborn.dark_palette((0.7, 0.7, 0.7), as_cmap = True),
+        cmap = seaborn.dark_palette(neutral_colour, as_cmap = True),
         zorder = 0
     )
     
@@ -1905,15 +1934,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             raise ValueError("Colouring data set not given.")
     
     figure = pyplot.figure()
-    
-    if centroids and centroids["prior"] \
-        and centroids["prior"]["probabilities"].shape[0] > 1:
-            axes = matplotlib.gridspec.GridSpec(1, 2, width_ratios=[3, 1])
-            axis = pyplot.subplot(axes[0])
-            axis_cat = pyplot.subplot(axes[1])
-        # figure, (axis, axis_cat) = pyplot.subplots(1, 2, figsize = (16, 6))
-    else:
-        axis = figure.add_subplot(1, 1, 1)
+    axis = figure.add_subplot(1, 1, 1)
     
     seaborn.despine()
     
@@ -1982,7 +2003,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                     colour = class_palette[label]
                     ordered_indices_set[str(class_name)].append(i)
                 else:
-                    colour = (0.7, 0.7, 0.7)
+                    colour = neutral_colour
                     ordered_indices_set["Others"].append(i)
                 colours.append(colour)
             
@@ -2051,8 +2072,6 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             covariance_matrices = prior_centroids["covariance_matrices"]
             
             for k in range(K):
-                axis_cat.barh(classes[k], probabilities[k],
-                    color = centroids_palette[k])
                 axis.scatter(means[k, 0], means[k, 1], marker = "x",
                     color = centroids_palette[k])
                 ellipse = covarianceMatrixAsEllipse(
@@ -2061,8 +2080,45 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                     colour = centroids_palette[k]
                 )
                 axis.add_patch(ellipse)
-            
-            axis_cat.set_yticks([])
+    
+    return figure, figure_name
+
+def plotProbabilities(probabilities,
+    x_label = None, y_label = None, palette = None, uniform = False,
+    name = None):
+    
+    figure_name = "probabilities"
+    
+    if name:
+        if not isinstance(name, list):
+            name = [name]
+        figure_name += "-" + "-".join(map(normaliseString, name))
+    
+    if not x_label:
+        x_label = "$k$"
+    
+    if not y_label:
+        y_label = "$\pi_k$"
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    K = len(probabilities)
+    
+    if not palette:
+        palette = [standard_palette[0]] * K
+    
+    for k in range(K):
+        axis.bar(k, probabilities[k], color = palette[k])
+    
+    if uniform:
+        axis.plot([0, K], 2 * [1 / K], color = neutral_colour,
+            linestyle = "dashed")
+    
+    axis.set_xlabel(x_label)
+    axis.set_ylabel(y_label)
+    
+    seaborn.despine()
     
     return figure, figure_name
 
@@ -2279,7 +2335,6 @@ def loadCentroids(model, data_set_kinds = "all"):
             except KeyError:
                 centroids_set[distribution] = None
                 continue
-            
             
             # Number of epochs
             E = len(scalars)
