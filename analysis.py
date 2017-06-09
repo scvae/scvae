@@ -478,7 +478,7 @@ def analyseIntermediateResults(latent_values, data_set, centroids, epoch,
         if data_set.label_superset is not None:
             figure, figure_name = plotValues(
                 latent_values_decomposed,
-                colour_coding = "label superset",
+                colour_coding = "superset labels",
                 colouring_data_set = data_set,
                 centroids = centroids_decomposed,
                 figure_labels = figure_labels,
@@ -706,6 +706,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
         figure, figure_name = plotHeatMap(
             reconstructed_test_set.values,
+            labels = reconstructed_test_set.labels,
             x_name = test_set.tags["feature"].capitalize() + "s",
             y_name = test_set.tags["example"].capitalize() + "s",
             z_name = test_set.tags["value"].capitalize() + "s",
@@ -723,6 +724,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
         figure, figure_name = plotHeatMap(
             x_diff,
+            labels = reconstructed_test_set.labels,
             x_name = test_set.tags["feature"].capitalize() + "s",
             y_name = test_set.tags["example"].capitalize() + "s",
             z_name = "Differences",
@@ -741,6 +743,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
         figure, figure_name = plotHeatMap(
             x_log_ratio,
+            labels = reconstructed_test_set.labels,
             x_name = test_set.tags["feature"].capitalize() + "s",
             y_name = test_set.tags["example"].capitalize() + "s",
             z_name = "log-ratios",
