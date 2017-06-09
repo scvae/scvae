@@ -50,6 +50,7 @@ image_extension = ".png"
 
 maximum_feature_size_for_analyses = 2000
 number_of_random_examples = 100
+number_of_profile_comparisons = 25
 
 def analyseData(data_sets, decomposition_methods = ["PCA"],
     highlight_feature_indices = [], results_directory = "results"):
@@ -645,30 +646,34 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         print()
 
     ## Profile comparisons
-
+    
+    numpy.random.seed(80)
+    
     print("Plotting profile comparisons.")
     profile_comparisons_time_start = time()
 
-    subset = numpy.random.randint(M, size = 10)
+    subset = numpy.random.randint(M, size = number_of_profile_comparisons)
 
-    for j, i in enumerate(subset):
-
+    for i in subset:
+        
         figure, figure_name = plotProfileComparison(
             test_set.values[i],
             reconstructed_test_set.values[i],
-            x_name = test_set.tags["example"].capitalize() + "s",
-            y_name = test_set.tags["feature"].capitalize() + "s",
+            x_name = test_set.tags["feature"].capitalize() + "s",
+            y_name = test_set.tags["value"].capitalize() + "s",
             scale = "log",
-            title = str(test_set.example_names[i]),
-            name = str(j)
+            name = str(test_set.example_names[i])
         )
-        saveFigure(figure, figure_name, results_directory)
+        saveFigure(figure, figure_name, os.path.join(
+            results_directory, "profile_comparisons"))
 
     profile_comparisons_duration = time() - profile_comparisons_time_start
     print("Profile comparisons plotted and saved ({}).".format(
         formatDuration(profile_comparisons_duration)))
 
     print()
+    
+    numpy.random.seed()
     
     ## Reconstructions decomposed
     
@@ -1793,12 +1798,12 @@ def plotEvaluationsForModels(models_summaries, name = None):
     return figure, figure_name
 
 def plotProfileComparison(original_series, reconstructed_series, 
-    x_name, y_name, scale = "linear", title = None, name = None):
+    x_name, y_name, scale = "linear", name = None):
     
     figure_name = "profile_comparison"
     
     if name:
-        figure_name += "-" + name
+        figure_name += "-" + normaliseString(name)
     
     D = original_series.shape[0]
     
@@ -1807,16 +1812,13 @@ def plotProfileComparison(original_series, reconstructed_series,
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
-    x = numpy.linspace(0, D, D)
-    axis.plot(x, original_series[sort_indices], color = standard_palette[0],
-        label = 'Original', zorder = 1)
-    axis.scatter(x, reconstructed_series[sort_indices], color = standard_palette[1],
-        label = 'Reconstruction', zorder = 0)
+    index = numpy.linspace(0, D, D)
+    axis.plot(index, original_series[sort_indices],
+        color = standard_palette[0], label = 'Original', zorder = 1)
+    axis.scatter(index, reconstructed_series[sort_indices],
+        color = standard_palette[1], label = 'Reconstruction', zorder = 0)
     
     axis.legend()
-    
-    if title:
-        axis.set_title(title)
     
     axis.set_xscale(scale)
     axis.set_yscale(scale)

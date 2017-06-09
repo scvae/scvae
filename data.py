@@ -33,7 +33,7 @@ data_sets = {
         "tags": {
             "example": "cell",
             "feature": "gene",
-            "value": "count"
+            "value": "transcript count"
         },
         "split": False,
         "preprocessing methods": None,
