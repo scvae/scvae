@@ -1343,10 +1343,7 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     
     figure_name += "-classes"
     
-    if name:
-        if not isinstance(name, list):
-            name = [name]
-        figure_name += "-" + "-".join(map(normaliseString, name))
+    figure_name = figureName(figure_name, name)
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -1419,8 +1416,7 @@ def plotHistogram(series, title, cutoff = None, normed = False,
     
     figure_name += "-" + normaliseString(title)
     
-    if name:
-        figure_name += "-" + normaliseString(name)
+    figure_name = figureName(figure_name, name)
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -1456,10 +1452,7 @@ def plotHistogram(series, title, cutoff = None, normed = False,
 def plotSeries(series, x_label, y_label, scale = "linear", bar = False,
     name = None):
     
-    figure_name = "series"
-    
-    if name:
-        figure_name += "-" + normaliseString(name)
+    figure_name = figureName("series", name)
     
     D = series.shape[0]
     
@@ -1484,10 +1477,7 @@ def plotSeries(series, x_label, y_label, scale = "linear", bar = False,
 
 def plotLearningCurves(curves, model_type, name = None):
     
-    figure_name = "learning_curves"
-    
-    if name:
-        figure_name += "-" + name
+    figure_name = figureName("learning_curves", name)
     
     if model_type == "SNN":
         figure = pyplot.figure()
@@ -1583,10 +1573,7 @@ def plotKLDivergenceEvolution(KL_neurons, scale = "log", name = None):
     else:
         scale_label = ""
     
-    figure_name = "kl_divergence_evolution"
-    
-    if name:
-        figure_name += "-" + name
+    figure_name = figureName("kl_divergence_evolution", name)
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -1628,8 +1615,7 @@ def plotEvolutionOfCentroidProbabilities(probabilities, distribution,
     
     figure_name = "centroids_evolution-{}-probabilities".format(distribution)
     
-    if name:
-        figure_name += "-" + name
+    figure_name = figureName(figure_name, name)
     
     E, K = probabilities.shape
     
@@ -1669,8 +1655,7 @@ def plotEvolutionOfCentroidMeans(means, distribution, decomposed = False,
     
     figure_name = "centroids_evolution-{}-means".format(distribution)
     
-    if name:
-        figure_name += "-" + name
+    figure_name = figureName(figure_name, name)
     
     E, K, L = means.shape
     
@@ -1725,8 +1710,7 @@ def plotEvolutionOfCentroidCovarianceMatrices(covariance_matrices, distribution,
     figure_name = "centroids_evolution-{}-covariance_matrices".format(
         distribution)
     
-    if name:
-        figure_name += "-" + name
+    figure_name = figureName(figure_name, name)
     
     E, K, L, L = covariance_matrices.shape
     
@@ -1765,10 +1749,7 @@ def plotEvolutionOfCentroidCovarianceMatrices(covariance_matrices, distribution,
 
 def plotLearningCurvesForModels(models_summaries, name = None):
     
-    figure_name = "learning_curves"
-    
-    if name:
-        figure_name += "-" + name
+    figure_name = figureName("learning_curves", name)
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -1793,10 +1774,7 @@ def plotLearningCurvesForModels(models_summaries, name = None):
 
 def plotEvaluationsForModels(models_summaries, name = None):
     
-    figure_name = "evaluation"
-    
-    if name:
-        figure_name += "-" + name
+    figure_name = figureName("evaluation", name)
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -1829,10 +1807,7 @@ def plotEvaluationsForModels(models_summaries, name = None):
 def plotProfileComparison(original_series, reconstructed_series, 
     x_name, y_name, scale = "linear", name = None):
     
-    figure_name = "profile_comparison"
-    
-    if name:
-        figure_name += "-" + normaliseString(name)
+    figure_name = figureName("profile_comparison", name)
     
     D = original_series.shape[0]
     
@@ -1863,10 +1838,7 @@ def plotHeatMap(values, x_name, y_name, z_name = None,
     z_min = None, z_max = None, labels = None, center = None,
     name = None):
     
-    figure_name = "heat_map"
-    
-    if name:
-        figure_name += "-" + name
+    figure_name = figureName("heat_map", name)
     
     M, N = values.shape
     
@@ -2087,12 +2059,7 @@ def plotProbabilities(probabilities,
     x_label = None, y_label = None, palette = None, uniform = False,
     name = None):
     
-    figure_name = "probabilities"
-    
-    if name:
-        if not isinstance(name, list):
-            name = [name]
-        figure_name += "-" + "-".join(map(normaliseString, name))
+    figure_name = figureName("probabilities", name)
     
     if not x_label:
         x_label = "$k$"
@@ -2150,10 +2117,7 @@ def covarianceMatrixAsEllipse(covariance_matrix, mean, colour,
 
 def combineRandomImagesFromDataSet(data_set, number_of_random_examples, name = None):
     
-    image_name = "random_examples"
-    
-    if name:
-        image_name += "-" + normaliseString(name)
+    figure_name = figureName("random_examples", name)
     
     M = number_of_random_examples
     
@@ -2197,6 +2161,16 @@ def saveImage(image, image_name, results_directory):
     image_name += image_extension
     image_path = os.path.join(results_directory, image_name)
     image.save(image_path)
+
+def figureName(base_name, other_names = None):
+    figure_name = base_name
+    
+    if other_names:
+        if not isinstance(other_names, list):
+            other_names = [other_names]
+        figure_name += "-" + "-".join(map(normaliseString, other_names))
+    
+    return figure_name
 
 def saveFigure(figure, figure_name, results_directory):
     
