@@ -71,7 +71,7 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
         self.number_of_warm_up_epochs = number_of_warm_up_epochs
 
         self.epsilon = epsilon
-        self.log_sigma_support = lambda x: tf.clip_by_value(x, -3 + self.epsilon, 3 - self.epsilon)
+        self.log_var_support = lambda x: tf.clip_by_value(x, -3 + self.epsilon, 3 - self.epsilon)
         
         self.main_log_directory = log_directory
         self.main_results_directory = results_directory
@@ -382,12 +382,12 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                     ), 
                 [1, self.Dim_y, -1, self.Dim_z]
             )
-            q_z_log_sigma = tf.reshape(
+            q_z_log_var = tf.reshape(
                 dense_layer(
                     q_z_NN, 
                     self.Dim_z, 
-                    activation_fn=self.log_sigma_support,
-                    scope="log_sigma"
+                    activation_fn=self.log_var_support,
+                    scope="log_var"
                     ), 
                 [1, self.Dim_y, -1, self.Dim_z]
             )
@@ -395,7 +395,7 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
             ## (1, K, B, L)
             self.q_z_given_x_y = Normal(
                 loc=q_z_mu,
-                scale=tf.exp(q_z_log_sigma),
+                scale=tf.sqrt(softplus(q_z_log_var)),
                 validate_args=True
             )
 
@@ -472,13 +472,13 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
                 ),
                 [1, self.Dim_y, 1, self.Dim_z]
             )
-            p_z_log_sigma = tf.reshape(
+            p_z_log_var = tf.reshape(
                 dense_layer(
                     inputs = y_onehot,
                     num_outputs = self.Dim_z,
-                    activation_fn = self.log_sigma_support,
+                    activation_fn = self.log_var_support,
                     is_training = self.is_training,
-                    scope = 'log_sigma'
+                    scope = 'log_var'
                 ), 
                 [1, self.Dim_y, 1, self.Dim_z]
             )
@@ -486,7 +486,7 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
             ## (1, K, 1, L)
             self.p_z_given_y = Normal(
                 loc=p_z_mu,
-                scale=tf.exp(p_z_log_sigma),
+                scale=tf.sqrt(softplus(p_z_log_var)),
                 validate_args=True
             )
 
