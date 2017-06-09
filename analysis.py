@@ -1612,7 +1612,12 @@ def plotEvolutionOfLatentCentroids(centroids, distribution, name = None):
             axis.scatter(means[e, k, 0], means[e, k, 1],
                 color = colour)
             if e in [0, E-1]:
-                addCovariance(covariance_matrices[e, k], means[e, k], axis, colour)
+                ellipse = covarianceMatrixAsEllipse(
+                    covariance_matrices[e, k],
+                    means[e, k],
+                    colour
+                )
+                axis.add_patch(ellipse)
     
     seaborn.despine()
     
@@ -1942,22 +1947,42 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                     color = centroids_palette[k])
                 axis.scatter(means[k, 0], means[k, 1], marker = "x",
                     color = centroids_palette[k])
-                addCovariance(covariance_matrices[k], means[k], axis,
-                    colour = centroids_palette[k])
+                ellipse = covarianceMatrixAsEllipse(
+                    covariance_matrices[k],
+                    means[k],
+                    colour = centroids_palette[k]
+                )
+                axis.add_patch(ellipse)
             
             axis_cat.set_yticks([])
     
     return figure, figure_name
 
-def addCovariance(covariance, mean, axis, colour, label = None, linestyle = "solid"):
-    eigenvalues, eigenvectors = numpy.linalg.eig(covariance)
-    index = eigenvalues.argsort()[::-1]
-    eigenvalues = eigenvalues[index]
-    eigenvectors = eigenvectors[:, index]
+def covarianceMatrixAsEllipse(covariance_matrix, mean, colour,
+    linestyle = "solid", radius_stddev = 1, label = None):
+    
+    eigenvalues, eigenvectors = numpy.linalg.eig(covariance_matrix)
+    indices_sorted_ascending = eigenvalues.argsort()[::-1]
+    eigenvalues = eigenvalues[indices_sorted_ascending]
+    eigenvectors = eigenvectors[:, indices_sorted_ascending]
+    
     lambda_1, lambda_2 = numpy.sqrt(eigenvalues)
-    alpha = numpy.rad2deg(numpy.arctan(eigenvectors[1, 0] / eigenvectors[0, 0]))
-    ellipse = matplotlib.patches.Ellipse(xy = mean, width = 2 * lambda_1, height = 2 * lambda_2, angle = alpha, linewidth = 2, linestyle = linestyle, facecolor = "none", edgecolor = colour, label = label)
-    axis.add_patch(ellipse)
+    
+    theta = numpy.degrees(numpy.arctan2(eigenvectors[1, 0], eigenvectors[0, 0]))
+    
+    ellipse = matplotlib.patches.Ellipse(
+        xy = mean,
+        width  = 2 * radius_stddev * lambda_1,
+        height = 2 * radius_stddev * lambda_2,
+        angle = theta,
+        linewidth = 2,
+        linestyle = linestyle,
+        facecolor = "none",
+        edgecolor = colour,
+        label = label
+    )
+    
+    return ellipse
 
 def combineRandomImagesFromDataSet(data_set, number_of_random_examples, name = None):
     
