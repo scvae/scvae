@@ -686,6 +686,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             reconstructed_test_set.values,
             x_name = test_set.tags["feature"].capitalize() + "s",
             y_name = test_set.tags["example"].capitalize() + "s",
+            z_name = test_set.tags["value"].capitalize() + "s",
             name = "reconstruction"
         )
         saveFigure(figure, figure_name, results_directory)
@@ -702,6 +703,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             x_diff,
             x_name = test_set.tags["feature"].capitalize() + "s",
             y_name = test_set.tags["example"].capitalize() + "s",
+            z_name = "Differences",
             name = "difference",
             center = 0
         )
@@ -719,6 +721,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             x_log_ratio,
             x_name = test_set.tags["feature"].capitalize() + "s",
             y_name = test_set.tags["example"].capitalize() + "s",
+            z_name = "log-ratios",
             name = "log_ratio",
             center = 0
         )
@@ -760,19 +763,18 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     results_directory = "results"):
     
     centroids_original = centroids
-
+    
     if not isinstance(data_sets, (list, tuple)):
         data_sets = [data_sets]
     
     if not isinstance(other_data_sets, (list, tuple)):
         other_data_sets = [other_data_sets]
     elif other_data_sets == []:
-        for _ in range(len(data_sets)):
-            other_data_sets.append(None)
+        other_data_sets = [None] * len(data_sets)
     
     if len(data_sets) != len(other_data_sets):
-        raise ValueError("Lists of data sets and alternative data sets",
-            "do not have the same length.")
+        raise ValueError("Lists of data sets and alternative data sets" +
+            " do not have the same length.")
     
     ID = None
     
@@ -1894,6 +1896,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             cmap = colour_map)
         colour_bar = axis.figure.colorbar(scatter_plot)
         colour_bar.outline.set_linewidth(0)
+        colour_bar.set_label("Count sum")
     
     elif colour_coding == "feature":
         
@@ -1903,8 +1906,8 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         if feature_index > colouring_data_set.number_of_features:
             raise ValueError("Feature number higher than number of features.")
         
-        figure_name += "-{}".format(
-            normaliseString(colouring_data_set.feature_names[feature_index]))
+        feature_name = colouring_data_set.feature_names[feature_index]
+        figure_name += "-{}".format(normaliseString(feature_name))
         
         f = colouring_data_set.values[shuffled_indices,
             feature_index].reshape(-1, 1)
@@ -1913,6 +1916,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             cmap = colour_map)
         colour_bar = axis.figure.colorbar(scatter_plot)
         colour_bar.outline.set_linewidth(0)
+        colour_bar.set_label(feature_name)
     
     else:
         axis.scatter(values[:, 0], values[:, 1], color = standard_palette[0])
