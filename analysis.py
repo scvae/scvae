@@ -359,14 +359,36 @@ def analyseModel(model, results_directory = "results"):
                     distribution))
                 centroids_time_start = time()
                 
-                centroid_probailities = distribution_centroids["probabilities"]
+                centroid_probabilities = distribution_centroids["probabilities"]
+                centroid_means = distribution_centroids["means"]
+                centroid_covariance_matrices = \
+                    distribution_centroids["covariance_matrices"]
                 
-                figure, figure_name = plotEvolutionOfLatentProbabilities(
-                    centroid_probailities, distribution)
+                E, K, L = centroid_means.shape
+                
+                if L > 2:
+                    _, distribution_centroids_decomposed = decompose(
+                        centroid_means[-1],
+                        centroids = distribution_centroids
+                    )
+                    decomposed = True
+                else:
+                    distribution_centroids_decomposed = distribution_centroids
+                    decomposed = False
+                
+                centroid_means_decomposed = \
+                    distribution_centroids_decomposed["means"]
+                
+                figure, figure_name = plotEvolutionOfCentroidProbabilities(
+                    centroid_probabilities, distribution)
                 saveFigure(figure, figure_name, results_directory)
                 
-                figure, figure_name = plotEvolutionOfLatentCentroids(
-                    centroids, distribution)
+                figure, figure_name = plotEvolutionOfCentroidMeans(
+                    centroid_means_decomposed, distribution, decomposed)
+                saveFigure(figure, figure_name, results_directory)
+                
+                figure, figure_name = plotEvolutionOfCentroidCovarianceMatrices(
+                    centroid_covariance_matrices, distribution)
                 saveFigure(figure, figure_name, results_directory)
                 
                 centroids_duration = time() - centroids_time_start
@@ -1227,6 +1249,8 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
     
     # Only supports centroids without data sets as top levels
     if centroids and method != "t_sne":
+        if "means" in centroids:
+            centroids = {"unknown": centroids}
         W = model.components_
         centroids_decomposed = {}
         for distribution, distribution_centroids in centroids.items():
@@ -1257,6 +1281,8 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
                     centroids_distribution_decomposed
             else:
                 centroids_decomposed[distribution] = None
+        if "unknown" in centroids_decomposed:
+            centroids_decomposed = centroids_decomposed["unknown"]
     else:
         centroids_decomposed = None
     
@@ -1520,8 +1546,6 @@ def plotKLDivergenceEvolution(KL_neurons, scale = "log", name = None):
     else:
         scale_label = ""
     
-    name = "kl_divergence"
-    
     figure_name = "kl_divergence_evolution"
     
     if name:
@@ -1555,11 +1579,17 @@ def plotKLDivergenceEvolution(KL_neurons, scale = "log", name = None):
     
     return figure, figure_name
 
-def plotEvolutionOfLatentProbabilities(probabilities, distribution, name = None):
+def plotEvolutionOfCentroidProbabilities(probabilities, distribution,
+    name = None):
     
     distribution = normaliseString(distribution)
     
-    figure_name = "latent_evolution-{}-probabilities".format(distribution)
+    if distribution == "prior":
+        distribution_symbol = "\\theta"
+    elif distribution == "posterior":
+        distribution_symbol = "\\phi"
+    
+    figure_name = "centroids_evolution-{}-probabilities".format(distribution)
     
     if name:
         figure_name += "-" + name
@@ -1573,51 +1603,124 @@ def plotEvolutionOfLatentProbabilities(probabilities, distribution, name = None)
     axis = figure.add_subplot(1, 1, 1)
     
     for k in range(K):
-        axis.plot(epochs, probabilities[:, k], color = centroids_palette[k])
+        axis.plot(epochs, probabilities[:, k], color = centroids_palette[k],
+            label = "$k = {}$".format(k))
+    
+    axis.set_xlabel("Epochs")
+    axis.set_ylabel("$\pi_{}^k$".format(distribution_symbol))
+    
+    axis.legend(loc = "best")
     
     seaborn.despine()
     
     return figure, figure_name
 
-def plotEvolutionOfLatentCentroids(centroids, distribution, name = None):
+def plotEvolutionOfCentroidMeans(means, distribution, decomposed = False,
+    name = None):
     
     distribution = normaliseString(distribution)
     
-    figure_name = "latent_evolution-{}-centroids".format(distribution)
+    if distribution == "prior":
+        distribution_symbol = "\\theta"
+    elif distribution == "posterior":
+        distribution_symbol = "\\phi"
+    
+    if decomposed:
+        decomposed_label = "PC "
+    else:
+        decomposed_label = ""
+    
+    figure_name = "centroids_evolution-{}-means".format(distribution)
     
     if name:
         figure_name += "-" + name
     
-    means = centroids[distribution]["means"]
-    E, K, L = centroids[distribution]["means"].shape
+    E, K, L = means.shape
     
     if L > 2:
-        _, centroids_decomposed = decompose(means.reshape(-1, L),
-            centroids = centroids)
-    else:
-        centroids_decomposed = centroids
+        raise ValueError("Dimensions of means should be 2.")
     
-    means = centroids_decomposed[distribution]["means"]
-    covariance_matrices = centroids_decomposed[distribution]\
-        ["covariance_matrices"]
+    centroids_palette = darker_palette(K)
+    epochs = numpy.arange(E) + 1
     
-    centroids_palette = numpy.array(darker_palette(K))
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    colour_bar_scatter_plot = axis.scatter(
+        means[:, 0, 0], means[:, 0, 1], c = epochs,
+        cmap = seaborn.dark_palette((0.7, 0.7, 0.7), as_cmap = True),
+        zorder = 0
+    )
+    
+    for k in range(K):
+        colour = centroids_palette[k]
+        colour_map = seaborn.dark_palette(colour, as_cmap = True)
+        axis.plot(means[:, k, 0], means[:, k, 1], color = colour,
+            label = "$k = {}$".format(k), zorder = k + 1)
+        axis.scatter(means[:, k, 0], means[:, k, 1], c = epochs,
+            cmap = colour_map, zorder = K + k + 1)
+    
+    axis.legend(loc = "best")
+    
+    seaborn.despine()
+    
+    colour_bar = figure.colorbar(colour_bar_scatter_plot)
+    colour_bar.outline.set_linewidth(0)
+    colour_bar.set_label("Epochs")
+    
+    axis.set_xlabel("$\mu_{}^{{(\\mathrm{{{}}}1)}}(y = k)$".format(
+        distribution_symbol, decomposed_label))
+    axis.set_ylabel("$\mu_{}^{{(\\mathrm{{{}}}2)}}(y = k)$".format(
+        distribution_symbol, decomposed_label))
+    
+    return figure, figure_name
+
+def plotEvolutionOfCentroidCovarianceMatrices(covariance_matrices, distribution,
+    name = None):
+    
+    distribution = normaliseString(distribution)
+    
+    if distribution == "prior":
+        distribution_symbol = "\\theta"
+    elif distribution == "posterior":
+        distribution_symbol = "\\phi"
+    
+    figure_name = "centroids_evolution-{}-covariance_matrices".format(
+        distribution)
+    
+    if name:
+        figure_name += "-" + name
+    
+    E, K, L, L = covariance_matrices.shape
+    
+    determinants = numpy.linalg.det(covariance_matrices)
+    
+    if determinants.all() > 0:
+        line_range_ratio = numpy.empty(K)
+        for k in range(K):
+            line_range_ratio[k] = determinants[k].max() / determinants[k].min()
+        range_ratio = line_range_ratio.max() / line_range_ratio.min()
+        if range_ratio > 1e2:
+            y_scale = "log"
+        else:
+            y_scale = "linear"
+    
+    centroids_palette = darker_palette(K)
+    epochs = numpy.arange(E) + 1
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
     for k in range(K):
-        for e in range(E):
-            colour = (e / (2*E) + 0.5) * centroids_palette[k]
-            axis.scatter(means[e, k, 0], means[e, k, 1],
-                color = colour)
-            if e in [0, E-1]:
-                ellipse = covarianceMatrixAsEllipse(
-                    covariance_matrices[e, k],
-                    means[e, k],
-                    colour
-                )
-                axis.add_patch(ellipse)
+        axis.plot(epochs, determinants[:, k], color = centroids_palette[k],
+            label = "$k = {}$".format(k))
+    
+    axis.set_xlabel("Epochs")
+    axis.set_ylabel("$|\Sigma_{}(y = k)|$".format(distribution_symbol))
+    
+    axis.set_yscale(y_scale)
+    
+    axis.legend(loc = "best")
     
     seaborn.despine()
     
@@ -1899,7 +2002,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         n = colouring_data_set.count_sum[shuffled_indices]
         scatter_plot = axis.scatter(values[:, 0], values[:, 1], c = n,
             cmap = colour_map)
-        colour_bar = axis.figure.colorbar(scatter_plot)
+        colour_bar = figure.colorbar(scatter_plot)
         colour_bar.outline.set_linewidth(0)
         colour_bar.set_label("Count sum")
     
@@ -1919,7 +2022,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         
         scatter_plot = axis.scatter(values[:, 0], values[:, 1], c = f,
             cmap = colour_map)
-        colour_bar = axis.figure.colorbar(scatter_plot)
+        colour_bar = figure.colorbar(scatter_plot)
         colour_bar.outline.set_linewidth(0)
         colour_bar.set_label(feature_name)
     
