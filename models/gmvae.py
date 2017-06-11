@@ -20,7 +20,7 @@ from data import DataSet
 from analysis import analyseIntermediateResults
 
 
-class GaussianMixtureVariationalAutoEncoder_M2(object):
+class GaussianMixtureVariationalAutoEncoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         number_of_monte_carlo_samples, number_of_importance_samples,
         analytical_kl_term = False,
@@ -32,9 +32,9 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
         log_directory = "log", results_directory = "results"):
         
         # Class setup
-        super(GaussianMixtureVariationalAutoEncoder_M2, self).__init__()
+        super(GaussianMixtureVariationalAutoEncoder, self).__init__()
         
-        self.type = "GMVAE_M2"
+        self.type = "GMVAE"
         
         self.Dim_x = feature_size
         self.Dim_z = latent_size
@@ -516,7 +516,7 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
 
         # p(y)
         with tf.variable_scope("p_y"):
-            p_y_logits = tf.ones((self.Dim_y))
+            p_y_logits = tf.ones((1, self.Dim_y))
             ## (1, K)
             self.p_y = Categorical(
                 logits = p_y_logits,
@@ -758,8 +758,8 @@ class GaussianMixtureVariationalAutoEncoder_M2(object):
 
 
         # KL_y (B)
-        # self.KL_y = tf.reduce_mean(kl(self.q_y_given_x, self.p_y))
-        self.KL_y = kl(self.q_y, self.p_y)
+        self.KL_y = tf.reduce_mean(kl(self.q_y_given_x, self.p_y))
+        # self.KL_y = kl(self.q_y, self.p_y)
 
         self.KL = tf.add_n([self.KL_z, self.KL_y], name = 'KL')
         tf.add_to_collection('losses', self.KL)

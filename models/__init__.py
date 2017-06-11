@@ -3,6 +3,6 @@ from models.variational_auto_encoder import VariationalAutoEncoder \
     as OriginalVariationalAutoEncoder
 from models.iw_vae import ImportanceWeightedVariationalAutoEncoder
 from models.simple_neural_network import SimpleNeuralNetwork
-from models.gmm_vae import GaussianMixtureVariationalAutoEncoder
 from models.cvae import ClusterVariationalAutoEncoder
-from models.gmm_vae_M2 import GaussianMixtureVariationalAutoEncoder_M2
+from models.gmvae import GaussianMixtureVariationalAutoEncoder
+from models.gmm_vae import GaussianMixtureVariationalAutoEncoder_alternative

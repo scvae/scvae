@@ -18,7 +18,7 @@ from auxiliary import formatDuration, normaliseString
 
 from data import DataSet
 
-class GaussianMixtureVariationalAutoEncoder(object):
+class GaussianMixtureVariationalAutoEncoder_alternative(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         number_of_monte_carlo_samples,
         number_of_importance_samples,
@@ -32,9 +32,9 @@ class GaussianMixtureVariationalAutoEncoder(object):
         log_directory = "log"):
         
         # Class setup
-        super(GaussianMixtureVariationalAutoEncoder, self).__init__()
+        super(GaussianMixtureVariationalAutoEncoder_alternative, self).__init__()
         
-        self.type = "GMM-VAE"
+        self.type = "GMVAE_alt"
         
         self.feature_size = feature_size
         self.latent_size = latent_size

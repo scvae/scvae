@@ -8,9 +8,9 @@ from models import (
     OriginalVariationalAutoEncoder,
     ImportanceWeightedVariationalAutoEncoder,
     SimpleNeuralNetwork,
-    GaussianMixtureVariationalAutoEncoder,
     ClusterVariationalAutoEncoder,
-    GaussianMixtureVariationalAutoEncoder_M2
+    GaussianMixtureVariationalAutoEncoder,
+    GaussianMixtureVariationalAutoEncoder_alternative
 )
 
 from auxiliary import title, subtitle
@@ -210,10 +210,11 @@ def main(data_set_name, data_directory = "data",
                 results_directory = results_directory
             )
 
-        elif model_type == "GMMVAE":
+        elif model_type == "GMVAE_alt":
             number_of_importance_samples = model_configuration[
                 "number of importance samples"]
-            model = GaussianMixtureVariationalAutoEncoder(
+            model = \
+            GaussianMixtureVariationalAutoEncoder_alternative(
                 feature_size, latent_size, hidden_sizes,
                 number_of_monte_carlo_samples,
                 number_of_importance_samples, 
@@ -226,10 +227,10 @@ def main(data_set_name, data_directory = "data",
                 number_of_warm_up_epochs,
                 log_directory = log_directory
             )
-        elif model_type == "GMVAE_M2":
+        elif model_type == "GMVAE":
             number_of_importance_samples = model_configuration[
                 "number of importance samples"]
-            model = GaussianMixtureVariationalAutoEncoder_M2(
+            model = GaussianMixtureVariationalAutoEncoder(
                 feature_size, latent_size, hidden_sizes,
                 number_of_monte_carlo_samples,
                 number_of_importance_samples, 
@@ -378,7 +379,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                         "number of monte carlo samples"] = \
                         network["number of monte carlo samples"]
                     
-                    if "IW" in model_type or model_type in ["GMMVAE", "CVAE"]:
+                    if "IW" in model_type or model_type in ["GMVAE", "CVAE", "GMVAE_alt"]:
                         model_configuration[
                             "number of importance samples"] = \
                             network["number of importance samples"]
@@ -395,7 +396,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
                             latent_distribution
                         
                         if "mixture" in latent_distribution \
-                            or model_type in ["GMMVAE", "CVAE", "GMVAE_M2"]:
+                            or model_type in ["GMVAE", "CVAE", "GMVAE_alt"]:
                             
                             sub_configurations_product = itertools.product(
                                 likelihood["numbers of latent clusters"],
@@ -484,7 +485,7 @@ def setUpModelConfigurations(model_configurations_path, model_type,
             
             # Importance samples
             
-            if "IW" in model_type or model_type == "GMMVAE" or model_type == "CVAE" or model_type == "GMVAE_M2":
+            if "IW" in model_type or model_type in ["GMVAE", "CVAE","GMVAE_alt"]:
                 
                 if len(number_of_importance_samples) > 1:
                     number_of_importance_samples = {
@@ -593,7 +594,7 @@ def validateModelConfiguration(model_configuration):
             latent_distribution_error = "Mixture latent distribution with " + \
                 "original variational auto-encoder."
             latent_distribution_validity = False
-        elif model_type in ["CVAE", "GMVAE_M2"] and "mixture" not in latent_distribution:
+        elif model_type in ["CVAE", "GMVAE", "GMVAE_alt"] and "mixture" not in latent_distribution:
             latent_distribution_error = "No mixture latent distribution with " + \
                 "cluster variational auto-encoder."
             latent_distribution_validity = False
