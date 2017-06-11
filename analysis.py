@@ -431,16 +431,12 @@ def analyseIntermediateResults(latent_values, data_set, centroids, epoch,
         latent_set_name, epoch + 1))
     
     if latent_values.shape[1] == 2:
-        symbol = "$z$"
-        figure_labels = {
-            "title": None,
-            "x label": symbol + "$_1$",
-            "y label": symbol + "$_2$"
-        }
-        
+        decomposition_method = ""
         latent_values_decomposed = latent_values
         centroids_decomposed = centroids
-    else:    
+    else:
+        decomposition_method = "PCA"
+        
         print("Decomposing", latent_set_name, "using PCA.")
         decompose_time_start = time()
         
@@ -457,11 +453,24 @@ def analyseIntermediateResults(latent_values, data_set, centroids, epoch,
             formatDuration(decompose_duration))
         )
         
-        figure_labels = {
-            "title": "PCA",
-            "x label": "PC 1",
-            "y label": "PC 2"
-        }
+    symbol = "z"
+    
+    x_label = axisLabelForSymbol(
+        symbol = symbol,
+        coordinate = 1,
+        decomposition_method = decomposition_method,
+    )
+    y_label = axisLabelForSymbol(
+        symbol = symbol,
+        coordinate = 2,
+        decomposition_method = decomposition_method,
+    )
+    
+    figure_labels = {
+        "title": decomposition_method,
+        "x label": x_label,
+        "y label": y_label
+    }
     
     plot_time_start = time()
     
@@ -682,7 +691,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         reconstructed_test_set,
         decomposition_methods = decomposition_methods,
         highlight_feature_indices = highlight_feature_indices,
-        symbol = "$x$",
+        symbol = "x",
         title = "reconstruction space",
         results_directory = results_directory
     )
@@ -694,7 +703,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         reconstructed_test_set,
         decomposition_methods = decomposition_methods,
         highlight_feature_indices = highlight_feature_indices,
-        symbol = "$x$",
+        symbol = "x",
         title = "original space",
         results_directory = results_directory
     )
@@ -781,7 +790,6 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             colouring_data_set = test_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
-            symbol = "$z$",
             title = "latent space",
             specifier = lambda data_set: data_set.version,
             results_directory = results_directory
@@ -792,7 +800,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
 
 def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
-    highlight_feature_indices = [], symbol = "$x$",
+    highlight_feature_indices = [], symbol = None,
     title = "data set", specifier = None,
     results_directory = "results"):
     
@@ -849,12 +857,6 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
             
             if not decomposition_method:
                 if data_set.number_of_features == 2:
-                    figure_labels = {
-                        "title": "none",
-                        "x label": symbol + "$_1$",
-                        "y label": symbol + "$_2$"
-                    }
-                
                     values_decomposed = data_set.values
                     centroids_decomposed = centroids
                     other_values_decomposed = other_values
@@ -882,27 +884,28 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     title_with_ID.capitalize(),
                     formatDuration(decompose_duration)
                 ))
-            
-                if decomposition_method == "PCA":
-                    figure_labels = {
-                        "title": "PCA",
-                        "x label": "PC 1",
-                        "y label": "PC 2"
-                    }
-                elif decomposition_method == "ICA":
-                    figure_labels = {
-                        "title": "ICA",
-                        "x label": "IC 1",
-                        "y label": "IC 2"
-                    }
-                elif decomposition_method == "t-SNE":
-                    figure_labels = {
-                        "title": "$t$-SNE",
-                        "x label": "$t$-SNE 1",
-                        "y label": "$t$-SNE 2"
-                    }
                 
                 print()
+            
+            if not symbol:
+                symbol = data_set.version
+            
+            x_label = axisLabelForSymbol(
+                symbol = symbol,
+                coordinate = 1,
+                decomposition_method = decomposition_method,
+            )
+            y_label = axisLabelForSymbol(
+                symbol = symbol,
+                coordinate = 2,
+                decomposition_method = decomposition_method,
+            )
+    
+            figure_labels = {
+                "title": decomposition_method,
+                "x label": x_label,
+                "y label": y_label
+            }
             
             if other_data_set:
                 plot_values_decomposed = other_values_decomposed
@@ -1079,10 +1082,16 @@ def analyseCentroidProbabilities(centroids, results_directory = "results"):
                 distribution_centroids["probabilities"]
             K = len(centroid_probabilities)
             centroids_palette = darker_palette(K)
+            x_label = "$k$"
+            y_label = axisLabelForSymbol(
+                symbol = "\\pi",
+                distribution = normaliseString(distribution),
+                suffix = "^k"
+            )
             figure, figure_name = plotProbabilities(
                 centroid_probabilities,
-                x_label = None,
-                y_label = None,
+                x_label = x_label,
+                y_label = y_label,
                 palette = centroids_palette,
                 uniform = False,
                 name = distribution
@@ -1608,10 +1617,11 @@ def plotEvolutionOfCentroidProbabilities(probabilities, distribution,
     
     distribution = normaliseString(distribution)
     
-    if distribution == "prior":
-        distribution_symbol = "\\theta"
-    elif distribution == "posterior":
-        distribution_symbol = "\\phi"
+    y_label = axisLabelForSymbol(
+        symbol = "\\pi",
+        distribution = distribution,
+        suffix = "^k"
+    )
     
     figure_name = "centroids_evolution-{}-probabilities".format(distribution)
     
@@ -1630,7 +1640,7 @@ def plotEvolutionOfCentroidProbabilities(probabilities, distribution,
             label = "$k = {}$".format(k))
     
     axis.set_xlabel("Epochs")
-    axis.set_ylabel("$\pi_{}^k$".format(distribution_symbol))
+    axis.set_ylabel(y_label)
     
     axis.legend(loc = "best")
     
@@ -1641,17 +1651,28 @@ def plotEvolutionOfCentroidProbabilities(probabilities, distribution,
 def plotEvolutionOfCentroidMeans(means, distribution, decomposed = False,
     name = None):
     
-    distribution = normaliseString(distribution)
-    
-    if distribution == "prior":
-        distribution_symbol = "\\theta"
-    elif distribution == "posterior":
-        distribution_symbol = "\\phi"
-    
+    symbol = "\\mu"
     if decomposed:
-        decomposed_label = "PC "
+        decomposition_method = "PCA"
     else:
-        decomposed_label = ""
+        decomposition_method = ""
+    distribution = normaliseString(distribution)
+    suffix = "(y = k)"
+    
+    x_label = axisLabelForSymbol(
+        symbol = symbol,
+        coordinate = 1,
+        decomposition_method = decomposition_method,
+        distribution = distribution,
+        suffix = suffix
+    )
+    y_label = axisLabelForSymbol(
+        symbol = symbol,
+        coordinate = 2,
+        decomposition_method = decomposition_method,
+        distribution = distribution,
+        suffix = suffix
+    )
     
     figure_name = "centroids_evolution-{}-means".format(distribution)
     
@@ -1690,10 +1711,8 @@ def plotEvolutionOfCentroidMeans(means, distribution, decomposed = False,
     colour_bar.outline.set_linewidth(0)
     colour_bar.set_label("Epochs")
     
-    axis.set_xlabel("$\mu_{}^{{(\\mathrm{{{}}}1)}}(y = k)$".format(
-        distribution_symbol, decomposed_label))
-    axis.set_ylabel("$\mu_{}^{{(\\mathrm{{{}}}2)}}(y = k)$".format(
-        distribution_symbol, decomposed_label))
+    axis.set_xlabel(x_label)
+    axis.set_ylabel(y_label)
     
     return figure, figure_name
 
@@ -1702,10 +1721,12 @@ def plotEvolutionOfCentroidCovarianceMatrices(covariance_matrices, distribution,
     
     distribution = normaliseString(distribution)
     
-    if distribution == "prior":
-        distribution_symbol = "\\theta"
-    elif distribution == "posterior":
-        distribution_symbol = "\\phi"
+    y_label = axisLabelForSymbol(
+        symbol = "\\Sigma",
+        distribution = distribution,
+        prefix = "|",
+        suffix = "(y = k)|"
+    )
     
     figure_name = "centroids_evolution-{}-covariance_matrices".format(
         distribution)
@@ -1737,7 +1758,7 @@ def plotEvolutionOfCentroidCovarianceMatrices(covariance_matrices, distribution,
             label = "$k = {}$".format(k))
     
     axis.set_xlabel("Epochs")
-    axis.set_ylabel("$|\Sigma_{}(y = k)|$".format(distribution_symbol))
+    axis.set_ylabel(y_label)
     
     axis.set_yscale(y_scale)
     
@@ -1892,12 +1913,14 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         x_label = figure_labels["x label"]
         y_label = figure_labels["y label"]
     else:
-        title = None
+        title = "none"
         x_label = "$x$"
         y_label = "$y$"
     
-    if title:
-        figure_name += "-" + normaliseString(title)
+    if not title:
+        title = "none"
+    
+    figure_name += "-" + normaliseString(title)
     
     if colour_coding:
         colour_coding = normaliseString(colour_coding)
@@ -2055,9 +2078,8 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     
     return figure, figure_name
 
-def plotProbabilities(probabilities,
-    x_label = None, y_label = None, palette = None, uniform = False,
-    name = None):
+def plotProbabilities(probabilities, x_label = None, y_label = None, 
+    palette = None, uniform = False, name = None):
     
     figure_name = figureName("probabilities", name)
     
@@ -2414,3 +2436,58 @@ def loadKLDivergences(model):
             KL_neurons[scalar.step - 1][i] = scalar.value
     
     return KL_neurons
+
+def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
+    distribution = None, prefix = "", suffix = ""):
+    
+    if decomposition_method:
+        decomposition_method = normaliseString(decomposition_method)
+    
+    if decomposition_method == "pca":
+        decomposition_label = "PC"
+    elif decomposition_method == "ica":
+        decomposition_label = "IC"
+    elif decomposition_method == "t_sne":
+        decomposition_label = "$t$-SNE"
+    else:
+        decomposition_label = ""
+    
+    if decomposition_label:
+        decomposition_label = "\\mathrm{{{}}}".format(decomposition_label)
+    
+    if coordinate:
+        coordinate_text = "{{" + decomposition_label + " " + str(coordinate) + "}}"
+    else:
+        coordinate_text = ""
+    
+    if distribution == "prior":
+        distribution_symbol = "\\theta"
+    elif distribution == "posterior":
+        distribution_symbol = "\\phi"
+    else:
+        distribution_symbol = ""
+    
+    if distribution_symbol and coordinate_text:
+        distribution_position = "_"
+        coordinate_position = "^"
+    elif distribution_symbol and not coordinate_text:
+        distribution_position = "_"
+        coordinate_position = ""
+    elif not distribution_symbol and coordinate_text:
+        distribution_position = ""
+        coordinate_position = "_"
+    else:
+        distribution_position = ""
+        coordinate_position = ""
+    
+    if coordinate_position == "^":
+        coordinate_text = "{{(" + coordinate_text + ")}}"
+    elif coordinate_position == "_":
+        coordinate_text = "{{" + coordinate_text + "}}"
+    
+    axis_label = "$" + prefix + symbol \
+        + distribution_position + distribution_symbol \
+        + coordinate_position + coordinate_text \
+        + suffix + "$"
+    
+    return axis_label
