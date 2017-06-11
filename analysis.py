@@ -474,7 +474,8 @@ def analyseIntermediateResults(latent_values, data_set, centroids, epoch,
     
     plot_time_start = time()
     
-    name = "latent_space-epoch-{}".format(epoch + 1)
+    epoch_name = "epoch-{}".format(epoch + 1)
+    name = "latent_space-" + epoch_name
     
     if data_set.labels is not None:
         figure, figure_name = plotValues(
@@ -504,6 +505,9 @@ def analyseIntermediateResults(latent_values, data_set, centroids, epoch,
             name = name
         )
         saveFigure(figure, figure_name, results_directory)
+    
+    if centroids:
+        analyseCentroidProbabilities(centroids, epoch_name, results_directory)
     
     plot_duration = time() - plot_time_start
     print("{} plotted and saved ({}).".format(
@@ -796,7 +800,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         )
         
         if centroids:
-            analyseCentroidProbabilities(centroids, results_directory)
+            analyseCentroidProbabilities(centroids,
+                results_directory = results_directory)
 
 def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
@@ -900,7 +905,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 coordinate = 2,
                 decomposition_method = decomposition_method,
             )
-    
+            
             figure_labels = {
                 "title": decomposition_method,
                 "x label": x_label,
@@ -1071,10 +1076,14 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
             
             print()
 
-def analyseCentroidProbabilities(centroids, results_directory = "results"):
+def analyseCentroidProbabilities(centroids, name = None,
+    results_directory = "results"):
     
     print("Plotting centroid probabilities.")
     plot_time_start = time()
+    
+    if name:
+        name = normaliseString(name)
     
     for distribution, distribution_centroids in centroids.items():
         if distribution_centroids:
@@ -1088,13 +1097,17 @@ def analyseCentroidProbabilities(centroids, results_directory = "results"):
                 distribution = normaliseString(distribution),
                 suffix = "^k"
             )
+            if name:
+                plot_name = [name, distribution]
+            else:
+                plot_name = distribution
             figure, figure_name = plotProbabilities(
                 centroid_probabilities,
                 x_label = x_label,
                 y_label = y_label,
                 palette = centroids_palette,
                 uniform = False,
-                name = distribution
+                name = plot_name
             )
             saveFigure(figure, figure_name, results_directory)
     
