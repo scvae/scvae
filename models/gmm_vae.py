@@ -579,10 +579,14 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         z_reshaped = [tf.reshape(self.z[k], [self.number_of_iw_samples, self.number_of_mc_samples, -1, self.latent_size]) for k in range(self.K)]
 
         # H[q(y|x)] = -E_{q(y|x)}[ log(q(y|x)) ]
+        # (B)
         q_y_given_x_entropy = self.q_y_given_x.entropy()
         # H[q(y|x)||p(y)] = -E_{q(y|x)}[ log(p(y)) ] = -E_{q(y|x)}[ log(1/K) ] = log(K)
+        # ()
         p_y_cross_entropy = numpy.log(self.K)
-        KL_y = q_y_given_x_entropy - p_y_cross_entropy
+        # KL(q||p) = -E_q(y|x)[log p(y)/q(y|x)] = -E_q(y|x)[log p(y)] + E_q(y|x)[log q(y|x)] = H(q|p) - H(q)
+        # (B)
+        KL_y = p_y_cross_entropy - q_y_given_x_entropy
 
         KL_z = [None] * self.K
         KL_z_mean = [None] * self.K
@@ -636,16 +640,17 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
 
         log_likelihood_x_z_sum = tf.add_n(log_likelihood_x_z)
 
-        self.lower_bound = tf.reduce_mean(
-            KL_y + log_likelihood_x_z_sum
-        )
-        self.ELBO = self.lower_bound
+        # self.lower_bound = tf.reduce_mean(
+        #     log_likelihood_x_z_sum - KL_y
+        # )
+        # (B) --> ()
         self.KL_z = tf.reduce_mean(tf.add_n(KL_z_mean))
         self.KL_y = tf.reduce_mean(KL_y)
         self.KL = self.KL_z + self.KL_y
         self.KL_all = tf.expand_dims(self.KL, -1)
         self.ENRE = tf.reduce_mean(tf.add_n(log_p_x_given_z_mean))
-
+        self.lower_bound = self.ENRE - self.KL
+        self.ELBO = self.lower_bound
         tf.add_to_collection('losses', self.lower_bound)
         
     
