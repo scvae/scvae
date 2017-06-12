@@ -2168,7 +2168,7 @@ def covarianceMatrixAsEllipse(covariance_matrix, mean, colour,
 
 def combineRandomImagesFromDataSet(data_set, number_of_random_examples, name = None):
     
-    figure_name = figureName("random_examples", name)
+    image_name = figureName("random_examples", name)
     
     M = number_of_random_examples
     
