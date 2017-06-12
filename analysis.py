@@ -327,6 +327,28 @@ def analyseModel(model, results_directory = "results"):
     
     print()
     
+    # Accuracies
+    
+    accuracies_time_start = time()
+    
+    accuracies = loadAccuracies(model,
+        data_set_kinds = ["training", "validation"])
+    
+    if accuracies is not None:
+    
+        heading("Accuracies")
+    
+        print("Plotting accuracies.")
+    
+        figure, figure_name = plotAccuracies(accuracies)
+        saveFigure(figure, figure_name, results_directory)
+    
+        accuracies_duration = time() - accuracies_time_start
+        print("Accuracies plotted and saved ({}).".format(
+            formatDuration(accuracies_duration)))
+    
+        print()
+    
     # Heat map of KL for all latent neurons
     
     if "AE" in model.type and model.type not in ["CVAE", "GMVAE", "GMVAE_alt"]:
@@ -538,6 +560,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     # Loading
     
     evaluation_test = loadLearningCurves(model, "test")
+    accuracy_test = loadAccuracies(model, "test")
     number_of_epochs_trained = loadNumberOfEpochsTrained(model)
     
     # Metrics
@@ -605,22 +628,25 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                     evaluation_test["reconstruction_error"][-1])
             if model.type not in ["CVAE", "GMVAE", "GMVAE_alt"]:
                 metrics_string += \
-                    "    KL:   {:.5g}.\n".format(
+                    "    KL: {:.5g}.\n".format(
                         evaluation_test["kl_divergence"][-1])
             elif model.type in ["GMVAE", "GMVAE_alt"]:
                 metrics_string += \
-                    "    KL_z:   {:.5g}.\n".format(
+                    "    KL_z: {:.5g}.\n".format(
                         evaluation_test["kl_divergence_z"][-1]) + \
-                    "    KL_y:   {:.5g}.\n".format(
+                    "    KL_y: {:.5g}.\n".format(
                         evaluation_test["kl_divergence_y"][-1])
             elif model.type == "CVAE":
                 metrics_string += \
-                    "    KL_z1:   {:.5g}.\n".format(
+                    "    KL_z1: {:.5g}.\n".format(
                         evaluation_test["kl_divergence_z1"][-1]) + \
-                    "    KL_z2:   {:.5g}.\n".format(
+                    "    KL_z2: {:.5g}.\n".format(
                         evaluation_test["kl_divergence_z2"][-1]) + \
-                    "    KL_y:   {:.5g}.\n".format(
+                    "    KL_y: {:.5g}.\n".format(
                         evaluation_test["kl_divergence_y"][-1])
+        if accuracy_test is not None:
+            metrics_string += "    Accuracy: {:6.2f}\n".format(
+                100 * accuracy_test)
         metrics_string += "\n" + formatStatistics(test_set_statistics)
         metrics_string += "\n" + formatCountAccuracies(count_accuracies)
         metrics_file.write(metrics_string)
@@ -1597,6 +1623,40 @@ def plotLearningCurves(curves, model_type, name = None):
     
     return figure, figure_name
 
+def plotAccuracies(accuracies, name = None):
+    
+    figure_name = figureName("accuracies", name)
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    for accuracies_kind, accuracies in sorted(accuracies.items()):
+        
+        if accuracies_kind == "training":
+            line_style = "solid"
+            colour = standard_palette[0]
+        elif accuracies_kind == "validation":
+            line_style = "dashed"
+            colour = standard_palette[1]
+        
+        label = "{} set".format(accuracies_kind)
+        
+        epochs = numpy.arange(len(accuracies)) + 1
+        axis.plot(epochs, 100 * accuracies, color = colour,
+            linestyle = line_style, label = label)
+    
+    handles, labels = axis.get_legend_handles_labels()
+    labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+    
+    axis.legend(handles, labels, loc = "best")
+    
+    axis.set_xlabel("Epoch")
+    axis.set_ylabel("Accuracies")
+    
+    seaborn.despine()
+    
+    return figure, figure_name
+
 def plotKLDivergenceEvolution(KL_neurons, scale = "log", name = None):
     
     E, L = KL_neurons.shape
@@ -2324,6 +2384,54 @@ def loadLearningCurves(model, data_set_kinds = "all"):
         learning_curve_sets = learning_curve_sets[data_set_kinds[0]]
     
     return learning_curve_sets
+
+def loadAccuracies(model, data_set_kinds = "all"):
+    
+    # Setup
+    
+    accuracies = {}
+    
+    ## Data set kinds
+    if data_set_kinds == "all":
+        data_set_kinds = ["training", "validation", "test"]
+    elif not isinstance(data_set_kinds, list):
+        data_set_kinds = [data_set_kinds]
+    
+    ## TensorBoard class with summaries
+    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
+        model.log_directory)
+    multiplexer.Reload()
+    
+    # Loading
+    
+    errors = 0
+    
+    for data_set_kind in data_set_kinds:
+        
+        try:
+            scalars = multiplexer.Scalars(data_set_kind, "accuracy")
+        except KeyError:
+            accuracies[data_set_kind] = None
+            errors += 1
+            continue
+        
+        accuracies_kind = numpy.empty(len(scalars))
+        
+        if len(scalars) == 1:
+            accuracies_kind[0] = accuracies_kind[0].value
+        else:
+            for scalar in scalars:
+                accuracies_kind[scalar.step - 1] = scalar.value
+        
+        accuracies[data_set_kind] = accuracies_kind
+    
+    if len(data_set_kinds) == 1:
+        accuracies = accuracies[data_set_kinds[0]]
+    
+    if errors == len(data_set_kinds):
+        accuracies = None
+    
+    return accuracies
 
 def loadCentroids(model, data_set_kinds = "all"):
     
