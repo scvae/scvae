@@ -434,6 +434,10 @@ class DataSet(object):
                 if not self.noisy_preprocessing:
                     self.binarise()
     
+    @property
+    def number_of_values(self):
+        return self.number_of_examples * self.number_of_features
+    
     def update(self, values = None, preprocessed_values = None,
         binarised_values = None, labels = None,
         example_names = None, feature_names = None, class_names = None):

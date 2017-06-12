@@ -50,6 +50,7 @@ figure_extension = ".png"
 image_extension = ".png"
 
 maximum_feature_size_for_analyses = 2000
+maximum_number_of_values_for_heat_maps = 5000 * 25000
 number_of_random_examples = 100
 number_of_profile_comparisons = 25
 
@@ -257,7 +258,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         # Heat map for data set
         
-        if data_set.number_of_features <= maximum_feature_size_for_analyses:
+        if data_set.number_of_values <= maximum_number_of_values_for_heat_maps:
             print("Plotting heat map for {} set.".format(data_set.kind))
             
             heat_maps_directory = os.path.join(results_directory, "heat_maps")
@@ -750,8 +751,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
 
     # Heat maps
     
-    if reconstructed_test_set.number_of_features \
-        <= maximum_feature_size_for_analyses:
+    if reconstructed_test_set.number_of_values \
+        <= maximum_number_of_values_for_heat_maps:
         
         print("Plotting heat maps.")
         
