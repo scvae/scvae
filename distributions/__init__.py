@@ -8,7 +8,7 @@ from tensorflow.contrib.distributions import (
     Categorical, Mixture
 )
 
-from tensorflow.python.ops.nn import relu, softmax
+from tensorflow.python.ops.nn import relu, softmax, softplus
 from tensorflow import sigmoid, identity
 
 from distributions.zero_inflated import ZeroInflated
@@ -34,6 +34,25 @@ distributions = {
         "class": lambda theta: Normal(
             loc = theta["mu"], 
             scale = tf.exp(theta["log_sigma"])
+        )
+    },
+
+    "modified gaussian": {
+        "parameters": {
+            "mean": {
+                "support": [-inf, inf],
+                "activation function": identity,
+                "initial value": tf.zeros
+            },
+            "variance": {
+                "support": [-3, 3],
+                "activation function": softplus,
+                "initial value": tf.ones
+            }
+        },
+        "class": lambda theta: Normal(
+            loc = theta["mean"], 
+            scale = tf.sqrt(theta["variance"])
         )
     },
 

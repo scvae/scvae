@@ -20,7 +20,7 @@ def prelu(inputs, is_training, scope):
 
 # Wrapper layer for inserting batch normalization in between linear and nonlinear activation layers.
 def dense_layer(inputs, num_outputs, is_training = True, scope = "layer", activation_fn = None,
-    batch_normalisation = False, decay = 0.999, center = True, scale = False):
+    batch_normalisation = False, decay = 0.999, center = True, scale = False, reuse = False):
     
     with tf.variable_scope(scope):
         if activation_fn == relu: 
@@ -30,7 +30,14 @@ def dense_layer(inputs, num_outputs, is_training = True, scope = "layer", activa
             #     mode ='FAN_IN', uniform = False, seed = None, dtype = tf.float32)
             # and 0 bias initialization.
             weights_init = xavier_initializer()
-            outputs = fully_connected(inputs, num_outputs = num_outputs, activation_fn = None, weights_initializer = weights_init, scope = 'DENSE')
+            outputs = fully_connected(
+                inputs = inputs,
+                num_outputs = num_outputs,
+                activation_fn = None,
+                weights_initializer = weights_init, 
+                scope = 'DENSE',
+                reuse = reuse
+            )
         else:
             # For all other activation functions use (the same):
             ## N(mu=0,sigma=sqrt(2/n_in) weight initialization
@@ -38,9 +45,16 @@ def dense_layer(inputs, num_outputs, is_training = True, scope = "layer", activa
             #     mode = 'FAN_IN', uniform = False, seed = None, dtype = tf.float32)
             ## and 0 bias initialization.
             weights_init = xavier_initializer()
-            outputs = fully_connected(inputs, num_outputs = num_outputs, activation_fn = None, weights_initializer = weights_init, scope = 'DENSE')
+            outputs = fully_connected(inputs, num_outputs = num_outputs, activation_fn = None, weights_initializer = weights_init, scope = 'DENSE', reuse = reuse)
         if batch_normalisation:
-            outputs = batch_norm(outputs, center = center, scale = scale, is_training = is_training, scope = 'BATCH_NORM')
+            outputs = batch_norm(
+                inputs = outputs,
+                center = center,
+                scale = scale,
+                is_training = is_training,
+                scope = 'BATCH_NORM',
+                reuse = reuse
+            )
         if activation_fn is not None:
             outputs = activation_fn(outputs)
     
@@ -49,7 +63,7 @@ def dense_layer(inputs, num_outputs, is_training = True, scope = "layer", activa
 # Wrapper layer for inserting batch normalization in between several linear
 # and non-linear activation layers in given or reverse order of num_outputs.
 def dense_layers(inputs, num_outputs, reverse_order = False, is_training = True, scope = "layers", activation_fn = None,
-    batch_normalisation = False, decay = 0.999, center = True, scale = False):
+    batch_normalisation = False, decay = 0.999, center = True, scale = False, reuse = False):
     if not isinstance(num_outputs, list):
         num_outputs = [num_outputs]
     if reverse_order:
@@ -63,12 +77,23 @@ def dense_layers(inputs, num_outputs, reverse_order = False, is_training = True,
             layer_number = len(num_outputs) - i
 
         with tf.variable_scope('LAYER_{:d}'.format(layer_number)):
-            outputs = fully_connected(outputs, num_outputs = num_output,
-                activation_fn = None, weights_initializer = weights_init, 
-                scope = 'DENSE')
+            outputs = fully_connected(
+                inputs = outputs, 
+                num_outputs = num_output,
+                activation_fn = None, 
+                weights_initializer = weights_init, 
+                scope = 'DENSE',
+                reuse = reuse
+            )
             if batch_normalisation:
-                outputs = batch_norm(outputs, center = center, scale = scale,   
-                    is_training = is_training, scope = 'BATCH_NORM')
+                outputs = batch_norm(
+                    inputs = outputs, 
+                    center = center, 
+                    scale = scale,   
+                    is_training = is_training, 
+                    scope = 'BATCH_NORM',
+                    reuse = reuse
+                )
             if activation_fn is not None:
                 outputs = activation_fn(outputs)
     

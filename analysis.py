@@ -301,7 +301,7 @@ def analyseModel(model, results_directory = "results"):
     
     # Setup
     
-    if model.type in ["VAE", "IWVAE", "CVAE", "GMVAE"]:
+    if model.type in ["VAE", "IWVAE", "CVAE", "GMVAE", "GMVAE_alt"]:
         model_name = model.testing_name
     else:
         model_name = model.name
@@ -329,7 +329,7 @@ def analyseModel(model, results_directory = "results"):
     
     # Heat map of KL for all latent neurons
     
-    if "AE" in model.type and model.type not in ["CVAE", "GMVAE"]:
+    if "AE" in model.type and model.type not in ["CVAE", "GMVAE", "GMVAE_alt"]:
         
         heading("KL divergence")
     
@@ -526,7 +526,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     # Setup
     
-    if model.type in ["VAE", "IWVAE", "CVAE", "GMVAE"]:
+    if model.type in ["VAE", "IWVAE", "CVAE", "GMVAE", "GMVAE_alt"]:
         model_name = model.testing_name
     else:
         model_name = model.name
@@ -603,11 +603,11 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                     evaluation_test["lower_bound"][-1]) + \
                 "    ENRE: {:.5g}.\n".format(
                     evaluation_test["reconstruction_error"][-1])
-            if model.type not in ["CVAE", "GMVAE"]:
+            if model.type not in ["CVAE", "GMVAE", "GMVAE_alt"]:
                 metrics_string += \
                     "    KL:   {:.5g}.\n".format(
                         evaluation_test["kl_divergence"][-1])
-            elif model.type == "GMVAE":
+            elif model.type in ["GMVAE", "GMVAE_alt"]:
                 metrics_string += \
                     "    KL_z:   {:.5g}.\n".format(
                         evaluation_test["kl_divergence_z"][-1]) + \
@@ -1518,7 +1518,7 @@ def plotLearningCurves(curves, model_type, name = None):
     if model_type == "SNN":
         figure = pyplot.figure()
         axis_1 = figure.add_subplot(1, 1, 1)
-    elif model_type in ["CVAE", "GMVAE"]:
+    elif model_type in ["CVAE", "GMVAE", "GMVAE_alt"]:
         figure, (axis_1, axis_2, axis_3) = pyplot.subplots(3, sharex = True,
             figsize = (6.4, 14.4))
     elif "AE" in model_type:
@@ -1584,7 +1584,7 @@ def plotLearningCurves(curves, model_type, name = None):
         handles, labels = axis_2.get_legend_handles_labels()
         labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
         axis_2.legend(handles, labels, loc = "best")
-        if model_type in ["CVAE", "GMVAE"]:
+        if model_type in ["CVAE", "GMVAE", "GMVAE_alt"]:
             axis_3.legend(loc = "best")
             handles, labels = axis_3.get_legend_handles_labels()
             labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
@@ -2287,7 +2287,7 @@ def loadLearningCurves(model, data_set_kinds = "all"):
     elif model.type == "CVAE":
         losses = ["lower_bound", "reconstruction_error",
             "kl_divergence_z1", "kl_divergence_z2", "kl_divergence_y"]
-    elif model.type == "GMVAE":
+    elif model.type in ["GMVAE", "GMVAE_alt"]:
         losses = ["lower_bound", "reconstruction_error",
             "kl_divergence_z", "kl_divergence_y"]
     elif "AE" in model.type:

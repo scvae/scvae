@@ -225,7 +225,8 @@ def main(data_set_name, data_directory = "data",
                 number_of_reconstruction_classes,
                 batch_normalisation, count_sum,
                 number_of_warm_up_epochs,
-                log_directory = log_directory
+                log_directory = log_directory,
+                results_directory= results_directory
             )
         elif model_type == "GMVAE":
             number_of_importance_samples = model_configuration[
