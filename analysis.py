@@ -648,7 +648,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                     "    KL_y: {:.5g}.\n".format(
                         evaluation_test["kl_divergence_y"][-1])
         if accuracy_test is not None:
-            metrics_string += "    Accuracy: {:6.2f} %%.\n".format(
+            metrics_string += "    Accuracy: {:6.2f} %.\n".format(
                 100 * accuracy_test[-1])
         metrics_string += "\n" + formatStatistics(test_set_statistics)
         metrics_string += "\n" + formatCountAccuracies(count_accuracies)
@@ -1089,7 +1089,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 if data_set.number_of_classes <= 10:
                     plot_time_start = time()
                     
-                    for class_name in data_set.class_names:
+                    for class_name in colouring_data_set.class_names:
                         figure, figure_name = plotValues(
                             plot_values_decomposed,
                             colour_coding = "class",
@@ -1113,7 +1113,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     
                     plot_time_start = time()
                     
-                    for superset_class_name in data_set.superset_class_names:
+                    for superset_class_name in \
+                        colouring_data_set.superset_class_names:
                         figure, figure_name = plotValues(
                             plot_values_decomposed,
                             colour_coding = "superset class",

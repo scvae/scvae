@@ -18,11 +18,14 @@ import stemming.porter2 as stemming
 from functools import reduce
 
 from time import time
+
 from auxiliary import (
     formatDuration,
     normaliseString,
     download
 )
+
+from analysis import lighter_palette
 
 preprocess_suffix = "preprocessed"
 original_suffix = "original"
@@ -47,7 +50,7 @@ data_sets = {
         },
         "load function": lambda x: loadMouseRetinaDataSet(x),
         "example type": "counts",
-        "label palette": {
+        "class palette": {
              0: (0., 0., 0.),
              1: (0.92, 0.24, 0.10),
              2: (0.89, 0.60, 0.14),
@@ -288,7 +291,7 @@ data_sets = {
         # "example type": "images",
         "example type": "counts",
         "feature dimensions": (5, 5),
-        "label palette": {
+        "class palette": {
              0: (1, 0, 0),
              1: (0, 1, 0),
              2: (0, 0, 1)
@@ -348,8 +351,8 @@ class DataSet(object):
         self.number_of_superset_classes = None
         
         # Label palette for data set
-        self.class_palette = dataSetLabelPalette(self.title)
-        self.superset_class_palette = supersetLabelPalette(
+        self.class_palette = dataSetClassPalette(self.title)
+        self.superset_class_palette = supersetClassPalette(
             self.class_palette, self.label_superset)
         
         # Values and their names as well as labels in data set
@@ -868,11 +871,16 @@ def dataSetHeatMapTransformation(title):
     else:
         return None
 
-def dataSetLabelPalette(title):
-    if "label palette" in data_sets[title]:
-        return data_sets[title]["label palette"]
+def dataSetClassPalette(title):
+    print(title)
+    if "class palette" in data_sets[title]:
+        class_palette = data_sets[title]["class palette"]
+    elif "MNIST" in title:
+        index_palette = lighter_palette(10)
+        class_palette = {i: index_palette[i] for i in range(10)}
     else:
-        return None
+        class_palette = None
+    return class_palette
 
 def dataSetLabelSuperset(title):
     if "label superset" in data_sets[title]:
@@ -1760,7 +1768,7 @@ def supersetLabels(labels, label_superset):
     
     return superset_labels
 
-def supersetLabelPalette(class_palette, label_superset):
+def supersetClassPalette(class_palette, label_superset):
     
     if not label_superset:
         return None
