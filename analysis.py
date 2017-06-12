@@ -158,6 +158,8 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         print("Plotting distribution for {} set.".format(data_set.kind))
         
+        distribution_directory = os.path.join(results_directory, "histograms")
+        
         ## Class distribution
         
         if data_set.number_of_classes and data_set.number_of_classes < 50:
@@ -171,7 +173,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                 scale = "linear",
                 name = data_set.kind
             )
-            saveFigure(figure, figure_name, results_directory)
+            saveFigure(figure, figure_name, distribution_directory)
             
             distribution_duration = time() - distribution_time_start
             print("    Class distribution plotted and saved ({})."\
@@ -188,7 +190,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                     scale = "linear",
                     name = [data_set.kind, "superset"]
                 )
-                saveFigure(figure, figure_name, results_directory)
+                saveFigure(figure, figure_name, distribution_directory)
                 
                 distribution_duration = time() - distribution_time_start
                 print("    Superset class distribution plotted and saved ({})."\
@@ -206,7 +208,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             scale = "log",
             name = data_set.kind
         )
-        saveFigure(figure, figure_name, results_directory)
+        saveFigure(figure, figure_name, distribution_directory)
         
         distribution_duration = time() - distribution_time_start
         print("    Count distribution plotted and saved ({})."\
@@ -228,7 +230,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                     name = data_set.kind
                 )
                 saveFigure(figure, figure_name,
-                    os.path.join(results_directory, "histogram-counts"))
+                    distribution_directory + "-counts")
             
             distribution_duration = time() - distribution_time_start
             print("    Count distributions with cut-offs plotted and saved ({})."\
@@ -245,7 +247,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             scale = "log",
             name = data_set.kind
         )
-        saveFigure(figure, figure_name, results_directory)
+        saveFigure(figure, figure_name, distribution_directory)
         
         distribution_duration = time() - distribution_time_start
         print("    Count sum distribution plotted and saved ({})."\
@@ -257,6 +259,9 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         if data_set.number_of_features <= maximum_feature_size_for_analyses:
             print("Plotting heat map for {} set.".format(data_set.kind))
+            
+            heat_maps_directory = os.path.join(results_directory, "heat_maps")
+            
             heat_maps_time_start = time()
             
             if data_set.labels is not None:
@@ -272,7 +277,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                 z_name = data_set.tags["value"].capitalize() + "s",
                 name = data_set.kind
             )
-            saveFigure(figure, figure_name, results_directory)
+            saveFigure(figure, figure_name, heat_maps_directory)
             
             heat_maps_duration = time() - heat_maps_time_start
             print("Heat map for {} set plotted and saved ({})."\
@@ -286,7 +291,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             data_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
-            symbol = "$x$",
+            symbol = "x",
             title = "original space",
             specifier = lambda data_set: data_set.kind,
             results_directory = results_directory
@@ -353,6 +358,8 @@ def analyseModel(model, results_directory = "results"):
     
         centroids = loadCentroids(model, data_set_kinds = "validation")
         
+        centroids_directory = os.path.join(results_directory, "centroids_evolution")
+        
         for distribution, distribution_centroids in centroids.items():
             
             if distribution_centroids:
@@ -383,15 +390,15 @@ def analyseModel(model, results_directory = "results"):
                 
                 figure, figure_name = plotEvolutionOfCentroidProbabilities(
                     centroid_probabilities, distribution)
-                saveFigure(figure, figure_name, results_directory)
+                saveFigure(figure, figure_name, centroids_directory)
                 
                 figure, figure_name = plotEvolutionOfCentroidMeans(
                     centroid_means_decomposed, distribution, decomposed)
-                saveFigure(figure, figure_name, results_directory)
+                saveFigure(figure, figure_name, centroids_directory)
                 
                 figure, figure_name = plotEvolutionOfCentroidCovarianceMatrices(
                     centroid_covariance_matrices, distribution)
-                saveFigure(figure, figure_name, results_directory)
+                saveFigure(figure, figure_name, centroids_directory)
                 
                 centroids_duration = time() - centroids_time_start
                 print("Evolution of latent {} parameters plotted and saved ({})"\
@@ -664,6 +671,10 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     numpy.random.seed(80)
     
     print("Plotting profile comparisons.")
+    
+    profile_comparisons_directory = os.path.join(
+            results_directory, "profile_comparisons")
+    
     profile_comparisons_time_start = time()
 
     subset = numpy.random.randint(M, size = number_of_profile_comparisons)
@@ -678,8 +689,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             scale = "log",
             name = str(test_set.example_names[i])
         )
-        saveFigure(figure, figure_name, os.path.join(
-            results_directory, "profile_comparisons"))
+        saveFigure(figure, figure_name, profile_comparisons_directory)
 
     profile_comparisons_duration = time() - profile_comparisons_time_start
     print("Profile comparisons plotted and saved ({}).".format(
@@ -695,7 +705,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         reconstructed_test_set,
         decomposition_methods = decomposition_methods,
         highlight_feature_indices = highlight_feature_indices,
-        symbol = "x",
+        symbol = "\\tilde{{x}}",
         title = "reconstruction space",
         results_directory = results_directory
     )
@@ -718,11 +728,13 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         <= maximum_feature_size_for_analyses:
         
         print("Plotting heat maps.")
-    
+        
+        heat_maps_directory = os.path.join(results_directory, "heat_maps")
+        
         ## Reconstructions
-    
+        
         heat_maps_time_start = time()
-    
+        
         figure, figure_name = plotHeatMap(
             reconstructed_test_set.values,
             labels = reconstructed_test_set.labels,
@@ -731,16 +743,16 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             z_name = test_set.tags["value"].capitalize() + "s",
             name = "reconstruction"
         )
-        saveFigure(figure, figure_name, results_directory)
-    
+        saveFigure(figure, figure_name, heat_maps_directory)
+        
         heat_maps_duration = time() - heat_maps_time_start
         print("    Reconstruction heat map plotted and saved ({})." \
             .format(formatDuration(heat_maps_duration)))
-    
+        
         ## Differences
-    
+        
         heat_maps_time_start = time()
-    
+        
         figure, figure_name = plotHeatMap(
             x_diff,
             labels = reconstructed_test_set.labels,
@@ -750,16 +762,16 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             name = "difference",
             center = 0
         )
-        saveFigure(figure, figure_name, results_directory)
-    
+        saveFigure(figure, figure_name, heat_maps_directory)
+        
         heat_maps_duration = time() - heat_maps_time_start
         print("    Difference heat map plotted and saved ({})." \
             .format(formatDuration(heat_maps_duration)))
     
         ## log-ratios
-    
+        
         heat_maps_time_start = time()
-    
+        
         figure, figure_name = plotHeatMap(
             x_log_ratio,
             labels = reconstructed_test_set.labels,
@@ -769,8 +781,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             name = "log_ratio",
             center = 0
         )
-        saveFigure(figure, figure_name, results_directory)
-    
+        saveFigure(figure, figure_name, heat_maps_directory)
+        
         heat_maps_duration = time() - heat_maps_time_start
         print("    log-ratio heat map plotted and saved ({})." \
             .format(formatDuration(heat_maps_duration)))
@@ -855,6 +867,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 other_data_set.version, title_with_ID)
             name = other_data_set.version + "-" + name
         
+        decompositions_directory = os.path.join(results_directory, name)
+        
         for decomposition_method in decomposition_methods:
             
             if other_data_set:
@@ -936,7 +950,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 figure_labels = figure_labels,
                 name = name
             )
-            saveFigure(figure, figure_name, results_directory)
+            saveFigure(figure, figure_name, decompositions_directory)
             
             plot_duration = time() - plot_time_start
             print("    {} plotted and saved ({}).".format(
@@ -957,7 +971,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     figure_labels = figure_labels,
                     name = name
                 )
-                saveFigure(figure, figure_name, results_directory)
+                saveFigure(figure, figure_name, decompositions_directory)
         
                 plot_duration = time() - plot_time_start
                 print("    {} (with labels) plotted and saved ({}).".format(
@@ -974,7 +988,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         figure_labels = figure_labels,
                         name = name
                     )
-                    saveFigure(figure, figure_name, results_directory)
+                    saveFigure(figure, figure_name, decompositions_directory)
                     
                     plot_duration = time() - plot_time_start
                     print("    " +
@@ -998,9 +1012,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             figure_labels = figure_labels,
                             name = name
                         )
-                        saveFigure(figure, figure_name, os.path.join(
-                            results_directory, name
-                        ))
+                        saveFigure(figure, figure_name, decompositions_directory)
                     
                     plot_duration = time() - plot_time_start
                     print("    {} (for each class) plotted and saved ({})."\
@@ -1024,9 +1036,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             figure_labels = figure_labels,
                             name = name
                         )
-                        saveFigure(figure, figure_name, os.path.join(
-                            results_directory, name
-                        ))
+                        saveFigure(figure, figure_name, decompositions_directory)
                     
                     plot_duration = time() - plot_time_start
                     print("    " +
@@ -1048,7 +1058,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 figure_labels = figure_labels,
                 name = name
             )
-            saveFigure(figure, figure_name, results_directory)
+            saveFigure(figure, figure_name, decompositions_directory)
         
             plot_duration = time() - plot_time_start
             print("    {} (with count sum) plotted and saved ({}).".format(
@@ -1069,7 +1079,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     figure_labels = figure_labels,
                     name = name
                 )
-                saveFigure(figure, figure_name, results_directory)
+                saveFigure(figure, figure_name, decompositions_directory)
             
                 plot_duration = time() - plot_time_start
                 print("   {} (with {}) plotted and saved ({}).".format(
