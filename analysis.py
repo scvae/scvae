@@ -648,8 +648,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                     "    KL_y: {:.5g}.\n".format(
                         evaluation_test["kl_divergence_y"][-1])
         if accuracy_test is not None:
-            metrics_string += "    Accuracy: {:6.2f}\n".format(
-                100 * accuracy_test)
+            metrics_string += "    Accuracy: {:6.2f} %%.\n".format(
+                100 * accuracy_test[-1])
         metrics_string += "\n" + formatStatistics(test_set_statistics)
         metrics_string += "\n" + formatCountAccuracies(count_accuracies)
         metrics_file.write(metrics_string)
@@ -729,27 +729,69 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     numpy.random.seed()
     
     ## Reconstructions decomposed
-    
+
     analyseDecompositions(
         reconstructed_test_set,
+        colouring_data_set = test_set,
         decomposition_methods = decomposition_methods,
         highlight_feature_indices = highlight_feature_indices,
         symbol = "\\tilde{{x}}",
         title = "reconstruction space",
         results_directory = results_directory
     )
-
+    
     ## Reconstructions plotted in original decomposed space
     
     analyseDecompositions(
         test_set,
         reconstructed_test_set,
+        colouring_data_set = test_set,
         decomposition_methods = decomposition_methods,
         highlight_feature_indices = highlight_feature_indices,
         symbol = "x",
         title = "original space",
         results_directory = results_directory
     )
+    
+    if model.type == "GMVAE_alt":
+        
+        ## Reconstructions decomposed with predicted labels
+        
+        analyseDecompositions(
+            test_set,
+            colouring_data_set = reconstructed_test_set,
+            decomposition_methods = decomposition_methods,
+            highlight_feature_indices = highlight_feature_indices,
+            symbol = "x",
+            title = "original space with predicted labels",
+            results_directory = results_directory
+        )
+        
+        ## Reconstructions decomposed with predicted labels
+        
+        analyseDecompositions(
+            reconstructed_test_set,
+            colouring_data_set = reconstructed_test_set,
+            decomposition_methods = decomposition_methods,
+            highlight_feature_indices = highlight_feature_indices,
+            symbol = "\\tilde{{x}}",
+            title = "reconstruction space with predicted labels",
+            results_directory = results_directory
+        )
+        
+        ## Reconstructions plotted in original decomposed space
+        ## with predicted labels
+        
+        analyseDecompositions(
+            test_set,
+            reconstructed_test_set,
+            colouring_data_set = reconstructed_test_set,
+            decomposition_methods = decomposition_methods,
+            highlight_feature_indices = highlight_feature_indices,
+            symbol = "x",
+            title = "original space with predicted labels",
+            results_directory = results_directory
+        )
 
     # Heat maps
     
@@ -767,11 +809,11 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         figure, figure_name = plotHeatMap(
             reconstructed_test_set.values,
             labels = reconstructed_test_set.labels,
-            transformation = data_set.heat_map_transformation,
+            transformation = reconstructed_test_set.heat_map_transformation,
             x_name = test_set.tags["feature"].capitalize() + "s",
             y_name = test_set.tags["example"].capitalize() + "s",
             z_name = test_set.tags["value"].capitalize() + "s",
-            z_symbol = "\\tilde{{x}}"
+            z_symbol = "\\tilde{{x}}",
             name = "reconstruction"
         )
         saveFigure(figure, figure_name, heat_maps_directory)
@@ -790,7 +832,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             x_name = test_set.tags["feature"].capitalize() + "s",
             y_name = test_set.tags["example"].capitalize() + "s",
             z_name = "Differences",
-            z_symbol = "\\tilde{{x}} - x"
+            z_symbol = "\\tilde{{x}} - x",
             name = "difference",
             center = 0
         )
@@ -810,7 +852,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             x_name = test_set.tags["feature"].capitalize() + "s",
             y_name = test_set.tags["example"].capitalize() + "s",
             z_name = "log-ratios",
-            z_symbol = "\\log \\frac{{\\tilde{{x}} + 1}}{{x + 1}}"
+            z_symbol = "\\log \\frac{{\\tilde{{x}} + 1}}{{x + 1}}",
             name = "log_ratio",
             center = 0
         )
@@ -843,6 +885,18 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             specifier = lambda data_set: data_set.version,
             results_directory = results_directory
         )
+        
+        if model.type == "GMVAE_alt":
+            analyseDecompositions(
+                latent_test_sets,
+                centroids = centroids,
+                colouring_data_set = reconstructed_test_set,
+                decomposition_methods = decomposition_methods,
+                highlight_feature_indices = highlight_feature_indices,
+                title = "latent space with predicted labels",
+                specifier = lambda data_set: data_set.version,
+                results_directory = results_directory
+            )
         
         if centroids:
             analyseCentroidProbabilities(centroids,

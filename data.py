@@ -298,7 +298,7 @@ data_sets = {
             "B": [2]
         },
         "heat map transformation": {
-            "name": "Macosko"
+            "name": "Macosko",
             "label": lambda symbol: "$\log ({} / 10^{{4}} + 1)$".format(symbol),
             "function": lambda values: numpy.log(values / 1e4 + 1)
         }
