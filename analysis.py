@@ -2418,7 +2418,7 @@ def loadAccuracies(model, data_set_kinds = "all"):
         accuracies_kind = numpy.empty(len(scalars))
         
         if len(scalars) == 1:
-            accuracies_kind[0] = accuracies_kind[0].value
+            accuracies_kind[0] = scalars[0].value
         else:
             for scalar in scalars:
                 accuracies_kind[scalar.step - 1] = scalar.value
