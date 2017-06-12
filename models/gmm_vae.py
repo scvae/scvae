@@ -11,6 +11,8 @@ from distributions import distributions, latent_distributions, Categorized
 import numpy
 from numpy import inf
 
+import scipy.stats
+
 import copy
 import os, shutil
 from time import time
@@ -501,6 +503,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             )) for k in range(self.K)]
             
             self.q_y_given_x = self.q_y_given_x_graph(self.x)
+            self.q_y_logits = self.q_y_given_x.logits
             self.q_z_probabilities = tf.reduce_mean(self.q_y_given_x.probs, 0) 
         
         # Z latent space
@@ -636,6 +639,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 ),
                 axis = 0
             ) * self.q_y_given_x.probs[:, k]
+
+
+
 
 
         log_likelihood_x_z_sum = tf.add_n(log_likelihood_x_z)
@@ -868,6 +874,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 KL_z_train = 0
                 KL_y_train = 0
                 ENRE_train = 0
+                q_y_logits_train = numpy.zeros((M_train, self.K))
                 
                 if "mixture" in self.latent_distribution_name: 
                     z_KL = numpy.zeros(1)                
@@ -889,8 +896,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
                     
-                    ELBO_i, ENRE_i, KL_z_i, KL_y_i, z_KL_i = session.run(
-                        [self.ELBO, self.ENRE,  self.KL_z, self.KL_y, self.KL_all],
+                    ELBO_i, ENRE_i, KL_z_i, KL_y_i, z_KL_i, q_y_logits_train_i = session.run(
+                        [self.ELBO, self.ENRE,  self.KL_z, self.KL_y, self.KL_all, self.q_y_logits],
                         feed_dict = feed_dict_batch
                     )
                     
@@ -900,6 +907,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     ENRE_train += ENRE_i
                     
                     z_KL += z_KL_i
+
+                    q_y_logits_train[subset] = q_y_logits_train_i
                 
                 ELBO_train /= M_train / batch_size
                 KL_z_train /= M_train / batch_size
@@ -907,7 +916,16 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 ENRE_train /= M_train / batch_size
                 
                 z_KL /= M_train / batch_size
-                
+
+                predicted_labels_train = predict_labels(
+                    training_set.labels,
+                    q_y_logits_train
+                )
+                accuracy_train = accuracy(
+                    training_set.labels,
+                    predicted_labels_train
+                )
+
                 evaluating_duration = time() - evaluating_time_start
                 
                 summary = tf.Summary()
@@ -919,6 +937,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     simple_value = KL_z_train)
                 summary.value.add(tag="losses/kl_divergence_y",
                     simple_value = KL_y_train)
+                summary.value.add(tag="accuracy", simple_value = accuracy_train)
 
                 for i in range(z_KL.size):
                     summary.value.add(tag="kl_divergence_neurons/{}".format(i),
@@ -930,8 +949,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 
                 print("    Training set ({}): ".format(
                     formatDuration(evaluating_duration)) + \
-                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}.".format(
-                    ELBO_train, ENRE_train, KL_z_train, KL_y_train))
+                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}, Acc: {:.5g}.".format(
+                    ELBO_train, ENRE_train, KL_z_train, KL_y_train, accuracy_train))
                 
                 ## Validation
                 
@@ -947,6 +966,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 p_z_probabilities = numpy.zeros(self.K)
                 p_z_means = numpy.zeros((self.K, self.latent_size))
                 p_z_variances = numpy.zeros((self.K, self.latent_size))
+                q_y_logits_valid = numpy.zeros((M_valid, self.K))
                 z_mean_valid = numpy.zeros((M_valid, self.latent_size))
 
                 for i in range(0, M_valid, batch_size):
@@ -967,8 +987,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         feed_dict_batch[self.n] = n_valid[subset]
                     
                     ELBO_i, ENRE_i, KL_z_i, KL_y_i, \
-                    q_z_probabilities_i, q_z_means_i, q_z_variances_i, p_z_probabilities_i, p_z_means_i, p_z_variances_i, z_mean_i = session.run(
-                        [self.ELBO, self.ENRE, self.KL_z, self.KL_y, self.q_z_probabilities, self.q_z_means, self.q_z_variances, self.p_z_probabilities, self.p_z_means, self.p_z_variances, self.z_mean],
+                    q_z_probabilities_i, q_z_means_i, q_z_variances_i, p_z_probabilities_i, p_z_means_i, p_z_variances_i, q_y_logits_i, z_mean_i = session.run(
+                        [self.ELBO, self.ENRE, self.KL_z, self.KL_y, self.q_z_probabilities, self.q_z_means, self.q_z_variances, self.p_z_probabilities, self.p_z_means, self.p_z_variances, self.q_y_logits, self.z_mean],
                         feed_dict = feed_dict_batch
                     )
                     
@@ -982,8 +1002,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     p_z_probabilities += numpy.array(p_z_probabilities_i)
                     p_z_means += numpy.array(p_z_means_i)
                     p_z_variances += numpy.array(p_z_variances_i)
+                    q_y_logits_valid[subset] = q_y_logits_i
                     z_mean_valid[subset] = z_mean_i 
-                
+
                 ELBO_valid /= M_valid / batch_size
                 KL_z_valid /= M_valid / batch_size
                 KL_y_valid /= M_valid / batch_size
@@ -995,6 +1016,15 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 p_z_means /= M_valid / batch_size
                 p_z_variances /= M_valid / batch_size
                 
+                predicted_labels_valid = predict_labels(
+                    validation_set.labels,
+                    q_y_logits_valid
+                )
+                accuracy_valid = accuracy(
+                    validation_set.labels,
+                    predicted_labels_valid
+                )
+
                 summary = tf.Summary()
                 summary.value.add(tag="losses/lower_bound",
                     simple_value = ELBO_valid)
@@ -1004,6 +1034,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     simple_value = KL_z_valid)
                 summary.value.add(tag="losses/kl_divergence_y",
                     simple_value = KL_y_valid)
+                summary.value.add(tag="accuracy",
+                    simple_value = accuracy_valid)
 
                 for k in range(self.K):
                     summary.value.add(
@@ -1041,8 +1073,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 evaluating_duration = time() - evaluating_time_start
                 print("    Validation set ({}): ".format(
                     formatDuration(evaluating_duration)) + \
-                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}.".format(
-                    ELBO_valid, ENRE_valid, KL_z_valid, KL_y_valid))
+                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}, Acc: {:.5g}.".format(
+                    ELBO_valid, ENRE_valid, KL_z_valid, KL_y_valid, accuracy_valid))
                 
                 print()
             
@@ -1151,6 +1183,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             p_z_probabilities = numpy.zeros(self.K)
             p_z_means = numpy.zeros((self.K, self.latent_size))
             p_z_variances = numpy.zeros((self.K, self.latent_size))
+            q_y_logits = numpy.zeros((M_test, self.K))
             z_mean_test = numpy.zeros((M_test, self.latent_size))
             x_mean_test = numpy.zeros((M_test, F_test))
             y_mean_test = numpy.zeros((M_test, self.K))
@@ -1173,8 +1206,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     feed_dict_batch[self.n] = n_test[subset]
                 
                 ELBO_i, ENRE_i, KL_z_i, KL_y_i, \
-                q_z_probabilities_i, q_z_means_i, q_z_variances_i, p_z_probabilities_i, p_z_means_i, p_z_variances_i, x_mean_i, y_mean_i, z_mean_i = session.run(
-                    [self.ELBO, self.ENRE, self.KL_z, self.KL_y, self.q_z_probabilities, self.q_z_means, self.q_z_variances, self.p_z_probabilities, self.p_z_means, self.p_z_variances, self.x_mean, self.y_mean, self.z_mean],
+                q_z_probabilities_i, q_z_means_i, q_z_variances_i, p_z_probabilities_i, p_z_means_i, p_z_variances_i, q_y_logits_i, x_mean_i, y_mean_i, z_mean_i = session.run(
+                    [self.ELBO, self.ENRE, self.KL_z, self.KL_y, self.q_z_probabilities, self.q_z_means, self.q_z_variances, self.p_z_probabilities, self.p_z_means, self.p_z_variances, self.q_y_logits, self.x_mean, self.y_mean, self.z_mean],
                     feed_dict = feed_dict_batch
                 )
                 
@@ -1188,6 +1221,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 p_z_probabilities += numpy.array(p_z_probabilities_i)
                 p_z_means += numpy.array(p_z_means_i)
                 p_z_variances += numpy.array(p_z_variances_i)
+
+                q_y_logits[subset] = q_y_logits_i
+
                 x_mean_test[subset] = x_mean_i 
                 y_mean_test[subset] = y_mean_i 
                 z_mean_test[subset] = z_mean_i 
@@ -1203,6 +1239,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             p_z_means /= M_test / batch_size
             p_z_variances /= M_test / batch_size
             
+            predicted_labels_test = predict_labels(test_set.labels, q_y_logits)
+            accuracy_test = accuracy(test_set.labels, predicted_labels_test)
+
             summary = tf.Summary()
             summary.value.add(tag="losses/lower_bound",
                 simple_value = ELBO_test)
@@ -1212,6 +1251,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 simple_value = KL_z_test)
             summary.value.add(tag="losses/kl_divergence_y",
                 simple_value = KL_y_test)
+            summary.value.add(tag="accuracy", simple_value = accuracy_test)
 
             for k in range(self.K):
                 summary.value.add(
@@ -1249,8 +1289,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             evaluating_duration = time() - evaluating_time_start
             print("    Validation set ({}): ".format(
                 formatDuration(evaluating_duration)) + \
-                "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}.".format(
-                ELBO_test, ENRE_test, KL_z_test, KL_y_test))
+                "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}, Acc: {:.5g}.".format(
+                ELBO_test, ENRE_test, KL_z_test, KL_y_test, accuracy_test))
             
             if noisy_preprocess and \
                 self.reconstruction_distribution_name == "bernoulli":
@@ -1274,7 +1314,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 name = test_set.name,
                 values = x_mean_test,
                 preprocessed_values = None,
-                labels = test_set.labels,
+                labels = predicted_labels_test,
                 example_names = test_set.example_names,
                 feature_names = test_set.feature_names,
                 feature_selection = test_set.feature_selection,
@@ -1313,3 +1353,17 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             latent_test_sets = (z_test_set, y_test_set)
 
             return transformed_test_set, reconstructed_test_set, latent_test_sets
+
+def predict_labels(labels, logits):
+    cat_pred = logits.argmax(1)
+    predicted_labels = numpy.zeros_like(cat_pred)
+    for cat in range(logits.shape[1]):
+        idx = cat_pred == cat
+        lab = labels[idx]
+        if len(lab) == 0:
+            continue
+        predicted_labels[cat_pred == cat] = scipy.stats.mode(lab)[0]
+    return predicted_labels
+
+def accuracy(labels, predicted_labels):
+    return numpy.mean(predicted_labels == labels)
