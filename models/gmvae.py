@@ -753,14 +753,16 @@ class GaussianMixtureVariationalAutoEncoder(object):
         # self.loss = self.ELBO
         # tf.add_to_collection('losses', self.ELBO)
 
-        # KL_z
+        # KL_z (B) --> ()
         self.KL_z = tf.reduce_mean(log_q_z_given_x_y - log_p_z_given_y)
 
 
-        # KL_y (B)
+        # KL_y (B) --> ()
         self.KL_y = tf.reduce_mean(kl(self.q_y_given_x, self.p_y))
         # self.KL_y = kl(self.q_y, self.p_y)
 
+
+        # KL = KL_y + KL_z
         self.KL = tf.add_n([self.KL_z, self.KL_y], name = 'KL')
         tf.add_to_collection('losses', self.KL)
 

@@ -47,7 +47,7 @@ def dense_layer(inputs, num_outputs, is_training = True, scope = "layer", activa
     return outputs
 
 # Wrapper layer for inserting batch normalization in between several linear
-# and nonlinear activation layers in given or reverese order of num_outputs.
+# and non-linear activation layers in given or reverse order of num_outputs.
 def dense_layers(inputs, num_outputs, reverse_order = False, is_training = True, scope = "layers", activation_fn = None,
     batch_normalisation = False, decay = 0.999, center = True, scale = False):
     if not isinstance(num_outputs, list):
