@@ -196,7 +196,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
                 distribution_duration = time() - distribution_time_start
                 print("    Superset class distribution plotted and saved ({})."\
                     .format(formatDuration(distribution_duration)))
-        
+                
         ## Count distribution
         
         distribution_time_start = time()
@@ -214,7 +214,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         distribution_duration = time() - distribution_time_start
         print("    Count distribution plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
-        
+            
         ## Count distribution with cut-off
         
         if data_set.example_type == "counts":
@@ -273,9 +273,11 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             figure, figure_name = plotHeatMap(
                 data_set.values,
                 labels = labels,
+                transformation = data_set.heat_map_transformation,
                 x_name = data_set.tags["feature"].capitalize() + "s",
                 y_name = data_set.tags["example"].capitalize() + "s",
                 z_name = data_set.tags["value"].capitalize() + "s",
+                z_symbol = "x",
                 name = data_set.kind
             )
             saveFigure(figure, figure_name, heat_maps_directory)
@@ -576,12 +578,12 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             for data_set in [test_set, reconstructed_test_set]
     ]
 
-    x_diff = test_set.values - reconstructed_test_set.values
+    x_diff = reconstructed_test_set.values - test_set.values
     test_set_statistics.append(statistics(numpy.abs(x_diff), "differences",
         skip_sparsity = True))
 
-    x_log_ratio = numpy.log((test_set.values + 1) \
-        / (reconstructed_test_set.values + 1))
+    x_log_ratio = numpy.log((reconstructed_test_set.values + 1) \
+        / (test_set.values + 1))
     test_set_statistics.append(statistics(numpy.abs(x_log_ratio), "log-ratios",
         skip_sparsity = True))
 
@@ -765,9 +767,11 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         figure, figure_name = plotHeatMap(
             reconstructed_test_set.values,
             labels = reconstructed_test_set.labels,
+            transformation = data_set.heat_map_transformation,
             x_name = test_set.tags["feature"].capitalize() + "s",
             y_name = test_set.tags["example"].capitalize() + "s",
             z_name = test_set.tags["value"].capitalize() + "s",
+            z_symbol = "\\tilde{{x}}"
             name = "reconstruction"
         )
         saveFigure(figure, figure_name, heat_maps_directory)
@@ -786,6 +790,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             x_name = test_set.tags["feature"].capitalize() + "s",
             y_name = test_set.tags["example"].capitalize() + "s",
             z_name = "Differences",
+            z_symbol = "\\tilde{{x}} - x"
             name = "difference",
             center = 0
         )
@@ -805,6 +810,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             x_name = test_set.tags["feature"].capitalize() + "s",
             y_name = test_set.tags["example"].capitalize() + "s",
             z_name = "log-ratios",
+            z_symbol = "\\log \\frac{{\\tilde{{x}} + 1}}{{x + 1}}"
             name = "log_ratio",
             center = 0
         )
@@ -1945,9 +1951,9 @@ def plotProfileComparison(original_series, reconstructed_series,
     
     return figure, figure_name
 
-def plotHeatMap(values, x_name, y_name, z_name = None,
+def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
     z_min = None, z_max = None, labels = None, center = None,
-    name = None):
+    transformation = None, name = None):
     
     figure_name = figureName("heat_map", name)
     
@@ -1955,6 +1961,22 @@ def plotHeatMap(values, x_name, y_name, z_name = None,
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
+    
+    if not z_min:
+        z_min = values.min()
+    
+    if not z_max:
+        z_max = values.max()
+    
+    if z_symbol:
+        z_name = "$" + z_symbol + "$"
+    
+    if transformation:
+        values = transformation["function"](values)
+        if z_symbol:
+            z_name = transformation["label"](z_symbol)
+        elif z_name:
+            z_name = "Transformed " + z_name.lower()
     
     cbar_dict = {}
     

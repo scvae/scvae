@@ -97,6 +97,11 @@ data_sets = {
             "E": [i for i in range(26, 34)],
             "F": [i for i in range(34, 40)],
             "No class": [0],
+        },
+        "heat map transformation": {
+            "name": "Macosko",
+            "label": lambda symbol: "$\log ({} / 10^{{4}} + 1)$".format(symbol),
+            "function": lambda values: numpy.log(values / 1e4 + 1)
         }
     },
     
@@ -291,6 +296,11 @@ data_sets = {
         "label superset": {
             "A": [0, 1],
             "B": [2]
+        },
+        "heat map transformation": {
+            "name": "Macosko"
+            "label": lambda symbol: "$\log ({} / 10^{{4}} + 1)$".format(symbol),
+            "function": lambda values: numpy.log(values / 1e4 + 1)
         }
     }
 }
@@ -328,6 +338,9 @@ class DataSet(object):
         
         # Feature dimensions for data set
         self.feature_dimensions = dataSetFeatureDimensions(self.title)
+        
+        # Heat map transformation for data set
+        self.heat_map_transformation = dataSetHeatMapTransformation(self.title)
         
         # Label super set for data set
         self.label_superset = dataSetLabelSuperset(self.title)
@@ -846,6 +859,12 @@ def dataSetMaximumValue(title):
 def dataSetFeatureDimensions(title):
     if "feature dimensions" in data_sets[title]:
         return data_sets[title]["feature dimensions"]
+    else:
+        return None
+
+def dataSetHeatMapTransformation(title):
+    if "heat map transformation" in data_sets[title]:
+        return data_sets[title]["heat map transformation"]
     else:
         return None
 
