@@ -872,7 +872,6 @@ def dataSetHeatMapTransformation(title):
         return None
 
 def dataSetClassPalette(title):
-    print(title)
     if "class palette" in data_sets[title]:
         class_palette = data_sets[title]["class palette"]
     elif "MNIST" in title:

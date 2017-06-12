@@ -1287,7 +1287,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             test_summary_writer.flush()
             
             evaluating_duration = time() - evaluating_time_start
-            print("    Validation set ({}): ".format(
+            print("    Test set ({}): ".format(
                 formatDuration(evaluating_duration)) + \
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}, Acc: {:.5g}.".format(
                 ELBO_test, ENRE_test, KL_z_test, KL_y_test, accuracy_test))
