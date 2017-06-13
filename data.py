@@ -99,8 +99,19 @@ data_sets = {
             "Rods": [24],
             "Cones": [25],
             "Bipolar": [i for i in range(26, 34)],
-            "Miscellaneous": [i for i in range(34, 40)],
-            "No class": [0],
+            "Muller glia": [34],
+            "Miscellaneous": [i for i in range(35, 40)],
+            "No class": [0]
+        },
+        "literature probabilities": {
+            "Horizontal": 0.5 / 100,
+            "Retinal ganglion": 0.5 / 100,
+            "Amacrine": 0.07,
+            "Rods": 79.9 / 100,
+            "Cones": 2.1 / 100,
+            "Bipolar": 7.3 / 100,
+            "Muller glia": 2.8 / 100,
+            "Miscellaneous": 0
         },
         "excluded classes": [
             0
@@ -299,19 +310,25 @@ data_sets = {
         "example type": "counts",
         "feature dimensions": (5, 5),
         "class palette": {
-             0: (1, 0, 0),
-             1: (0, 1, 0),
-             2: (0, 0, 1)
+            0: (0, 0, 0),
+            1: (1, 0, 0),
+            2: (0, 1, 0),
+            3: (0, 0, 1)
         },
         "label superset": {
-            "A": [0, 1],
-            "B": [2]
+            "A": [1, 2],
+            "B": [3],
+            "No class": [0]
+        },
+        "literature probabilities": {
+            "A": 0.8,
+            "B": 0.2
         },
         "excluded classes": [
-            2
+            0
         ],
         "excluded superset classes": [
-            "B"
+            "No class"
         ],
         "heat map transformation": {
             "name": "Macosko",
@@ -358,12 +375,8 @@ class DataSet(object):
         # Heat map transformation for data set
         self.heat_map_transformation = dataSetHeatMapTransformation(self.title)
         
-        # Excluded classes for data set
-        self.excluded_classes = dataSetExcludedClasses(self.title)
-        
-        # Excluded classes for data set
-        self.excluded_superset_classes = dataSetExcludedSupersetClasses(
-            self.title)
+        # Literature probabilities for data set
+        self.literature_probabilities = dataSetLiteratureProbabilities(self.title)
         
         # Label super set for data set
         self.label_superset = dataSetLabelSuperset(self.title)
@@ -375,8 +388,12 @@ class DataSet(object):
         self.superset_class_palette = supersetClassPalette(
             self.class_palette, self.label_superset)
         
-        # Class names to class IDs and back
+        # Excluded classes for data set
+        self.excluded_classes = dataSetExcludedClasses(self.title)
         
+        # Excluded classes for data set
+        self.excluded_superset_classes = dataSetExcludedSupersetClasses(
+            self.title)
         
         # Values and their names as well as labels in data set
         self.values = None
@@ -476,6 +493,40 @@ class DataSet(object):
     @property
     def number_of_values(self):
         return self.number_of_examples * self.number_of_features
+    
+    @property
+    def class_probabilities(self):
+        
+        if self.label_superset:
+            labels = self.superset_labels
+            class_names = self.superset_class_names
+            excluded_classes = self.excluded_superset_classes
+        else:
+            labels = self.labels
+            class_names = self.class_names
+            excluded_classes = self.excluded_classes
+        
+        class_probabilities = {class_name: 0 for class_name in class_names}
+        
+        total_count_sum = 0
+    
+        for label in labels:
+            if label in excluded_classes:
+                continue
+            class_probabilities[label] += 1
+            total_count_sum += 1
+        
+        class_names_with_zero_probability = []
+        
+        for name, count in class_probabilities.items():
+            if count == 0:
+                class_names_with_zero_probability.append(name)
+            class_probabilities[name] = count / total_count_sum
+        
+        for name in class_names_with_zero_probability:
+            class_probabilities.pop(name)
+        
+        return class_probabilities
     
     def update(self, values = None, preprocessed_values = None,
         binarised_values = None, labels = None,
@@ -916,17 +967,11 @@ def dataSetHeatMapTransformation(title):
     else:
         return None
 
-def dataSetExcludedClasses(title):
-    if "excluded classes" in data_sets[title]:
-        return data_sets[title]["excluded classes"]
+def dataSetLiteratureProbabilities(title):
+    if "literature probabilities" in data_sets[title]:
+        return data_sets[title]["literature probabilities"]
     else:
-        return []
-
-def dataSetExcludedSupersetClasses(title):
-    if "excluded superset classes" in data_sets[title]:
-        return data_sets[title]["excluded superset classes"]
-    else:
-        return []
+        return None
 
 def dataSetClassPalette(title):
     if "class palette" in data_sets[title]:
@@ -943,6 +988,18 @@ def dataSetLabelSuperset(title):
         return data_sets[title]["label superset"]
     else:
         return None
+
+def dataSetExcludedClasses(title):
+    if "excluded classes" in data_sets[title]:
+        return data_sets[title]["excluded classes"]
+    else:
+        return []
+
+def dataSetExcludedSupersetClasses(title):
+    if "excluded superset classes" in data_sets[title]:
+        return data_sets[title]["excluded superset classes"]
+    else:
+        return []
 
 def dataSetPreprocessingMethods(title):
     return data_sets[title]["preprocessing methods"]
@@ -1642,7 +1699,7 @@ def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
     p_type = p_draw()
     dropout_type = dropout_draw()
     
-    label = 0
+    label = 1
     
     for i in range(M):
         u = numpy.random.rand()
@@ -1662,6 +1719,9 @@ def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
     p = p[shuffled_indices]
     dropout = dropout[shuffled_indices]
     labels = labels[shuffled_indices]
+    
+    no_class_indices = numpy.random.permutation(M)[:int(0.1 * M)]
+    labels[no_class_indices] = 0
     
     for i in range(M):
         for j in range(N):

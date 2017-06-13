@@ -31,6 +31,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         number_of_importance_samples,
         analytical_kl_term = False,
         latent_distribution = "gaussian mixture",
+        prior_probabilities = None,
         number_of_latent_clusters = 1,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
@@ -52,8 +53,20 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         self.latent_distribution = copy.deepcopy(
             latent_distributions[latent_distribution]
         )
-        self.K = number_of_latent_clusters
-        self.number_of_latent_clusters = number_of_latent_clusters
+        
+        if prior_probabilities:
+            self.prior_probabilities_method = prior_probabilities["method"]
+            self.prior_probabilities = prior_probabilities["values"]
+        else:
+            self.prior_probabilities_method = "uniform"
+            self.prior_probabilities = None
+        
+        if self.prior_probabilities:
+            self.K = len(self.prior_probabilities)
+        else:
+            self.K = number_of_latent_clusters
+        
+        self.number_of_latent_clusters = self.K
         self.analytical_kl_term = analytical_kl_term
         
         # Dictionary holding number of samples needed for the "monte carlo" 
@@ -90,7 +103,6 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             
             self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'X')
             self.t = tf.placeholder(tf.float32, [None, self.feature_size], 'T')
-            
             
             self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
             
@@ -144,6 +156,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         
         if "mixture" in self.latent_distribution_name:
             latent_part += "_c_" + str(self.K)
+        
+        if self.prior_probabilities_method != "uniform":
+            latent_part += "_p_" + self.prior_probabilities_method
         
         reconstruction_part = normaliseString(
             self.reconstruction_distribution_name)
@@ -229,6 +244,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         if "mixture" in self.latent_distribution_name:
             description_parts.append("latent clusters: {}".format(
                 self.K))
+            description_parts.append("prior probabilities: "
+                + self.prior_probabilities_method)
         
         description_parts.append("reconstruction distribution: " +
             self.reconstruction_distribution_name)
@@ -501,6 +518,17 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         
         # Y latent space
         with tf.variable_scope("Y"):
+            ## p(y) = Cat(pi)
+            
+            if self.prior_probabilities_method != "uniform":
+                with tf.variable_scope("P"):
+                    p_y_logits = tf.constant(self.prior_probabilities)
+                    self.p_y = Categorical(logits = tf.expand_dims(
+                        tf.log(p_y_logits), 0))
+                self.p_z_probabilities = tf.squeeze(self.p_y.probs)
+            else:
+                self.p_z_probabilities = tf.ones(self.K) / self.K
+            
             ## q(y|x) = Cat(pi(x))
             self.y_ = tf.fill(tf.stack(
                 [tf.shape(self.x)[0],
@@ -521,7 +549,6 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             self.z = [None]*self.K
             self.p_z_given_y = [None]*self.K
             self.p_z_mean = [None]*self.K
-            self.p_z_probabilities = tf.ones(self.K)/self.K
             self.p_z_means = []
             self.p_z_variances = []
             self.q_z_means = []
@@ -588,17 +615,20 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         ## Reshape samples back to: 
         ### shape = (N_iw, N_mc, batchsize, N_z)
         z_reshaped = [tf.reshape(self.z[k], [self.number_of_iw_samples, self.number_of_mc_samples, -1, self.latent_size]) for k in range(self.K)]
-
-        # H[q(y|x)] = -E_{q(y|x)}[ log(q(y|x)) ]
-        # (B)
-        q_y_given_x_entropy = self.q_y_given_x.entropy()
-        # H[q(y|x)||p(y)] = -E_{q(y|x)}[ log(p(y)) ] = -E_{q(y|x)}[ log(1/K) ] = log(K)
-        # ()
-        p_y_cross_entropy = numpy.log(self.K)
-        # KL(q||p) = -E_q(y|x)[log p(y)/q(y|x)] = -E_q(y|x)[log p(y)] + E_q(y|x)[log q(y|x)] = H(q|p) - H(q)
-        # (B)
-        KL_y = p_y_cross_entropy - q_y_given_x_entropy
-
+        
+        if self.prior_probabilities_method == "uniform":
+            # H[q(y|x)] = -E_{q(y|x)}[ log(q(y|x)) ]
+            # (B)
+            q_y_given_x_entropy = self.q_y_given_x.entropy()
+            # H[q(y|x)||p(y)] = -E_{q(y|x)}[ log(p(y)) ] = -E_{q(y|x)}[ log(1/K) ] = log(K)
+            # ()
+            p_y_cross_entropy = numpy.log(self.K)
+            # KL(q||p) = -E_q(y|x)[log p(y)/q(y|x)] = -E_q(y|x)[log p(y)] + E_q(y|x)[log q(y|x)] = H(q|p) - H(q)
+            # (B)
+            KL_y = p_y_cross_entropy - q_y_given_x_entropy
+        else:
+            KL_y = kl(self.q_y_given_x, self.p_y)
+        
         KL_z = [None] * self.K
         KL_z_mean = [None] * self.K
         log_p_x_given_z_mean = [None] * self.K
@@ -857,7 +887,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     formatDuration(restoring_duration)))
                 print()
             else:
-                print("Initialisation model parameters.")
+                print("Initialising model parameters.")
                 initialising_time_start = time()
                 session.run(tf.global_variables_initializer())
                 initialising_duration = time() - initialising_time_start

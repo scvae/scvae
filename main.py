@@ -19,6 +19,7 @@ import os
 import argparse
 import json
 import itertools
+import random
 
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
@@ -33,7 +34,9 @@ def main(data_set_name, data_directory = "data",
     number_of_latent_clusters = 1,
     parameterise_latent_posterior = False,
     reconstruction_distribution = "poisson",
-    number_of_reconstruction_classes = 0, number_of_warm_up_epochs = 50,
+    number_of_reconstruction_classes = 0,
+    prior_probabilities_method = "uniform",
+    number_of_warm_up_epochs = 50,
     batch_normalisation = True, count_sum = True,
     number_of_epochs = 200, batch_size = 100, learning_rate = 1e-4,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
@@ -213,6 +216,26 @@ def main(data_set_name, data_directory = "data",
         elif model_type == "GMVAE_alt":
             number_of_importance_samples = model_configuration[
                 "number of importance samples"]
+            
+            if prior_probabilities_method == "uniform":
+                prior_probabilities = None
+            elif prior_probabilities_method == "infer":
+                prior_probabilities = data_set.class_probabilities
+            elif prior_probabilities_method == "literature":
+                prior_probabilities = data_set.literature_probabilities
+            
+            if not prior_probabilities:
+                prior_probabilities_method = "uniform"
+                prior_probabilities_values = None
+            else:
+                prior_probabilities_values = list(prior_probabilities.values())
+                random.shuffle(prior_probabilities_values)
+            
+            prior_probabilities = {
+                "method": prior_probabilities_method,
+                "values": prior_probabilities_values
+            }
+            
             model = \
             GaussianMixtureVariationalAutoEncoder_alternative(
                 feature_size, latent_size, hidden_sizes,
@@ -220,6 +243,7 @@ def main(data_set_name, data_directory = "data",
                 number_of_importance_samples, 
                 analytical_kl_term,
                 "gaussian mixture", 
+                prior_probabilities,
                 number_of_latent_clusters,
                 reconstruction_distribution,
                 number_of_reconstruction_classes,
@@ -774,6 +798,13 @@ parser.add_argument(
     type = int,
     default = 0,
     help = "the maximum count for which to use classification"
+)
+parser.add_argument(
+    "--prior-probabilities-method",
+    type = str,
+    nargs = "?",
+    default = "uniform",
+    help = "method to set prior probabilities"
 )
 parser.add_argument(
     "--number-of-epochs", "-e",
