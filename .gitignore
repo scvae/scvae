@@ -269,5 +269,5 @@ Icon?
 *.tm_properties
 
 # Sublime Text
-*.do
+*.do*
 
