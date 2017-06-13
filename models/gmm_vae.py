@@ -703,6 +703,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         number_of_epochs = 100, batch_size = 100, learning_rate = 1e-3,
         reset_training = False):
         
+        if reset_training and os.path.exists(self.log_directory):
+            shutil.rmtree(self.log_directory)
+        
         # Logging
         
         status = {
@@ -713,19 +716,51 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             "last epoch time": None
         }
         
+        # Earlier model
+        
+        checkpoint = tf.train.get_checkpoint_state(self.log_directory)
+        
+        if checkpoint:
+            epoch_start = int(os.path.split(
+                checkpoint.model_checkpoint_path)[-1].split('-')[-1])
+        else:
+            epoch_start = 0
+        
+        status["trained"] = "{}-{}".format(epoch_start, number_of_epochs)
+        
+        # Training message
+        
+        data_string = dataString(training_set,
+            self.reconstruction_distribution_name)
+        training_string = trainingString(epoch_start, number_of_epochs,
+            data_string)
+        
+        # Stop if model already trained
+        
+        if epoch_start >= number_of_epochs:
+            print(training_string)
+            print()
+            status["completed"] = True
+            status["training time"] = "0 s"
+            status["last epoch time"] = "0 s"
+            return status
+        
         # parameter_values = "lr_{:.1g}".format(learning_rate)
         # parameter_values += "_b_" + str(batch_size)
         
         # self.log_directory = os.path.join(self.log_directory, parameter_values)
         
-        if reset_training and os.path.exists(self.log_directory):
-            shutil.rmtree(self.log_directory)
+        # Setup
         
         checkpoint_file = os.path.join(self.log_directory, 'model.ckpt')
         
-        # Setup
+        ## Data
+        
+        print("Preparing data.")
+        preparing_data_time_start = time()
         
         ## Features
+        
         if self.count_sum:
             n_train = training_set.normalised_count_sum
             n_valid = validation_set.normalised_count_sum
@@ -785,6 +820,11 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             else:
                 excluded_superset_class_ids = []
         
+        preparing_data_duration = time() - preparing_data_time_start
+        print("Data prepared ({}).".format(formatDuration(
+            preparing_data_duration)))
+        print()
+        
         ## Steps
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
@@ -800,24 +840,27 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             
             # Initialisation
             
-            checkpoint = tf.train.get_checkpoint_state(self.log_directory)
-            
             if checkpoint:
+                print("Restoring earlier model parameters.")
+                restoring_time_start = time()
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
-                epoch_start = int(os.path.split(
-                    checkpoint.model_checkpoint_path)[-1].split('-')[-1])
+                restoring_duration = time() - restoring_time_start
+                print("Earlier model parameters restored ({}).".format(
+                    formatDuration(restoring_duration)))
+                print()
             else:
+                print("Initialisation model parameters.")
+                initialising_time_start = time()
                 session.run(tf.global_variables_initializer())
-                epoch_start = 0
+                initialising_duration = time() - initialising_time_start
                 parameter_summary_writer.add_graph(session.graph)
-            
-            status["trained"] = "{}-{}".format(epoch_start, number_of_epochs)
+                print("Model parameters initialised ({}).".format(
+                    formatDuration(initialising_duration)))
+                print()
             
             # Training loop
             
-            data_string = dataString(training_set,
-                self.reconstruction_distribution_name)
-            print(trainingString(epoch_start, number_of_epochs, data_string))
+            print(training_string)
             print()
             training_time_start = time()
             
