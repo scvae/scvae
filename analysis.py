@@ -1896,7 +1896,12 @@ def plotEvolutionOfCentroidCovarianceMatrices(covariance_matrices, distribution,
     
     E, K, L, L = covariance_matrices.shape
     
-    determinants = numpy.linalg.det(covariance_matrices)
+    determinants = numpy.empty([E, K])
+
+    for e in range(E):
+        for k in range(K):
+            determinants[e, k] = numpy.prod(numpy.diag(
+                covariance_matrices[e, k]))
     
     if determinants.all() > 0:
         line_range_ratio = numpy.empty(K)
