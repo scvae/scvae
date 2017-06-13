@@ -101,6 +101,12 @@ data_sets = {
             "F": [i for i in range(34, 40)],
             "No class": [0],
         },
+        "excluded classes": [
+            0
+        ],
+        "excluded superset classes": [
+            "No class"
+        ],
         "heat map transformation": {
             "name": "Macosko",
             "label": lambda symbol: "$\log ({} / 10^{{4}} + 1)$".format(symbol),
@@ -344,6 +350,13 @@ class DataSet(object):
         
         # Heat map transformation for data set
         self.heat_map_transformation = dataSetHeatMapTransformation(self.title)
+        
+        # Excluded classes for data set
+        self.excluded_classes = dataSetExcludedClasses(self.title)
+        
+        # Excluded classes for data set
+        self.excluded_superset_classes = dataSetExcludedSupersetClasses(
+            self.title)
         
         # Label super set for data set
         self.label_superset = dataSetLabelSuperset(self.title)
@@ -870,6 +883,18 @@ def dataSetHeatMapTransformation(title):
         return data_sets[title]["heat map transformation"]
     else:
         return None
+
+def dataSetExcludedClasses(title):
+    if "excluded classes" in data_sets[title]:
+        return data_sets[title]["excluded classes"]
+    else:
+        return []
+
+def dataSetExcludedSupersetClasses(title):
+    if "excluded superset classes" in data_sets[title]:
+        return data_sets[title]["excluded superset classes"]
+    else:
+        return []
 
 def dataSetClassPalette(title):
     if "class palette" in data_sets[title]:
