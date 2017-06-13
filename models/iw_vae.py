@@ -65,7 +65,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         self.batch_normalisation = batch_normalisation
 
         self.count_sum_feature = count_sum
-        self.count_sum = self.count_sum_feature or "constrained" in \
+        self.count_sum = "constrained" in \
             self.reconstruction_distribution_name or "multinomial" in \
             self.reconstruction_distribution_name
 
@@ -87,8 +87,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             self.x = tf.placeholder(tf.float32, [None, self.feature_size], 'X')
             self.t = tf.placeholder(tf.float32, [None, self.feature_size], 'T')
             
+            if self.count_sum_feature:
+                self.n_feature = tf.placeholder(tf.float32, [None, 1], 'count_sum_feature')
+
             if self.count_sum:
-                self.n = tf.placeholder(tf.float32, [None, 1], 'N')
+                self.n = tf.placeholder(tf.float32, [None, 1], 'count_sum')
             
             self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
             
@@ -453,12 +456,17 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 self.n,
                 [self.number_of_iw_samples*self.number_of_mc_samples, 1]
                 )
+
         if self.count_sum_feature:
-            replicated_n = tf.tile(
-                self.n,
+            replicated_n_feature = tf.tile(
+                self.n_feature,
                 [self.number_of_iw_samples*self.number_of_mc_samples, 1]
             )
-            decoder = tf.concat([self.z, replicated_n], axis = 1, name = 'Z_N')
+            decoder = tf.concat(
+                [self.z, replicated_n_feature],
+                axis = 1,
+                name = 'Z_N'
+            )
         else:
             decoder = self.z
         
@@ -716,8 +724,12 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         batch_size = int(numpy.ceil(batch_size))
         
         if self.count_sum:
-            n_train = training_set.normalised_count_sum
-            n_valid = validation_set.normalised_count_sum
+            n_train = training_set.count_sum
+            n_valid = validation_set.count_sum
+
+        if self.count_sum_feature:
+            n_feature_train = training_set.normalised_count_sum
+            n_feature_valid = validation_set.normalised_count_sum
         
         M_train = training_set.number_of_examples
         M_valid = validation_set.number_of_examples
@@ -813,7 +825,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[batch_indices]
-                    
+
+                    if self.count_sum_feature:
+                        feed_dict_batch[self.n_feature] = n_feature_train[batch_indices]
+
                     # Run the stochastic batch training operation
                     _, batch_loss = session.run(
                         [self.train_op, self.lower_bound],
@@ -898,7 +913,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
-                    
+
+                    if self.count_sum_feature:
+                        feed_dict_batch[self.n_feature] = n_feature_train[subset]
+
                     ELBO_i, KL_i, ENRE_i, z_KL_i = session.run(
                         [self.ELBO, self.KL, self.ENRE, self.KL_all],
                         feed_dict = feed_dict_batch
@@ -970,7 +988,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
-                    
+
+                    if self.count_sum_feature:
+                        feed_dict_batch[self.n_feature] = n_feature_valid[subset]
+
                     ELBO_i, KL_i, ENRE_i, z_mean_i = session.run(
                         [self.ELBO, self.KL, self.ENRE, self.z_mean],
                         feed_dict = feed_dict_batch
@@ -1108,6 +1129,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         if self.count_sum:
             n_test = test_set.normalised_count_sum
         
+        if self.count_sum_feature:
+            n_feature_test = test_set.normalised_count_sum
+
         M_test = test_set.number_of_examples
         F_test = test_set.number_of_features
         
@@ -1171,6 +1195,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 }
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
+                
+                if self.count_sum_feature:
+                    feed_dict_batch[self.n_feature] = n_feature_test[subset]
                 
                 ELBO_i, KL_i, ENRE_i, x_tilde_i, z_mean_i = session.run(
                     [self.ELBO, self.KL, self.ENRE,

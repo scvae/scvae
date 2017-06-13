@@ -70,9 +70,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         self.batch_normalisation = batch_normalisation
 
         self.count_sum_feature = count_sum
-        self.count_sum = self.count_sum_feature or "constrained" in \
-            self.reconstruction_distribution_name or "multinomial" in \
-            self.reconstruction_distribution_name
+        self.count_sum = "constrained" in self.reconstruction_distribution_name\
+            or "multinomial" in self.reconstruction_distribution_name
 
         self.number_of_warm_up_epochs = number_of_warm_up_epochs
 
@@ -113,13 +112,18 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 'number_of_mc_samples'
             )
             # Sum up counts in replicated_n feature if needed
-            if self.count_sum or self.count_sum_feature:
-                self.n = tf.placeholder(tf.float32, [None, 1], 'N')
-                self.replicated_n = tf.tile(
-                    self.n,
+            if self.count_sum_feature:
+                self.n_feature = tf.placeholder(tf.float32, [None, 1], 'count_sum_feature')
+                self.replicated_n_feature = tf.tile(
+                    self.n_feature,
                     [self.number_of_iw_samples*self.number_of_mc_samples, 1]
                 )
-
+            if self.count_sum:
+                self.n = tf.placeholder(tf.float32, [None, 1], 'count_sum')
+                self.replicated_n = tf.tile(
+                    self.n_feature,
+                    [self.number_of_iw_samples*self.number_of_mc_samples, 1]
+                )
             self.inference()
             self.loss()
             self.training()
@@ -414,7 +418,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         # Make sure we use a replication pr. sample of the feature sum, 
         # when adding this to the features.  
         if self.count_sum_feature:
-            decoder = tf.concat([z, self.replicated_n], axis = -1, name = 'Z_N')
+            decoder = tf.concat([z, self.replicated_n_feature], axis = -1, name = 'Z_N')
         else:
             decoder = z
         
@@ -762,8 +766,12 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         ## Features
         
         if self.count_sum:
-            n_train = training_set.normalised_count_sum
-            n_valid = validation_set.normalised_count_sum
+            n_train = training_set.count_sum
+            n_valid = validation_set.count_sum
+
+        if self.count_sum_feature:
+            n_feature_train = training_set.normalised_count_sum
+            n_feature_valid = validation_set.normalised_count_sum
         
         M_train = training_set.number_of_examples
         M_valid = validation_set.number_of_examples
@@ -906,6 +914,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[batch_indices]
+
+                    if self.count_sum_feature:
+                        feed_dict_batch[self.n_feature] = n_feature_train[batch_indices]
                     
                     # Run the stochastic batch training operation
                     _, batch_loss = session.run(
@@ -988,11 +999,14 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         self.t: t_batch,
                         self.is_training: False,
                         self.warm_up_weight: 1.0,
-                        self.number_of_iw_samples: self.number_of_importance_samples["evaluation"],
-                        self.number_of_mc_samples: self.number_of_monte_carlo_samples["evaluation"]
+                        self.number_of_iw_samples: self.number_of_importance_samples["training"],
+                        self.number_of_mc_samples: self.number_of_monte_carlo_samples["training"]
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
+
+                    if self.count_sum_feature:
+                        feed_dict_batch[self.n_feature] = n_feature_train[subset]
                     
                     ELBO_i, ENRE_i, KL_z_i, KL_y_i, z_KL_i, q_y_logits_train_i = session.run(
                         [self.ELBO, self.ENRE,  self.KL_z, self.KL_y, self.KL_all, self.q_y_logits],
@@ -1098,12 +1112,16 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         self.is_training: False,
                         self.warm_up_weight: 1.0,
                         self.number_of_iw_samples:
-                            self.number_of_importance_samples["evaluation"],
+                            self.number_of_importance_samples["training"],
                         self.number_of_mc_samples:
-                            self.number_of_monte_carlo_samples["evaluation"]
+                            self.number_of_monte_carlo_samples["training"]
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
+                    
+                    if self.count_sum_feature:
+                        feed_dict_batch[self.n_feature] = n_feature_valid[subset]
+
                     
                     ELBO_i, ENRE_i, KL_z_i, KL_y_i, \
                     q_z_probabilities_i, q_z_means_i, q_z_variances_i, p_z_probabilities_i, p_z_means_i, p_z_variances_i, q_y_logits_i, z_mean_i = session.run(
@@ -1287,7 +1305,10 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         # Examples
         
         if self.count_sum:
-            n_test = test_set.normalised_count_sum
+            n_test = test_set.count_sum
+
+        if self.count_sum_feature:
+            n_feature_test = test_set.normalised_count_sum
         
         M_test = test_set.number_of_examples
         F_test = test_set.number_of_features
@@ -1400,7 +1421,10 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 }
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
-                
+
+                if self.count_sum_feature:
+                    feed_dict_batch[self.n_feature] = n_feature_test[subset]
+
                 ELBO_i, ENRE_i, KL_z_i, KL_y_i, \
                 q_z_probabilities_i, q_z_means_i, q_z_variances_i, p_z_probabilities_i, p_z_means_i, p_z_variances_i, q_y_logits_i, x_mean_i, y_mean_i, z_mean_i = session.run(
                     [self.ELBO, self.ENRE, self.KL_z, self.KL_y, self.q_z_probabilities, self.q_z_means, self.q_z_variances, self.p_z_probabilities, self.p_z_means, self.p_z_variances, self.q_y_logits, self.x_mean, self.y_mean, self.z_mean],
