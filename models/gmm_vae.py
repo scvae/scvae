@@ -1,6 +1,10 @@
 import tensorflow as tf
 
-from models.auxiliary import dense_layer, dense_layers, log_reduce_exp, reduce_logmeanexp
+from models.auxiliary import (
+    dense_layer, dense_layers,
+    log_reduce_exp, reduce_logmeanexp,
+    trainingString, dataString
+)
 
 from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
@@ -703,7 +707,10 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         
         status = {
             "completed": False,
-            "message": None
+            "message": None,
+            "trained": None,
+            "training time": None,
+            "last epoch time": None
         }
         
         # parameter_values = "lr_{:.1g}".format(learning_rate)
@@ -804,11 +811,15 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 epoch_start = 0
                 parameter_summary_writer.add_graph(session.graph)
             
+            status["trained"] = "{}-{}".format(epoch_start, number_of_epochs)
+            
             # Training loop
             
-            if epoch_start == number_of_epochs:
-                print("Model has already been trained for {} epochs.".format(
-                    number_of_epochs))
+            data_string = dataString(training_set,
+                self.reconstruction_distribution_name)
+            print(trainingString(epoch_start, number_of_epochs, data_string))
+            print()
+            training_time_start = time()
             
             for epoch in range(epoch_start, number_of_epochs):
                 
@@ -872,6 +883,10 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         if numpy.isnan(batch_loss):
                             status["completed"] = False
                             status["message"] = "loss became nan"
+                            status["training time"] = formatDuration(
+                                time() - training_time_start)
+                            status["last epoch time"] = formatDuration(
+                                time() - epoch_time_start)
                             return status
                 
                 print()
@@ -1193,7 +1208,15 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         self.training_name, self.main_results_directory
                     )
                     print()
-
+            
+            training_duration = time() - training_time_start
+            
+            if epoch_start >= number_of_epochs:
+                epoch_duration = training_duration
+            else:
+                print("Model trained for {} epochs ({}).".format(
+                    number_of_epochs, formatDuration(training_duration)))
+            
             # Clean up
             
             checkpoint = tf.train.get_checkpoint_state(self.log_directory)
@@ -1208,6 +1231,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         os.remove(file_path)
             
             status["completed"] = True
+            status["training time"] = formatDuration(training_duration)
+            status["last epoch time"] = formatDuration(epoch_duration)
             
             return status
     
@@ -1293,6 +1318,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 raise BaseError(
                     "Cannot evaluate model when it has not been trained.")
             
+            data_string = dataString(test_set,
+                self.reconstruction_distribution_name)
+            print('Evaluating trained model on {}.'.format(data_string))
             evaluating_time_start = time()
             
             ELBO_test = 0

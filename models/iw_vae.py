@@ -834,9 +834,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                             status["completed"] = False
                             status["message"] = "loss became nan"
                             status["training time"] = formatDuration(
-                                training_time_start - time())
+                                time() - training_time_start)
                             status["last epoch time"] = formatDuration(
-                                epoch_duration)
+                                time() - epoch_time_start)
                             return status
                 
                 print()
