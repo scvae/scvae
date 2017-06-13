@@ -2755,8 +2755,10 @@ def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
     return axis_label
 
 def classLabelSortKey(label):
-    if label == "No class":
+    if label == "Miscellaneous":
         label = "ZZZ" + label
-    if label == "Others":
+    if label == "No class":
         label = "ZZZZ" + label
+    if label == "Others":
+        label = "ZZZZZ" + label
     return label
