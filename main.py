@@ -223,6 +223,8 @@ def main(data_set_name, data_directory = "data",
                 prior_probabilities = data_set.class_probabilities
             elif prior_probabilities_method == "literature":
                 prior_probabilities = data_set.literature_probabilities
+            else:
+                prior_probabilities = None
             
             if not prior_probabilities:
                 prior_probabilities_method = "uniform"
