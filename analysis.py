@@ -1059,7 +1059,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
         
             # Labels
         
-            if data_set.labels is not None:
+            if colouring_data_set.labels is not None:
                 plot_time_start = time()
             
                 figure, figure_name = plotValues(
@@ -1076,7 +1076,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 print("    {} (with labels) plotted and saved ({}).".format(
                     title_with_ID.capitalize(), formatDuration(plot_duration)))
                 
-                if data_set.superset_labels is not None:
+                if colouring_data_set.superset_labels is not None:
                     plot_time_start = time()
                     
                     figure, figure_name = plotValues(
@@ -1098,7 +1098,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         )
                     )
         
-                if data_set.number_of_classes <= 10:
+                if colouring_data_set.number_of_classes <= 10:
                     plot_time_start = time()
                     
                     for class_name in colouring_data_set.class_names:
@@ -1120,7 +1120,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             formatDuration(plot_duration)
                     ))
                 
-                if data_set.superset_labels is not None \
+                if colouring_data_set.superset_labels is not None \
                     and data_set.number_of_superset_classes <= 10:
                     
                     plot_time_start = time()
@@ -2164,7 +2164,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             if number_of_classes < 20:
                 handles, labels = axis.get_legend_handles_labels()
                 labels, handles = zip(*sorted(zip(labels, handles),
-                    key=lambda t: t[0]))
+                    key = lambda t: classLabelSortKey(t[0])))
                 axis.legend(handles, labels, loc = "best")
         
         elif "class" in colour_coding:
@@ -2199,7 +2199,11 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 ordered_colours = colours[ordered_indices]
                 axis.scatter(ordered_values[:, 0], ordered_values[:, 1],
                     c = ordered_colours, label = label, zorder = z_order)
-                axis.legend(loc = "best")
+                
+                handles, labels = axis.get_legend_handles_labels()
+                labels, handles = zip(*sorted(zip(labels, handles),
+                    key = lambda t: classLabelSortKey(t[0])))
+                axis.legend(handles, labels, loc = "best")
     
     elif colour_coding == "count_sum":
         
@@ -2730,3 +2734,10 @@ def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
         + suffix + "$"
     
     return axis_label
+
+def classLabelSortKey(label):
+    if label == "No class":
+        label = "ZZZ" + label
+    if label == "Others":
+        label = "ZZZZ" + label
+    return label
