@@ -93,12 +93,13 @@ data_sets = {
             39: (0.74, 0.06, 0.38),
         },
         "label superset": {
-            "A": [1],
-            "B": [2],
-            "C": [i for i in range(3, 24)],
-            "D": [24, 25],
-            "E": [i for i in range(26, 34)],
-            "F": [i for i in range(34, 40)],
+            "Horizontal": [1],
+            "Retinal ganglion": [2],
+            "Amacrine": [i for i in range(3, 24)],
+            "Rods": [24],
+            "Cones": [25],
+            "Bipolar": [i for i in range(26, 34)],
+            "Miscellaneous": [i for i in range(34, 40)],
             "No class": [0],
         },
         "excluded classes": [
@@ -306,6 +307,12 @@ data_sets = {
             "A": [0, 1],
             "B": [2]
         },
+        "excluded classes": [
+            2
+        ],
+        "excluded superset classes": [
+            "B"
+        ],
         "heat map transformation": {
             "name": "Macosko",
             "label": lambda symbol: "$\log ({} / 10^{{4}} + 1)$".format(symbol),
@@ -367,6 +374,9 @@ class DataSet(object):
         self.class_palette = dataSetClassPalette(self.title)
         self.superset_class_palette = supersetClassPalette(
             self.class_palette, self.label_superset)
+        
+        # Class names to class IDs and back
+        
         
         # Values and their names as well as labels in data set
         self.values = None
@@ -501,16 +511,38 @@ class DataSet(object):
                 self.feature_names = feature_names
         
         if labels is not None:
+            
             self.labels = labels
+            
             if class_names is not None:
                 self.class_names = class_names
             else:
                 self.class_names = numpy.unique(self.labels)
+            
+            self.class_id_to_class_name = {}
+            self.class_name_to_class_id = {}
+            
+            for i, class_name in enumerate(self.class_names):
+                self.class_name_to_class_id[class_name] = i
+                self.class_id_to_class_name[i] = class_name
+            
             self.number_of_classes = self.class_names.size
+            
             if self.label_superset:
+                
                 self.superset_labels = supersetLabels(
                     self.labels, self.label_superset)
+                
                 self.superset_class_names = sorted(self.label_superset.keys())
+                
+                self.superset_class_id_to_superset_class_name = {}
+                self.superset_class_name_to_superset_class_id = {}
+            
+                for i, class_name in \
+                    enumerate(self.superset_class_names):
+                    self.superset_class_name_to_superset_class_id[class_name] = i
+                    self.superset_class_id_to_superset_class_name[i] = class_name
+                
                 self.number_of_superset_classes = len(self.label_superset)
         
         if preprocessed_values is not None:

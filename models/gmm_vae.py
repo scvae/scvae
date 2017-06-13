@@ -718,6 +718,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         
         # Setup
         
+        ## Features
         if self.count_sum:
             n_train = training_set.normalised_count_sum
             n_valid = validation_set.normalised_count_sum
@@ -739,6 +740,45 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 t_train = training_set.values
                 t_valid = validation_set.values
         
+        ## Labels
+        
+        class_names_to_class_ids = numpy.vectorize(lambda class_name:
+            training_set.class_name_to_class_id[class_name])
+        
+        training_set_label_ids = class_names_to_class_ids(training_set.labels)
+        validation_set_label_ids = class_names_to_class_ids(validation_set.labels)
+        
+        if training_set.excluded_classes:
+            excluded_class_ids = \
+                class_names_to_class_ids(training_set.excluded_classes)
+        else:
+            excluded_class_ids = []
+        
+        ## Superset labels
+        
+        if training_set.label_superset:
+        
+            superset_class_names_to_superset_class_ids = numpy.vectorize(
+                lambda superset_class_name:
+                    training_set.superset_class_name_to_superset_class_id\
+                        [superset_class_name]
+            )
+        
+            training_set_superset_label_ids = \
+                superset_class_names_to_superset_class_ids(
+                    training_set.superset_labels)
+            validation_set_superset_label_ids =  \
+                superset_class_names_to_superset_class_ids(
+                    validation_set.superset_labels)
+            
+            if training_set.excluded_superset_classes:
+                excluded_superset_class_ids = \
+                    superset_class_names_to_superset_class_ids(
+                        training_set.excluded_superset_classes)
+            else:
+                excluded_superset_class_ids = []
+        
+        ## Steps
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
         
@@ -917,27 +957,27 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 
                 z_KL /= M_train / batch_size
 
-                predicted_labels_train = predict_labels(
-                    training_set.labels,
+                predicted_label_ids_train = predict_label_ids(
+                    training_set_label_ids,
                     q_y_logits_train,
-                    training_set.excluded_classes
+                    excluded_class_ids
                 )
                 accuracy_train = accuracy(
-                    training_set.labels,
-                    predicted_labels_train,
-                    training_set.excluded_classes
+                    training_set_label_ids,
+                    predicted_label_ids_train,
+                    excluded_class_ids
                 )
 
-                if training_set.superset_labels is not None:
-                    predicted_superset_labels_train = predict_labels(
-                        training_set.superset_labels, 
+                if training_set.label_superset:
+                    predicted_superset_label_ids_train = predict_label_ids(
+                        training_set_superset_label_ids, 
                         q_y_logits_train,
-                        training_set.excluded_superset_classes
+                        excluded_superset_class_ids
                     )
                     accuracy_superset_train = accuracy(
-                        training_set.superset_labels,
-                        predicted_superset_labels_train,
-                        training_set.excluded_superset_classes
+                        training_set_superset_label_ids,
+                        predicted_superset_label_ids_train,
+                        excluded_superset_class_ids
                     )
                     accuracy_display = accuracy_superset_train
                 else:
@@ -1037,27 +1077,27 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 p_z_means /= M_valid / batch_size
                 p_z_variances /= M_valid / batch_size
                 
-                predicted_labels_valid = predict_labels(
-                    validation_set.labels,
+                predicted_label_ids_valid = predict_label_ids(
+                    validation_set_label_ids,
                     q_y_logits_valid,
-                    validation_set.excluded_classes
+                    excluded_class_ids
                 )
                 accuracy_valid = accuracy(
-                    validation_set.labels,
-                    predicted_labels_valid,
-                    validation_set.excluded_classes
+                    validation_set_label_ids,
+                    predicted_label_ids_valid,
+                    excluded_class_ids
                 )
 
-                if validation_set.superset_labels is not None:
-                    predicted_superset_labels_valid = predict_labels(
-                        validation_set.superset_labels, 
+                if validation_set.label_superset:
+                    predicted_superset_label_ids_valid = predict_label_ids(
+                        validation_set_superset_label_ids, 
                         q_y_logits_valid,
-                        validation_set.excluded_superset_classes
+                        excluded_superset_class_ids
                     )
                     accuracy_superset_valid = accuracy(
-                        validation_set.superset_labels,
-                        predicted_superset_labels_valid,
-                        validation_set.excluded_superset_classes
+                        validation_set_superset_label_ids,
+                        predicted_superset_label_ids_valid,
+                        excluded_superset_class_ids
                     )
                     accuracy_display = accuracy_superset_valid
                 else: 
@@ -1173,6 +1213,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
     
     def evaluate(self, test_set, batch_size = 100):
         
+        # Examples
+        
         if self.count_sum:
             n_test = test_set.normalised_count_sum
         
@@ -1193,6 +1235,44 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         else:
             x_test = noisy_preprocess(test_set.values)
             t_test = x_test
+        
+        ## Labels
+        
+        class_names_to_class_ids = numpy.vectorize(lambda class_name:
+            test_set.class_name_to_class_id[class_name])
+        class_ids_to_class_names = numpy.vectorize(lambda class_id:
+            test_set.class_id_to_class_name[class_id])
+        
+        test_set_label_ids = class_names_to_class_ids(test_set.labels)
+        
+        if test_set.excluded_classes:
+            excluded_class_ids = class_names_to_class_ids(
+                test_set.excluded_classes)
+        else:
+            excluded_class_ids = []
+        
+        ## Superset labels
+        
+        if test_set.label_superset:
+        
+            superset_class_names_to_superset_class_ids = numpy.vectorize(
+                lambda superset_class_name:
+                    test_set.superset_class_name_to_superset_class_id\
+                        [superset_class_name]
+            )
+        
+            test_set_superset_label_ids = \
+                superset_class_names_to_superset_class_ids(
+                    test_set.superset_labels)
+            
+            if test_set.excluded_superset_classes:
+                excluded_superset_class_ids = \
+                    superset_class_names_to_superset_class_ids(
+                        test_set.excluded_superset_classes)
+            else:
+                excluded_superset_class_ids = []
+        
+        # Other setup
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
@@ -1281,27 +1361,27 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             p_z_means /= M_test / batch_size
             p_z_variances /= M_test / batch_size
             
-            predicted_labels_test = predict_labels(
-                test_set.labels, 
+            predicted_label_ids_test = predict_label_ids(
+                test_set_label_ids, 
                 q_y_logits,
-                test_set.excluded_classes
+                excluded_class_ids
             )
             accuracy_test = accuracy(
-                test_set.labels,
-                predicted_labels_test,
-                test_set.excluded_classes
+                test_set_label_ids,
+                predicted_label_ids_test,
+                excluded_class_ids
             )
 
-            if test_set.superset_labels is not None:
-                predicted_superset_labels_test = predict_labels(
-                    test_set.superset_labels, 
+            if test_set.label_superset is not None:
+                predicted_superset_label_ids_test = predict_label_ids(
+                    test_set_superset_label_ids, 
                     q_y_logits,
-                    test_set.excluded_superset_classes
+                    excluded_superset_class_ids
                 )
                 accuracy_superset_test = accuracy(
-                    test_set.superset_labels,
-                    predicted_superset_labels_test,
-                    test_set.excluded_superset_classes
+                    test_set_superset_label_ids,
+                    predicted_superset_label_ids_test,
+                    excluded_superset_class_ids
                 )
                 accuracy_display = accuracy_superset_test
             else:
@@ -1383,7 +1463,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 name = test_set.name,
                 values = x_mean_test,
                 preprocessed_values = None,
-                labels = predicted_labels_test,
+                labels = class_ids_to_class_names(predicted_label_ids_test),
                 example_names = test_set.example_names,
                 feature_names = test_set.feature_names,
                 feature_selection = test_set.feature_selection,
@@ -1423,20 +1503,22 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
 
             return transformed_test_set, reconstructed_test_set, latent_test_sets
 
-def predict_labels(labels, logits, excluded_classes = []):
+def predict_label_ids(label_ids, logits, excluded_class_ids = []):
     cat_pred = logits.argmax(1)
-    predicted_labels = numpy.zeros_like(cat_pred)
+    predicted_label_ids = numpy.zeros_like(cat_pred)
     for cat in range(logits.shape[1]):
         idx = cat_pred == cat
-        lab = labels[idx]
-        for excluded_class in excluded_classes:
-            lab = lab[lab != excluded_class]
+        lab = label_ids[idx]
+        for excluded_class_id in excluded_class_ids:
+            lab = lab[lab != excluded_class_id]
         if len(lab) == 0:
             continue
-        predicted_labels[cat_pred == cat] = scipy.stats.mode(lab)[0]
-    return predicted_labels
+        predicted_label_ids[idx] = scipy.stats.mode(lab)[0]
+    return predicted_label_ids
 
 def accuracy(labels, predicted_labels, excluded_classes = []):
     for excluded_class in excluded_classes:
-        labels = labels[labels != excluded_class]
+        included_indices = labels != excluded_class
+        labels = labels[included_indices]
+        predicted_labels = predicted_labels[included_indices]
     return numpy.mean(predicted_labels == labels)
