@@ -1222,8 +1222,11 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 under_10 = epoch < 10
                 under_100 = epoch < 100 and (epoch + 1) % 10 == 0
                 under_1000 = epoch < 1000 and (epoch + 1) % 50 == 0 
+                above_1000 = epoch > 1000 and (epoch + 1) % 100 == 0 
                 last_one = epoch == number_of_epochs - 1
-                if under_10 or under_100 or under_1000 or last_one:
+                if under_10 or under_100 or under_1000 or above_1000 \
+                    or last_one:
+                    
                     if "mixture" in self.latent_distribution_name:
                         K = self.K
                         L = self.latent_size
