@@ -938,6 +938,9 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     
     base_symbol = symbol
     
+    decomposition_methods = decomposition_methods.copy()
+    decomposition_methods.insert(0, None)
+    
     for data_set, other_data_set in zip(data_sets, other_data_sets):
         
         name = normaliseString(title)
@@ -958,8 +961,6 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
             centroids = copy.deepcopy(centroids_original)
         else:
             centroids = None
-        
-        decomposition_methods.insert(0, None)
         
         if other_data_set:
             title_with_ID = "{} values in {}".format(
