@@ -345,7 +345,15 @@ def analyseModel(model, results_directory = "results"):
     
         figure, figure_name = plotAccuracies(accuracies)
         saveFigure(figure, figure_name, results_directory)
-    
+        
+        superset_accuracies = loadAccuracies(model,
+            data_set_kinds = ["training", "validation"], superset = True)
+        
+        if superset_accuracies is not None:
+            figure, figure_name = plotAccuracies(superset_accuracies,
+                name = "superset")
+            saveFigure(figure, figure_name, results_directory)
+        
         accuracies_duration = time() - accuracies_time_start
         print("Accuracies plotted and saved ({}).".format(
             formatDuration(accuracies_duration)))
@@ -564,6 +572,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     evaluation_test = loadLearningCurves(model, "test")
     accuracy_test = loadAccuracies(model, "test")
+    superset_accuracy_test = loadAccuracies(model, "test", superset = True)
     number_of_epochs_trained = loadNumberOfEpochsTrained(model)
     
     # Metrics
@@ -650,6 +659,9 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         if accuracy_test is not None:
             metrics_string += "    Accuracy: {:6.2f} %.\n".format(
                 100 * accuracy_test[-1])
+        if superset_accuracy_test is not None:
+            metrics_string += "    Accuracy (superset): {:6.2f} %.\n".format(
+                100 * superset_accuracy_test[-1])
         metrics_string += "\n" + formatStatistics(test_set_statistics)
         metrics_string += "\n" + formatCountAccuracies(count_accuracies)
         metrics_file.write(metrics_string)
@@ -2463,7 +2475,7 @@ def loadLearningCurves(model, data_set_kinds = "all"):
     
     return learning_curve_sets
 
-def loadAccuracies(model, data_set_kinds = "all"):
+def loadAccuracies(model, data_set_kinds = "all", superset = False):
     
     # Setup
     
@@ -2480,6 +2492,13 @@ def loadAccuracies(model, data_set_kinds = "all"):
         model.log_directory)
     multiplexer.Reload()
     
+    ## Tag
+    
+    accuracy_tag = "accuracy"
+    
+    if superset:
+        accuracy_tag = "superset_" + accuracy_tag
+    
     # Loading
     
     errors = 0
@@ -2487,7 +2506,7 @@ def loadAccuracies(model, data_set_kinds = "all"):
     for data_set_kind in data_set_kinds:
         
         try:
-            scalars = multiplexer.Scalars(data_set_kind, "accuracy")
+            scalars = multiplexer.Scalars(data_set_kind, accuracy_tag)
         except KeyError:
             accuracies[data_set_kind] = None
             errors += 1
