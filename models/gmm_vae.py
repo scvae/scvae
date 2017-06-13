@@ -655,7 +655,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         self.KL = self.KL_z + self.KL_y
         self.KL_all = tf.expand_dims(self.KL, -1)
         self.ENRE = tf.reduce_mean(tf.add_n(log_p_x_given_z_mean))
-        self.lower_bound = self.ENRE - self.KL
+        self.lower_bound = self.ENRE - self.warm_up_weight * self.KL
         self.ELBO = self.lower_bound
         tf.add_to_collection('losses', self.lower_bound)
         
@@ -919,12 +919,30 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
 
                 predicted_labels_train = predict_labels(
                     training_set.labels,
-                    q_y_logits_train
+                    q_y_logits_train,
+                    training_set.excluded_classes
                 )
                 accuracy_train = accuracy(
                     training_set.labels,
-                    predicted_labels_train
+                    predicted_labels_train,
+                    training_set.excluded_classes
                 )
+
+                if training_set.superset_labels is not None:
+                    predicted_superset_labels_train = predict_labels(
+                        training_set.superset_labels, 
+                        q_y_logits_train,
+                        training_set.excluded_superset_classes
+                    )
+                    accuracy_superset_train = accuracy(
+                        training_set.superset_labels,
+                        predicted_superset_labels_train,
+                        training_set.excluded_superset_classes
+                    )
+                    accuracy_display = accuracy_superset_train
+                else:
+                    accuracy_superset_train = None
+                    accuracy_display = accuracy_train
 
                 evaluating_duration = time() - evaluating_time_start
                 
@@ -938,6 +956,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 summary.value.add(tag="losses/kl_divergence_y",
                     simple_value = KL_y_train)
                 summary.value.add(tag="accuracy", simple_value = accuracy_train)
+                if accuracy_superset_train:
+                    summary.value.add(tag="superset_accuracy",
+                        simple_value = accuracy_superset_train)
 
                 for i in range(z_KL.size):
                     summary.value.add(tag="kl_divergence_neurons/{}".format(i),
@@ -950,7 +971,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 print("    Training set ({}): ".format(
                     formatDuration(evaluating_duration)) + \
                     "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}, Acc: {:.5g}.".format(
-                    ELBO_train, ENRE_train, KL_z_train, KL_y_train, accuracy_train))
+                    ELBO_train, ENRE_train, KL_z_train, KL_y_train, accuracy_display))
                 
                 ## Validation
                 
@@ -1018,12 +1039,30 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 
                 predicted_labels_valid = predict_labels(
                     validation_set.labels,
-                    q_y_logits_valid
+                    q_y_logits_valid,
+                    validation_set.excluded_classes
                 )
                 accuracy_valid = accuracy(
                     validation_set.labels,
-                    predicted_labels_valid
+                    predicted_labels_valid,
+                    validation_set.excluded_classes
                 )
+
+                if validation_set.superset_labels is not None:
+                    predicted_superset_labels_valid = predict_labels(
+                        validation_set.superset_labels, 
+                        q_y_logits_valid,
+                        validation_set.excluded_superset_classes
+                    )
+                    accuracy_superset_valid = accuracy(
+                        validation_set.superset_labels,
+                        predicted_superset_labels_valid,
+                        validation_set.excluded_superset_classes
+                    )
+                    accuracy_display = accuracy_superset_valid
+                else: 
+                    accuracy_superset_valid = None
+                    accuracy_display = accuracy_valid
 
                 summary = tf.Summary()
                 summary.value.add(tag="losses/lower_bound",
@@ -1036,6 +1075,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     simple_value = KL_y_valid)
                 summary.value.add(tag="accuracy",
                     simple_value = accuracy_valid)
+                if accuracy_superset_valid:
+                    summary.value.add(tag="superset_accuracy",
+                        simple_value = accuracy_superset_valid)
 
                 for k in range(self.K):
                     summary.value.add(
@@ -1074,7 +1116,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 print("    Validation set ({}): ".format(
                     formatDuration(evaluating_duration)) + \
                     "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}, Acc: {:.5g}.".format(
-                    ELBO_valid, ENRE_valid, KL_z_valid, KL_y_valid, accuracy_valid))
+                    ELBO_valid, ENRE_valid, KL_z_valid, KL_y_valid, accuracy_display))
                 
                 print()
             
@@ -1239,8 +1281,32 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             p_z_means /= M_test / batch_size
             p_z_variances /= M_test / batch_size
             
-            predicted_labels_test = predict_labels(test_set.labels, q_y_logits)
-            accuracy_test = accuracy(test_set.labels, predicted_labels_test)
+            predicted_labels_test = predict_labels(
+                test_set.labels, 
+                q_y_logits,
+                test_set.excluded_classes
+            )
+            accuracy_test = accuracy(
+                test_set.labels,
+                predicted_labels_test,
+                test_set.excluded_classes
+            )
+
+            if test_set.superset_labels is not None:
+                predicted_superset_labels_test = predict_labels(
+                    test_set.superset_labels, 
+                    q_y_logits,
+                    test_set.excluded_superset_classes
+                )
+                accuracy_superset_test = accuracy(
+                    test_set.superset_labels,
+                    predicted_superset_labels_test,
+                    test_set.excluded_superset_classes
+                )
+                accuracy_display = accuracy_superset_test
+            else:
+                accuracy_superset_test = None
+                accuracy_display = accuracy_test
 
             summary = tf.Summary()
             summary.value.add(tag="losses/lower_bound",
@@ -1252,6 +1318,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             summary.value.add(tag="losses/kl_divergence_y",
                 simple_value = KL_y_test)
             summary.value.add(tag="accuracy", simple_value = accuracy_test)
+            if accuracy_superset_test:
+                summary.value.add(tag="superset_accuracy",
+                    simple_value = accuracy_superset_test)
 
             for k in range(self.K):
                 summary.value.add(
@@ -1290,7 +1359,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             print("    Test set ({}): ".format(
                 formatDuration(evaluating_duration)) + \
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}, Acc: {:.5g}.".format(
-                ELBO_test, ENRE_test, KL_z_test, KL_y_test, accuracy_test))
+                ELBO_test, ENRE_test, KL_z_test, KL_y_test, accuracy_display))
             
             if noisy_preprocess and \
                 self.reconstruction_distribution_name == "bernoulli":
@@ -1354,16 +1423,20 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
 
             return transformed_test_set, reconstructed_test_set, latent_test_sets
 
-def predict_labels(labels, logits):
+def predict_labels(labels, logits, excluded_classes = []):
     cat_pred = logits.argmax(1)
     predicted_labels = numpy.zeros_like(cat_pred)
     for cat in range(logits.shape[1]):
         idx = cat_pred == cat
         lab = labels[idx]
+        for excluded_class in excluded_classes:
+            lab = lab[lab != excluded_class]
         if len(lab) == 0:
             continue
         predicted_labels[cat_pred == cat] = scipy.stats.mode(lab)[0]
     return predicted_labels
 
-def accuracy(labels, predicted_labels):
+def accuracy(labels, predicted_labels, excluded_classes = []):
+    for excluded_class in excluded_classes:
+        labels = labels[labels != excluded_class]
     return numpy.mean(predicted_labels == labels)
