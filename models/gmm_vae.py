@@ -867,6 +867,23 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
         
+        ## Learning curves
+        
+        learning_curves = {
+            "training": {
+                "lower_bound": [],
+                "reconstruction_error": [],
+                "kl_divergence_z": [],
+                "kl_divergence_y": []
+            },
+            "validation": {
+                "lower_bound": [],
+                "reconstruction_error": [],
+                "kl_divergence_z": [],
+                "kl_divergence_y": []
+            }
+        }
+        
         with tf.Session(graph = self.graph) as session:
             
             parameter_summary_writer = tf.summary.FileWriter(
@@ -1058,7 +1075,13 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 ENRE_train /= M_train / batch_size
                 
                 z_KL /= M_train / batch_size
-
+                
+                learning_curves["training"]["lower_bound"].append(ELBO_train)
+                learning_curves["training"]["reconstruction_error"].append(
+                    ENRE_train)
+                learning_curves["training"]["kl_divergence_z"].append(KL_z_train)
+                learning_curves["training"]["kl_divergence_y"].append(KL_y_train)
+                
                 predicted_label_ids_train = predict_label_ids(
                     training_set_label_ids,
                     q_y_logits_train,
@@ -1183,6 +1206,12 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 p_z_means /= M_valid / batch_size
                 p_z_variances /= M_valid / batch_size
                 
+                learning_curves["validation"]["lower_bound"].append(ELBO_valid)
+                learning_curves["validation"]["reconstruction_error"].append(
+                    ENRE_valid)
+                learning_curves["validation"]["kl_divergence_z"].append(KL_z_valid)
+                learning_curves["validation"]["kl_divergence_y"].append(KL_y_valid)
+                
                 predicted_label_ids_valid = predict_label_ids(
                     validation_set_label_ids,
                     q_y_logits_valid,
@@ -1298,8 +1327,18 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     else:
                         centroids = None
                     analyseIntermediateResults(
-                        z_mean_valid, validation_set, centroids, epoch,
-                        self.training_name, self.main_results_directory
+                        learning_curves, epoch_start, epoch,
+                        z_mean_valid, validation_set, centroids,
+                        self.training_name, self.type,
+                        self.main_results_directory
+                    )
+                    print()
+                else:
+                    analyseIntermediateResults(
+                        learning_curves, epoch_start,
+                        model_name = self.training_name,
+                        model_type = self.type,
+                        results_directory = self.main_results_directory
                     )
                     print()
             

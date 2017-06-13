@@ -459,99 +459,117 @@ def analyseAllModels(models_summaries, results_directory = "results"):
     
     print()
 
-def analyseIntermediateResults(latent_values, data_set, centroids, epoch,
-    model_name, results_directory = "results"):
+def analyseIntermediateResults(learning_curves = None, epoch_start = None,
+    epoch = None, latent_values = None, data_set = None, centroids = None,
+    model_name = None, model_type = None, results_directory = "results"):
     
-    results_directory = os.path.join(results_directory, model_name,
-        "intermediate")
+    results_directory = os.path.join(results_directory, model_name)
+    intermediate_directory = os.path.join(results_directory, "intermediate")
     
-    latent_set_name = "latent {} set".format(data_set.kind)
+    # Learning curves
     
-    print("Plotting {} with centroids for epoch {}.".format(
-        latent_set_name, epoch + 1))
+    print("Plotting learning curves.")
+    learning_curves_time_start = time()
     
-    if latent_values.shape[1] == 2:
-        decomposition_method = ""
-        latent_values_decomposed = latent_values
-        centroids_decomposed = centroids
-    else:
-        decomposition_method = "PCA"
+    figure, figure_name = plotLearningCurves(learning_curves, model_type,
+        epoch_offset = epoch_start)
+    saveFigure(figure, figure_name, results_directory)
+    
+    learning_curves_duration = time() - learning_curves_time_start
+    print("Learning curves plotted and saved ({}).".format(
+        formatDuration(learning_curves_duration)))
+    
+    if latent_values is not None:
+    
+        # Latent variables
+    
+        latent_set_name = "latent {} set".format(data_set.kind)
+    
+        print("Plotting {} with centroids for epoch {}.".format(
+            latent_set_name, epoch + 1))
+    
+        if latent_values.shape[1] == 2:
+            decomposition_method = ""
+            latent_values_decomposed = latent_values
+            centroids_decomposed = centroids
+        else:
+            decomposition_method = "PCA"
         
-        print("Decomposing", latent_set_name, "using PCA.")
-        decompose_time_start = time()
+            print("Decomposing", latent_set_name, "using PCA.")
+            decompose_time_start = time()
         
-        latent_values_decomposed, centroids_decomposed = decompose(
-            latent_values,
-            centroids = centroids,
-            method = "PCA",
-            components = 2
-        )
+            latent_values_decomposed, centroids_decomposed = decompose(
+                latent_values,
+                centroids = centroids,
+                method = "PCA",
+                components = 2
+            )
 
-        decompose_duration = time() - decompose_time_start
-        print("{} decomposed ({}).".format(
-            latent_set_name.capitalize(),
-            formatDuration(decompose_duration))
-        )
+            decompose_duration = time() - decompose_time_start
+            print("{} decomposed ({}).".format(
+                latent_set_name.capitalize(),
+                formatDuration(decompose_duration))
+            )
         
-    symbol = "z"
+        symbol = "z"
     
-    x_label = axisLabelForSymbol(
-        symbol = symbol,
-        coordinate = 1,
-        decomposition_method = decomposition_method,
-    )
-    y_label = axisLabelForSymbol(
-        symbol = symbol,
-        coordinate = 2,
-        decomposition_method = decomposition_method,
-    )
-    
-    figure_labels = {
-        "title": decomposition_method,
-        "x label": x_label,
-        "y label": y_label
-    }
-    
-    plot_time_start = time()
-    
-    epoch_name = "epoch-{}".format(epoch + 1)
-    name = "latent_space-" + epoch_name
-    
-    if data_set.labels is not None:
-        figure, figure_name = plotValues(
-            latent_values_decomposed,
-            colour_coding = "labels",
-            colouring_data_set = data_set,
-            centroids = centroids_decomposed,
-            figure_labels = figure_labels,
-            name = name
+        x_label = axisLabelForSymbol(
+            symbol = symbol,
+            coordinate = 1,
+            decomposition_method = decomposition_method,
         )
-        saveFigure(figure, figure_name, results_directory)
-        if data_set.label_superset is not None:
+        y_label = axisLabelForSymbol(
+            symbol = symbol,
+            coordinate = 2,
+            decomposition_method = decomposition_method,
+        )
+    
+        figure_labels = {
+            "title": decomposition_method,
+            "x label": x_label,
+            "y label": y_label
+        }
+    
+        plot_time_start = time()
+    
+        epoch_name = "epoch-{}".format(epoch + 1)
+        name = "latent_space-" + epoch_name
+    
+        if data_set.labels is not None:
             figure, figure_name = plotValues(
                 latent_values_decomposed,
-                colour_coding = "superset labels",
+                colour_coding = "labels",
                 colouring_data_set = data_set,
                 centroids = centroids_decomposed,
                 figure_labels = figure_labels,
                 name = name
             )
-            saveFigure(figure, figure_name, results_directory)
-    else:
-        figure, figure_name = plotValues(
-            latent_values_decomposed,
-            centroids = centroids_decomposed,
-            figure_labels = figure_labels,
-            name = name
-        )
-        saveFigure(figure, figure_name, results_directory)
+            saveFigure(figure, figure_name, intermediate_directory)
+            if data_set.label_superset is not None:
+                figure, figure_name = plotValues(
+                    latent_values_decomposed,
+                    colour_coding = "superset labels",
+                    colouring_data_set = data_set,
+                    centroids = centroids_decomposed,
+                    figure_labels = figure_labels,
+                    name = name
+                )
+                saveFigure(figure, figure_name, intermediate_directory)
+        else:
+            figure, figure_name = plotValues(
+                latent_values_decomposed,
+                centroids = centroids_decomposed,
+                figure_labels = figure_labels,
+                name = name
+            )
+            saveFigure(figure, figure_name, intermediate_directory)
     
-    if centroids:
-        analyseCentroidProbabilities(centroids, epoch_name, results_directory)
+        if centroids:
+            analyseCentroidProbabilities(centroids, epoch_name, intermediate_directory)
     
-    plot_duration = time() - plot_time_start
-    print("{} plotted and saved ({}).".format(
-        latent_set_name.capitalize(), formatDuration(plot_duration)))
+        plot_duration = time() - plot_time_start
+        print("{} plotted and saved ({}).".format(
+            latent_set_name.capitalize(), formatDuration(plot_duration)))
 
 def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
@@ -1612,7 +1630,7 @@ def plotSeries(series, x_label, y_label, scale = "linear", bar = False,
     
     return figure, figure_name
 
-def plotLearningCurves(curves, model_type, name = None):
+def plotLearningCurves(curves, model_type, epoch_offset = 0, name = None):
     
     figure_name = figureName("learning_curves", name)
     
@@ -1669,7 +1687,7 @@ def plotLearningCurves(curves, model_type, name = None):
             elif curve_name == "log_likelihood":
                 curve_name = "$L$"
                 axis = axis_1
-            epochs = numpy.arange(len(curve)) + 1
+            epochs = numpy.arange(len(curve)) + 1 + epoch_offset
             label = curve_name + " ({} set)".format(curve_set_name)
             axis.plot(epochs, curve, color = colour, linestyle = line_style,
                 label = label)
