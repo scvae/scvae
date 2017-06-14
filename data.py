@@ -412,10 +412,23 @@ class DataSet(object):
         self.update(values, preprocessed_values, binarised_values, labels,
             example_names, feature_names, class_names)
         
-        # Feature selction, example filter, and preprocessing methods
+        # Feature selction
         self.feature_selection = feature_selection
         self.feature_parameter = feature_parameter
+        
+        # Example filterering
         self.example_filter = example_filter
+        
+        if example_filter:
+            self.example_filter = example_filter[0]
+            if len(example_filter) > 1:
+                self.example_filter_parameters = example_filter[1:]
+            else:
+                self.example_filter_parameters = None
+        else:
+            self.example_filter = None
+        
+        # Preprocessing methods
         self.preprocessing_methods = preprocessing_methods
         
         if preprocessed is None:
@@ -472,15 +485,18 @@ class DataSet(object):
             
             if self.feature_selection:
                 print("    feature selection:", self.feature_selection)
-                if self.feature_parameter: 
-                    print("    feature parameter:", self.feature_parameter)
+                if self.feature_parameter:
+                    print("        parameter:", self.feature_parameter)
                 else:
-                    print("    feature parameter: default")
+                    print("        parameter: default")
             else:
                 print("    feature selection: none")
             
             if self.example_filter:
                 print("    example filter:", self.example_filter)
+                if self.example_filter_parameters:
+                    print("        parameter(s):",
+                        ", ".join(self.example_filter_parameters))
             else:
                 print("    example filter: none")
             
@@ -698,8 +714,11 @@ class DataSet(object):
             preprocessing_methods = self.preprocessing_methods,
             feature_selection = self.feature_selection, 
             feature_parameter = self.feature_parameter,
-            example_filter = self.example_filter
+            example_filter = self.example_filter,
+            example_filter_parameters = self.example_filter_parameters
         )
+        
+        print(sparse_path)
         
         if os.path.isfile(sparse_path):
             print("Loading preprocessed data from sparse representation.")
@@ -743,11 +762,24 @@ class DataSet(object):
                 print()
             
             if self.example_filter:
+                if self.label_superset:
+                    labels = self.superset_labels
+                    class_names = self.superset_class_names
+                    excluded_classes = self.excluded_superset_classes
+                else:
+                    labels = self.labels
+                    class_names = self.class_names
+                    excluded_classes = self.excluded_classes
+                
                 values_dictionary, example_names = filterExamples(
                     {"original": values,
                      "preprocessed": preprocessed_values},
                     self.example_names,
-                    self.example_filter
+                    self.example_filter,
+                    self.example_filter_parameters,
+                    labels = labels,
+                    class_names = class_names,
+                    excluded_classes = excluded_classes
                 )
                 
                 values = values_dictionary["original"]
@@ -785,7 +817,8 @@ class DataSet(object):
             preprocessing_methods = binarise_preprocessing,
             feature_selection = self.feature_selection, 
             feature_parameter = self.feature_parameter,
-            example_filter = self.example_filter
+            example_filter = self.example_filter,
+            example_filter_parameters = self.example_filter_parameters
         )
         
         if os.path.isfile(sparse_path):
@@ -842,6 +875,7 @@ class DataSet(object):
             feature_selection = self.feature_selection,
             feature_parameter = self.feature_parameter,
             example_filter = self.example_filter,
+            example_filter_parameters = self.example_filter_parameters,
             splitting_method = method,
             splitting_fraction = fraction
         )
@@ -1095,7 +1129,7 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
     
     def preprocessedPath(base_name = None, preprocessing_methods = None,
         feature_selection = None, feature_parameter = None,
-        example_filter = None,
+        example_filter = None, example_filter_parameters = None,
         splitting_method = None, splitting_fraction = None):
         
         base_path = os.path.join(preprocess_directory, name)
@@ -1112,6 +1146,9 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
         
         if example_filter:
             filename_parts.append(normaliseString(example_filter))
+            if example_filter_parameters:
+                filename_parts.extend(map(normaliseString,
+                    example_filter_parameters))
         
         if preprocessing_methods:
             filename_parts.extend(map(normaliseString, preprocessing_methods))
@@ -1177,7 +1214,7 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
         indices = numpy.sort(variance_sorted_indices[-feature_parameter:])
         
     else:
-        indices = slice(N)
+        indices = numpy.arange(N)
     
     feature_selected_values = {}
     
@@ -1194,9 +1231,13 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
     
     return feature_selected_values, feature_selected_feature_names
 
-def filterExamples(values_dictionary, example_names, example_filter = None):
+def filterExamples(values_dictionary, example_names, example_filter = None,
+    example_filter_parameters = None, labels = None, class_names = None,
+    excluded_classes = None):
     
     example_filter = normaliseString(example_filter)
+    
+    labels = labels.copy()
     
     print("Filtering examples.")
     start_time = time()
@@ -1209,23 +1250,47 @@ def filterExamples(values_dictionary, example_names, example_filter = None):
     if example_filter == "macosko":
         minimum_number_of_non_zero_elements = 900
         number_of_non_zero_elements = (values != 0).sum(axis = 1)
-        keep_indices = numpy.nonzero(
+        filter_indices = numpy.nonzero(
             number_of_non_zero_elements > minimum_number_of_non_zero_elements
         )[0]
+    
+    elif example_filter == "excluded_classes":
+        filter_indices = numpy.arange(M)
+        for excluded_class in excluded_classes:
+            filter_indices *= labels != excluded_classes
+    
+    elif example_filter in ["keep", "remove"]:
+        
+        if example_filter == "keep":
+            labelsClassNameComparer = lambda labels, class_name: \
+                labels == class_name
+        elif example_filter == "remove":
+            labelsClassNameComparer = lambda labels, class_name: \
+                labels != class_name
+        
+        filter_indices = numpy.arange(M)
+        
+        for parameter in example_filter_parameters:
+            for class_name in class_names:
+                if normaliseString(class_name) == normaliseString(parameter):
+                    label_indices = labelsClassNameComparer(labels, class_name)
+                    labels = labels[label_indices]
+                    filter_indices = filter_indices[label_indices]
+    
     else:
-        keep_indices = slice(M)
+        filter_indices = numpy.arange(M)
     
     example_filtered_values = {}
     
     for version, values in values_dictionary.items():
-        example_filtered_values[version] = values[keep_indices, :]
+        example_filtered_values[version] = values[filter_indices, :]
     
-    filtered_example_names = example_names[keep_indices]
+    filtered_example_names = example_names[filter_indices]
     
     duration = time() - start_time
     print("{} examples filtered out, {} remaining ({}).".format(
-        M - len(keep_indices),
-        len(keep_indices),
+        M - len(filter_indices),
+        len(filter_indices),
         formatDuration(duration)
     ))
     
@@ -2000,6 +2065,9 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction,
     if data_set.example_filter:
         preprocessing_directory_parts.append(normaliseString(
             data_set.example_filter))
+        if data_set.example_filter_parameters:
+            preprocessing_directory_parts.extend(map(normaliseString,
+                data_set.example_filter_parameters))
     
     if preprocessing and data_set.preprocessing_methods:
         preprocessing_directory_parts.extend(map(normaliseString,

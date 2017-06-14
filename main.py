@@ -702,7 +702,7 @@ parser.add_argument(
 parser.add_argument(
     "--example-filter", "-E",
     type = str,
-    nargs = "?",
+    nargs = "*",
     default = None,
     help = "method for filtering examples"
 )
