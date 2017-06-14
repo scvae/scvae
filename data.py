@@ -316,13 +316,13 @@ data_sets = {
             3: (0, 0, 1)
         },
         "label superset": {
-            "A": [1, 2],
-            "B": [3],
+            "Rods": [1, 2],
+            "Cones": [3],
             "No class": [0]
         },
         "literature probabilities": {
-            "A": 0.8,
-            "B": 0.2
+            "Rods": 0.8,
+            "Cones": 0.2
         },
         "excluded classes": [
             0

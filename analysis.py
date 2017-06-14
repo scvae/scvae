@@ -1600,7 +1600,8 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
             "count": 0,
             "colour": class_palette[class_name]
         }
-        for i, class_name in enumerate(sorted(class_names))
+        for i, class_name in enumerate(sorted(class_names,
+            key = classLabelSortKey))
     }
     
     total_count_sum = 0
@@ -1612,24 +1613,33 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     indices = []
     class_names = []
     
-    # TODO Sort classes using label sorter
     for class_name, class_values in sorted(histogram.items()):
+        
         index = class_values["index"]
         count = class_values["count"]
         frequency = count / total_count_sum
         colour = class_values["colour"]
         indices.append(index)
         class_names.append(class_name)
+        
         if normed:
             count_or_frequecny = frequency
         else:
             count_or_frequecny = count
+        
         axis.bar(index, count_or_frequecny, color = colour)
     
     axis.set_yscale(scale)
     
-    # TODO Use diagonal y ticks
-    pyplot.xticks(indices, class_names)
+    maximum_class_name_width = max([
+        len(str(class_name)) for class_name in class_names
+        if class_name not in ["No class"]
+    ])
+    if maximum_class_name_width > 5:
+        y_ticks_rotation = 45
+    else:
+        y_ticks_rotation = 0
+    pyplot.xticks(indices, class_names, rotation = y_ticks_rotation)
     
     axis.set_xlabel("Classes")
     
@@ -2492,7 +2502,7 @@ def figureName(base_name, other_names = None):
         if not isinstance(other_names, list):
             other_names = [other_names]
         else:
-            other_names = [name for name in other_names if name is not None]
+            other_names = [str(name) for name in other_names if name is not None]
         figure_name += "-" + "-".join(map(normaliseString, other_names))
     
     return figure_name
@@ -2851,6 +2861,7 @@ def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
     return axis_label
 
 def classLabelSortKey(label):
+    label = str(label)
     if label == "Miscellaneous":
         label = "ZZZ" + label
     if label == "No class":
