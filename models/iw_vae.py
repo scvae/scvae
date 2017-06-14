@@ -1336,6 +1336,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     example_names = test_set.example_names,
                     feature_names = test_set.feature_names,
                     feature_selection = test_set.feature_selection,
+                    example_filter = test_set.example_filter,
                     preprocessing_methods = test_set.preprocessing_methods,
                     kind = "test",
                     version = "binarised"
@@ -1351,6 +1352,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 example_names = test_set.example_names,
                 feature_names = test_set.feature_names,
                 feature_selection = test_set.feature_selection,
+                example_filter = test_set.example_filter,
                 preprocessing_methods = test_set.preprocessing_methods,
                 kind = "test",
                 version = "reconstructed"
@@ -1365,6 +1367,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 feature_names = numpy.array(["latent variable {}".format(
                     i + 1) for i in range(self.latent_size)]),
                 feature_selection = test_set.feature_selection,
+                example_filter = test_set.example_filter,
                 preprocessing_methods = test_set.preprocessing_methods,
                 kind = "test",
                 version = "z"

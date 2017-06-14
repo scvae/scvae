@@ -23,7 +23,7 @@ import random
 
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
-    feature_selection = None, feature_parameter = None,
+    feature_selection = [], feature_parameter = None, example_filter = [],
     preprocessing_methods = [], noisy_preprocessing_methods = [],
     splitting_method = "default", splitting_fraction = 0.8,
     model_configurations_path = None, model_type = "VAE",
@@ -54,6 +54,7 @@ def main(data_set_name, data_directory = "data",
         directory = data_directory,
         feature_selection = feature_selection,
         feature_parameter = feature_parameter,
+        example_filter = example_filter,
         preprocessing_methods = preprocessing_methods,
         noisy_preprocessing_methods = noisy_preprocessing_methods
     )
@@ -694,6 +695,13 @@ parser.add_argument(
     nargs = "?",
     default = None,
     help = "parameter for feature selection"
+)
+parser.add_argument(
+    "--example-filter", "-E",
+    type = str,
+    nargs = "?",
+    default = None,
+    help = "method for filtering examples"
 )
 parser.add_argument(
     "--preprocessing-methods", "-p",

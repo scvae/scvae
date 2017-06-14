@@ -343,7 +343,7 @@ class DataSet(object):
         values = None, preprocessed_values = None, binarised_values = None,
         labels = None, class_names = None,
         example_names = None, feature_names = None,
-        feature_selection = None, feature_parameter = None,
+        feature_selection = [], feature_parameter = None, example_filter = [],
         preprocessing_methods = [], preprocessed = None,
         noisy_preprocessing_methods = [],
         kind = "full", version = "original",
@@ -412,9 +412,10 @@ class DataSet(object):
         self.update(values, preprocessed_values, binarised_values, labels,
             example_names, feature_names, class_names)
         
-        # Feature selction and preprocessing methods
+        # Feature selction, example filter, and preprocessing methods
         self.feature_selection = feature_selection
         self.feature_parameter = feature_parameter
+        self.example_filter = example_filter
         self.preprocessing_methods = preprocessing_methods
         
         if preprocessed is None:
@@ -477,6 +478,11 @@ class DataSet(object):
                     print("    feature parameter: default")
             else:
                 print("    feature selection: none")
+            
+            if self.example_filter:
+                print("    example filter:", self.example_filter)
+            else:
+                print("    example filter: none")
             
             if not self.preprocessed and self.preprocessing_methods:
                 print("    processing methods:")
@@ -683,14 +689,16 @@ class DataSet(object):
         
     def preprocess(self):
         
-        if not self.preprocessing_methods and not self.feature_selection:
+        if not self.preprocessing_methods and not self.feature_selection \
+            and self.example_filter:
             self.update(preprocessed_values = self.values)
             return
         
         sparse_path = self.preprocessedPath(
             preprocessing_methods = self.preprocessing_methods,
             feature_selection = self.feature_selection, 
-            feature_parameter = self.feature_parameter
+            feature_parameter = self.feature_parameter,
+            example_filter = self.example_filter
         )
         
         if os.path.isfile(sparse_path):
@@ -715,9 +723,13 @@ class DataSet(object):
             else:
                 preprocessed_values = self.values
             
+            values = self.values
+            example_names = self.example_names
+            feature_names = self.feature_names
+            
             if self.feature_selection:
                 values_dictionary, feature_names = selectFeatures(
-                    {"original": self.values,
+                    {"original": values,
                      "preprocessed": preprocessed_values},
                     self.feature_names,
                     self.feature_selection,
@@ -730,9 +742,18 @@ class DataSet(object):
             
                 print()
             
-            else:
-                values = self.values
-                feature_names = self.feature_names
+            if self.example_filter:
+                values_dictionary, example_names = filterExamples(
+                    {"original": values,
+                     "preprocessed": preprocessed_values},
+                    self.example_names,
+                    self.example_filter
+                )
+                
+                values = values_dictionary["original"]
+                preprocessed_values = values_dictionary["preprocessed"]
+            
+                print()
             
             data_dictionary = {
                 "values": values,
@@ -763,7 +784,8 @@ class DataSet(object):
         sparse_path = self.preprocessedPath(
             preprocessing_methods = binarise_preprocessing,
             feature_selection = self.feature_selection, 
-            feature_parameter = self.feature_parameter
+            feature_parameter = self.feature_parameter,
+            example_filter = self.example_filter
         )
         
         if os.path.isfile(sparse_path):
@@ -819,6 +841,7 @@ class DataSet(object):
             preprocessing_methods = self.preprocessing_methods,
             feature_selection = self.feature_selection,
             feature_parameter = self.feature_parameter,
+            example_filter = self.example_filter,
             splitting_method = method,
             splitting_fraction = fraction
         )
@@ -865,6 +888,7 @@ class DataSet(object):
             feature_names = self.feature_names,
             class_names = self.class_names,
             feature_selection = self.feature_selection,
+            example_filter = self.example_filter,
             preprocessing_methods = self.preprocessing_methods,
             noisy_preprocessing_methods = self.noisy_preprocessing_methods,
             kind = "training"
@@ -882,6 +906,7 @@ class DataSet(object):
             feature_names = self.feature_names,
             class_names = self.class_names,
             feature_selection = self.feature_selection,
+            example_filter = self.example_filter,
             preprocessing_methods = self.preprocessing_methods,
             noisy_preprocessing_methods = self.noisy_preprocessing_methods,
             kind = "validation"
@@ -899,6 +924,7 @@ class DataSet(object):
             feature_names = self.feature_names,
             class_names = self.class_names,
             feature_selection = self.feature_selection,
+            example_filter = self.example_filter,
             preprocessing_methods = self.preprocessing_methods,
             noisy_preprocessing_methods = self.noisy_preprocessing_methods,
             kind = "test"
@@ -1069,6 +1095,7 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
     
     def preprocessedPath(base_name = None, preprocessing_methods = None,
         feature_selection = None, feature_parameter = None,
+        example_filter = None,
         splitting_method = None, splitting_fraction = None):
         
         base_path = os.path.join(preprocess_directory, name)
@@ -1082,6 +1109,9 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
             filename_parts.append(normaliseString(feature_selection))
             if feature_parameter:
                 filename_parts.append(str(feature_parameter))
+        
+        if example_filter:
+            filename_parts.append(normaliseString(example_filter))
         
         if preprocessing_methods:
             filename_parts.extend(map(normaliseString, preprocessing_methods))
@@ -1099,7 +1129,8 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
     
     return preprocessedPath
 
-def selectFeatures(values_dictionary, feature_names, feature_selection = None, feature_parameter = None, preprocessPath = None):
+def selectFeatures(values_dictionary, feature_names, feature_selection = None,
+    feature_parameter = None, preprocessPath = None):
     
     feature_selection = normaliseString(feature_selection)
     
@@ -1156,9 +1187,49 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None, f
     feature_selected_feature_names = feature_names[indices]
     
     duration = time() - start_time
-    print("Features selected ({}).".format(formatDuration(duration)))
+    print("{} features selected ({}).".format(
+        len(indices),
+        formatDuration(duration)
+    ))
     
     return feature_selected_values, feature_selected_feature_names
+
+def filterExamples(values_dictionary, example_names, example_filter = None):
+    
+    example_filter = normaliseString(example_filter)
+    
+    print("Filtering examples.")
+    start_time = time()
+    
+    if type(values_dictionary) == dict:
+        values = values_dictionary["original"]
+    
+    M, N = values.shape
+    
+    if example_filter == "macosko":
+        minimum_number_of_non_zero_elements = 900
+        number_of_non_zero_elements = (values != 0).sum(axis = 1)
+        keep_indices = numpy.nonzero(
+            number_of_non_zero_elements > minimum_number_of_non_zero_elements
+        )[0]
+    else:
+        keep_indices = slice(M)
+    
+    example_filtered_values = {}
+    
+    for version, values in values_dictionary.items():
+        example_filtered_values[version] = values[keep_indices, :]
+    
+    filtered_example_names = example_names[keep_indices]
+    
+    duration = time() - start_time
+    print("{} examples filtered out, {} remaining ({}).".format(
+        M - len(keep_indices),
+        len(keep_indices),
+        formatDuration(duration)
+    ))
+    
+    return example_filtered_values, filtered_example_names
 
 def normalisationFunctionForDataSet(title):
     if "maximum value" in data_sets[title]:

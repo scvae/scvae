@@ -1633,6 +1633,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     example_names = test_set.example_names,
                     feature_names = test_set.feature_names,
                     feature_selection = test_set.feature_selection,
+                    example_filter = test_set.example_filter,
                     preprocessing_methods = test_set.preprocessing_methods,
                     kind = "test",
                     version = "binarised"
@@ -1648,6 +1649,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 example_names = test_set.example_names,
                 feature_names = test_set.feature_names,
                 feature_selection = test_set.feature_selection,
+                example_filter = test_set.example_filter,
                 preprocessing_methods = test_set.preprocessing_methods,
                 kind = "test",
                 version = "reconstructed"
@@ -1662,6 +1664,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 feature_names = numpy.array(["z variable {}".format(
                     i + 1) for i in range(self.latent_size)]),
                 feature_selection = test_set.feature_selection,
+                example_filter = test_set.example_filter,
                 preprocessing_methods = test_set.preprocessing_methods,
                 kind = "test",
                 version = "z"
@@ -1676,6 +1679,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 feature_names = numpy.array(["y variable {}".format(
                     i + 1) for i in range(self.K)]),
                 feature_selection = test_set.feature_selection,
+                example_filter = test_set.example_filter,
                 preprocessing_methods = test_set.preprocessing_methods,
                 kind = "test",
                 version = "y"
