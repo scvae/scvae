@@ -907,15 +907,13 @@ def analyseDistributions(data_set, colouring_data_set = None,
         distribution_duration = time() - distribution_time_start
         print("    Superset class distribution plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
-            
+    
     ## Count distribution
-    
-    values = data_set.values.reshape(-1)
-    
+
     distribution_time_start = time()
-    
+
     figure, figure_name = plotHistogram(
-        series = values,
+        series = data_set.values.reshape(-1),
         title = "Counts",
         discrete = data_set.discreteness,
         normed = True,
@@ -923,19 +921,19 @@ def analyseDistributions(data_set, colouring_data_set = None,
         name = data_set_name
     )
     saveFigure(figure, figure_name, distribution_directory)
-    
+
     distribution_duration = time() - distribution_time_start
     print("    Count distribution plotted and saved ({})."\
         .format(formatDuration(distribution_duration)))
-    
+
     ## Count distributions with cut-off
-    
+
     if cutoffs and data_set.example_type == "counts":
         distribution_time_start = time()
-        
+
         for cutoff in cutoffs:
             figure, figure_name = plotHistogram(
-                series = values,
+                series = data_set.values.reshape(-1),
                 title = "Counts",
                 discrete = data_set.discreteness,
                 normed = True,
@@ -945,7 +943,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
             )
             saveFigure(figure, figure_name,
                 distribution_directory + "-counts")
-        
+
         distribution_duration = time() - distribution_time_start
         print("    Count distributions with cut-offs plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
@@ -972,14 +970,11 @@ def analyseDistributions(data_set, colouring_data_set = None,
         
         N = colouring_data_set.number_of_features
         
-        labels_series = labels.repeat(N)
-        
         for class_name in class_names:
+            class_indices = labels == class_name
             figure, figure_name = plotHistogram(
-                series = values,
+                series = data_set.values[class_indices].reshape(-1),
                 title = "Counts",
-                class_name = class_name,
-                labels = labels_series,
                 discrete = data_set.discreteness,
                 normed = True,
                 scale = "log",
@@ -1340,7 +1335,7 @@ def analyseCentroidProbabilities(centroids, name = None,
             saveFigure(figure, figure_name, results_directory)
     
     plot_duration = time() - plot_time_start
-    print("Centroid probabilities plotted and saved ({}.)".format(
+    print("Centroid probabilities plotted and saved ({}).".format(
         formatDuration(plot_duration)))
 
 def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
@@ -1666,9 +1661,8 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     
     return figure, figure_name
 
-def plotHistogram(series, title = None, class_name = None, labels = None,
-    cutoff = None, normed = False, discrete = False,
-    scale = "linear", colour = None, name = None):
+def plotHistogram(series, title = None, cutoff = None, normed = False,
+    discrete = False, scale = "linear", colour = None, name = None):
     
     series = series.copy()
     
@@ -1683,10 +1677,6 @@ def plotHistogram(series, title = None, class_name = None, labels = None,
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
-    
-    if class_name:
-        class_indices = labels == class_name
-        series = series[class_indices]
     
     if cutoff:
         figure_name += "-cutoff-{}".format(cutoff)
