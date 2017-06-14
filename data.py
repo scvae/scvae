@@ -718,8 +718,6 @@ class DataSet(object):
             example_filter_parameters = self.example_filter_parameters
         )
         
-        print(sparse_path)
-        
         if os.path.isfile(sparse_path):
             print("Loading preprocessed data from sparse representation.")
             data_dictionary = loadFromSparseData(sparse_path)
@@ -779,7 +777,8 @@ class DataSet(object):
                     self.example_filter_parameters,
                     labels = labels,
                     class_names = class_names,
-                    excluded_classes = excluded_classes
+                    excluded_classes = excluded_classes,
+                    count_sum = self.count_sum
                 )
                 
                 values = values_dictionary["original"]
@@ -1233,7 +1232,7 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
 
 def filterExamples(values_dictionary, example_names, example_filter = None,
     example_filter_parameters = None, labels = None, class_names = None,
-    excluded_classes = None):
+    excluded_classes = None, count_sum = None):
     
     example_filter = normaliseString(example_filter)
     
@@ -1247,6 +1246,8 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
     
     M, N = values.shape
     
+    filter_indices = numpy.arange(M)
+    
     if example_filter == "macosko":
         minimum_number_of_non_zero_elements = 900
         number_of_non_zero_elements = (values != 0).sum(axis = 1)
@@ -1254,12 +1255,11 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
             number_of_non_zero_elements > minimum_number_of_non_zero_elements
         )[0]
     
-    elif example_filter == "excluded_classes":
-        filter_indices = numpy.arange(M)
-        for excluded_class in excluded_classes:
-            filter_indices *= labels != excluded_classes
-    
-    elif example_filter in ["keep", "remove"]:
+    elif example_filter in ["keep", "remove", "excluded_classes"]:
+        
+        if example_filter == "excluded_classes":
+            example_filter = "remove"
+            example_filter_parameters = excluded_classes
         
         if example_filter == "keep":
             labelsClassNameComparer = lambda labels, class_name: \
@@ -1268,17 +1268,18 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
             labelsClassNameComparer = lambda labels, class_name: \
                 labels != class_name
         
-        filter_indices = numpy.arange(M)
-        
         for parameter in example_filter_parameters:
             for class_name in class_names:
-                if normaliseString(class_name) == normaliseString(parameter):
+                if normaliseString(str(class_name)) \
+                    == normaliseString(parameter):
+                    
                     label_indices = labelsClassNameComparer(labels, class_name)
                     labels = labels[label_indices]
                     filter_indices = filter_indices[label_indices]
     
-    else:
-        filter_indices = numpy.arange(M)
+    elif example_filter == "remove_count_sum_above":
+        threshold = int(example_filter_parameters[0])
+        filter_indices = filter_indices[count_sum.reshape(-1) <= threshold]
     
     example_filtered_values = {}
     
