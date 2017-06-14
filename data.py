@@ -1898,7 +1898,7 @@ def supersetClassPalette(class_palette, label_superset):
                 class_palette[label_in_superset_label]
             )
         superset_class_palette[superset_label] = \
-            numpy.array(superset_label_colours).mean(axis = 0)
+            numpy.array(superset_label_colours).mean(axis = 0).tolist()
     
     return superset_class_palette
 

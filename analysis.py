@@ -877,31 +877,33 @@ def analyseDistributions(data_set, colouring_data_set = None,
         distribution_duration = time() - distribution_time_start
         print("    Class distribution plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
+    
+    if data_set.label_superset:
         
-        if data_set.label_superset:
-            
-            distribution_time_start = time()
-            
-            figure, figure_name = plotClassHistogram(
-                labels = data_set.superset_labels,
-                class_names = data_set.superset_class_names,
-                class_palette = data_set.superset_class_palette,
-                normed = True,
-                scale = "linear",
-                name = [data_set_name, "superset"]
-            )
-            saveFigure(figure, figure_name, distribution_directory)
-            
-            distribution_duration = time() - distribution_time_start
-            print("    Superset class distribution plotted and saved ({})."\
-                .format(formatDuration(distribution_duration)))
+        distribution_time_start = time()
+        
+        figure, figure_name = plotClassHistogram(
+            labels = data_set.superset_labels,
+            class_names = data_set.superset_class_names,
+            class_palette = data_set.superset_class_palette,
+            normed = True,
+            scale = "linear",
+            name = [data_set_name, "superset"]
+        )
+        saveFigure(figure, figure_name, distribution_directory)
+        
+        distribution_duration = time() - distribution_time_start
+        print("    Superset class distribution plotted and saved ({})."\
+            .format(formatDuration(distribution_duration)))
             
     ## Count distribution
+    
+    values = data_set.values.reshape(-1)
     
     distribution_time_start = time()
     
     figure, figure_name = plotHistogram(
-        series = data_set.values.reshape(-1),
+        series = values,
         title = "Counts",
         discrete = data_set.discreteness,
         normed = True,
@@ -914,14 +916,14 @@ def analyseDistributions(data_set, colouring_data_set = None,
     print("    Count distribution plotted and saved ({})."\
         .format(formatDuration(distribution_duration)))
     
-    ## Count distribution with cut-off
+    ## Count distributions with cut-off
     
     if cutoffs and data_set.example_type == "counts":
         distribution_time_start = time()
         
         for cutoff in cutoffs:
             figure, figure_name = plotHistogram(
-                series = data_set.values.reshape(-1),
+                series = values,
                 title = "Counts",
                 discrete = data_set.discreteness,
                 normed = True,
@@ -934,6 +936,44 @@ def analyseDistributions(data_set, colouring_data_set = None,
         
         distribution_duration = time() - distribution_time_start
         print("    Count distributions with cut-offs plotted and saved ({})."\
+            .format(formatDuration(distribution_duration)))
+    
+    ## Count distributions for each class
+    
+    if colouring_data_set.labels is not None:
+    
+        distribution_time_start = time()
+    
+        if colouring_data_set.label_superset:
+            labels = colouring_data_set.superset_labels
+            class_names = colouring_data_set.superset_class_names
+            class_palette = colouring_data_set.superset_class_palette
+        else:
+            labels = colouring_data_set.labels
+            class_names = colouring_data_set.class_names
+            class_palette = colouring_data_set.class_palette
+        
+        N = colouring_data_set.number_of_features
+        
+        labels_series = labels.repeat(N)
+        
+        for class_name in class_names:
+            figure, figure_name = plotHistogram(
+                series = values,
+                title = "Counts",
+                class_name = class_name,
+                labels = labels_series,
+                discrete = data_set.discreteness,
+                normed = True,
+                scale = "log",
+                colour = class_palette[class_name],
+                name = [data_set_name, class_name]
+            )
+            saveFigure(figure, figure_name,
+                distribution_directory + "-classes")
+    
+        distribution_duration = time() - distribution_time_start
+        print("    Count distributions for each class plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
     
     ## Count sum distribution
@@ -1584,8 +1624,9 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     
     return figure, figure_name
 
-def plotHistogram(series, title, cutoff = None, normed = False,
-    discrete = False, scale = "linear", name = None):
+def plotHistogram(series, title = None, class_name = None, labels = None,
+    cutoff = None, normed = False, discrete = False,
+    scale = "linear", colour = None, name = None):
     
     series = series.copy()
     
@@ -1601,6 +1642,10 @@ def plotHistogram(series, title, cutoff = None, normed = False,
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
+    if class_name:
+        class_indices = labels == class_name
+        series = series[class_indices]
+    
     if cutoff:
         figure_name += "-cutoff-{}".format(cutoff)
         clip_indices = series > cutoff
@@ -1608,13 +1653,19 @@ def plotHistogram(series, title, cutoff = None, normed = False,
     
     series_max = series.max()
     
-    if discrete and series_max < 1000:
-        number_of_bins = int(numpy.ceil(series_max)) + 1
+    if discrete:
+        if series_max < 1000:
+            number_of_bins = int(numpy.ceil(series_max)) + 1
+        else:
+            number_of_bins = 1000 + 1
     else:
         number_of_bins = None
     
+    if colour is None:
+        colour = standard_palette[0]
+    
     seaborn.distplot(series, bins = number_of_bins, norm_hist = normed,
-        kde = False, ax = axis)
+        color = colour, kde = False, ax = axis)
     
     axis.set_yscale(scale)
     
