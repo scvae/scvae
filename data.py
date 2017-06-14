@@ -760,24 +760,16 @@ class DataSet(object):
                 print()
             
             if self.example_filter:
-                if self.label_superset:
-                    labels = self.superset_labels
-                    class_names = self.superset_class_names
-                    excluded_classes = self.excluded_superset_classes
-                else:
-                    labels = self.labels
-                    class_names = self.class_names
-                    excluded_classes = self.excluded_classes
-                
-                values_dictionary, example_names = filterExamples(
+                values_dictionary, example_names, labels = filterExamples(
                     {"original": values,
                      "preprocessed": preprocessed_values},
                     self.example_names,
                     self.example_filter,
                     self.example_filter_parameters,
-                    labels = labels,
-                    class_names = class_names,
-                    excluded_classes = excluded_classes,
+                    labels = self.labels,
+                    excluded_classes = self.excluded_classes,
+                    superset_labels = self.superset_labels,
+                    excluded_superset_classes = self.excluded_superset_classes,
                     count_sum = self.count_sum
                 )
                 
@@ -789,17 +781,40 @@ class DataSet(object):
             data_dictionary = {
                 "values": values,
                 "preprocessed values": preprocessed_values,
-                "feature names": feature_names
             }
+            
+            if self.feature_selection:
+                data_dictionary["feature names"] = feature_names
+            
+            if self.example_filter:
+                data_dictionary["example names"] = example_names
+                data_dictionary["labels"] = labels
             
             if self.number_of_features > 1000:
                 print("Saving preprocessed data set in sparse representation.")
                 saveAsSparseData(data_dictionary, sparse_path)
         
-        self.update(
-            values = data_dictionary["values"],
-            preprocessed_values = data_dictionary["preprocessed values"],
+        values = data_dictionary["values"]
+        preprocessed_values = data_dictionary["preprocessed values"]
+        
+        if self.feature_selection:
             feature_names = data_dictionary["feature names"]
+        else:
+            feature_names = self.feature_names
+        
+        if self.example_filter:
+            example_names = data_dictionary["example names"]
+            labels = data_dictionary["labels"]
+        else:
+            example_names = self.example_names
+            labels = self.labels
+        
+        self.update(
+            values = values,
+            preprocessed_values = preprocessed_values,
+            feature_names = feature_names,
+            example_names = example_names,
+            labels = labels
         )
         
         print()
@@ -1231,15 +1246,23 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
     return feature_selected_values, feature_selected_feature_names
 
 def filterExamples(values_dictionary, example_names, example_filter = None,
-    example_filter_parameters = None, labels = None, class_names = None,
-    excluded_classes = None, count_sum = None):
-    
-    example_filter = normaliseString(example_filter)
-    
-    labels = labels.copy()
+    example_filter_parameters = None, labels = None, excluded_classes = None,
+    superset_labels = None, excluded_superset_classes = None,
+    count_sum = None):
     
     print("Filtering examples.")
     start_time = time()
+    
+    example_filter = normaliseString(example_filter)
+    
+    if superset_labels is not None:
+        filter_labels = superset_labels.copy()
+        filter_excluded_classes = excluded_superset_classes
+    else:
+        filter_labels = label.copy()
+        filter_excluded_classes = excluded_classes
+    
+    filter_class_names = numpy.unique(filter_labels)
     
     if type(values_dictionary) == dict:
         values = values_dictionary["original"]
@@ -1259,7 +1282,7 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
         
         if example_filter == "excluded_classes":
             example_filter = "remove"
-            example_filter_parameters = excluded_classes
+            example_filter_parameters = filter_excluded_classes
         
         if example_filter == "keep":
             labelsClassNameComparer = lambda labels, class_name: \
@@ -1269,12 +1292,13 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
                 labels != class_name
         
         for parameter in example_filter_parameters:
-            for class_name in class_names:
+            for class_name in filter_class_names:
                 if normaliseString(str(class_name)) \
-                    == normaliseString(parameter):
+                    == normaliseString(str(parameter)):
                     
-                    label_indices = labelsClassNameComparer(labels, class_name)
-                    labels = labels[label_indices]
+                    label_indices = labelsClassNameComparer(filter_labels,
+                        class_name)
+                    filter_labels = filter_labels[label_indices]
                     filter_indices = filter_indices[label_indices]
     
     elif example_filter == "remove_count_sum_above":
@@ -1286,7 +1310,8 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
     for version, values in values_dictionary.items():
         example_filtered_values[version] = values[filter_indices, :]
     
-    filtered_example_names = example_names[filter_indices]
+    example_filtered_example_names = example_names[filter_indices]
+    example_filtered_labels = labels[filter_indices]
     
     duration = time() - start_time
     print("{} examples filtered out, {} remaining ({}).".format(
@@ -1295,7 +1320,8 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
         formatDuration(duration)
     ))
     
-    return example_filtered_values, filtered_example_names
+    return example_filtered_values, example_filtered_example_names, \
+        example_filtered_labels
 
 def normalisationFunctionForDataSet(title):
     if "maximum value" in data_sets[title]:
