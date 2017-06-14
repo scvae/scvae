@@ -948,7 +948,24 @@ def analyseDistributions(data_set, colouring_data_set = None,
         print("    Count distributions with cut-offs plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
     
-    ## Count distributions for each class
+    ## Count sum distribution
+    
+    distribution_time_start = time()
+    
+    figure, figure_name = plotHistogram(
+        series = data_set.count_sum,
+        title = "Count sum",
+        normed = True,
+        scale = "log",
+        name = data_set_name
+    )
+    saveFigure(figure, figure_name, distribution_directory)
+    
+    distribution_duration = time() - distribution_time_start
+    print("    Count sum distribution plotted and saved ({})."\
+        .format(formatDuration(distribution_duration)))
+    
+    ## Count distributions and count sum distributions for each class
     
     if colouring_data_set.labels is not None:
         
@@ -956,8 +973,6 @@ def analyseDistributions(data_set, colouring_data_set = None,
         
         if data_set.version == "original":
             class_count_distribution_directory += "-classes"
-        
-        distribution_time_start = time()
         
         if colouring_data_set.label_superset:
             labels = colouring_data_set.superset_labels
@@ -969,6 +984,8 @@ def analyseDistributions(data_set, colouring_data_set = None,
             class_palette = colouring_data_set.class_palette
         
         N = colouring_data_set.number_of_features
+        
+        distribution_time_start = time()
         
         for class_name in class_names:
             class_indices = labels == class_name
@@ -987,26 +1004,29 @@ def analyseDistributions(data_set, colouring_data_set = None,
         distribution_duration = time() - distribution_time_start
         print("    Count distributions for each class plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
+        
+        distribution_time_start = time()
+        
+        for class_name in class_names:
+            class_indices = labels == class_name
+            figure, figure_name = plotHistogram(
+                series = data_set.count_sum[class_indices],
+                title = "Count sum",
+                normed = True,
+                scale = "log",
+                colour = class_palette[class_name],
+                name = [data_set_name, class_name]
+            )
+            saveFigure(figure, figure_name,
+                class_count_distribution_directory)
     
-    ## Count sum distribution
-    
-    distribution_time_start = time()
-    
-    figure, figure_name = plotHistogram(
-        series = data_set.count_sum,
-        title = "Count sum",
-        normed = True,
-        scale = "log",
-        name = data_set_name
-    )
-    saveFigure(figure, figure_name, distribution_directory)
-    
-    distribution_duration = time() - distribution_time_start
-    print("    Count sum distribution plotted and saved ({})."\
-        .format(formatDuration(distribution_duration)))
+        distribution_duration = time() - distribution_time_start
+        print("    " + \
+            "Count sum distributions for each class plotted and saved ({})."\
+            .format(formatDuration(distribution_duration)))
     
     print()
-
+    
 def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
     highlight_feature_indices = [], symbol = None,
