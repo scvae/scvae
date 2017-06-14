@@ -427,6 +427,7 @@ class DataSet(object):
                 self.example_filter_parameters = None
         else:
             self.example_filter = None
+            self.example_filter_parameters = None
         
         # Preprocessing methods
         self.preprocessing_methods = preprocessing_methods
