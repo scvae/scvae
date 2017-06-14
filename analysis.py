@@ -665,12 +665,19 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     # Distributions
     
-    analyseDistributions(reconstructed_test_set, colouring_data_set = test_set,
-        results_directory = results_directory)
+    analyseDistributions(
+        reconstructed_test_set,
+        colouring_data_set = test_set,
+        preprocessed = test_set.preprocessing_methods,
+        results_directory = results_directory
+    )
     
     if model.type == "GMVAE_alt":
-        analyseDistributions(reconstructed_test_set,
-            results_directory = results_directory)
+        analyseDistributions(
+            reconstructed_test_set,
+            preprocessed = test_set.preprocessing_methods,
+            results_directory = results_directory
+        )
     
     ## Reconstructions decomposed
 
@@ -847,7 +854,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                 results_directory = results_directory)
 
 def analyseDistributions(data_set, colouring_data_set = None,
-    cutoffs = None, results_directory = "results"):
+    cutoffs = None, results_directory = "results", preprocessed = False):
     
     if not colouring_data_set:
         colouring_data_set = data_set
@@ -866,6 +873,8 @@ def analyseDistributions(data_set, colouring_data_set = None,
         
         data_set_title += " with predicted labels"
         distribution_directory += "-predicted_labels"
+    
+    data_set_discreteness = data_set.discreteness and not preprocessed
     
     print("Plotting distributions for {}.".format(data_set_title))
     
@@ -915,7 +924,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
     figure, figure_name = plotHistogram(
         series = data_set.values.reshape(-1),
         title = "Counts",
-        discrete = data_set.discreteness,
+        discrete = data_set_discreteness,
         normed = True,
         scale = "log",
         name = data_set_name
@@ -935,7 +944,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
             figure, figure_name = plotHistogram(
                 series = data_set.values.reshape(-1),
                 title = "Counts",
-                discrete = data_set.discreteness,
+                discrete = data_set_discreteness,
                 normed = True,
                 cutoff = cutoff,
                 scale = "log",
@@ -994,7 +1003,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
             figure, figure_name = plotHistogram(
                 series = data_set.values[class_indices].reshape(-1),
                 title = "Counts",
-                discrete = data_set.discreteness,
+                discrete = data_set_discreteness,
                 normed = True,
                 scale = "log",
                 colour = class_palette[class_name],
