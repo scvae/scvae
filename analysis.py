@@ -51,6 +51,7 @@ image_extension = ".png"
 
 maximum_feature_size_for_analyses = 2000
 maximum_number_of_values_for_heat_maps = 5000 * 25000
+maximum_number_of_values_for_t_sne = 10000 * 100
 number_of_random_examples = 100
 number_of_profile_comparisons = 25
 
@@ -860,7 +861,9 @@ def analyseDistributions(data_set, colouring_data_set = None,
         data_set_title = data_set.version + " " + data_set_title
         data_set_name = None
     
-    if colouring_data_set.version != "original":
+    if data_set == colouring_data_set \
+        and colouring_data_set.version != "original":
+        
         data_set_title += " with predicted labels"
         distribution_directory += "-predicted_labels"
     
@@ -1082,6 +1085,17 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 decomposition_method = properString(decomposition_method,
                     decomposition_method_names)
                 
+                if decomposition_method == "t-SNE" \
+                    and data_set.number_of_values > \
+                        maximum_number_of_values_for_t_sne:
+                            print(
+                                "Maximum number of values for {}".format(
+                                    title_with_ID),
+                                "would take too long to decompose",
+                                "using {}.\n".format(decomposition_method)
+                            )
+                            continue
+                
                 print("Decomposing {} using {}.".format(
                     title_with_ID, decomposition_method))
                 decompose_time_start = time()
@@ -1131,7 +1145,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 plot_values_decomposed = values_decomposed
             
             if plot_values_decomposed is None:
-                print("No values to plot.")
+                print("No values to plot.\n")
                 return
             
             # Plot data set
