@@ -989,6 +989,8 @@ def analyseDistributions(data_set, colouring_data_set = None,
         
         for class_name in class_names:
             class_indices = labels == class_name
+            if not class_indices.any():
+                continue
             figure, figure_name = plotHistogram(
                 series = data_set.values[class_indices].reshape(-1),
                 title = "Counts",
@@ -1009,6 +1011,8 @@ def analyseDistributions(data_set, colouring_data_set = None,
         
         for class_name in class_names:
             class_indices = labels == class_name
+            if not class_indices.any():
+                continue
             figure, figure_name = plotHistogram(
                 series = data_set.count_sum[class_indices],
                 title = "Count sum",
