@@ -1977,7 +1977,8 @@ def supersetClassPalette(class_palette, label_superset):
     
     return superset_class_palette
 
-def directory(base_directory, data_set, splitting_method, splitting_fraction):
+def directory(base_directory, data_set, splitting_method, splitting_fraction,
+    preprocessing = True):
     
     data_set_directory = os.path.join(base_directory, data_set.name)
     
@@ -2005,7 +2006,7 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction):
         preprocessing_directory_parts.extend(map(normaliseString,
             data_set.noisy_preprocessing_methods))
     
-    if preprocessing_directory_parts:
+    if preprocessing and preprocessing_directory_parts:
         preprocessing_directory = "-".join(preprocessing_directory_parts)
     else:
         preprocessing_directory = "none"

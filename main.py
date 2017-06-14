@@ -68,6 +68,8 @@ def main(data_set_name, data_directory = "data",
     
     log_directory = data.directory(log_directory, data_set,
         splitting_method, splitting_fraction)
+    data_results_directory = data.directory(results_directory, data_set,
+        splitting_method, splitting_fraction, preprocessing = False)
     results_directory = data.directory(results_directory, data_set,
         splitting_method, splitting_fraction)
     
@@ -77,7 +79,8 @@ def main(data_set_name, data_directory = "data",
         subtitle("Analysing data")
         analysis.analyseData(
             [data_set, training_set, validation_set, test_set],
-            decomposition_methods, highlight_feature_indices, results_directory
+            decomposition_methods, highlight_feature_indices,
+            data_results_directory
         )
         print()
     
