@@ -502,7 +502,9 @@ class DataSet(object):
             
             if self.preprocessed_values is None:
                 self.preprocess()
-                if self.noisy_preprocessing_methods[-1] != "binarise":
+                if self.noisy_preprocessing_methods and \
+                    self.noisy_preprocessing_methods[-1] != "binarise":
+                    
                     self.binarise()
     
     @property
