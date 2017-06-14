@@ -662,6 +662,15 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     numpy.random.seed()
     
+    # Distributions
+    
+    analyseDistributions(reconstructed_test_set, colouring_data_set = test_set,
+        results_directory = results_directory)
+    
+    if model.type == "GMVAE_alt":
+        analyseDistributions(reconstructed_test_set,
+            results_directory = results_directory)
+    
     ## Reconstructions decomposed
 
     analyseDecompositions(
@@ -837,7 +846,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                 results_directory = results_directory)
 
 def analyseDistributions(data_set, colouring_data_set = None,
-    cutoffs = range(1, 10), results_directory = "results"):
+    cutoffs = None, results_directory = "results"):
     
     if not colouring_data_set:
         colouring_data_set = data_set
@@ -848,7 +857,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
     distribution_directory = os.path.join(results_directory, "histograms")
     
     if data_set.version != "original":
-        data_set_title = data_set_version + " " + data_set_title
+        data_set_title = data_set.version + " " + data_set_title
         data_set_name = None
     
     if colouring_data_set.version != "original":
@@ -878,7 +887,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
         print("    Class distribution plotted and saved ({})."\
             .format(formatDuration(distribution_duration)))
     
-    if data_set.label_superset:
+    if data_set.label_superset and colouring_data_set == data_set:
         
         distribution_time_start = time()
         
@@ -941,9 +950,14 @@ def analyseDistributions(data_set, colouring_data_set = None,
     ## Count distributions for each class
     
     if colouring_data_set.labels is not None:
-    
+        
+        class_count_distribution_directory = distribution_directory
+        
+        if data_set.version == "original":
+            class_count_distribution_directory += "-classes"
+        
         distribution_time_start = time()
-    
+        
         if colouring_data_set.label_superset:
             labels = colouring_data_set.superset_labels
             class_names = colouring_data_set.superset_class_names
@@ -970,7 +984,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
                 name = [data_set_name, class_name]
             )
             saveFigure(figure, figure_name,
-                distribution_directory + "-classes")
+                class_count_distribution_directory)
     
         distribution_duration = time() - distribution_time_start
         print("    Count distributions for each class plotted and saved ({})."\
@@ -2477,6 +2491,8 @@ def figureName(base_name, other_names = None):
     if other_names:
         if not isinstance(other_names, list):
             other_names = [other_names]
+        else:
+            other_names = [name for name in other_names if name is not None]
         figure_name += "-" + "-".join(map(normaliseString, other_names))
     
     return figure_name
