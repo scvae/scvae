@@ -803,10 +803,18 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 epoch_time_start = time()
                 
                 if noisy_preprocess:
-                    x_train = noisy_preprocess(training_set.values)
+                    print("Noisily preprocess values.")
+                    noisy_time_start = time()
+                    x_train = noisy_preprocess(
+                        training_set.preprocessed_values)
                     t_train = x_train
-                    x_valid = noisy_preprocess(validation_set.values)
+                    x_valid = noisy_preprocess(
+                        validation_set.preprocessed_values)
                     t_valid = x_valid
+                    noisy_duration = time() - noisy_time_start
+                    print("Values noisily preprocessed ({}).".format(
+                        formatDuration(noisy_duration)))
+                    print()
                 
                 if self.number_of_warm_up_epochs:
                     warm_up_weight = float(min(
@@ -1182,8 +1190,14 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 t_test = test_set.values
             
         else:
-            x_test = noisy_preprocess(test_set.values)
+            print("Noisily preprocess values.")
+            noisy_time_start = time()
+            x_test = noisy_preprocess(test_set.preprocessed_values)
             t_test = x_test
+            noisy_duration = time() - noisy_time_start
+            print("Values noisily preprocessed ({}).".format(
+                formatDuration(noisy_duration)))
+            print()
         
         checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
@@ -1311,7 +1325,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             # Data sets
             
-            if noisy_preprocess and \
+            if noisy_preprocess or \
                 self.reconstruction_distribution_name == "bernoulli":
                 
                 transformed_test_set = DataSet(

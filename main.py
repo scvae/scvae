@@ -24,7 +24,7 @@ import random
 def main(data_set_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     feature_selection = None, feature_parameter = None,
-    preprocessing_methods = None, noisy_preprocessing = False,
+    preprocessing_methods = [], noisy_preprocessing_methods = [],
     splitting_method = "default", splitting_fraction = 0.8,
     model_configurations_path = None, model_type = "VAE",
     latent_size = 50, hidden_sizes = [500],
@@ -55,7 +55,7 @@ def main(data_set_name, data_directory = "data",
         feature_selection = feature_selection,
         feature_parameter = feature_parameter,
         preprocessing_methods = preprocessing_methods,
-        noisy_preprocessing = noisy_preprocessing
+        noisy_preprocessing_methods = noisy_preprocessing_methods
     )
     
     training_set, validation_set, test_set = data_set.split(
@@ -703,17 +703,12 @@ parser.add_argument(
     help = "methods for preprocessing data (applied in order)"
 )
 parser.add_argument(
-    "--noisy-preprocessing", "-N",
-    action = "store_true",
-    help = "use noisy preprocessing in every epoch"
+    "--noisy-preprocessing-methods", "-N",
+    type = str,
+    nargs = "*",
+    default = None,
+    help = "methods for noisily preprocessing data at every epoch (applied in order)"
 )
-parser.add_argument(
-    "--no-noisy-preprocessing",
-    dest = "noisy_preprocessing",
-    action = "store_false",
-    help = "only preprocess once before training"
-)
-parser.set_defaults(noisy_preprocessing = False)
 parser.add_argument(
     "--splitting-method", "-s",
     type = str,

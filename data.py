@@ -345,7 +345,8 @@ class DataSet(object):
         example_names = None, feature_names = None,
         feature_selection = None, feature_parameter = None,
         preprocessing_methods = [], preprocessed = None,
-        kind = "full", version = "original", noisy_preprocessing = False,
+        noisy_preprocessing_methods = [],
+        kind = "full", version = "original",
         directory = "data"):
         
         super(DataSet, self).__init__()
@@ -429,13 +430,6 @@ class DataSet(object):
         if self.preprocessed:
             self.preprocessing_methods = data_set_preprocessing_methods
         
-        # Noisy preprocessing
-        self.noisy_preprocessing = noisy_preprocessing
-        self.noisy_preprocess = None
-        
-        if self.preprocessed or not self.preprocessing_methods:
-            self.noisy_preprocessing = False
-        
         # Kind of data set (full, training, validation, test)
         self.kind = kind
         
@@ -455,10 +449,26 @@ class DataSet(object):
         self.preprocessedPath = preprocessedPathFunction(
             self.preprocess_directory, self.name)
         
+        # Noisy preprocessing
+        self.noisy_preprocessing_methods = noisy_preprocessing_methods
+        
+        if self.preprocessed:
+            self.noisy_preprocessing_methods = []
+        
+        if self.noisy_preprocessing_methods:
+            self.noisy_preprocess = preprocessingFunctionForDataSet(
+                self.title, self.noisy_preprocessing_methods,
+                self.preprocessedPath,
+                noisy = True
+            )
+        else:
+            self.noisy_preprocess = None
+        
         if self.kind == "full":
             
             print("Data set:")
             print("    title:", self.title)
+            
             if self.feature_selection:
                 print("    feature selection:", self.feature_selection)
                 if self.feature_parameter: 
@@ -467,15 +477,20 @@ class DataSet(object):
                     print("    feature parameter: default")
             else:
                 print("    feature selection: none")
+            
             if not self.preprocessed and self.preprocessing_methods:
                 print("    processing methods:")
                 for preprocessing_method in self.preprocessing_methods:
                     print("        ", preprocessing_method)
-                
             elif self.preprocessed:
                 print("    processing methods: already done")
             else:
                 print("    processing methods: none")
+            
+            if not self.preprocessed and self.noisy_preprocessing_methods:
+                print("    noisy processing methods:")
+                for preprocessing_method in self.noisy_preprocessing_methods:
+                    print("        ", preprocessing_method)
             print()
             
             if self.values is None:
@@ -487,7 +502,7 @@ class DataSet(object):
             
             if self.preprocessed_values is None:
                 self.preprocess()
-                if not self.noisy_preprocessing:
+                if self.noisy_preprocessing_methods[-1] != "binarise":
                     self.binarise()
     
     @property
@@ -670,31 +685,18 @@ class DataSet(object):
             self.update(preprocessed_values = self.values)
             return
         
-        if self.noisy_preprocessing:
-            sparse_path = self.preprocessedPath(
-                feature_selection = self.feature_selection, 
-                feature_parameter = self.feature_parameter
-            )
-        else:
-            sparse_path = self.preprocessedPath(
-                preprocessing_methods = self.preprocessing_methods,
-                feature_selection = self.feature_selection, 
-                feature_parameter = self.feature_parameter
-            )
-        
-        if self.noisy_preprocessing:
-            self.noisy_preprocess = preprocessingFunctionForDataSet(
-                self.title, self.preprocessing_methods, self.preprocessedPath,
-                noisy = True
-            )
+        sparse_path = self.preprocessedPath(
+            preprocessing_methods = self.preprocessing_methods,
+            feature_selection = self.feature_selection, 
+            feature_parameter = self.feature_parameter
+        )
         
         if os.path.isfile(sparse_path):
             print("Loading preprocessed data from sparse representation.")
             data_dictionary = loadFromSparseData(sparse_path)
             data_dictionary["preprocessed values"] = self.values
         else:
-            if not self.preprocessed and not self.noisy_preprocessing \
-                and self.preprocessing_methods:
+            if not self.preprocessed and self.preprocessing_methods:
                     
                 print("Preprocessing values.")
                 start_time = time()
@@ -862,9 +864,9 @@ class DataSet(object):
             class_names = self.class_names,
             feature_selection = self.feature_selection,
             preprocessing_methods = self.preprocessing_methods,
+            noisy_preprocessing_methods = self.noisy_preprocessing_methods,
             kind = "training"
         )
-        training_set.noisy_preprocess = self.noisy_preprocess
         
         validation_set = DataSet(
             name = self.name,
@@ -879,9 +881,9 @@ class DataSet(object):
             class_names = self.class_names,
             feature_selection = self.feature_selection,
             preprocessing_methods = self.preprocessing_methods,
+            noisy_preprocessing_methods = self.noisy_preprocessing_methods,
             kind = "validation"
         )
-        validation_set.noisy_preprocess = self.noisy_preprocess
         
         test_set = DataSet(
             name = self.name,
@@ -896,9 +898,9 @@ class DataSet(object):
             class_names = self.class_names,
             feature_selection = self.feature_selection,
             preprocessing_methods = self.preprocessing_methods,
+            noisy_preprocessing_methods = self.noisy_preprocessing_methods,
             kind = "test"
         )
-        test_set.noisy_preprocess = self.noisy_preprocess
         
         print()
         
@@ -1921,12 +1923,14 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction):
             preprocessing_directory_parts.append(str(
                 data_set.feature_parameter))
     
-    if data_set.noisy_preprocessing:
-        preprocessing_directory_parts.append("noisy")
-    
     if data_set.preprocessing_methods:
         preprocessing_directory_parts.extend(map(normaliseString,
             data_set.preprocessing_methods))
+    
+    if data_set.noisy_preprocessing_methods:
+        preprocessing_directory_parts.append("noisy")
+        preprocessing_directory_parts.extend(map(normaliseString,
+            data_set.noisy_preprocessing_methods))
     
     if preprocessing_directory_parts:
         preprocessing_directory = "-".join(preprocessing_directory_parts)

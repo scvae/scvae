@@ -173,7 +173,7 @@ def trainingString(epoch_start, number_of_epochs, data_string):
 
 def dataString(data_set, reconstruction_distribution_name):
     
-    if not data_set.noisy_preprocess:
+    if not data_set.noisy_preprocessing_methods:
         
         if data_set.preprocessing_methods:
             if data_set.preprocessing_methods == ["binarise"]:
@@ -190,11 +190,10 @@ def dataString(data_set, reconstruction_distribution_name):
             if not data_string == "original values":
                 data_string += " with original values as targets"
     else:
-        if data_set.preprocessing_methods:
-            if data_set.preprocessing_methods == ["binarise"]:
-               data_string = "new Bernoulli-sampled values"
-            else: 
-                data_string = "new preprocessed values"
-            data_string += " at every epoch"
+        if data_set.noisy_preprocessing_methods == ["binarise"]:
+           data_string = "new Bernoulli-sampled values"
+        else:
+            data_string = "new preprocessed values"
+        data_string += " at every epoch"
     
     return data_string
