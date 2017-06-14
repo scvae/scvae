@@ -157,104 +157,8 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         # Distributions
         
-        print("Plotting distribution for {} set.".format(data_set.kind))
-        
-        distribution_directory = os.path.join(results_directory, "histograms")
-        
-        ## Class distribution
-        
-        if data_set.number_of_classes and data_set.number_of_classes < 50:
-            distribution_time_start = time()
-            
-            figure, figure_name = plotClassHistogram(
-                labels = data_set.labels,
-                class_names = data_set.class_names,
-                class_palette = data_set.class_palette,
-                normed = True,
-                scale = "linear",
-                name = data_set.kind
-            )
-            saveFigure(figure, figure_name, distribution_directory)
-            
-            distribution_duration = time() - distribution_time_start
-            print("    Class distribution plotted and saved ({})."\
-                .format(formatDuration(distribution_duration)))
-            
-            if data_set.label_superset:
-                distribution_time_start = time()
-                
-                figure, figure_name = plotClassHistogram(
-                    labels = data_set.superset_labels,
-                    class_names = data_set.superset_class_names,
-                    class_palette = data_set.superset_class_palette,
-                    normed = True,
-                    scale = "linear",
-                    name = [data_set.kind, "superset"]
-                )
-                saveFigure(figure, figure_name, distribution_directory)
-                
-                distribution_duration = time() - distribution_time_start
-                print("    Superset class distribution plotted and saved ({})."\
-                    .format(formatDuration(distribution_duration)))
-                
-        ## Count distribution
-        
-        distribution_time_start = time()
-        
-        figure, figure_name = plotHistogram(
-            series = data_set.values.reshape(-1),
-            title = "Counts",
-            discrete = data_set.discreteness,
-            normed = True,
-            scale = "log",
-            name = data_set.kind
-        )
-        saveFigure(figure, figure_name, distribution_directory)
-        
-        distribution_duration = time() - distribution_time_start
-        print("    Count distribution plotted and saved ({})."\
-            .format(formatDuration(distribution_duration)))
-            
-        ## Count distribution with cut-off
-        
-        if data_set.example_type == "counts":
-            distribution_time_start = time()
-            
-            for cutoff in range(1, 10):
-                figure, figure_name = plotHistogram(
-                    series = data_set.values.reshape(-1),
-                    title = "Counts",
-                    discrete = data_set.discreteness,
-                    normed = True,
-                    cutoff = cutoff,
-                    scale = "log",
-                    name = data_set.kind
-                )
-                saveFigure(figure, figure_name,
-                    distribution_directory + "-counts")
-            
-            distribution_duration = time() - distribution_time_start
-            print("    Count distributions with cut-offs plotted and saved ({})."\
-                .format(formatDuration(distribution_duration)))
-        
-        ## Count sum distribution
-        
-        distribution_time_start = time()
-        
-        figure, figure_name = plotHistogram(
-            series = data_set.count_sum,
-            title = "Count sum",
-            normed = True,
-            scale = "log",
-            name = data_set.kind
-        )
-        saveFigure(figure, figure_name, distribution_directory)
-        
-        distribution_duration = time() - distribution_time_start
-        print("    Count sum distribution plotted and saved ({})."\
-            .format(formatDuration(distribution_duration)))
-        
-        print()
+        analyseDistributions(data_set, cutoffs = range(1, 10),
+            results_directory = results_directory)
         
         # Heat map for data set
         
@@ -932,6 +836,125 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             analyseCentroidProbabilities(centroids,
                 results_directory = results_directory)
 
+def analyseDistributions(data_set, colouring_data_set = None,
+    cutoffs = range(1, 10), results_directory = "results"):
+    
+    if not colouring_data_set:
+        colouring_data_set = data_set
+    
+    data_set_title = data_set.kind + " set"
+    data_set_name = data_set.kind
+    
+    distribution_directory = os.path.join(results_directory, "histograms")
+    
+    if data_set.version != "original":
+        data_set_title = data_set_version + " " + data_set_title
+        data_set_name = None
+    
+    if colouring_data_set.version != "original":
+        data_set_title += " with predicted labels"
+        distribution_directory += "-predicted_labels"
+    
+    print("Plotting distributions for {}.".format(data_set_title))
+    
+    ## Class distribution
+    
+    if data_set.number_of_classes and data_set.number_of_classes < 100 \
+        and colouring_data_set == data_set:
+        
+        distribution_time_start = time()
+        
+        figure, figure_name = plotClassHistogram(
+            labels = data_set.labels,
+            class_names = data_set.class_names,
+            class_palette = data_set.class_palette,
+            normed = True,
+            scale = "linear",
+            name = data_set_name
+        )
+        saveFigure(figure, figure_name, distribution_directory)
+        
+        distribution_duration = time() - distribution_time_start
+        print("    Class distribution plotted and saved ({})."\
+            .format(formatDuration(distribution_duration)))
+        
+        if data_set.label_superset:
+            
+            distribution_time_start = time()
+            
+            figure, figure_name = plotClassHistogram(
+                labels = data_set.superset_labels,
+                class_names = data_set.superset_class_names,
+                class_palette = data_set.superset_class_palette,
+                normed = True,
+                scale = "linear",
+                name = [data_set_name, "superset"]
+            )
+            saveFigure(figure, figure_name, distribution_directory)
+            
+            distribution_duration = time() - distribution_time_start
+            print("    Superset class distribution plotted and saved ({})."\
+                .format(formatDuration(distribution_duration)))
+            
+    ## Count distribution
+    
+    distribution_time_start = time()
+    
+    figure, figure_name = plotHistogram(
+        series = data_set.values.reshape(-1),
+        title = "Counts",
+        discrete = data_set.discreteness,
+        normed = True,
+        scale = "log",
+        name = data_set_name
+    )
+    saveFigure(figure, figure_name, distribution_directory)
+    
+    distribution_duration = time() - distribution_time_start
+    print("    Count distribution plotted and saved ({})."\
+        .format(formatDuration(distribution_duration)))
+    
+    ## Count distribution with cut-off
+    
+    if cutoffs and data_set.example_type == "counts":
+        distribution_time_start = time()
+        
+        for cutoff in cutoffs:
+            figure, figure_name = plotHistogram(
+                series = data_set.values.reshape(-1),
+                title = "Counts",
+                discrete = data_set.discreteness,
+                normed = True,
+                cutoff = cutoff,
+                scale = "log",
+                name = data_set_name
+            )
+            saveFigure(figure, figure_name,
+                distribution_directory + "-counts")
+        
+        distribution_duration = time() - distribution_time_start
+        print("    Count distributions with cut-offs plotted and saved ({})."\
+            .format(formatDuration(distribution_duration)))
+    
+    ## Count sum distribution
+    
+    distribution_time_start = time()
+    
+    figure, figure_name = plotHistogram(
+        series = data_set.count_sum,
+        title = "Count sum",
+        normed = True,
+        scale = "log",
+        name = data_set_name
+    )
+    saveFigure(figure, figure_name, distribution_directory)
+    
+    distribution_duration = time() - distribution_time_start
+    print("    Count sum distribution plotted and saved ({})."\
+        .format(formatDuration(distribution_duration)))
+    
+    print()
+
 def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
     highlight_feature_indices = [], symbol = None,
@@ -1531,6 +1554,7 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     indices = []
     class_names = []
     
+    # TODO Sort classes using label sorter
     for class_name, class_values in sorted(histogram.items()):
         index = class_values["index"]
         count = class_values["count"]
@@ -1546,6 +1570,7 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     
     axis.set_yscale(scale)
     
+    # TODO Use diagonal y ticks
     pyplot.xticks(indices, class_names)
     
     axis.set_xlabel("Classes")
