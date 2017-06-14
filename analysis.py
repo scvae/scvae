@@ -2735,7 +2735,7 @@ def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
     elif decomposition_method == "ica":
         decomposition_label = "IC"
     elif decomposition_method == "t_sne":
-        decomposition_label = "$t$-SNE"
+        decomposition_label = "tSNE"
     else:
         decomposition_label = ""
     
