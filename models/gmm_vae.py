@@ -921,8 +921,6 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             
             for epoch in range(epoch_start, number_of_epochs):
                 
-                epoch_time_start = time()
-                
                 if noisy_preprocess:
                     print("Noisily preprocess values.")
                     noisy_time_start = time()
@@ -936,6 +934,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     print("Values noisily preprocessed ({}).".format(
                         formatDuration(noisy_duration)))
                     print()
+                
+                epoch_time_start = time()
                 
                 if self.number_of_warm_up_epochs:
                     warm_up_weight = float(min(
