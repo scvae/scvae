@@ -1116,6 +1116,10 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
             else:
                 plot_values_decomposed = values_decomposed
             
+            if plot_values_decomposed is None:
+                print("No values to plot.")
+                return
+            
             # Plot data set
             
             print("Plotting {}{}.".format(
