@@ -1997,16 +1997,20 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction,
             preprocessing_directory_parts.append(str(
                 data_set.feature_parameter))
     
-    if data_set.preprocessing_methods:
+    if data_set.example_filter:
+        preprocessing_directory_parts.append(normaliseString(
+            data_set.example_filter))
+    
+    if preprocessing and data_set.preprocessing_methods:
         preprocessing_directory_parts.extend(map(normaliseString,
             data_set.preprocessing_methods))
     
-    if data_set.noisy_preprocessing_methods:
+    if preprocessing and data_set.noisy_preprocessing_methods:
         preprocessing_directory_parts.append("noisy")
         preprocessing_directory_parts.extend(map(normaliseString,
             data_set.noisy_preprocessing_methods))
     
-    if preprocessing and preprocessing_directory_parts:
+    if preprocessing_directory_parts:
         preprocessing_directory = "-".join(preprocessing_directory_parts)
     else:
         preprocessing_directory = "none"
