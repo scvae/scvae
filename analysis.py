@@ -504,10 +504,26 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     # Loading
     
-    evaluation_test = loadLearningCurves(model, "test")
-    accuracy_test = loadAccuracies(model, "test")
-    superset_accuracy_test = loadAccuracies(model, "test", superset = True)
-    number_of_epochs_trained = loadNumberOfEpochsTrained(model)
+    print("Loading results from model log directory.")
+    loading_time_start = time()
+    
+    number_of_epochs_trained = loadNumberOfEpochsTrained(model,
+        early_stopping = early_stopping)
+    evaluation_test = loadLearningCurves(model, "test",
+        early_stopping = early_stopping)
+    accuracy_test = loadAccuracies(model, "test",
+        early_stopping = early_stopping)
+    superset_accuracy_test = loadAccuracies(model, "test", superset = True,
+        early_stopping = early_stopping)
+    
+    if "AE" in model.type:
+        centroids = loadCentroids(model, data_set_kinds = "test",
+            early_stopping = early_stopping)
+    else:
+        centroids = None
+    
+    loading_duration = time() - loading_time_start
+    print("Results loaded ({}).".format(formatDuration(loading_duration)))
     
     # Metrics
 
@@ -831,11 +847,6 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     if latent_test_sets is not None:
         
         heading("Latent space")
-        
-        if "AE" in model.type:
-            centroids = loadCentroids(model, data_set_kinds = "test")
-        else:
-            centroids = None
         
         analyseDecompositions(
             latent_test_sets,

@@ -1363,12 +1363,13 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             print()
         
         if use_early_stopping_model:
-            checkpoint = tf.train.get_checkpoint_state(
-                self.early_stopping_log_directory)
+            log_directory = self.early_stopping_log_directory
         else:
-            checkpoint = tf.train.get_checkpoint_state(self.log_directory)
+            log_directory = self.log_directory
+            
+        checkpoint = tf.train.get_checkpoint_state(log_directory)
         
-        test_summary_directory = os.path.join(self.log_directory, "test")
+        test_summary_directory = os.path.join(log_directory, "test")
         if os.path.exists(test_summary_directory):
             shutil.rmtree(test_summary_directory)
         

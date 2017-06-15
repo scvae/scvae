@@ -69,7 +69,7 @@ def properString(s, translation):
 
 # Loading function for TensorBoard summaries
 
-def loadNumberOfEpochsTrained(model):
+def loadNumberOfEpochsTrained(model, early_stopping = False):
     
     # Seup
     
@@ -82,9 +82,15 @@ def loadNumberOfEpochsTrained(model):
     elif "AE" in model.type:
         loss = "lower_bound"
     
+    ## Log directory
+    if early_stopping:
+        log_directory = model.early_stopping_log_directory
+    else:
+        log_directory = model.log_directory
+    
     ## TensorBoard class with summaries
     multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
-        model.log_directory)
+        log_directory)
     multiplexer.Reload()
     
     # Loading
@@ -105,7 +111,7 @@ def loadNumberOfEpochsTrained(model):
     
     return E_1
 
-def loadLearningCurves(model, data_set_kinds = "all"):
+def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False):
     
     # Setup
     
@@ -116,6 +122,12 @@ def loadLearningCurves(model, data_set_kinds = "all"):
         data_set_kinds = ["training", "validation", "test"]
     elif not isinstance(data_set_kinds, list):
         data_set_kinds = [data_set_kinds]
+    
+    ## Log directory
+    if early_stopping:
+        log_directory = model.early_stopping_log_directory
+    else:
+        log_directory = model.log_directory
     
     ## Losses depending on model type
     if model.type == "SNN":
@@ -131,7 +143,7 @@ def loadLearningCurves(model, data_set_kinds = "all"):
     
     ## TensorBoard class with summaries
     multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
-        model.log_directory)
+        log_directory)
     multiplexer.Reload()
     
     # Loading
@@ -161,7 +173,8 @@ def loadLearningCurves(model, data_set_kinds = "all"):
     
     return learning_curve_sets
 
-def loadAccuracies(model, data_set_kinds = "all", superset = False):
+def loadAccuracies(model, data_set_kinds = "all", superset = False,
+    early_stopping = False):
     
     # Setup
     
@@ -173,9 +186,15 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False):
     elif not isinstance(data_set_kinds, list):
         data_set_kinds = [data_set_kinds]
     
+    ## Log directory
+    if early_stopping:
+        log_directory = model.early_stopping_log_directory
+    else:
+        log_directory = model.log_directory
+    
     ## TensorBoard class with summaries
     multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
-        model.log_directory)
+        log_directory)
     multiplexer.Reload()
     
     ## Tag
@@ -216,7 +235,7 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False):
     
     return accuracies
 
-def loadCentroids(model, data_set_kinds = "all"):
+def loadCentroids(model, data_set_kinds = "all", early_stopping = False):
     
     # Setup
     
@@ -232,9 +251,15 @@ def loadCentroids(model, data_set_kinds = "all"):
     if model.type == "SNN":
         return None
     
+    ## Log directory
+    if early_stopping:
+        log_directory = model.early_stopping_log_directory
+    else:
+        log_directory = model.log_directory
+    
     ## TensorBoard class with summaries
     multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
-        model.log_directory)
+        log_directory)
     multiplexer.Reload()
     
     # Loading
@@ -328,12 +353,19 @@ def loadCentroids(model, data_set_kinds = "all"):
     
     return centroids_sets
 
-def loadKLDivergences(model):
+def loadKLDivergences(model, early_stopping = False):
     
     # Setup
     
+    ## Log directory
+    if early_stopping:
+        log_directory = model.early_stopping_log_directory
+    else:
+        log_directory = model.log_directory
+    
+    ## TensorBoard class with summaries
     multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
-        model.log_directory)
+        log_directory)
     multiplexer.Reload()
     
     N_epochs = len(multiplexer.Scalars("training",
