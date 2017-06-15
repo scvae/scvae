@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from tensorflow.contrib.layers import (
-    fully_connected, batch_norm,
+    fully_connected, batch_norm, dropout,
     variance_scaling_initializer, xavier_initializer
 )
 
@@ -19,42 +19,40 @@ def prelu(inputs, is_training, scope):
 
 
 # Wrapper layer for inserting batch normalization in between linear and nonlinear activation layers.
-def dense_layer(inputs, num_outputs, is_training = True, scope = "layer", activation_fn = None,
-    batch_normalisation = False, decay = 0.999, center = True, scale = False, reuse = False):
+def dense_layer(inputs, num_outputs, is_training = True, scope = "layer", 
+    activation_fn = None, batch_normalisation = False, decay = 0.999, 
+    center = True, scale = False, reuse = False, 
+    dropout_keep_probability = False):
     
-    with tf.variable_scope(scope):
-        if activation_fn == relu: 
-            # For relu use:
-            ## N(mu=0,sigma=sqrt(2/n_in)) weight initialization
-            # weights_init = variance_scaling_initializer(factor=2.0,
-            #     mode ='FAN_IN', uniform = False, seed = None, dtype = tf.float32)
-            # and 0 bias initialization.
-            weights_init = xavier_initializer()
-            outputs = fully_connected(
-                inputs = inputs,
-                num_outputs = num_outputs,
-                activation_fn = None,
-                weights_initializer = weights_init, 
-                scope = 'DENSE',
-                reuse = reuse
+    with tf.variable_scope(scope): 
+        # Dropout input connections with rate = (1- dropout_keep_probability)
+        if dropout_keep_probability and dropout_keep_probability != 1:
+            inputs = dropout(inputs, 
+                keep_prob = dropout_keep_probability, 
+                is_training = is_training
             )
-        else:
-            # For all other activation functions use (the same):
-            ## N(mu=0,sigma=sqrt(2/n_in) weight initialization
-            # weights_init = variance_scaling_initializer(factor=2.0,
-            #     mode = 'FAN_IN', uniform = False, seed = None, dtype = tf.float32)
-            ## and 0 bias initialization.
-            weights_init = xavier_initializer()
-            outputs = fully_connected(inputs, num_outputs = num_outputs, activation_fn = None, weights_initializer = weights_init, scope = 'DENSE', reuse = reuse)
+            print(inputs.name)
+
+        # Setup weights for and transform inputs through neural network. 
+        outputs = fully_connected(inputs,
+            num_outputs = num_outputs,
+            activation_fn = None,
+            weights_initializer = weights_init, 
+            scope = 'DENSE',
+            reuse = reuse
+        )
+
+        # Setup normalisation across examples with learned center and scale. 
         if batch_normalisation:
-            outputs = batch_norm(
-                inputs = outputs,
+            outputs = batch_norm(outputs,
                 center = center,
                 scale = scale,
                 is_training = is_training,
                 scope = 'BATCH_NORM',
                 reuse = reuse
             )
+
+        # Apply non-linear activation function to linear outputs
         if activation_fn is not None:
             outputs = activation_fn(outputs)
     
@@ -62,8 +60,10 @@ def dense_layer(inputs, num_outputs, is_training = True, scope = "layer", activa
 
 # Wrapper layer for inserting batch normalization in between several linear
 # and non-linear activation layers in given or reverse order of num_outputs.
-def dense_layers(inputs, num_outputs, reverse_order = False, is_training = True, scope = "layers", activation_fn = None,
-    batch_normalisation = False, decay = 0.999, center = True, scale = False, reuse = False):
+def dense_layers(inputs, num_outputs, reverse_order = False, is_training = True,
+    scope = "layers", activation_fn = None, batch_normalisation = False, 
+    decay = 0.999, center = True, scale = False, reuse = False, 
+    dropout_keep_probability = False):
     if not isinstance(num_outputs, list):
         num_outputs = [num_outputs]
     if reverse_order:
@@ -76,26 +76,20 @@ def dense_layers(inputs, num_outputs, reverse_order = False, is_training = True,
         else: 
             layer_number = len(num_outputs) - i
 
-        with tf.variable_scope('LAYER_{:d}'.format(layer_number)):
-            outputs = fully_connected(
-                inputs = outputs, 
-                num_outputs = num_output,
-                activation_fn = None, 
-                weights_initializer = weights_init, 
-                scope = 'DENSE',
-                reuse = reuse
-            )
-            if batch_normalisation:
-                outputs = batch_norm(
-                    inputs = outputs, 
-                    center = center, 
-                    scale = scale,   
-                    is_training = is_training, 
-                    scope = 'BATCH_NORM',
-                    reuse = reuse
-                )
-            if activation_fn is not None:
-                outputs = activation_fn(outputs)
+        
+        outputs = dense_layer(
+            inputs = outputs,
+            num_outputs = num_output,
+            is_training = is_training,
+            scope = 'LAYER_{:d}'.format(layer_number),
+            activation_fn = activation_fn,
+            batch_normalisation = batch_normalisation,
+            decay = decay,
+            center = center,
+            scale = scale,
+            reuse = reuse,
+            dropout_keep_probability = dropout_keep_probability
+        )
     
     return outputs
 

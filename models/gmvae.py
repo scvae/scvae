@@ -27,7 +27,9 @@ class GaussianMixtureVariationalAutoEncoder(object):
         number_of_latent_clusters = 10,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
-        batch_normalisation = True, count_sum = True,
+        batch_normalisation = True, 
+        dropout_keep_probability = False,
+        count_sum = True,
         number_of_warm_up_epochs = 0, epsilon = 1e-6,
         log_directory = "log", results_directory = "results"):
         
@@ -62,6 +64,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
         self.k_max = number_of_reconstruction_classes
         
         self.batch_normalisation = batch_normalisation
+        self.dropout_keep_probability = dropout_keep_probability
 
         self.count_sum_feature = count_sum
         self.count_sum = self.count_sum_feature or "constrained" in \
@@ -300,6 +303,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
                 activation_fn = relu,
                 batch_normalisation = self.batch_normalisation,
                 is_training = self.is_training,
+                dropout_keep_probability = self.dropout_keep_probability,
                 scope="NN"
             )
 
@@ -309,6 +313,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
                 num_outputs = self.Dim_y,
                 activation_fn=None,
                 is_training=self.is_training,
+                dropout_keep_probability = self.dropout_keep_probability,
                 scope="logits"
             )
 
@@ -369,6 +374,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
                 activation_fn = relu,
                 batch_normalisation = self.batch_normalisation,
                 is_training = self.is_training,
+                dropout_keep_probability = self.dropout_keep_probability,
                 scope="NN"
             )
 
@@ -378,6 +384,8 @@ class GaussianMixtureVariationalAutoEncoder(object):
                     q_z_NN,
                     self.Dim_z,
                     activation_fn=None,
+                    is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
                     scope="mu"
                     ), 
                 [1, self.Dim_y, -1, self.Dim_z]
@@ -387,6 +395,8 @@ class GaussianMixtureVariationalAutoEncoder(object):
                     q_z_NN, 
                     self.Dim_z, 
                     activation_fn=self.log_var_support,
+                    is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
                     scope="log_var"
                     ), 
                 [1, self.Dim_y, -1, self.Dim_z]
@@ -468,6 +478,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
                     num_outputs = self.Dim_z,
                     activation_fn = None,
                     is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
                     scope = 'mu'
                 ),
                 [1, self.Dim_y, 1, self.Dim_z]
@@ -478,6 +489,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
                     num_outputs = self.Dim_z,
                     activation_fn = self.log_var_support,
                     is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
                     scope = 'log_var'
                 ), 
                 [1, self.Dim_y, 1, self.Dim_z]
@@ -542,6 +554,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
                     activation_fn = relu,
                     batch_normalisation = self.batch_normalisation,
                     is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
                     scope="NN"
                 )
             else:
@@ -553,6 +566,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
                     activation_fn = relu,
                     batch_normalisation = self.batch_normalisation,
                     is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
                     scope="NN"
                 )
 
@@ -580,6 +594,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
                             p_max - self.epsilon
                         ),
                         is_training = self.is_training,
+                        dropout_keep_probability = self.dropout_keep_probability,
                         scope = parameter.upper()
                     ),
                     [self.S_iw_mc, self.Dim_y, -1, self.Dim_x]
@@ -607,6 +622,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
                     num_outputs = self.Dim_x * self.k_max,
                     activation_fn = None,
                     is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
                     scope = "P_K"
                 )
                 

@@ -30,7 +30,9 @@ class ClusterVariationalAutoEncoder(object):
         number_of_latent_clusters = 10,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
-        batch_normalisation = True, count_sum = True,
+        batch_normalisation = True, 
+        dropout_keep_probability = False,
+        count_sum = True,
         number_of_warm_up_epochs = 0, epsilon = 1e-6,
         log_directory = "log", results_directory = "results"):
         
@@ -63,6 +65,7 @@ class ClusterVariationalAutoEncoder(object):
         self.k_max = number_of_reconstruction_classes
         
         self.batch_normalisation = batch_normalisation
+        self.dropout_keep_probability = dropout_keep_probability
 
         self.count_sum_feature = count_sum
         self.count_sum = self.count_sum_feature or "constrained" in \
@@ -298,6 +301,7 @@ class ClusterVariationalAutoEncoder(object):
                 activation_fn = relu,
                 batch_normalisation = self.batch_normalisation,
                 is_training = self.is_training,
+                dropout_keep_probability = self.dropout_keep_probability,
                 scope="NN"
             )
 
@@ -306,7 +310,9 @@ class ClusterVariationalAutoEncoder(object):
                 dense_layer(
                     q_z1_NN,
                     self.Dim_z,
-                    activation_fn=None,
+                    is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
+                     activation_fn=None,
                     scope="mu"
                     ), 
                 [1, -1, self.Dim_z]
@@ -315,7 +321,9 @@ class ClusterVariationalAutoEncoder(object):
                 dense_layer(
                     q_z1_NN, 
                     self.Dim_z, 
-                    activation_fn=self.log_sigma_support,
+                    is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
+                     activation_fn=self.log_sigma_support,
                     scope="log_sigma"
                     ), 
                 [1, -1, self.Dim_z]
@@ -351,11 +359,16 @@ class ClusterVariationalAutoEncoder(object):
                 activation_fn = relu,
                 batch_normalisation = self.batch_normalisation,
                 is_training = self.is_training,
+                dropout_keep_probability = self.dropout_keep_probability,
                 scope="NN"
             )
 
             ## (S_iw * S_mc, 1, B, K)
-            q_y_logits = tf.reshape(dense_layer(q_y_NN, self.Dim_y, activation_fn=None, scope="logits"), [self.S_iw_mc, 1, -1, self.Dim_y])
+            q_y_logits = tf.reshape(dense_layer(q_y_NN, self.Dim_y,
+                is_training = self.is_training,
+                dropout_keep_probability = self.dropout_keep_probability,
+                activation_fn=None,
+                scope="logits"), [self.S_iw_mc, 1, -1, self.Dim_y])
 
             ## (S_iw * S_mc, 1, B, K)
             self.q_y_given_x_z1 = Categorical(
@@ -405,6 +418,7 @@ class ClusterVariationalAutoEncoder(object):
                 activation_fn = relu,
                 batch_normalisation = self.batch_normalisation,
                 is_training = self.is_training,
+                dropout_keep_probability = self.dropout_keep_probability,
                 scope="NN"
             )
 
@@ -414,7 +428,9 @@ class ClusterVariationalAutoEncoder(object):
                 dense_layer(
                     q_z2_NN,
                     self.Dim_z,
-                    activation_fn=None,
+                    is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
+                     activation_fn=None,
                     scope="mu"
                 ),
                 [1, self.S_iw_mc, self.Dim_y, -1, self.Dim_z]
@@ -423,7 +439,9 @@ class ClusterVariationalAutoEncoder(object):
                 dense_layer(
                     q_z2_NN, 
                     self.Dim_z, 
-                    activation_fn=self.log_sigma_support,
+                    is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
+                     activation_fn=self.log_sigma_support,
                     scope="log_sigma"
                 ), 
                 [1, self.S_iw_mc, self.Dim_y, -1, self.Dim_z]
@@ -502,13 +520,18 @@ class ClusterVariationalAutoEncoder(object):
                 activation_fn = relu,
                 batch_normalisation = self.batch_normalisation,
                 is_training = self.is_training,
+                dropout_keep_probability = self.dropout_keep_probability,
                 scope="NN"
             )
 
             ## (S_iw * S_mc, S_iw * S_mc, K, B, K)
             p_y_logits = tf.reshape(
                 dense_layer(
-                    p_y_NN, self.Dim_y, activation_fn=None, scope="logits"
+                    p_y_NN, self.Dim_y,
+                    is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
+                    activation_fn=None,
+                    scope="logits"
                 ), 
                 [self.S_iw_mc, self.S_iw_mc, 
                     self.Dim_y, -1, self.Dim_y]
@@ -546,6 +569,7 @@ class ClusterVariationalAutoEncoder(object):
                 activation_fn = relu,
                 batch_normalisation = self.batch_normalisation,
                 is_training = self.is_training,
+                dropout_keep_probability = self.dropout_keep_probability,
                 scope="NN"
             )
 
@@ -553,7 +577,11 @@ class ClusterVariationalAutoEncoder(object):
             ## (S_iw * S_mc, S_iw * S_mc, K, B, L)
             p_z1_mu = tf.reshape(
                 dense_layer(
-                    p_z1_NN, self.Dim_z, activation_fn=None, scope="mu"
+                    p_z1_NN, self.Dim_z,
+                    is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
+                    activation_fn=None,
+                    scope="mu"
                 ), 
                 [self.S_iw_mc, self.S_iw_mc, self.Dim_y, -1, self.Dim_z]
             )
@@ -561,7 +589,9 @@ class ClusterVariationalAutoEncoder(object):
                 dense_layer(
                     p_z1_NN, 
                     self.Dim_z, 
-                    activation_fn=self.log_sigma_support,
+                    is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
+                     activation_fn=self.log_sigma_support,
                     scope="log_sigma"
                 ), 
                 [self.S_iw_mc, self.S_iw_mc, self.Dim_y, -1, self.Dim_z]
@@ -621,6 +651,7 @@ class ClusterVariationalAutoEncoder(object):
             activation_fn = relu,
             batch_normalisation = self.batch_normalisation,
             is_training = self.is_training,
+            dropout_keep_probability = self.dropout_keep_probability,
             scope="NN"
             )
 
@@ -648,6 +679,7 @@ class ClusterVariationalAutoEncoder(object):
                             p_max - self.epsilon
                         ),
                         is_training = self.is_training,
+                        dropout_keep_probability = self.dropout_keep_probability,
                         scope = parameter.upper()
                     ),
                     [self.S_iw_mc, self.Dim_y, -1, self.Dim_x]
@@ -675,6 +707,7 @@ class ClusterVariationalAutoEncoder(object):
                     num_outputs = self.Dim_x * self.k_max,
                     activation_fn = None,
                     is_training = self.is_training,
+                    dropout_keep_probability = self.dropout_keep_probability,
                     scope = "P_K"
                 )
                 
