@@ -369,6 +369,15 @@ def main(data_set_name, data_directory = "data",
         if "AE" in model.type:
             transformed_test_set, reconstructed_test_set, latent_test_sets = \
                 model.evaluate(test_set, batch_size)
+            
+            if model.stopped_early:
+                print()
+                subtitle("Evaluating earlier stopped model")
+                
+                early_stopped_transformed_test_set, \
+                    early_stopped_reconstructed_test_set, \
+                    early_stopped_latent_test_sets = \
+                    model.evaluate(test_set, batch_size, model.stopped_early)
         else:
             transformed_test_set, reconstructed_test_set = \
                 model.evaluate(test_set, batch_size)
@@ -390,7 +399,16 @@ def main(data_set_name, data_directory = "data",
                 results_directory
             )
             
-            print()
+            if model.stopped_early:
+                subtitle("Analysing results for earlier stopped model")
+                analysis.analyseResults(
+                    early_stopped_transformed_test_set,
+                    early_stopped_reconstructed_test_set,
+                    early_stopped_latent_test_sets,
+                    model, decomposition_methods, highlight_feature_indices,
+                    results_directory,
+                    early_stopping = True
+                )
 
 def setUpModelConfigurations(model_configurations_path, model_type,
     latent_size, hidden_sizes,

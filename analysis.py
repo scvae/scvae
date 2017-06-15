@@ -218,6 +218,9 @@ def analyseModel(model, results_directory = "results"):
     
     results_directory = os.path.join(results_directory, model_name)
     
+    if not os.path.exists(results_directory):
+        os.makedirs(results_directory)
+    
     # Learning curves
     
     heading("Learning curves")
@@ -480,7 +483,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
 
 def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
-    results_directory = "results"):
+    results_directory = "results", early_stopping = False):
     
     # Setup
     
@@ -490,6 +493,12 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         model_name = model.name
     
     results_directory = os.path.join(results_directory, model_name)
+    
+    if early_stopping:
+        results_directory = os.path.join(results_directory, "early_stopping")
+    
+    if not os.path.exists(results_directory):
+        os.makedirs(results_directory)
     
     M = test_set.number_of_examples
     
@@ -854,6 +863,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         if centroids:
             analyseCentroidProbabilities(centroids,
                 results_directory = results_directory)
+        
+        print()
 
 def analyseDistributions(data_set, colouring_data_set = None,
     cutoffs = None, results_directory = "results", preprocessed = False):
