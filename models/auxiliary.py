@@ -7,6 +7,8 @@ from tensorflow.contrib.layers import (
 
 from tensorflow.python.ops.nn import relu
 
+import os, shutil
+
 ## N(mu=0,sigma=sqrt(2/n_in)) weight and 0-bias initialiser.
 # weights_init = variance_scaling_initializer(factor=2.0, mode ='FAN_IN', 
 #     uniform = False, seed = None, dtype = tf.float32)
@@ -196,3 +198,46 @@ def dataString(data_set, reconstruction_distribution_name):
         data_string += " at every epoch"
     
     return data_string
+
+# Model
+
+def copyModelDirectory(model_checkpoint, main_destination_directory):
+    
+    checkpoint_path_prefix = model_checkpoint.model_checkpoint_path
+    checkpoint_directory, checkpoint_filename_prefix = \
+        os.path.split(checkpoint_path_prefix)
+    
+    if not os.path.exists(main_destination_directory):
+        os.makedirs(main_destination_directory)
+    
+    for f in os.listdir(checkpoint_directory):
+        source_path = os.path.join(checkpoint_directory, f)
+    
+        if checkpoint_filename_prefix in f or "events" in f \
+            or f in "checkpoint":
+            destination_directory = main_destination_directory
+            shutil.copy(source_path, destination_directory)
+    
+        elif os.path.isdir(source_path):
+            if f not in ["training", "validation"]:
+                continue
+            sub_checkpoint_directory = source_path
+            destination_directory = os.path.join(main_destination_directory, f)
+            if not os.path.exists(destination_directory):
+                os.makedirs(destination_directory)
+            for sub_f in os.listdir(sub_checkpoint_directory):
+                sub_source_path = os.path.join(sub_checkpoint_directory, sub_f)
+                shutil.copy(sub_source_path, destination_directory)
+
+def removeOldCheckpoints(directory):
+    
+    checkpoint = tf.train.get_checkpoint_state(directory)
+    
+    if checkpoint:
+        for f in os.listdir(directory):
+            file_path = os.path.join(directory, f)
+            is_old_checkpoint_file = os.path.isfile(file_path) \
+                and "model" in f \
+                and not checkpoint.model_checkpoint_path in file_path
+            if is_old_checkpoint_file:
+                os.remove(file_path)
