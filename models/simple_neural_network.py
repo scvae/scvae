@@ -92,6 +92,11 @@ class SimpleNeuralNetwork(object):
         
         if self.batch_normalisation:
             reconstruction_part += "_bn"
+
+        if self.dropout_keep_probability and \
+        self.dropout_keep_probability != 1:
+            reconstruction_part += "_do_" + str(self.dropout_keep_probability)
+
         
         model_name = os.path.join(self.type, reconstruction_part)
         

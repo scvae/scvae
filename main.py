@@ -37,7 +37,9 @@ def main(data_set_name, data_directory = "data",
     number_of_reconstruction_classes = 0,
     prior_probabilities_method = "uniform",
     number_of_warm_up_epochs = 50,
-    batch_normalisation = True, count_sum = True,
+    batch_normalisation = True,
+    dropout_keep_probability = False,
+    count_sum = True,
     number_of_epochs = 200, batch_size = 100, learning_rate = 1e-4,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
@@ -166,24 +168,37 @@ def main(data_set_name, data_directory = "data",
         
         if model_type == "VAE":
             model = VariationalAutoEncoder(
-                feature_size, latent_size, hidden_sizes,
-                number_of_monte_carlo_samples, analytical_kl_term,
-                latent_distribution, number_of_latent_clusters,
-                parameterise_latent_posterior,
-                reconstruction_distribution,
-                number_of_reconstruction_classes,
-                batch_normalisation, count_sum, number_of_warm_up_epochs,
+                feature_size = feature_size,
+                latent_size = latent_size,
+                hidden_sizes = hidden_sizes,
+                number_of_monte_carlo_samples =number_of_monte_carlo_samples,
+                analytical_kl_term = analytical_kl_term,
+                latent_distribution = latent_distribution,
+                number_of_latent_clusters = number_of_latent_clusters,
+                parameterise_latent_posterior = parameterise_latent_posterior,
+                reconstruction_distribution = reconstruction_distribution,
+                number_of_reconstruction_classes = number_of_reconstruction_classes,
+                batch_normalisation = batch_normalisation,
+                dropout_keep_probability = dropout_keep_probability,
+                count_sum = count_sum,
+                number_of_warm_up_epochs = number_of_warm_up_epochs,
                 log_directory = log_directory,
                 results_directory = results_directory
             )
         
         elif model_type == "OVAE":
             model = OriginalVariationalAutoEncoder(
-                feature_size, latent_size, hidden_sizes,
-                latent_distribution, number_of_latent_clusters,
-                reconstruction_distribution,
-                number_of_reconstruction_classes,
-                batch_normalisation, count_sum, number_of_warm_up_epochs,
+                feature_size = feature_size,
+                latent_size = latent_size,
+                hidden_sizes = hidden_sizes,
+                latent_distribution = latent_distribution,
+                number_of_latent_clusters = number_of_latent_clusters,
+                reconstruction_distribution = reconstruction_distribution,
+                number_of_reconstruction_classes = number_of_reconstruction_classes,
+                batch_normalisation = batch_normalisation,
+                dropout_keep_probability = dropout_keep_probability,
+                count_sum = count_sum,
+                number_of_warm_up_epochs = number_of_warm_up_epochs,
                 log_directory = log_directory
             )
         
@@ -191,14 +206,21 @@ def main(data_set_name, data_directory = "data",
             number_of_importance_samples = model_configuration[
                 "number of importance samples"]
             model = ImportanceWeightedVariationalAutoEncoder(
-                feature_size, latent_size, hidden_sizes,
-                number_of_monte_carlo_samples, number_of_importance_samples,
-                analytical_kl_term,
-                latent_distribution, number_of_latent_clusters,
-                parameterise_latent_posterior,
-                reconstruction_distribution,
-                number_of_reconstruction_classes,
-                batch_normalisation, count_sum, number_of_warm_up_epochs,
+                feature_size = feature_size,
+                latent_size = latent_size,
+                hidden_sizes = hidden_sizes,
+                number_of_monte_carlo_samples =number_of_monte_carlo_samples,
+                number_of_importance_samples = number_of_importance_samples,
+                analytical_kl_term = analytical_kl_term,
+                latent_distribution = latent_distribution,
+                number_of_latent_clusters = number_of_latent_clusters,
+                parameterise_latent_posterior = parameterise_latent_posterior,
+                reconstruction_distribution = reconstruction_distribution,
+                number_of_reconstruction_classes = number_of_reconstruction_classes,
+                batch_normalisation = batch_normalisation,
+                dropout_keep_probability = dropout_keep_probability,
+                count_sum = count_sum,
+                number_of_warm_up_epochs = number_of_warm_up_epochs,
                 log_directory = log_directory,
                 results_directory = results_directory
             )
@@ -207,12 +229,18 @@ def main(data_set_name, data_directory = "data",
             number_of_importance_samples = model_configuration[
                 "number of importance samples"]
             model = ClusterVariationalAutoEncoder(
-                feature_size, latent_size, hidden_sizes,
-                number_of_monte_carlo_samples, number_of_importance_samples,
-                number_of_latent_clusters,
-                reconstruction_distribution,
-                number_of_reconstruction_classes,
-                batch_normalisation, count_sum, number_of_warm_up_epochs,
+                feature_size = feature_size,
+                latent_size = latent_size,
+                hidden_sizes = hidden_sizes,
+                number_of_monte_carlo_samples = number_of_monte_carlo_samples,
+                number_of_importance_samples = number_of_importance_samples,
+                number_of_latent_clusters = number_of_latent_clusters,
+                reconstruction_distribution = reconstruction_distribution,
+                number_of_reconstruction_classes = number_of_reconstruction_classes,
+                batch_normalisation = batch_normalisation,
+                dropout_keep_probability = dropout_keep_probability,
+                count_sum = count_sum,
+                number_of_warm_up_epochs = number_of_warm_up_epochs,
                 log_directory = log_directory,
                 results_directory = results_directory
             )
@@ -244,17 +272,20 @@ def main(data_set_name, data_directory = "data",
             
             model = \
             GaussianMixtureVariationalAutoEncoder_alternative(
-                feature_size, latent_size, hidden_sizes,
-                number_of_monte_carlo_samples,
-                number_of_importance_samples, 
-                analytical_kl_term,
-                "gaussian mixture", 
-                prior_probabilities,
-                number_of_latent_clusters,
-                reconstruction_distribution,
-                number_of_reconstruction_classes,
-                batch_normalisation, count_sum,
-                number_of_warm_up_epochs,
+                feature_size = feature_size,
+                latent_size = latent_size,
+                hidden_sizes = hidden_sizes,
+                number_of_monte_carlo_samples = number_of_monte_carlo_samples,
+                number_of_importance_samples = number_of_importance_samples, 
+                analytical_kl_term = analytical_kl_term,
+                prior_probabilities = prior_probabilities,
+                number_of_latent_clusters = number_of_latent_clusters,
+                reconstruction_distribution = reconstruction_distribution,
+                number_of_reconstruction_classes = number_of_reconstruction_classes,
+                batch_normalisation = batch_normalisation,
+                dropout_keep_probability = dropout_keep_probability,
+                count_sum = count_sum,
+                number_of_warm_up_epochs = number_of_warm_up_epochs,
                 log_directory = log_directory,
                 results_directory= results_directory
             )
@@ -262,15 +293,19 @@ def main(data_set_name, data_directory = "data",
             number_of_importance_samples = model_configuration[
                 "number of importance samples"]
             model = GaussianMixtureVariationalAutoEncoder(
-                feature_size, latent_size, hidden_sizes,
-                number_of_monte_carlo_samples,
-                number_of_importance_samples, 
-                analytical_kl_term,
-                number_of_latent_clusters,
-                reconstruction_distribution,
-                number_of_reconstruction_classes,
-                batch_normalisation, count_sum,
-                number_of_warm_up_epochs,
+                feature_size = feature_size,
+                latent_size = latent_size,
+                hidden_sizes = hidden_sizes,
+                number_of_monte_carlo_samples = number_of_monte_carlo_samples,
+                number_of_importance_samples = number_of_importance_samples,
+                analytical_kl_term = analytical_kl_term,
+                number_of_latent_clusters = number_of_latent_clusters,
+                reconstruction_distribution = reconstruction_distribution,
+                number_of_reconstruction_classes = number_of_reconstruction_classes,
+                batch_normalisation = batch_normalisation,
+                dropout_keep_probability = dropout_keep_probability,
+                count_sum = count_sum,
+                number_of_warm_up_epochs = number_of_warm_up_epochs,
                 log_directory = log_directory,
                 results_directory = results_directory 
             )
@@ -278,10 +313,13 @@ def main(data_set_name, data_directory = "data",
         elif model_type == "SNN":
             
             model = SimpleNeuralNetwork(
-                feature_size, hidden_sizes,
-                reconstruction_distribution,
-                number_of_reconstruction_classes,
-                batch_normalisation, count_sum,
+                feature_size = feature_size,
+                hidden_sizes = hidden_sizes,
+                reconstruction_distribution = reconstruction_distribution,
+                number_of_reconstruction_classes = number_of_reconstruction_classes,
+                batch_normalisation = batch_normalisation,
+                dropout_keep_probability = dropout_keep_probability,
+                count_sum = count_sum,
                 log_directory = log_directory
             )
         else:
@@ -848,6 +886,11 @@ parser.add_argument(
     dest = "batch_normalisation",
     action = "store_false",
     help = "do not use batch normalisation"
+)
+parser.add_argument(
+    "--dropout-keep-probability", "-d",
+    type = float,
+    help = "probability of keeping connections when using dropout. Interval: ]0, 1[, where 1 = no dropout."
 )
 parser.set_defaults(batch_normalisation = True)
 parser.add_argument(

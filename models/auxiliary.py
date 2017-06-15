@@ -31,9 +31,8 @@ def dense_layer(inputs, num_outputs, is_training = True, scope = "layer",
                 keep_prob = dropout_keep_probability, 
                 is_training = is_training
             )
-            print(inputs.name)
 
-        # Setup weights for and transform inputs through neural network. 
+        # Set up weights for and transform inputs through neural network. 
         outputs = fully_connected(inputs,
             num_outputs = num_outputs,
             activation_fn = None,
@@ -42,7 +41,7 @@ def dense_layer(inputs, num_outputs, is_training = True, scope = "layer",
             reuse = reuse
         )
 
-        # Setup normalisation across examples with learned center and scale. 
+        # Set up normalisation across examples with learned center and scale. 
         if batch_normalisation:
             outputs = batch_norm(outputs,
                 center = center,

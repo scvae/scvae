@@ -173,6 +173,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         
         if self.batch_normalisation:
             reconstruction_part += "_bn"
+
+        if self.dropout_keep_probability and \
+        self.dropout_keep_probability != 1:
+            reconstruction_part += "_do_" + str(self.dropout_keep_probability)
         
         if self.number_of_warm_up_epochs:
             reconstruction_part += "_wu_" + str(self.number_of_warm_up_epochs)
@@ -262,6 +266,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         
         if self.batch_normalisation:
             description_parts.append("using batch normalisation")
+
+        if self.dropout_keep_probability and \
+            self.dropout_keep_probability != 1:
+            description_parts.append("dropout keep probability: {}".format(self.dropout_keep_probability))
+
         if self.count_sum_feature:
             description_parts.append("using count sums")
         

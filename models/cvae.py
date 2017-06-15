@@ -163,6 +163,10 @@ class ClusterVariationalAutoEncoder(object):
         
         if self.batch_normalisation:
             reconstruction_part += "_bn"
+
+        if self.dropout_keep_probability and \
+        self.dropout_keep_probability != 1:
+            reconstruction_part += "_do_" + str(self.dropout_keep_probability)
         
         if self.number_of_warm_up_epochs:
             reconstruction_part += "_wu_" + str(self.number_of_warm_up_epochs)
