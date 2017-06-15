@@ -146,6 +146,21 @@ def pairwise_distance(a, b = None):
         D = r_a - 2*tf.matmul(a, b, transpose_b=True) + r_b
     return D
 
+# Early stopping
+
+def epochsWithNoImprovement(losses):
+    
+    E = len(losses)
+    k = 0
+    
+    for e in range(1, E):
+        if losses[e] < losses[e - 1]:
+            k += 1
+        else:
+            k = 0
+    
+    return k    
+
 # Strings
 
 def trainingString(epoch_start, number_of_epochs, data_string):

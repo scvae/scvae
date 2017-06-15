@@ -2,8 +2,10 @@ import tensorflow as tf
 
 from models.auxiliary import (
     dense_layer, dense_layers,
+    epochsWithNoImprovement,
     log_reduce_exp, reduce_logmeanexp,
-    trainingString, dataString
+    trainingString, dataString,
+    copyModelDirectory, removeOldCheckpoints
 )
 
 from tensorflow.python.ops.nn import relu, softmax
@@ -24,6 +26,7 @@ from auxiliary import formatDuration, normaliseString
 
 from data import DataSet
 from analysis import analyseIntermediateResults
+from auxiliary import loadLearningCurves
 
 class GaussianMixtureVariationalAutoEncoder_alternative(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
@@ -125,6 +128,10 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         
         self.main_log_directory = log_directory
         self.main_results_directory = results_directory
+        
+        # Early stopping
+        self.early_stopping_rounds = 10
+        self.stopped_early = None
         
         # Graph setup
         
@@ -233,6 +240,14 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         return model_name
     
     @property
+    def early_stopping_log_directory(self):
+        return os.path.join(self.log_directory, "early_stopping")
+    
+    @property
+    def best_model_log_directory(self):
+        return os.path.join(self.log_directory, "best")
+    
+    @property
     def log_directory(self):
         return os.path.join(self.main_log_directory, self.training_name)
     
@@ -320,6 +335,11 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
 
         if self.count_sum_feature:
             description_parts.append("using count sums")
+        
+        if self.early_stopping_rounds:
+            description_parts.append("early stopping: " +
+                "after {} epoch with no improvements".format(
+                    self.early_stopping_rounds))
         
         description = "\n    ".join(description_parts)
         
@@ -952,7 +972,22 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             if checkpoint:
                 print("Restoring earlier model parameters.")
                 restoring_time_start = time()
+                
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
+                
+                ELBO_valid_learning_curve = loadLearningCurves(self,
+                    "validation")["lower_bound"]
+                ELBO_valid_maximum = ELBO_valid_learning_curve.max()
+                ELBO_valid_prev = ELBO_valid_learning_curve[-1]
+                epochs_with_no_improvement = epochsWithNoImprovement(
+                    ELBO_valid_learning_curve)
+                
+                if os.path.exists(self.early_stopping_log_directory) \
+                    and epochs_with_no_improvement == 0:
+                    self.stopped_early = True
+                else:
+                    self.stopped_early = False
+                
                 restoring_duration = time() - restoring_time_start
                 print("Earlier model parameters restored ({}).".format(
                     formatDuration(restoring_duration)))
@@ -960,9 +995,17 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             else:
                 print("Initialising model parameters.")
                 initialising_time_start = time()
+                
                 session.run(tf.global_variables_initializer())
-                initialising_duration = time() - initialising_time_start
                 parameter_summary_writer.add_graph(session.graph)
+                
+                ELBO_valid_maximum = - numpy.inf
+                ELBO_valid_prev = - numpy.inf
+                epochs_with_no_improvement = 0
+                
+                self.stopped_early = False
+                
+                initialising_duration = time() - initialising_time_start
                 print("Model parameters initialised ({}).".format(
                     formatDuration(initialising_duration)))
                 print()
@@ -1063,15 +1106,6 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 if warm_up_weight < 1:
                     print('    Warm-up weight: {:.2g}'.format(warm_up_weight))
 
-                # Saving model parameters
-                print('    Saving model.')
-                saving_time_start = time()
-                self.saver.save(session, checkpoint_file,
-                    global_step = epoch + 1)
-                saving_duration = time() - saving_time_start
-                print('    Model saved ({}).'.format(
-                    formatDuration(saving_duration)))
-                
                 # Export parameter summaries
                 parameter_summary_string = session.run(
                     self.parameter_summary,
@@ -1355,8 +1389,74 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}, Acc: {:.5g}.".format(
                     ELBO_valid, ENRE_valid, KL_z_valid, KL_y_valid, accuracy_display))
                 
+                
+                # Early stopping
+                if not self.stopped_early:
+                    
+                    if ELBO_valid < ELBO_valid_prev:
+                        if epochs_with_no_improvement == 0:
+                            print("    Early stopping:",
+                                "Validation loss did not improve",
+                                "for this epoch.")
+                            print("        " + \
+                                "Saving model parameters for previous epoch.")
+                            saving_time_start = time()
+                            current_checkpoint = \
+                                tf.train.get_checkpoint_state(self.log_directory)
+                            if current_checkpoint:
+                                copyModelDirectory(current_checkpoint,
+                                    self.early_stopping_log_directory)
+                            saving_duration = time() - saving_time_start
+                            print("        " + 
+                                "Previous model parameters saved ({})."\
+                                .format(formatDuration(saving_duration)))
+                        else:
+                            print("    Early stopping:",
+                                "Validation loss has not improved",
+                                "for {} epochs.".format(
+                                    epochs_with_no_improvement + 1))
+                        epochs_with_no_improvement += 1
+                    else:
+                        if epochs_with_no_improvement > 0:
+                            print("    Early stopping cancelled:",
+                                "Validation loss improved.")
+                        epochs_with_no_improvement = 0
+                        if os.path.exists(self.early_stopping_log_directory):
+                            shutil.rmtree(self.early_stopping_log_directory)
+                    
+                    if epochs_with_no_improvement >= self.early_stopping_rounds:
+                        print("    Early stopping in effect:",
+                            "Previously saved model parameters is available.")
+                        self.stopped_early = True
+                        epochs_with_no_improvement = 0
+                
+                # Saving model parameters (update checkpoint)
+                print('    Saving model parameters.')
+                saving_time_start = time()
+                self.saver.save(session, checkpoint_file,
+                    global_step = epoch + 1)
+                saving_duration = time() - saving_time_start
+                print('    Model parameters saved ({}).'.format(
+                    formatDuration(saving_duration)))
+                
+                # Saving best model parameters yet
+                if ELBO_valid > ELBO_valid_maximum:
+                    print("    Best validation ELBO yet.",
+                        "Saving model parameters as best model parameters.")
+                    saving_time_start = time()
+                    ELBO_valid_maximum = ELBO_valid
+                    current_checkpoint = \
+                        tf.train.get_checkpoint_state(self.log_directory)
+                    if current_checkpoint:
+                        copyModelDirectory(current_checkpoint,
+                            self.best_model_log_directory)
+                    removeOldCheckpoints(self.best_model_log_directory)
+                    saving_duration = time() - saving_time_start
+                    print('    Best model parameters saved ({}).'.format(
+                        formatDuration(saving_duration)))
+                
                 print()
-            
+                
                 # Plot latent validation values
                 under_10 = epoch < 10
                 under_100 = epoch < 100 and (epoch + 1) % 10 == 0
@@ -1403,6 +1503,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         results_directory = self.main_results_directory
                     )
                     print()
+                
+                # Update variables for previous iteration
+                ELBO_valid_prev = ELBO_valid
             
             training_duration = time() - training_time_start
             
@@ -1414,16 +1517,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             
             # Clean up
             
-            checkpoint = tf.train.get_checkpoint_state(self.log_directory)
-            
-            if checkpoint:
-                for f in os.listdir(self.log_directory):
-                    file_path = os.path.join(self.log_directory, f)
-                    is_old_checkpoint_file = os.path.isfile(file_path) \
-                        and "model" in f \
-                        and not checkpoint.model_checkpoint_path in file_path
-                    if is_old_checkpoint_file:
-                        os.remove(file_path)
+            removeOldCheckpoints(self.log_directory)
             
             status["completed"] = True
             status["training time"] = formatDuration(training_duration)
@@ -1431,7 +1525,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             
             return status
     
-    def evaluate(self, test_set, batch_size = 100):
+    def evaluate(self, test_set, batch_size = 100,
+        use_early_stopping_model = False):
         
         # Examples
         
@@ -1503,7 +1598,11 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         
         # Other setup
         
-        checkpoint = tf.train.get_checkpoint_state(self.log_directory)
+        if use_early_stopping_model:
+            checkpoint = tf.train.get_checkpoint_state(
+                self.early_stopping_log_directory)
+        else:
+            checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
         test_summary_directory = os.path.join(self.log_directory, "test")
         if os.path.exists(test_summary_directory):
