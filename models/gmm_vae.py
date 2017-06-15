@@ -36,7 +36,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
         batch_normalisation = True, 
-        dropout_keep_probability = False,
+        dropout_keep_probabilities = [],
         count_sum = True,
         number_of_warm_up_epochs = 0, epsilon = 1e-6,
         log_directory = "log",
@@ -83,7 +83,37 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         self.k_max = number_of_reconstruction_classes
         
         self.batch_normalisation = batch_normalisation
-        self.dropout_keep_probability = dropout_keep_probability
+
+        # Dropout keep probabilities (p) for 3 different kinds of layers
+        # Hidden layers
+        self.dropout_keep_probabilities = dropout_keep_probabilities
+        
+        self.dropout_keep_probability_y = False
+        self.dropout_keep_probability_z = False
+        self.dropout_keep_probability_x = False
+        self.dropout_keep_probability_h = False
+        self.dropout_parts = []
+        if isinstance(dropout_keep_probabilities, (list, tuple)):
+            p_len = len(dropout_keep_probabilities)
+            if p_len >= 4:
+                self.dropout_keep_probability_y = dropout_keep_probabilities[3]
+            
+            if p_len >= 3:
+                self.dropout_keep_probability_z = dropout_keep_probabilities[2]
+                
+            if p_len >= 2:
+                self.dropout_keep_probability_x = dropout_keep_probabilities[1]
+                
+            if p_len >= 1:
+                self.dropout_keep_probability_h = dropout_keep_probabilities[0]
+            
+            for i, p in enumerate(dropout_keep_probabilities):
+                if p and p != 1:
+                    self.dropout_parts.append(str(p))
+        else:
+            self.dropout_keep_probability_h = dropout_keep_probabilities
+            if dropout_keep_probabilities and dropout_keep_probabilities != 1:
+                self.dropout_parts.append(str(dropout_keep_probabilities))
 
         self.count_sum_feature = count_sum
         self.count_sum = "constrained" in self.reconstruction_distribution_name\
@@ -192,10 +222,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         if self.batch_normalisation:
             reconstruction_part += "_bn"
 
-        if self.dropout_keep_probability and \
-        self.dropout_keep_probability != 1:
-            reconstruction_part += "_do_" + str(self.dropout_keep_probability)
-
+        if len(self.dropout_parts) > 0:
+            reconstruction_part += "_do_" + "_".join(self.dropout_parts)
         
         if self.number_of_warm_up_epochs:
             reconstruction_part += "_wu_" + str(self.number_of_warm_up_epochs)
@@ -286,6 +314,10 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         
         if self.batch_normalisation:
             description_parts.append("using batch normalisation")
+
+        if len(self.dropout_parts) > 0:
+            description_parts.append("dropout keep probability: {}".format(", ".join(self.dropout_parts)))
+
         if self.count_sum_feature:
             description_parts.append("using count sums")
         
@@ -327,7 +359,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 activation_fn = relu,
                 batch_normalisation = self.batch_normalisation, 
                 is_training = self.is_training,
-                dropout_keep_probability = self.dropout_keep_probability,
+                input_dropout_keep_probability = self.dropout_keep_probability_x,
+                hidden_dropout_keep_probability = self.dropout_keep_probability_h,
                 scope = "ENCODER",
                 reuse = reuse
             )
@@ -350,7 +383,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                                 p_max - self.epsilon
                             ),
                             is_training = self.is_training,
-                            dropout_keep_probability = self.dropout_keep_probability,
+                            dropout_keep_probability = self.dropout_keep_probability_h,
                             scope = parameter.upper(),
                             reuse = reuse
                     ), 0), 0)
@@ -395,7 +428,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                                 p_max - self.epsilon
                             ),
                             is_training = self.is_training,
-                            dropout_keep_probability = self.dropout_keep_probability,
+                            dropout_keep_probability = self.dropout_keep_probability_y,
                             scope = parameter.upper(),
                             reuse = reuse
                     ), 0), 0)
@@ -414,7 +447,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 activation_fn = relu,
                 batch_normalisation = self.batch_normalisation, 
                 is_training = self.is_training,
-                dropout_keep_probability = self.dropout_keep_probability,
+                input_dropout_keep_probability = self.dropout_keep_probability_x,
+                hidden_dropout_keep_probability = self.dropout_keep_probability_h,
                 scope = "ENCODER",
                 reuse = reuse
             )
@@ -434,7 +468,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                             p_max - self.epsilon
                         ),
                         is_training = self.is_training,
-                        dropout_keep_probability = self.dropout_keep_probability,
+                        dropout_keep_probability = self.dropout_keep_probability_h,
                         scope = parameter.upper(),
                         reuse = reuse
                 )
@@ -458,7 +492,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             activation_fn = relu,
             batch_normalisation = self.batch_normalisation,
             is_training = self.is_training,
-            dropout_keep_probability = self.dropout_keep_probability,
+            input_dropout_keep_probability = self.dropout_keep_probability_z,
+            hidden_dropout_keep_probability = self.dropout_keep_probability_h,
             scope = "DECODER",
             reuse = reuse
         )
@@ -487,7 +522,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         p_max - self.epsilon
                     ),
                     is_training = self.is_training,
-                    dropout_keep_probability = self.dropout_keep_probability,
+                    dropout_keep_probability = self.dropout_keep_probability_h,
                     scope = parameter.upper(),
                     reuse = reuse
                 )
@@ -514,7 +549,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     num_outputs = self.feature_size * self.k_max,
                     activation_fn = None,
                     is_training = self.is_training,
-                    dropout_keep_probability = self.dropout_keep_probability,
+                    dropout_keep_probability = self.dropout_keep_probability_h,
                     scope = "P_K",
                     reuse = reuse
                 )
@@ -590,8 +625,11 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 self.q_z_means.append(
                     tf.reduce_mean(self.q_z_given_x_y[k].mean(), [0, 1, 2]))
                 self.q_z_variances.append(
-                    tf.reduce_mean(tf.square(self.q_z_given_x_y[k].stddev()), [0, 1, 2]))                    
-            self.z_mean = tf.add_n([z_mean[k] * tf.expand_dims(tf.one_hot(tf.argmax(self.q_y_given_x.probs, -1), self.K)[:, k], -1) for k in range(self.K)])
+                    tf.reduce_mean(tf.square(self.q_z_given_x_y[k].stddev()), [0, 1, 2]))
+            #q_y_probs = tf.one_hot(tf.argmax(self.q_y_given_x.probs, -1), self.K)
+            q_y_probs = self.q_y_given_x.probs
+            self.z_mean = tf.add_n([z_mean[k] * tf.expand_dims(q_y_probs[:, k], -1) for k in range(self.K)])
+            # self.z_mean = tf.add_n([z_mean[k] * tf.expand_dims(tf.one_hot(tf.argmax(self.q_y_given_x.probs, -1), self.K)[:, k], -1) for k in range(self.K)])
         # Decoder for X 
         with tf.variable_scope("X"):
             self.p_x_given_z = [None]*self.K

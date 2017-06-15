@@ -62,33 +62,39 @@ def dense_layer(inputs, num_outputs, is_training = True, scope = "layer",
 def dense_layers(inputs, num_outputs, reverse_order = False, is_training = True,
     scope = "layers", activation_fn = None, batch_normalisation = False, 
     decay = 0.999, center = True, scale = False, reuse = False, 
-    dropout_keep_probability = False):
-    if not isinstance(num_outputs, list):
+    input_dropout_keep_probability = False,
+    hidden_dropout_keep_probability = False):
+    if not isinstance(num_outputs, (list, tuple)):
         num_outputs = [num_outputs]
     if reverse_order:
         num_outputs = num_outputs[::-1]
     outputs = inputs
     # Set up all following layers
-    for i, num_output in enumerate(num_outputs):
-        if not reverse_order:
-            layer_number = i + 1
-        else: 
-            layer_number = len(num_outputs) - i
+    with tf.variable_scope(scope):
+        for i, num_output in enumerate(num_outputs):
+            if not reverse_order:
+                layer_number = i + 1
+            else: 
+                layer_number = len(num_outputs) - i
 
-        
-        outputs = dense_layer(
-            inputs = outputs,
-            num_outputs = num_output,
-            is_training = is_training,
-            scope = 'LAYER_{:d}'.format(layer_number),
-            activation_fn = activation_fn,
-            batch_normalisation = batch_normalisation,
-            decay = decay,
-            center = center,
-            scale = scale,
-            reuse = reuse,
-            dropout_keep_probability = dropout_keep_probability
-        )
+            if i == 0:
+                dropout_keep_probability = input_dropout_keep_probability
+            else:
+                dropout_keep_probability = hidden_dropout_keep_probability
+
+            outputs = dense_layer(
+                inputs = outputs,
+                num_outputs = num_output,
+                is_training = is_training,
+                scope = 'LAYER_{:d}'.format(layer_number),
+                activation_fn = activation_fn,
+                batch_normalisation = batch_normalisation,
+                decay = decay,
+                center = center,
+                scale = scale,
+                reuse = reuse,
+                dropout_keep_probability = dropout_keep_probability
+            )
     
     return outputs
 

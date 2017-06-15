@@ -996,6 +996,11 @@ def analyseDistributions(data_set, colouring_data_set = None,
         
         distribution_time_start = time()
         
+        if not class_palette:
+            index_palette = lighter_palette(colouring_data_set.number_of_classes)
+            class_palette = {class_name: index_palette[i] for i, class_name in
+                             enumerate(sorted(class_names))}
+
         for class_name in class_names:
             class_indices = labels == class_name
             if not class_indices.any():

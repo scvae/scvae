@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from models.auxiliary import (
-    dense_layer, log_reduce_exp, reduce_logmeanexp,
+    dense_layer, dense_layers, log_reduce_exp, reduce_logmeanexp,
     trainingString, dataString
 )
 
@@ -31,7 +31,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         reconstruction_distribution = None, 
         number_of_reconstruction_classes = None, 
         batch_normalisation = True, 
-        dropout_keep_probability = False, 
+        dropout_keep_probabilities = [],
         count_sum = True,
         number_of_warm_up_epochs = 0, 
         epsilon = 1e-6,
@@ -66,7 +66,32 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         self.k_max = number_of_reconstruction_classes
         
         self.batch_normalisation = batch_normalisation
-        self.dropout_keep_probability = dropout_keep_probability
+        
+        # Dropout keep probabilities (p) for 3 different kinds of layers
+        # Hidden layers
+        self.dropout_keep_probabilities = dropout_keep_probabilities
+        self.dropout_keep_probability_z = False
+        self.dropout_keep_probability_x = False
+        self.dropout_keep_probability_h = False
+        self.dropout_parts = []
+        if isinstance(dropout_keep_probabilities, (list, tuple)):
+            p_len = len(dropout_keep_probabilities)
+            if p_len >= 3:
+                self.dropout_keep_probability_z = dropout_keep_probabilities[2]
+                
+            if p_len >= 2:
+                self.dropout_keep_probability_x = dropout_keep_probabilities[1]
+                
+            if p_len >= 1:
+                self.dropout_keep_probability_h = dropout_keep_probabilities[0]
+            
+            for i, p in enumerate(dropout_keep_probabilities):
+                if p and p != 1:
+                    self.dropout_parts.append(str(p))
+        else:
+            self.dropout_keep_probability_h = dropout_keep_probabilities
+            if dropout_keep_probabilities and dropout_keep_probabilities != 1:
+                self.dropout_parts.append(str(dropout_keep_probabilities))
 
         self.count_sum_feature = count_sum
         self.count_sum = "constrained" in \
@@ -174,9 +199,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         if self.batch_normalisation:
             reconstruction_part += "_bn"
 
-        if self.dropout_keep_probability and \
-        self.dropout_keep_probability != 1:
-            reconstruction_part += "_do_" + str(self.dropout_keep_probability)
+        if len(self.dropout_parts) > 0:
+            reconstruction_part += "_do_" + "_".join(self.dropout_parts)
         
         if self.number_of_warm_up_epochs:
             reconstruction_part += "_wu_" + str(self.number_of_warm_up_epochs)
@@ -267,9 +291,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         if self.batch_normalisation:
             description_parts.append("using batch normalisation")
 
-        if self.dropout_keep_probability and \
-            self.dropout_keep_probability != 1:
-            description_parts.append("dropout keep probability: {}".format(self.dropout_keep_probability))
+        if len(self.dropout_parts) > 0:
+            description_parts.append("dropout keep probability: {}".format(", ".join(self.dropout_parts)))
 
         if self.count_sum_feature:
             description_parts.append("using count sums")
@@ -304,20 +327,16 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         return parameters_string
     
     def inference(self):
-        
-        encoder = self.x
-        
-        with tf.variable_scope("ENCODER"):
-            for i, hidden_size in enumerate(self.hidden_sizes):
-                encoder = dense_layer(
-                    inputs = encoder,
-                    num_outputs = hidden_size,
-                    activation_fn = relu,
-                    batch_normalisation = self.batch_normalisation, 
-                    is_training = self.is_training,
-                    dropout_keep_probability = self.dropout_keep_probability,
-                    scope = '{:d}'.format(i + 1)
-                )
+        encoder = dense_layers(
+            inputs = self.x,
+            num_outputs = self.hidden_sizes,
+            activation_fn = relu,
+            batch_normalisation = self.batch_normalisation, 
+            is_training = self.is_training,
+            input_dropout_keep_probability = self.dropout_keep_probability_x,
+            hidden_dropout_keep_probability = self.dropout_keep_probability_h,
+            scope = "ENCODER"
+        )
         
         # Parameterising the approximate posterior and prior over z
 
@@ -365,7 +384,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                                 num_outputs = num_outputs,
                                 activation_fn = activation_fn,
                                 is_training = self.is_training,
-                                dropout_keep_probability = self.dropout_keep_probability,
+                                dropout_keep_probability = self.dropout_keep_probability_h,
                                 scope = name
                             )
                         elif part_name == "prior":
@@ -485,17 +504,17 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         else:
             decoder = self.z
         
-        with tf.variable_scope("DECODER"):
-            for i, hidden_size in enumerate(reversed(self.hidden_sizes)):
-                decoder = dense_layer(
-                    inputs = decoder,
-                    num_outputs = hidden_size,
-                    activation_fn = relu,
-                    batch_normalisation = self.batch_normalisation,
-                    is_training = self.is_training,
-                    dropout_keep_probability = self.dropout_keep_probability,
-                    scope = '{:d}'.format(len(self.hidden_sizes) - i)
-                )
+        decoder = dense_layers(
+            inputs = decoder,
+            num_outputs = self.hidden_sizes,
+            reverse_order = True,
+            activation_fn = relu,
+            batch_normalisation = self.batch_normalisation, 
+            is_training = self.is_training,
+            input_dropout_keep_probability = self.dropout_keep_probability_z,
+            hidden_dropout_keep_probability = self.dropout_keep_probability_h,
+            scope = "DECODER"
+        )
 
         # Reconstruction distribution parameterisation
         
@@ -521,7 +540,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         p_max - self.epsilon
                     ),
                     is_training = self.is_training,
-                    dropout_keep_probability = self.dropout_keep_probability,
+                    dropout_keep_probability = self.dropout_keep_probability_h,
                     scope = parameter.upper()
                 )
             
@@ -547,7 +566,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     num_outputs = self.feature_size * self.k_max,
                     activation_fn = None,
                     is_training = self.is_training,
-                    dropout_keep_probability = self.dropout_keep_probability,
+                    dropout_keep_probability = self.dropout_keep_probability_h,
                     scope = "P_K"
                 )
                 
@@ -559,7 +578,15 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     cat = Categorical(logits = x_logits)
                 )
             
-            self.x_tilde_mean = self.p_x_given_z.mean()
+
+            self.x_mean = tf.reshape(self.p_x_given_z.mean(), 
+                [
+                    self.number_of_iw_samples,
+                    self.number_of_mc_samples,
+                    -1,
+                    self.feature_size
+                ]
+            )
         
         # Add histogram summaries for the trainable parameters
         for parameter in tf.trainable_variables():
@@ -625,6 +652,12 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             # E_q[log(q(z|x)/p(z))] = E_q[log(q(z|x))] - E_q[log(p(z))]
             KL = log_q_z_given_x - log_p_z
 
+            # Compute importance weighted estimate of 
+            # E_x[p(x)] = E_{z_mc}[1/K_{iw} * sum(E_x[p(x|z_iw)]) p(z)/q(z|x) ] 
+            # p(z)/q(z|x) = exp(-KL)
+            # (batch_size, feature_size)
+            self.x_tilde_mean = tf.reduce_mean(self.x_mean*tf.exp(-KL), (0, 1))
+
             ## KL Regularisation term: 
             KL_qp = tf.reduce_mean(KL, name = "kl_divergence")
             tf.add_to_collection('losses', KL_qp)
@@ -658,6 +691,12 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             self.KL = KL_qp
 
             KL = tf.reduce_sum(KL, axis = -1)
+
+            # Compute importance weighted estimate of 
+            # E_x[p(x)] = E_{z_mc}[1/K_{iw} * sum(E_x[p(x|z_iw)]) p(z)/q(z|x) ] 
+            # p(z)/q(z|x) = exp(-KL)
+            # (batch_size, feature_size)
+            self.x_tilde_mean = tf.reduce_mean(self.x_mean* tf.expand_dims(tf.exp(-KL), -1), (0, 1))
 
         # log-mean-exp (to avoid over- and underflow) over iw_samples dimension
         ## -> shape: (N_mc, batch_size)
@@ -1245,7 +1284,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             KL_test = 0
             ENRE_test = 0
             
-            x_tilde_test = numpy.empty([M_test, F_test])
+            x_tilde_mean_test = numpy.empty([M_test, F_test])
             z_mean_test = numpy.empty([M_test, self.latent_size])
             
             for i in range(0, M_test, batch_size):
@@ -1266,7 +1305,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 if self.count_sum_feature:
                     feed_dict_batch[self.n_feature] = n_feature_test[subset]
                 
-                ELBO_i, KL_i, ENRE_i, x_tilde_i, z_mean_i = session.run(
+                ELBO_i, KL_i, ENRE_i, x_tilde_mean_i, z_mean_i = session.run(
                     [self.ELBO, self.KL, self.ENRE,
                         self.x_tilde_mean, self.z_mean],
                     feed_dict = feed_dict_batch
@@ -1276,15 +1315,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 KL_test += KL_i
                 ENRE_test += ENRE_i
                 
-                # E[p(x|z)]: Reshape and mean over all the iw and mc samples.
-                x_tilde_test[subset] = numpy.mean(numpy.reshape(x_tilde_i, 
-                    [
-                        self.number_of_importance_samples["evaluation"]
-                        * self.number_of_monte_carlo_samples["evaluation"] 
-                        , -1
-                        , F_test
-                    ]
-                ), axis = 0)
+                # Importance weighted mean: E[x] = E_q(z|x)[E_p(x|z)[x] 
+                x_tilde_mean_test[subset] = x_tilde_mean_i
                 z_mean_test[subset] = z_mean_i
             
             ELBO_test /= M_test / batch_size
@@ -1364,7 +1396,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             reconstructed_test_set = DataSet(
                 name = test_set.name,
-                values = x_tilde_test,
+                values = x_tilde_mean_test,
                 preprocessed_values = None,
                 labels = test_set.labels,
                 example_names = test_set.example_names,
