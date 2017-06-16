@@ -1183,13 +1183,17 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
             if not decomposition_method:
                 if data_set.number_of_features == 2:
                     values_decomposed = data_set.values
-                    centroids_decomposed = centroids
                     other_values_decomposed = other_values
+                    centroids_decomposed = centroids
                 else:
                     continue
             else:    
                 decomposition_method = properString(decomposition_method,
                     decomposition_method_names)
+                
+                values_decomposed = data_set.values
+                other_values_decomposed = other_values
+                centroids_decomposed = centroids
                 
                 if decomposition_method == "t-SNE" \
                     and data_set.number_of_values > \
@@ -1198,9 +1202,27 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                                 "Maximum number of values for {}".format(
                                     title_with_ID),
                                 "would take too long to decompose",
-                                "using {}.\n".format(decomposition_method)
+                                "using {}.".format(decomposition_method)
                             )
-                            continue
+                            print("Decomposing {} using {}".format(
+                                title_with_ID, "PCA"),
+                                "beforehand.")
+                            decompose_time_start = time()
+                            
+                            values_decomposed, other_values_decomposed, \
+                                centroids_decomposed = decompose(
+                                    values_decomposed,
+                                    other_value_sets = other_values_decomposed,
+                                    centroids = centroids_decomposed,
+                                    method = "pca",
+                                    components = 32
+                                )
+                            
+                            decompose_duration = time() - decompose_time_start
+                            print("{} pre-decomposed ({}).".format(
+                                title_with_ID.capitalize(),
+                                formatDuration(decompose_duration)
+                            ))
                 
                 print("Decomposing {} using {}.".format(
                     title_with_ID, decomposition_method))
@@ -1208,9 +1230,9 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 
                 values_decomposed, other_values_decomposed, \
                     centroids_decomposed = decompose(
-                        data_set.values,
-                        other_value_sets = other_values,
-                        centroids = centroids,
+                        values_decomposed,
+                        other_value_sets = other_values_decomposed,
+                        centroids = centroids_decomposed,
                         method = decomposition_method,
                         components = 2
                     )
@@ -2320,7 +2342,7 @@ def plotProfileComparison(observed_series, expected_series,
         axis.plot(
             feature_indices,
             observed_series[sort_indices],
-            label = "Observations",
+            label = "Observed",
             color = observed_colour,
             marker = observed_marker,
             linestyle = observed_line_style,
@@ -2329,8 +2351,7 @@ def plotProfileComparison(observed_series, expected_series,
         axis.plot(
             feature_indices,
             expected_series[sort_indices],
-            # TODO Better label for expected values (expectations?)
-            label = "Expected values",
+            label = "Expected",
             color = expected_colour,
             marker = expected_marker,
             linestyle = expected_line_style,
