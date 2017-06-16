@@ -527,7 +527,8 @@ class DataSet(object):
                 self.preprocess()
                 if self.noisy_preprocessing_methods and \
                     self.noisy_preprocessing_methods[-1] != "binarise":
-                    
+                    pass
+                else:
                     self.binarise()
     
     @property
@@ -608,7 +609,7 @@ class DataSet(object):
             if class_names is not None:
                 self.class_names = class_names
             else:
-                self.class_names = numpy.unique(self.labels)
+                self.class_names = numpy.unique(self.labels).tolist()
             
             self.class_id_to_class_name = {}
             self.class_name_to_class_id = {}
@@ -617,7 +618,7 @@ class DataSet(object):
                 self.class_name_to_class_id[class_name] = i
                 self.class_id_to_class_name[i] = class_name
             
-            self.number_of_classes = self.class_names.size
+            self.number_of_classes = len(self.class_names)
             
             if self.label_superset:
                 
@@ -634,7 +635,7 @@ class DataSet(object):
                     self.superset_class_name_to_superset_class_id[class_name] = i
                     self.superset_class_id_to_superset_class_name[i] = class_name
                 
-                self.number_of_superset_classes = len(self.label_superset)
+                self.number_of_superset_classes = len(self.superset_class_names)
         
         if preprocessed_values is not None:
             self.preprocessed_values = preprocessed_values
@@ -997,6 +998,23 @@ class DataSet(object):
         print()
         
         return training_set, validation_set, test_set
+    
+    def applyIndices(self, indices):
+        filter_indices = numpy.arange(self.number_of_examples)
+        filter_indices = filter_indices[indices]
+        self.update(
+            values = self.values[filter_indices],
+            labels = self.labels[filter_indices],
+            example_names = self.example_names[filter_indices],
+            feature_names = self.feature_names,
+            class_names = self.class_names
+        )
+        if self.preprocessed_values is not None:
+            self.update(
+                preprocessed_values = self.preprocessed_values[filter_indices])
+        if self.binarised_values is not None:
+            self.update(
+                binarised_values = self.binarised_values[filter_indices])
 
 def dataSetTitle(name):
     
