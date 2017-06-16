@@ -317,17 +317,21 @@ def analyseModel(model, results_directory = "results"):
             
             if distribution_centroids:
                 
-                print("Plotting evolution of latent {} parameters.".format(
-                    distribution))
                 centroids_time_start = time()
                 
                 centroid_probabilities = distribution_centroids["probabilities"]
                 centroid_means = distribution_centroids["means"]
                 centroid_covariance_matrices = \
                     distribution_centroids["covariance_matrices"]
-                
+
                 E, K, L = centroid_means.shape
-                
+
+                if K <= 1:
+                    continue
+
+                print("Plotting evolution of latent {} parameters.".format(
+                    distribution))
+
                 if L > 2:
                     _, distribution_centroids_decomposed = decompose(
                         centroid_means[-1],
@@ -1146,6 +1150,9 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     decomposition_methods.insert(0, None)
     
     for data_set, other_data_set in zip(data_sets, other_data_sets):
+
+        if data_set.values.shape[1] <= 1:
+            continue
         
         name = normaliseString(title)
         
@@ -1663,7 +1670,7 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
         other_value_sets_decomposed = other_value_sets_decomposed[0]
     
     # Only supports centroids without data sets as top levels
-    if centroids and method != "t_sne":
+    if centroids and method == "pca":
         if "means" in centroids:
             centroids = {"unknown": centroids}
         W = model.components_
@@ -1677,7 +1684,7 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
                         L = shape[-1]
                         reshaped_values = values.reshape(-1, L)
                         decomposed_values = model.transform(reshaped_values)
-                        shape[-1] = 2
+                        shape[-1] = components
                         new_values = decomposed_values.reshape(shape)
                     elif parameter == "covariance_matrices":
                         shape = numpy.array(values.shape)
@@ -1687,7 +1694,7 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
                         decomposed_values = numpy.empty((B, 2, 2))
                         for i in range(B):
                             decomposed_values[i] = W @ reshaped_values[i] @ W.T
-                        shape[-2:] = 2
+                        shape[-2:] = components
                         new_values = decomposed_values.reshape(shape)
                     else:
                         new_values = values
