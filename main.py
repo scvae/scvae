@@ -43,7 +43,8 @@ def main(data_set_name, data_directory = "data",
     number_of_epochs = 200, batch_size = 100, learning_rate = 1e-4,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
-    analyse = True, analyse_data = False):
+    analyse = True, analyse_data = False,
+    plot_heat_maps_for_large_data_sets = False):
     
     print()
     
@@ -82,6 +83,7 @@ def main(data_set_name, data_directory = "data",
         analysis.analyseData(
             [data_set, training_set, validation_set, test_set],
             decomposition_methods, highlight_feature_indices,
+            plot_heat_maps_for_large_data_sets,
             data_results_directory
         )
         print()
@@ -396,7 +398,8 @@ def main(data_set_name, data_directory = "data",
             analysis.analyseResults(
                 transformed_test_set, reconstructed_test_set, latent_test_sets,
                 model, decomposition_methods, highlight_feature_indices,
-                results_directory
+                plot_heat_maps_for_large_data_sets,
+                results_directory = results_directory
             )
             
             if model.stopped_early:
@@ -406,8 +409,9 @@ def main(data_set_name, data_directory = "data",
                     early_stopped_reconstructed_test_set,
                     early_stopped_latent_test_sets,
                     model, decomposition_methods, highlight_feature_indices,
-                    results_directory,
-                    early_stopping = True
+                    plot_heat_maps_for_large_data_sets,
+                    early_stopping = True,
+                    results_directory = results_directory
                 )
 
 def setUpModelConfigurations(model_configurations_path, model_type,
@@ -980,6 +984,18 @@ parser.add_argument(
     help = "skip data analysis"
 )
 parser.set_defaults(analyse_data = False)
+parser.add_argument(
+    "--plot-heat-maps-for-large-data-sets",
+    action = "store_true",
+    help = "plot heat maps for large data sets"
+)
+parser.add_argument(
+    "--skip-plotting-heat-maps-for-large-data-sets",
+    dest = "plot_heat_maps_for_large_data_sets",
+    action = "store_false",
+    help = "skip plotting heat maps for large data sets"
+)
+parser.set_defaults(plot_heat_maps_for_large_data_sets = False)
 
 if __name__ == '__main__':
     arguments = parser.parse_args()

@@ -52,14 +52,16 @@ figure_extension = ".png"
 image_extension = ".png"
 
 maximum_feature_size_for_analyses = 2000
-maximum_number_of_values_for_heat_maps = 5000 * 25000
+maximum_number_of_values_for_normal_heat_maps = 70000 * 1000
+maximum_number_of_values_for_large_heat_maps = 5000 * 25000
 maximum_number_of_values_for_t_sne = 10000 * 100
 number_of_random_examples = 100
 number_of_profile_comparisons = 25
 profile_comparison_count_cut_off = 10.5
 
 def analyseData(data_sets, decomposition_methods = ["PCA"],
-    highlight_feature_indices = [], results_directory = "results"):
+    highlight_feature_indices = [], plot_heat_maps_for_large_data_sets = False,
+    results_directory = "results"):
     
     # Setup
     
@@ -165,6 +167,13 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             results_directory = results_directory)
         
         # Heat map for data set
+        
+        if plot_heat_maps_for_large_data_sets:
+            maximum_number_of_values_for_heat_maps = \
+                maximum_number_of_values_for_large_heat_maps
+        else:
+            maximum_number_of_values_for_heat_maps = \
+                maximum_number_of_values_for_normal_heat_maps
         
         if data_set.number_of_values <= maximum_number_of_values_for_heat_maps:
             print("Plotting heat map for {} set.".format(data_set.kind))
@@ -484,7 +493,8 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
 
 def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
-    results_directory = "results", early_stopping = False):
+    plot_heat_maps_for_large_data_sets = False,
+    early_stopping = False, results_directory = "results"):
     
     # Setup
     
@@ -804,6 +814,13 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         )
 
     # Heat maps
+    
+    if plot_heat_maps_for_large_data_sets:
+        maximum_number_of_values_for_heat_maps = \
+            maximum_number_of_values_for_large_heat_maps
+    else:
+        maximum_number_of_values_for_heat_maps = \
+            maximum_number_of_values_for_normal_heat_maps
     
     if reconstructed_test_set.number_of_values \
         <= maximum_number_of_values_for_heat_maps:
