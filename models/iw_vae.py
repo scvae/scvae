@@ -219,9 +219,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
     @property
     def log_directory(self):
         return os.path.join(self.main_log_directory, self.training_name)
-    def early_stopping_log_directory(self):
     
     @property
+    def early_stopping_log_directory(self):
         return os.path.join(self.log_directory, "early_stopping")
     
     @property
