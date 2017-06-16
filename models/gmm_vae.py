@@ -596,15 +596,16 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         self.p_z_probabilities = tf.constant(self.prior_probabilities)
                         self.p_y_logits = tf.reshape(
                             tf.log(self.p_z_probabilities),
-                            [1, 1, 1, self.number_of_latent_clusters]
+                            [1, self.number_of_latent_clusters]
                         )
-                        self.p_y = Categorical(logits = self.p_y_logits[1, 1])
+                        self.p_y = Categorical(logits = self.p_y_logits)
                 else:
                     self.p_z_probabilities = tf.ones(self.K) / self.K
-                    self.p_y_logits = tf.reshape(
-                        tf.log(self.p_z_probabilities),
-                        [1, 1, 1, self.number_of_latent_clusters]
-                    )
+
+                self.p_y_logits = tf.reshape(
+                    tf.log(self.p_z_probabilities),
+                    [1, 1, 1, self.number_of_latent_clusters]
+                )
             
             ## q(y|x) = Cat(pi(x))
             self.y_ = tf.fill(tf.stack(
