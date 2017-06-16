@@ -393,7 +393,7 @@ def main(data_set_name, data_directory = "data",
             
             subtitle("Analysing model")
             analysis.analyseModel(model, results_directory)
-            
+
             subtitle("Analysing results")
             analysis.analyseResults(
                 transformed_test_set, reconstructed_test_set, latent_test_sets,
@@ -401,7 +401,7 @@ def main(data_set_name, data_directory = "data",
                 plot_heat_maps_for_large_data_sets,
                 results_directory = results_directory
             )
-            
+
             if model.stopped_early:
                 subtitle("Analysing results for earlier stopped model")
                 analysis.analyseResults(
@@ -412,6 +412,69 @@ def main(data_set_name, data_directory = "data",
                     plot_heat_maps_for_large_data_sets,
                     early_stopping = True,
                     results_directory = results_directory
+                )
+            
+            if model.type == "GMVAE_alt" \
+                and ("No class" in data_set.class_names
+                or "No class" in data_set.superset_class_names):
+                
+                subtitle("Predicting labels for unlabelled examples")
+                
+                unlablled_directory = os.path.join(results_directory,
+                    model.testing_name)
+                
+                if model.stopped_early:
+                    unlablled_directory = os.path.join(unlablled_directory,
+                        "early_stopping")
+                
+                unlablled_directory = os.path.join(unlablled_directory,
+                    "unlabelled_examples")
+                
+                ## Evaluation
+                
+                transformed_data_set, reconstructed_data_set, latent_data_sets \
+                    = model.evaluate(data_set, batch_size, model.stopped_early)
+                
+                print()
+                
+                ## Selection
+                
+                if "No class" in data_set.class_names:
+                    labels = data_set.labels
+                elif "No class" in data_set.superset_class_names:
+                    labels = data_set.superset_labels
+                
+                unlablled_indices = labels == "No class"
+                
+                transformed_data_set.applyIndices(unlablled_indices)
+                reconstructed_data_set.applyIndices(unlablled_indices)
+                
+                for i in range(len(latent_data_sets)):
+                    latent_data_sets[i].applyIndices(unlablled_indices)
+                
+                ## Analysis
+                
+                analysis.analyseDecompositions(
+                    latent_data_sets,
+                    colouring_data_set =
+                        reconstructed_data_set,
+                    decomposition_methods = decomposition_methods,
+                    highlight_feature_indices = highlight_feature_indices,
+                    symbol = "z",
+                    title = "latent space with predicted labels",
+                    specifier = lambda data_set: data_set.version,
+                    results_directory = unlablled_directory
+                )
+                
+                analysis.analyseDecompositions(
+                    transformed_data_set,
+                    colouring_data_set =
+                        reconstructed_data_set,
+                    decomposition_methods = decomposition_methods,
+                    highlight_feature_indices = highlight_feature_indices,
+                    symbol = "x",
+                    title = "original space with predicted labels",
+                    results_directory = unlablled_directory
                 )
 
 def setUpModelConfigurations(model_configurations_path, model_type,
