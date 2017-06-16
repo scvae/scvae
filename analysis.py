@@ -1836,15 +1836,20 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, name = None):
     
     figure_name = figureName("learning_curves", name)
     
+    x_label = "Epoch"
+    y_label = "Nat"
+    
     if model_type == "SNN":
         figure = pyplot.figure()
         axis_1 = figure.add_subplot(1, 1, 1)
     elif model_type in ["CVAE", "GMVAE", "GMVAE_alt"]:
         figure, (axis_1, axis_2, axis_3) = pyplot.subplots(3, sharex = True,
             figsize = (6.4, 14.4))
+        figure.subplots_adjust(hspace = 0.1)
     elif "AE" in model_type:
         figure, (axis_1, axis_2) = pyplot.subplots(2, sharex = True,
             figsize = (6.4, 9.6))
+        figure.subplots_adjust(hspace = 0.1)
     
     for curve_set_name, curve_set in sorted(curves.items()):
         
@@ -1900,19 +1905,26 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, name = None):
     axis_1.legend(handles, labels, loc = "best")
     
     if model_type == "SNN":
-        axis_1.set_xlabel("Epoch")
+        axis_1.set_xlabel(x_label)
+        axis_1.set_ylabel(y_label)
     elif "AE" in model_type:
         handles, labels = axis_2.get_legend_handles_labels()
-        labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+        labels, handles = zip(*sorted(zip(labels, handles),
+            key = lambda t: t[0]))
         axis_2.legend(handles, labels, loc = "best")
+        axis_1.set_ylabel("")
+        axis_2.set_ylabel("")
         if model_type in ["CVAE", "GMVAE", "GMVAE_alt"]:
             axis_3.legend(loc = "best")
             handles, labels = axis_3.get_legend_handles_labels()
-            labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+            labels, handles = zip(*sorted(zip(labels, handles),
+                key = lambda t: t[0]))
             axis_3.legend(handles, labels, loc = "best")
-            axis_3.set_xlabel("Epoch")
+            axis_3.set_xlabel(x_label)
+            axis_3.set_ylabel("")
         else:
-            axis_2.set_xlabel("Epoch")
+            axis_2.set_xlabel(x_label)
+        figure.text(-0.01, 0.5, y_label, va = "center", rotation = "vertical")
     
     seaborn.despine()
     
