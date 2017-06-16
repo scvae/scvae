@@ -712,9 +712,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
 
             KL = tf.reduce_sum(KL, axis = -1)
 
-            # Compute importance weighted estimate of 
-            # E_x[p(x)] = E_{z_mc}[1/K_{iw} * sum(E_x[p(x|z_iw)]) p(z)/q(z|x) ] 
+            # From all z-samples compute importance weighted estimate of 
+            # E_x[p(x)] = E_{z_mc}[1/L * sum(E_x[p(x_l|z_l)]) p(z_l)/q(z_l|x) ] 
             # p(z)/q(z|x) = exp(-KL)
+            # (iw_samples, mc_samples, batch_size, feature_size) --> 
             # (batch_size, feature_size)
             self.x_tilde_mean = tf.reduce_mean(self.x_mean* tf.expand_dims(tf.exp(-KL), -1), (0, 1))
 

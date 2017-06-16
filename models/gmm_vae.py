@@ -590,15 +590,21 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         # Y latent space
         with tf.variable_scope("Y"):
             ## p(y) = Cat(pi)
-            
-            if self.prior_probabilities_method != "uniform":
-                with tf.variable_scope("P"):
-                    p_y_logits = tf.constant(self.prior_probabilities)
-                    self.p_y = Categorical(logits = tf.expand_dims(
-                        tf.log(p_y_logits), 0))
-                self.p_z_probabilities = tf.squeeze(self.p_y.probs)
-            else:
-                self.p_z_probabilities = tf.ones(self.K) / self.K
+            ### shape = (1, K), so 1st batch-dim can be broadcasted to y.
+            with tf.variable_scope("P"):
+                if self.prior_probabilities_method != "uniform":
+                        self.p_z_probabilities = tf.constant(self.prior_probabilities)
+                        self.p_y_logits = tf.reshape(
+                            tf.log(self.p_z_probabilities),
+                            [1, 1, 1, self.number_of_latent_clusters]
+                        )
+                        self.p_y = Categorical(logits = self.p_y_logits[1, 1])
+                else:
+                    self.p_z_probabilities = tf.ones(self.K) / self.K
+                    self.p_y_logits = tf.reshape(
+                        tf.log(self.p_z_probabilities),
+                        [1, 1, 1, self.number_of_latent_clusters]
+                    )
             
             ## q(y|x) = Cat(pi(x))
             self.y_ = tf.fill(tf.stack(
@@ -653,7 +659,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         # Decoder for X 
         with tf.variable_scope("X"):
             self.p_x_given_z = [None]*self.K
-            self.x_given_y_mean = [None]*self.K 
+            # self.x_given_y_mean = [None]*self.K 
             for k in range(self.K):
                 if k >= 1:
                     reuse_weights = True
@@ -661,18 +667,21 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     reuse_weights = False
 
                 self.p_x_given_z[k] = self.p_x_given_z_graph(self.z[k], reuse = reuse_weights)
-                self.x_given_y_mean[k] = tf.reduce_mean(
-                    tf.reshape(
-                        self.p_x_given_z[k].mean(),
-                        [self.number_of_iw_samples*\
-                        self.number_of_mc_samples, -1, self.feature_size]
-                    ),
-                    axis = 0
-                ) * tf.expand_dims(self.q_y_given_x.probs[:, k], -1)
-            self.x_mean = tf.add_n(self.x_given_y_mean)
+                # self.x_given_y_mean[k] = tf.reduce_mean(
+                #     tf.reshape(
+                #         self.p_x_given_z[k].mean(),
+                #         [self.number_of_iw_samples*\
+                #         self.number_of_mc_samples, -1, self.feature_size]
+                #     ),
+                #     axis = 0
+                # ) * tf.expand_dims(self.q_y_given_x.probs[:, k], -1)
+
+            # self.x_mean = tf.add_n(self.x_given_y_mean)
         
         # (B, K)
         self.y_mean = self.q_y_given_x.probs
+        # (S_iw, S_mc, Bs, K)
+        self.q_y_logits = tf.reshape(self.q_y_given_x.logits, [1, 1, -1, self.number_of_latent_clusters])
         
         # Add histogram summaries for the trainable parameters
         for parameter in tf.trainable_variables():
@@ -707,26 +716,33 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         KL_z_mean = [None] * self.K
         log_p_x_given_z_mean = [None] * self.K
         log_likelihood_x_z = [None] * self.K
+        x_mean_weight_given_y_z = [None] * self.K
 
         for k in range(self.K):
+            # (S_iw, S_mc, B, L) --> (S_iw, S_mc, B)
             log_q_z_given_x_y = tf.reduce_sum(
                 self.q_z_given_x_y[k].log_prob(
                     z_reshaped[k]
                 ),
                 axis = -1
             )
+            # (S_iw, S_mc, B, L) --> (S_iw, S_mc, B)
             log_p_z_given_y = tf.reduce_sum(
                 self.p_z_given_y[k].log_prob(
                     z_reshaped[k]
                 ),
                 axis = -1
             )
+            # (S_iw, S_mc, B)
             KL_z[k] = log_q_z_given_x_y - log_p_z_given_y
+
+            # (S_iw, S_mc, B) --> (B)
             KL_z_mean[k] = tf.reduce_mean(
                 KL_z[k], 
                 axis=(0,1)
             ) * self.q_y_given_x.probs[:, k] 
 
+            # (S_iw, S_mc, B, F) --> (S_iw, S_mc, B)
             log_p_x_given_z = tf.reshape(
                 tf.reduce_sum(
                     self.p_x_given_z[k].log_prob(t_tiled), 
@@ -734,6 +750,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 ),
                 [self.number_of_iw_samples, self.number_of_mc_samples, -1]
             )
+            # (S_iw, S_mc, B) --> (B)
             log_p_x_given_z_mean[k] = tf.reduce_mean(
                 log_p_x_given_z,
                 axis = (0,1)
@@ -741,7 +758,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             # Monte carlo estimates over: 
                 # Importance weight estimates using log-mean-exp 
                     # (to avoid over- and underflow) 
-                    # shape: (N_mc, batch_size)
+                    # shape: (S_mc, batch_size)
             ##  -> shape: (batch_size)
             log_likelihood_x_z[k] = tf.reduce_mean(
                 log_reduce_exp(
@@ -751,10 +768,26 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 ),
                 axis = 0
             ) * self.q_y_given_x.probs[:, k]
+            # w_{y,z} =( p(z|y)*p(y) ) / ( q(z|x,y) * q(y|x) )
+            # (S_iw, S_mc, B) --> (S_iw * S_mc * B, 1)
+            weight_given_y_z = tf.reshape(
+                self.p_y_logits[:,:,:,k] - self.q_y_logits[:,:,:,k] - KL_z[k],
+                [-1, 1]
+            )
+            # (S_iw * S_mc * B, F)
+            x_mean_weight_given_y_z[k] = self.p_x_given_z[k].mean() * tf.exp(weight_given_y_z)
 
-
-
-
+        # Marginalise y out and reshape into:
+        # (S_iw * S_mc * B, F) --> (S_iw * S_mc, B, F)
+        x_mean_weight_given_z = tf.reshape(
+            tf.add_n(x_mean_weight_given_y_z),
+            [self.number_of_iw_samples * self.number_of_mc_samples
+                , -1, self.feature_size
+            ]
+        )
+        # Marginalise z importance samples out
+        # (S_iw * S_mc, B, F) --> (B, F)
+        self.x_mean = tf.reduce_mean(x_mean_weight_given_z, 0)
 
         log_likelihood_x_z_sum = tf.add_n(log_likelihood_x_z)
 
