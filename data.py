@@ -707,7 +707,7 @@ class DataSet(object):
     def preprocess(self):
         
         if not self.preprocessing_methods and not self.feature_selection \
-            and self.example_filter:
+            and not self.example_filter:
             self.update(preprocessed_values = self.values)
             return
         
@@ -759,7 +759,7 @@ class DataSet(object):
                 preprocessed_values = values_dictionary["preprocessed"]
             
                 print()
-            
+                
             if self.example_filter:
                 values_dictionary, example_names, labels = filterExamples(
                     {"original": values,
