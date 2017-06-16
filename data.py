@@ -1260,7 +1260,7 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
         filter_labels = superset_labels.copy()
         filter_excluded_classes = excluded_superset_classes
     else:
-        filter_labels = label.copy()
+        filter_labels = labels.copy()
         filter_excluded_classes = excluded_classes
     
     filter_class_names = numpy.unique(filter_labels)
@@ -1286,21 +1286,29 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
             example_filter_parameters = filter_excluded_classes
         
         if example_filter == "keep":
-            labelsClassNameComparer = lambda labels, class_name: \
-                labels == class_name
+            label_indices = set()
+            
+            for parameter in example_filter_parameters:
+                for class_name in filter_class_names:
+                    if normaliseString(str(class_name)) \
+                        == normaliseString(str(parameter)):
+                        
+                        class_indices = filter_labels == class_name
+                        label_indices.update(filter_indices[class_indices])
+
+            filter_indices = filter_indices[list(label_indices)]
+            
         elif example_filter == "remove":
-            labelsClassNameComparer = lambda labels, class_name: \
-                labels != class_name
+            for parameter in example_filter_parameters:
+                for class_name in filter_class_names:
+                    if normaliseString(str(class_name)) \
+                        == normaliseString(str(parameter)):
+                        
+                        label_indices = filter_labels != class_name
+                        filter_labels = filter_labels[label_indices]
+                        filter_indices = filter_indices[label_indices]
         
-        for parameter in example_filter_parameters:
-            for class_name in filter_class_names:
-                if normaliseString(str(class_name)) \
-                    == normaliseString(str(parameter)):
-                    
-                    label_indices = labelsClassNameComparer(filter_labels,
-                        class_name)
-                    filter_labels = filter_labels[label_indices]
-                    filter_indices = filter_indices[label_indices]
+        
     
     elif example_filter == "remove_count_sum_above":
         threshold = int(example_filter_parameters[0])
