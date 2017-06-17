@@ -281,8 +281,6 @@ def removeOldCheckpoints(directory):
     
     checkpoint = tf.train.get_checkpoint_state(directory)
     
-    print(checkpoint.model_checkpoint_path)
-    
     if checkpoint:
         for f in os.listdir(directory):
             file_path = os.path.join(directory, f)
