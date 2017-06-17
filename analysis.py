@@ -54,7 +54,8 @@ image_extension = ".png"
 maximum_feature_size_for_analyses = 2000
 maximum_number_of_values_for_normal_heat_maps = 70000 * 1000
 maximum_number_of_values_for_large_heat_maps = 5000 * 25000
-maximum_number_of_values_for_t_sne = 10000 * 100
+maximum_number_of_features_for_t_sne = 100
+maximum_number_of_examples_for_t_sne = 50000
 number_of_random_examples = 100
 number_of_profile_comparisons = 25
 profile_comparison_count_cut_off = 10.5
@@ -1173,6 +1174,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
         else:
             title_with_ID = title
         
+        title_with_ID += " set"
+        
         if not colouring_data_set:
             colouring_data_set = data_set
         
@@ -1182,7 +1185,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
             centroids = None
         
         if other_data_set:
-            title_with_ID = "{} values in {}".format(
+            title_with_ID = "{} set values in {}".format(
                 other_data_set.version, title_with_ID)
             name = other_data_set.version + "-" + name
         
@@ -1210,35 +1213,50 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 other_values_decomposed = other_values
                 centroids_decomposed = centroids
                 
-                if decomposition_method == "t-SNE" \
-                    and data_set.number_of_values > \
-                        maximum_number_of_values_for_t_sne:
-                            print(
-                                "Maximum number of values for {}".format(
-                                    title_with_ID),
-                                "would take too long to decompose",
-                                "using {}.".format(decomposition_method)
+                if decomposition_method == "t-SNE":
+                    if data_set.number_of_examples \
+                        > maximum_number_of_examples_for_t_sne:
+                        
+                        print(
+                            "The number of examples for {}".format(
+                                title_with_ID),
+                            "is too large to decompose it",
+                            "using {}. Skipping.".format(decomposition_method)
+                        )
+                        print()
+                        
+                        continue
+                        
+                    if data_set.number_of_features > \
+                        maximum_number_of_features_for_t_sne:
+                        
+                        print(
+                            "The number of features for {}".format(
+                                title_with_ID),
+                            "is too large to decompose it",
+                            "using {} in due time.".format(decomposition_method)
+                        )
+                        print("Decomposing {} to {} components using PCA".format(
+                            title_with_ID, data_set.\
+                                number_of_pca_components_before_tsne),
+                            "beforehand.")
+                        decompose_time_start = time()
+                        
+                        values_decomposed, other_values_decomposed, \
+                            centroids_decomposed = decompose(
+                                values_decomposed,
+                                other_value_sets = other_values_decomposed,
+                                centroids = centroids_decomposed,
+                                method = "pca",
+                                components = data_set.\
+                                    number_of_pca_components_before_tsne
                             )
-                            print("Decomposing {} using {}".format(
-                                title_with_ID, "PCA"),
-                                "beforehand.")
-                            decompose_time_start = time()
-                            
-                            values_decomposed, other_values_decomposed, \
-                                centroids_decomposed = decompose(
-                                    values_decomposed,
-                                    other_value_sets = other_values_decomposed,
-                                    centroids = centroids_decomposed,
-                                    method = "pca",
-                                    components = data_set.\
-                                        number_of_pca_components_before_tsne
-                                )
-                            
-                            decompose_duration = time() - decompose_time_start
-                            print("{} pre-decomposed ({}).".format(
-                                title_with_ID.capitalize(),
-                                formatDuration(decompose_duration)
-                            ))
+                        
+                        decompose_duration = time() - decompose_time_start
+                        print("{} pre-decomposed ({}).".format(
+                            title_with_ID.capitalize(),
+                            formatDuration(decompose_duration)
+                        ))
                 
                 print("Decomposing {} using {}.".format(
                     title_with_ID, decomposition_method))
