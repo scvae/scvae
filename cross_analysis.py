@@ -19,14 +19,13 @@ def main(log_directory = None, results_directory = None,
         
         for data_set, models in test_metrics_set.items():
             
-            data_set_match = False
+            data_set_match = True
             
-            if data_set_search_strings:
-                for data_set_search_string in data_set_search_strings:
-                    if data_set_search_string in data_set:
-                        data_set_match = True
-            else:
-                data_set_match = True
+            for data_set_search_string in data_set_search_strings:
+                if data_set_search_string in data_set:
+                    data_set_match *= True
+                else:
+                    data_set_match *= False
             
             if not data_set_match:
                 continue
@@ -34,15 +33,14 @@ def main(log_directory = None, results_directory = None,
             print(data_set)
             print()
             for model, test_metrics in models.items():
-            
-                model_match = False
                 
-                if model_search_strings:
-                    for model_search_string in model_search_strings:
-                        if model_search_string in model:
-                            model_match = True
-                else:
-                    model_match = True
+                model_match = True
+                
+                for model_search_string in model_search_strings:
+                    if model_search_string in model:
+                        model_match *= True
+                    else:
+                        model_match *= False
                 
                 if not model_match:
                     continue
