@@ -52,11 +52,16 @@ figure_extension = ".png"
 image_extension = ".png"
 
 maximum_feature_size_for_analyses = 2000
+
 maximum_number_of_values_for_normal_heat_maps = 70000 * 1000
 maximum_number_of_values_for_large_heat_maps = 5000 * 25000
+
 maximum_number_of_features_for_t_sne = 100
 maximum_number_of_examples_for_t_sne = 50000
+number_of_pca_components_before_tsne = 32
+
 number_of_random_examples = 100
+
 number_of_profile_comparisons = 25
 profile_comparison_count_cut_off = 10.5
 
@@ -1237,8 +1242,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             "using {} in due time.".format(decomposition_method)
                         )
                         print("Decomposing {} to {} components using PCA".format(
-                            title_with_ID, data_set.\
-                                number_of_pca_components_before_tsne),
+                            title_with_ID, number_of_pca_components_before_tsne),
                             "beforehand.")
                         decompose_time_start = time()
                         
@@ -1248,8 +1252,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                                 other_value_sets = other_values_decomposed,
                                 centroids = centroids_decomposed,
                                 method = "pca",
-                                components = data_set.\
-                                    number_of_pca_components_before_tsne
+                                components = number_of_pca_components_before_tsne
                             )
                         
                         decompose_duration = time() - decompose_time_start
