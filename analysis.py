@@ -1230,7 +1230,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                                     other_value_sets = other_values_decomposed,
                                     centroids = centroids_decomposed,
                                     method = "pca",
-                                    components = 32
+                                    components = data_set.\
+                                        number_of_pca_components_before_tsne
                                 )
                             
                             decompose_duration = time() - decompose_time_start

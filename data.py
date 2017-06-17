@@ -123,7 +123,8 @@ data_sets = {
             "name": "Macosko",
             "label": lambda symbol: "$\log ({} / 10^{{4}} + 1)$".format(symbol),
             "function": lambda values: numpy.log(values / 1e4 + 1)
-        }
+        },
+        "number of PCA components before t-SNE": 32
     },
     
     "MNIST (original)": {
@@ -151,7 +152,8 @@ data_sets = {
         "load function": lambda x: loadMNISTDataSet(x),
         "maximum value": 255,
         "example type": "images",
-        "feature dimensions": (28, 28)
+        "feature dimensions": (28, 28),
+        "number of PCA components before t-SNE": 20
     },
     
     "MNIST (normalised)": {
@@ -170,7 +172,8 @@ data_sets = {
         "load function": lambda x: loadNormalisedMNISTDataSet(x),
         "maximum value": 1,
         "example type": "images",
-        "feature dimensions": (28, 28)
+        "feature dimensions": (28, 28),
+        "number of PCA components before t-SNE": 20
     },
     
     "MNIST (binarised)": {
@@ -199,7 +202,8 @@ data_sets = {
         "load function": lambda x: loadBinarisedMNISTDataSet(x),
         "maximum value": 1,
         "example type": "images",
-        "feature dimensions": (28, 28)
+        "feature dimensions": (28, 28),
+        "number of PCA components before t-SNE": 20
     },
     
     "Reuters": {
@@ -334,7 +338,8 @@ data_sets = {
             "name": "Macosko",
             "label": lambda symbol: "$\log ({} / 10^{{4}} + 1)$".format(symbol),
             "function": lambda values: numpy.log(values / 1e4 + 1)
-        }
+        },
+        "number of PCA components before t-SNE": 5
     }
 }
 
@@ -379,6 +384,10 @@ class DataSet(object):
         
         # Literature probabilities for data set
         self.literature_probabilities = dataSetLiteratureProbabilities(self.title)
+        
+        # Literature probabilities for data set
+        self.number_of_pca_components_before_tsne = \
+            dataSetNumberOfPCAComponentsBeforeTSNE(self.title)
         
         # Label super set for data set
         self.label_superset = dataSetLabelSuperset(self.title)
@@ -1076,6 +1085,12 @@ def dataSetHeatMapTransformation(title):
 def dataSetLiteratureProbabilities(title):
     if "literature probabilities" in data_sets[title]:
         return data_sets[title]["literature probabilities"]
+    else:
+        return None
+
+def dataSetNumberOfPCAComponentsBeforeTSNE(title):
+    if "number of PCA components before t-SNE" in data_sets[title]:
+        return data_sets[title]["number of PCA components before t-SNE"]
     else:
         return None
 
