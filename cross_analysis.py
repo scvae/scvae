@@ -7,7 +7,8 @@ import argparse
 
 test_metrics_filename = "test_metrics.pkl.gz"
 
-def main(log_directory = None, results_directory = None):
+def main(log_directory = None, results_directory = None,
+    data_set_search_strings = [], model_search_strings = []):
     
     if log_directory:
         log_directory = os.path.normpath(log_directory) + os.sep
@@ -17,9 +18,35 @@ def main(log_directory = None, results_directory = None):
         test_metrics_set = testMetricsInResultsDirectory(results_directory)
         
         for data_set, models in test_metrics_set.items():
+            
+            data_set_match = False
+            
+            if data_set_search_strings:
+                for data_set_search_string in data_set_search_strings:
+                    if data_set_search_string in data_set:
+                        data_set_match = True
+            else:
+                data_set_match = True
+            
+            if not data_set_match:
+                continue
+            
             print(data_set)
             print()
             for model, test_metrics in models.items():
+            
+                model_match = False
+                
+                if model_search_strings:
+                    for model_search_string in model_search_strings:
+                        if model_search_string in model:
+                            model_match = True
+                else:
+                    model_match = True
+                
+                if not model_match:
+                    continue
+            
                 print(model)
                 
                 E = test_metrics["number of epochs trained"]
@@ -31,6 +58,7 @@ def main(log_directory = None, results_directory = None):
                     "log_likelihood",
                     "lower_bound",
                     "reconstruction_error",
+                    "kl_divergence_z",
                     "kl_divergence_z1",
                     "kl_divergence_z2",
                     "kl_divergence_y"
@@ -77,6 +105,20 @@ parser.add_argument(
     "--results-directory", "-R",
     type = str,
     help = "directory where results were saved"
+)
+parser.add_argument(
+    "--data-set-search-strings", "-d",
+    type = str,
+    nargs = "*",
+    default = [],
+    help = "list of search strings for data set directories"
+)
+parser.add_argument(
+    "--model-search-strings", "-m",
+    type = str,
+    nargs = "*",
+    default = [],
+    help = "list of search strings for model directories"
 )
 
 if __name__ == '__main__':
