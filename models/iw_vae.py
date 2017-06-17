@@ -616,6 +616,15 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     self.feature_size
                 ]
             )
+
+            self.x_variance = tf.reshape(self.p_x_given_z.variance(), 
+                [
+                    self.number_of_iw_samples,
+                    self.number_of_mc_samples,
+                    -1,
+                    self.feature_size
+                ]
+            )
         
         # Add histogram summaries for the trainable parameters
         for parameter in tf.trainable_variables():
@@ -741,15 +750,25 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             ##      E[x] = E[E[x|z]] = E_q(z|x)[E_p(x|z)[x]]
             ##           = E_z[p_x_given_z.mean]
             ##     \approx 1/(R*L) \sum^R_r w_r \sum^L_{l=1} p_x_given_z.mean 
-            # Reconstruction standard deviation: 
-            ##      sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
-            ##      = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
-            
+
             # E_x[p(x)] = E_{z_mc}[1/L * sum(E_x[p(x_l|z_l)]) p(z_l)/q(z_l|x) ] 
             # (N_iw, N_mc, B, N_x) --> (N_iw, B, N_x) --> (B, N_x)
             self.x_tilde_mean = tf.reduce_mean(
                 tf.reduce_mean(self.x_mean, 1) * iw_weight_given_z, 
                 0
+            )
+            
+            # Reconstruction standard deviation: 
+            ##      sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
+            ##      = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
+            # (N_iw, N_mc, B, N_x)
+            variance_given_z = self.x_variance + tf.square(self.x_mean - tf.reshape(self.x_tilde_mean, [1, 1, -1, self.feature_size]))
+
+            # (N_iw, N_mc, B, N_x) --> (N_iw, B, N_x) --> (B, N_x)
+            self.x_tilde_stddev = tf.sqrt(tf.reduce_mean(
+                tf.reduce_mean(variance_given_z, 1) * iw_weight_given_z, 
+                0
+            )
             )
 
         # log-mean-exp (to avoid over- and underflow) over iw_samples dimension
@@ -1433,6 +1452,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             ENRE_test = 0
             
             x_tilde_mean_test = numpy.empty([M_test, F_test])
+            x_tilde_stddev_test = numpy.empty([M_test, F_test])
+
             z_mean_test = numpy.empty([M_test, self.latent_size])
             
             if use_deterministic_z:
@@ -1461,9 +1482,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 if self.count_sum_feature:
                     feed_dict_batch[self.n_feature] = n_feature_test[subset]
                 
-                ELBO_i, KL_i, ENRE_i, x_tilde_mean_i, z_mean_i = session.run(
+                ELBO_i, KL_i, ENRE_i, x_tilde_mean_i, x_tilde_stddev_i, z_mean_i = session.run(
                     [self.ELBO, self.KL, self.ENRE,
-                        self.x_tilde_mean, self.z_mean],
+                        self.x_tilde_mean, self.x_tilde_stddev, self.z_mean],
                     feed_dict = feed_dict_batch
                 )
                 
@@ -1477,9 +1498,12 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 ##           = E_z[p_x_given_z.mean]
                 ##     \approx 1/(R*L) \sum^R_r w_r \sum^L_{l=1} p_x_given_z.mean 
                 x_tilde_mean_test[subset] = x_tilde_mean_i
+
                 # Reconstruction standard deviation: 
                 ##      sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
                 ##      = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
+                x_tilde_stddev_test[subset] = x_tilde_stddev_i
+
                 z_mean_test[subset] = z_mean_i
             
             ELBO_test /= M_test / batch_size
@@ -1526,8 +1550,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         simple_value = p_z_variances_k_l
                     )
             
-            test_summary_writer.add_summary(summary,
-                global_step = epoch)
+            test_summary_writer.add_summary(summary, global_step = epoch)
             test_summary_writer.flush()
             
             evaluating_duration = time() - evaluating_time_start
@@ -1560,7 +1583,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             reconstructed_test_set = DataSet(
                 name = test_set.name,
                 values = x_tilde_mean_test,
-                standard_deviations = None,
+                standard_deviations = x_tilde_stddev_test,
                 preprocessed_values = None,
                 labels = test_set.labels,
                 example_names = test_set.example_names,

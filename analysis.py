@@ -697,7 +697,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         
         if reconstructed_test_set.standard_deviations is not None:
             expected_series_standard_deviations = \
-                reconstructed_test_set.standard_deviations
+                reconstructed_test_set.standard_deviations[i]
         else:
             expected_series_standard_deviations = None
         
