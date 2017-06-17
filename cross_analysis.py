@@ -8,7 +8,8 @@ import argparse
 test_metrics_filename = "test_metrics.pkl.gz"
 
 def main(log_directory = None, results_directory = None,
-    data_set_search_strings = [], model_search_strings = []):
+    data_set_include_search_strings = [], model_include_search_strings = [],
+    data_set_exclude_search_strings = [], model_exclude_search_strings = []):
     
     if log_directory:
         log_directory = os.path.normpath(log_directory) + os.sep
@@ -21,8 +22,14 @@ def main(log_directory = None, results_directory = None,
             
             data_set_match = True
             
-            for data_set_search_string in data_set_search_strings:
+            for data_set_search_string in data_set_include_search_strings:
                 if data_set_search_string in data_set:
+                    data_set_match *= True
+                else:
+                    data_set_match *= False
+            
+            for data_set_search_string in data_set_exclude_search_strings:
+                if data_set_search_string not in data_set:
                     data_set_match *= True
                 else:
                     data_set_match *= False
@@ -36,8 +43,14 @@ def main(log_directory = None, results_directory = None,
                 
                 model_match = True
                 
-                for model_search_string in model_search_strings:
+                for model_search_string in model_include_search_strings:
                     if model_search_string in model:
+                        model_match *= True
+                    else:
+                        model_match *= False
+                
+                for model_search_string in model_exclude_search_strings:
+                    if model_search_string not in model:
                         model_match *= True
                     else:
                         model_match *= False
@@ -106,18 +119,32 @@ parser.add_argument(
     help = "directory where results were saved"
 )
 parser.add_argument(
-    "--data-set-search-strings", "-d",
+    "--data-set-include-search-strings", "-d",
     type = str,
     nargs = "*",
     default = [],
-    help = "list of search strings for data set directories"
+    help = "list of search strings to include in data set directories"
 )
 parser.add_argument(
-    "--model-search-strings", "-m",
+    "--model-include-search-strings", "-m",
     type = str,
     nargs = "*",
     default = [],
-    help = "list of search strings for model directories"
+    help = "list of search strings to include in model directories"
+)
+parser.add_argument(
+    "--data-set-exclude-search-strings", "-D",
+    type = str,
+    nargs = "*",
+    default = [],
+    help = "list of search strings to exclude in data set directories"
+)
+parser.add_argument(
+    "--model-exclude-search-strings", "-M",
+    type = str,
+    nargs = "*",
+    default = [],
+    help = "list of search strings to exclude in model directories"
 )
 
 if __name__ == '__main__':
