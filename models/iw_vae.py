@@ -1509,6 +1509,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             reconstructed_test_set = DataSet(
                 name = test_set.name,
                 values = x_tilde_mean_test,
+                standard_deviations = None,
                 preprocessed_values = None,
                 labels = test_set.labels,
                 example_names = test_set.example_names,

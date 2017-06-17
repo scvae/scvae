@@ -694,6 +694,12 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         expected_series = reconstructed_test_set.values[i]
         example_name = str(test_set.example_names[i])
         
+        if reconstructed_test_set.standard_deviations is not None:
+            expected_series_standard_deviations = \
+                reconstructed_test_set.standard_deviations
+        else:
+            expected_series_standard_deviations = None
+        
         maximum_count = max(observed_series.max(), expected_series.max())
     
         if maximum_count < 2 * y_cutoff:
@@ -701,6 +707,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             figure, figure_name = plotProfileComparison(
                 observed_series,
                 expected_series,
+                expected_series_standard_deviations,
                 x_name = test_set.tags["feature"],
                 y_name = test_set.tags["value"],
                 sort_by = "expected",
@@ -716,6 +723,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                 figure, figure_name = plotProfileComparison(
                     observed_series,
                     expected_series,
+                    expected_series_standard_deviations,
                     x_name = test_set.tags["feature"],
                     y_name = test_set.tags["value"],
                     sort_by = "expected",

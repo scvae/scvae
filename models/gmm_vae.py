@@ -1838,6 +1838,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             reconstructed_test_set = DataSet(
                 name = test_set.name,
                 values = x_mean_test,
+                standard_deviations = None,
                 preprocessed_values = None,
                 labels = class_ids_to_class_names(predicted_label_ids_test),
                 example_names = test_set.example_names,

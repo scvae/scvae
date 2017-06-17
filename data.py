@@ -340,7 +340,8 @@ data_sets = {
 
 class DataSet(object):
     def __init__(self, name,
-        values = None, preprocessed_values = None, binarised_values = None,
+        values = None, standard_deviations = None,
+        preprocessed_values = None, binarised_values = None,
         labels = None, class_names = None,
         example_names = None, feature_names = None,
         feature_selection = [], feature_parameter = None, example_filter = [],
@@ -398,6 +399,7 @@ class DataSet(object):
         
         # Values and their names as well as labels in data set
         self.values = None
+        self.standard_deviations = None
         self.count_sum = None
         self.normalised_count_sum = None
         self.preprocessed_values = None
@@ -409,8 +411,8 @@ class DataSet(object):
         self.number_of_examples = None
         self.number_of_features = None
         self.number_of_classes = None
-        self.update(values, preprocessed_values, binarised_values, labels,
-            example_names, feature_names, class_names)
+        self.update(values, standard_deviations, preprocessed_values,
+            binarised_values, labels, example_names, feature_names, class_names)
         
         # Feature selction
         self.feature_selection = feature_selection
@@ -569,7 +571,8 @@ class DataSet(object):
         
         return class_probabilities
     
-    def update(self, values = None, preprocessed_values = None,
+    def update(self, values = None, standard_deviations = None,
+        preprocessed_values = None,
         binarised_values = None, labels = None,
         example_names = None, feature_names = None, class_names = None):
         
@@ -636,6 +639,9 @@ class DataSet(object):
                     self.superset_class_id_to_superset_class_name[i] = class_name
                 
                 self.number_of_superset_classes = len(self.superset_class_names)
+        
+        if standard_deviations is not None:
+            self.standard_deviations = standard_deviations
         
         if preprocessed_values is not None:
             self.preprocessed_values = preprocessed_values
@@ -1009,6 +1015,9 @@ class DataSet(object):
             feature_names = self.feature_names,
             class_names = self.class_names
         )
+        if self.standard_deviations is not None:
+            self.update(
+                standard_deviations = self.standard_deviations[filter_indices])
         if self.preprocessed_values is not None:
             self.update(
                 preprocessed_values = self.preprocessed_values[filter_indices])
