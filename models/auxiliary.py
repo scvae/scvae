@@ -225,11 +225,39 @@ def copyModelDirectory(model_checkpoint, main_destination_directory):
     if not os.path.exists(main_destination_directory):
         os.makedirs(main_destination_directory)
     
+    # Checkpoint file
+    
+    source_checkpoint_file_path = os.path.join(
+        checkpoint_directory, "checkpoint")
+    
+    with open(source_checkpoint_file_path, "r") as checkpoint_file:
+        source_checkpoint_line = checkpoint_file.readline()
+    _, source_path_prefix = source_checkpoint_line.split(": ")
+    source_path_prefix = source_path_prefix.replace("\"", "")
+    
+    if source_path_prefix.startswith("model"):
+        destionation_checkpoint_path_prefix = checkpoint_filename_prefix
+    else:
+        destionation_checkpoint_path_prefix = os.path.join(
+            main_destination_directory, checkpoint_filename_prefix)
+    
+    destionation_checkpoint_file_path = os.path.join(
+        main_destination_directory, "checkpoint")
+    
+    with open(destionation_checkpoint_file_path, "w") as checkpoint_file:
+        checkpoint_file.write(
+            "model_checkpoint_path: \"{}\"".format(
+                destionation_checkpoint_path_prefix) + "\n" +
+            "all_model_checkpoint_paths: \"{}\"".format(
+                destionation_checkpoint_path_prefix)
+        )
+    
+    # The rest
+    
     for f in os.listdir(checkpoint_directory):
         source_path = os.path.join(checkpoint_directory, f)
     
-        if checkpoint_filename_prefix in f or "events" in f \
-            or f in "checkpoint":
+        if checkpoint_filename_prefix in f or "events" in f:
             destination_directory = main_destination_directory
             shutil.copy(source_path, destination_directory)
     
@@ -247,6 +275,8 @@ def copyModelDirectory(model_checkpoint, main_destination_directory):
 def removeOldCheckpoints(directory):
     
     checkpoint = tf.train.get_checkpoint_state(directory)
+    
+    print(checkpoint.model_checkpoint_path)
     
     if checkpoint:
         for f in os.listdir(directory):
