@@ -2325,6 +2325,9 @@ def plotProfileComparison(observed_series, expected_series,
         x_name.capitalize(), sort_direction, sort_by, y_name.lower())
     y_label = y_name.capitalize() + "s"
     
+    observed_label = "Observed"
+    expected_label = "Expected"
+    
     # Sorting
     
     if sort_by == "expected":
@@ -2358,6 +2361,7 @@ def plotProfileComparison(observed_series, expected_series,
             expected_series_standard_deviations
         expected_series_upper = expected_series + \
             expected_series_standard_deviations
+        alpha = 0.3
     
     # Figure
     
@@ -2376,19 +2380,19 @@ def plotProfileComparison(observed_series, expected_series,
         axes = [axis]
     
     for axis in axes:
-        axis.plot(
+        observed_plot, = axis.plot(
             feature_indices,
             observed_series[sort_indices],
-            label = "Observed",
+            label = observed_label,
             color = observed_colour,
             marker = observed_marker,
             linestyle = observed_line_style,
             zorder = observed_z_order
         )
-        axis.plot(
+        expected_plot, = axis.plot(
             feature_indices,
             expected_series[sort_indices],
-            label = "Expected",
+            label = expected_colour,
             color = expected_colour,
             marker = expected_marker,
             linestyle = expected_line_style,
@@ -2400,12 +2404,23 @@ def plotProfileComparison(observed_series, expected_series,
                 expected_series_lower[sort_indices],
                 expected_series_upper[sort_indices],
                 color = expected_colour,
-                alpha = 0.1,
+                alpha = alpha,
                 zorder = 0
             )
+            expected_plot_standard_deviations, = axis.fill(
+                numpy.nan, numpy.nan,
+                color = expected_colour,
+                alpha = alpha
+            )
+            expected_plots = (expected_plot, expected_plot_standard_deviations)
+            
     
     if y_scale == "both":
-        axis_upper.legend()
+        axis_upper.legend(
+            handles = [observed_plot, expected_plots],
+            labels = [observed_label, expected_label],
+            loc = "best"
+        )
         
         seaborn.despine(ax = axis_upper)
         seaborn.despine(ax = axis_lower)
@@ -2425,7 +2440,12 @@ def plotProfileComparison(observed_series, expected_series,
             y_lower_min = max(0, y_lower_min)
             axis_lower.set_ylim(y_lower_min, y_cutoff)
     else:
-        axis.legend()
+        axis.legend(
+            handles = [observed_plot, expected_plots],
+            labels = [observed_label, expected_label],
+            loc = "best"
+        )
+        
         seaborn.despine()
         
         axis.set_yscale(y_scale)
