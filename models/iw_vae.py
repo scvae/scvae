@@ -137,7 +137,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             self.parameter_summary_list.append(warm_up_weight_summary)
             
             self.is_training = tf.placeholder(tf.bool, [], 'is_training')
-            
+            self.use_deterministic_z = tf.placeholder(tf.bool, [], 'use_deterministic_z')
             self.number_of_iw_samples = tf.placeholder(
                 tf.int32,
                 [],
@@ -470,13 +470,22 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         ### Sampling of
             ### 1st dim.: importance weighting samples
             ### 2nd dim.: monte carlo samples
+
+        total_number_of_samples = tf.where(
+            self.use_deterministic_z,
+            1,
+            self.number_of_iw_samples * self.number_of_mc_samples
+        )
+
         self.z = tf.cast(
             tf.reshape(
-                self.q_z_given_x.sample(
-                    self.number_of_iw_samples*self.number_of_mc_samples
-                    ),
+                tf.cond(self.use_deterministic_z, 
+                    lambda: tf.expand_dims(self.z_mean, 0),
+                    lambda: self.q_z_given_x.sample(total_number_of_samples)
+                ),
                 [-1, self.latent_size]
-            ), tf.float32)
+            ), tf.float32
+        )
 
         ## Latent prior distribution
         ### Parameterise:
@@ -710,6 +719,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             tf.add_to_collection('losses', KL_qp)
             self.KL = KL_qp
 
+            # (N_iw, N_mc, B, N_x) --> (N_iw, N_mc, B)
             KL = tf.reduce_sum(KL, axis = -1)
 
             # From all z-samples compute importance weighted estimate of 
@@ -717,7 +727,30 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             # p(z)/q(z|x) = exp(-KL)
             # (iw_samples, mc_samples, batch_size, feature_size) --> 
             # (batch_size, feature_size)
-            self.x_tilde_mean = tf.reduce_mean(self.x_mean* tf.expand_dims(tf.exp(-KL), -1), (0, 1))
+            # (N_iw, N_mc, B) --> (N_iw, B, 1)
+            iw_weight_given_z = tf.expand_dims(
+                tf.exp(
+                    tf.where(self.number_of_iw_samples > 1, 1.0, 0.0) * \
+                        - KL[:, 0, :]
+                ),
+                -1
+            ) 
+
+            # Importance weighted Monte Carlo estimates of: 
+            # Reconstruction mean (marginalised conditional mean): 
+            ##      E[x] = E[E[x|z]] = E_q(z|x)[E_p(x|z)[x]]
+            ##           = E_z[p_x_given_z.mean]
+            ##     \approx 1/(R*L) \sum^R_r w_r \sum^L_{l=1} p_x_given_z.mean 
+            # Reconstruction standard deviation: 
+            ##      sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
+            ##      = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
+            
+            # E_x[p(x)] = E_{z_mc}[1/L * sum(E_x[p(x_l|z_l)]) p(z_l)/q(z_l|x) ] 
+            # (N_iw, N_mc, B, N_x) --> (N_iw, B, N_x) --> (B, N_x)
+            self.x_tilde_mean = tf.reduce_mean(
+                tf.reduce_mean(self.x_mean, 1) * iw_weight_given_z, 
+                0
+            )
 
         # log-mean-exp (to avoid over- and underflow) over iw_samples dimension
         ## -> shape: (N_mc, batch_size)
@@ -953,6 +986,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.x: x_train[batch_indices],
                         self.t: t_train[batch_indices],
                         self.is_training: True,
+                        self.use_deterministic_z: False,
                         self.learning_rate: learning_rate, 
                         self.warm_up_weight: warm_up_weight,
                         self.number_of_iw_samples: self.number_of_importance_samples["training"],
@@ -1034,6 +1068,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.x: x_batch,
                         self.t: t_batch,
                         self.is_training: False,
+                        self.use_deterministic_z: False,
                         self.warm_up_weight: 1.0,
                         self.number_of_iw_samples: self.number_of_importance_samples["training"],
                         self.number_of_mc_samples: self.number_of_monte_carlo_samples["training"]
@@ -1112,6 +1147,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         self.x: x_batch,
                         self.t: t_batch,
                         self.is_training: False,
+                        self.use_deterministic_z: False,
                         self.warm_up_weight: 1.0,
                         self.number_of_iw_samples:
                             self.number_of_importance_samples["training"],
@@ -1327,7 +1363,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             return status
     
     def evaluate(self, test_set, batch_size = 100,
-        use_early_stopping_model = False):
+        use_early_stopping_model = False, use_deterministic_z = False):
         
         batch_size /= self.number_of_importance_samples["evaluation"] \
             * self.number_of_monte_carlo_samples["evaluation"]
@@ -1399,6 +1435,13 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             x_tilde_mean_test = numpy.empty([M_test, F_test])
             z_mean_test = numpy.empty([M_test, self.latent_size])
             
+            if use_deterministic_z:
+                number_of_iw_samples = 1
+                number_of_mc_samples = 1
+            else:
+                number_of_iw_samples = self.number_of_importance_samples["evaluation"]
+                number_of_mc_samples = self.number_of_monte_carlo_samples["evaluation"]
+
             for i in range(0, M_test, batch_size):
                 subset = slice(i, (i + batch_size))
                 x_batch = x_test[subset]
@@ -1407,9 +1450,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     self.x: x_batch,
                     self.t: t_batch,
                     self.is_training: False,
+                    self.use_deterministic_z: use_deterministic_z,
                     self.warm_up_weight: 1.0,
-                    self.number_of_iw_samples: self.number_of_importance_samples["evaluation"],
-                    self.number_of_mc_samples: self.number_of_monte_carlo_samples["evaluation"]
+                    self.number_of_iw_samples: number_of_iw_samples,
+                    self.number_of_mc_samples: number_of_mc_samples
                 }
                 if self.count_sum:
                     feed_dict_batch[self.n] = n_test[subset]
@@ -1427,8 +1471,15 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 KL_test += KL_i
                 ENRE_test += ENRE_i
                 
-                # Importance weighted mean: E[x] = E_q(z|x)[E_p(x|z)[x] 
+                # Save Importance weighted Monte Carlo estimates of: 
+                # Reconstruction mean (marginalised conditional mean): 
+                ##      E[x] = E[E[x|z]] = E_q(z|x)[E_p(x|z)[x]]
+                ##           = E_z[p_x_given_z.mean]
+                ##     \approx 1/(R*L) \sum^R_r w_r \sum^L_{l=1} p_x_given_z.mean 
                 x_tilde_mean_test[subset] = x_tilde_mean_i
+                # Reconstruction standard deviation: 
+                ##      sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
+                ##      = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
                 z_mean_test[subset] = z_mean_i
             
             ELBO_test /= M_test / batch_size
