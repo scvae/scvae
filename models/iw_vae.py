@@ -757,12 +757,17 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 tf.reduce_mean(self.x_mean, 1) * iw_weight_given_z, 
                 0
             )
-            
+
             # Reconstruction standard deviation: 
             ##      sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
             ##      = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
             # (N_iw, N_mc, B, N_x)
-            variance_given_z = self.x_variance + tf.square(self.x_mean - tf.reshape(self.x_tilde_mean, [1, 1, -1, self.feature_size]))
+            variance_given_z = self.x_variance + tf.square(
+                self.x_mean - tf.reshape(
+                    self.x_tilde_mean, 
+                    [1, 1, -1, self.feature_size]
+                )
+            )
 
             # (N_iw, N_mc, B, N_x) --> (N_iw, B, N_x) --> (B, N_x)
             self.x_tilde_stddev = tf.sqrt(tf.reduce_mean(
