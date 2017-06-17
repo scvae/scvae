@@ -674,9 +674,6 @@ class DataSet(object):
             
             print()
             
-            if not os.path.exists(self.preprocess_directory):
-                os.makedirs(self.preprocess_directory)
-            
             if duration > 10:
                 print("Saving data set in sparse representation.")
                 saveAsSparseData(data_dictionary, sparse_path)
@@ -808,6 +805,9 @@ class DataSet(object):
                 data_dictionary["labels"] = labels
             
             if self.number_of_features > 1000:
+                if not os.path.exists(self.preprocess_directory):
+                    os.makedirs(self.preprocess_directory)
+            
                 print("Saving preprocessed data set in sparse representation.")
                 saveAsSparseData(data_dictionary, sparse_path)
         
@@ -1127,15 +1127,15 @@ def dataSetPreprocessingMethods(title):
 
 def downloadDataSet(title, directory):
     
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    
     URLs = data_sets[title]["URLs"]
     
     paths = {}
     
     if not URLs:
         return paths
+    
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     
     for values_or_labels in URLs:
         paths[values_or_labels] = {}
