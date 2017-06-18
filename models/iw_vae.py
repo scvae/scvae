@@ -465,7 +465,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 ["class"](self.latent_distribution["posterior"]["parameters"])
         
         ### Analytical mean:
-        self.z_mean = self.q_z_given_x.mean()
+        self.q_z_mean = self.q_z_given_x.mean()
         
         ### Sampling of
             ### 1st dim.: importance weighting samples
@@ -480,7 +480,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         self.z = tf.cast(
             tf.reshape(
                 tf.cond(self.use_deterministic_z, 
-                    lambda: tf.expand_dims(self.z_mean, 0),
+                    lambda: tf.expand_dims(self.q_z_mean, 0),
                     lambda: self.q_z_given_x.sample(total_number_of_samples)
                 ),
                 [-1, self.latent_size]
@@ -608,7 +608,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 )
             
 
-            self.x_mean = tf.reshape(self.p_x_given_z.mean(), 
+            self.p_x_given_z_mean = tf.reshape(self.p_x_given_z.mean(), 
                 [
                     self.number_of_iw_samples,
                     self.number_of_mc_samples,
@@ -617,7 +617,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 ]
             )
 
-            self.x_variance = tf.reshape(self.p_x_given_z.variance(), 
+            self.p_x_given_z_variance = tf.reshape(self.p_x_given_z.variance(), 
                 [
                     self.number_of_iw_samples,
                     self.number_of_mc_samples,
@@ -649,17 +649,17 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         
         # Prepare replicated and reshaped arrays
         ## Replicate out batches in tiles pr. sample into: 
-        ### shape = (N_iw * N_mc * batchsize, N_x)
+        ### shape = (R * L * batchsize, D_x)
         t_tiled = tf.tile(self.t, [self.number_of_iw_samples*self.number_of_mc_samples, 1])
         ## Reshape samples back to: 
-        ### shape = (N_iw, N_mc, batchsize, N_z)
+        ### shape = (R, L, batchsize, D_z)
         z_reshaped = tf.reshape(self.z, [self.number_of_iw_samples, self.number_of_mc_samples, -1, self.latent_size])
 
         # Loss
         ## Reconstruction error
-        ### 1. Evaluate all log(p(x|z)) (N_iw * N_mc * batchsize, N_x) target values in the (N_iw * N_mc * batchsize, N_x) probability distributions learned
+        ### 1. Evaluate all log(p(x|z)) (R * L * batchsize, D_x) target values in the (R * L * batchsize, D_x) probability distributions learned
         ### 2. Sum over all N_x features
-        ### 3. and reshape it back to (N_iw, N_mc, batchsize) 
+        ### 3. and reshape it back to (R, L, batchsize) 
         log_p_x_given_z = tf.reshape(
             tf.reduce_sum(
                 self.p_x_given_z.log_prob(t_tiled),
@@ -675,10 +675,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         # Recognition error
         if "mixture" in self.latent_distribution_name:
             ## Evaluate Kullback-Leibler divergence numerically with sampling
-            ### Evaluate all log(q(z|x)) and log(p(z)) on (N_iw, N_mc, batchsize, N_z) latent sample values.
-            ### shape =  (N_iw, N_mc, batchsize, N_z)
+            ### Evaluate all log(q(z|x)) and log(p(z)) on (R, L, batchsize, D_z) latent sample values.
+            ### shape =  (R, L, batchsize, D_z)
             log_q_z_given_x = self.q_z_given_x.log_prob(z_reshaped)
-            ### shape =  (N_iw, N_mc, batchsize, N_z)
+            ### shape =  (R, L, batchsize, D_z)
             log_p_z = self.p_z.log_prob(z_reshaped)
 
             if "mixture" not in self.latent_distribution["posterior"]["name"]:
@@ -694,13 +694,13 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             # E_x[p(x)] = E_{z_mc}[1/K_{iw} * sum(E_x[p(x|z_iw)]) p(z)/q(z|x) ] 
             # p(z)/q(z|x) = exp(-KL)
             # (batch_size, feature_size)
-            self.x_tilde_mean = tf.reduce_mean(self.x_mean*tf.exp(-KL), (0, 1))
+            # self.p_x_mean = tf.reduce_mean(self.p_x_given_z_mean*tf.exp(-KL), (0, 1))
 
             ## KL Regularisation term: 
             KL_qp = tf.reduce_mean(KL, name = "kl_divergence")
             tf.add_to_collection('losses', KL_qp)
             self.KL = KL_qp
-            # Get mean KL for all N_z dim. --> shape = (1)
+            # Get mean KL for all D_z dim. --> shape = (1)
             self.KL_all = tf.expand_dims(tf.reduce_mean(KL), -1)
         else:
             if self.analytical_kl_term:
@@ -708,17 +708,17 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 KL = kl(self.q_z_given_x, self.p_z)
             else:
                 ## Evaluate Kullback-Leibler divergence numerically with sampling
-                ### Evaluate all log(q(z|x)) and log(p(z)) on (N_iw, N_mc, batchsize, N_z) latent sample values.
-                ### shape =  (N_iw, N_mc, batchsize, N_z)
+                ### Evaluate all log(q(z|x)) and log(p(z)) on (R, L, batchsize, D_z) latent sample values.
+                ### shape =  (R, L, batchsize, D_z)
                 log_q_z_given_x = self.q_z_given_x.log_prob(z_reshaped)
-                ### shape =  (N_iw, N_mc, batchsize, N_z)
+                ### shape =  (R, L, batchsize, D_z)
                 log_p_z = self.p_z.log_prob(z_reshaped)
 
                 # Kullback-Leibler Divergence:  KL[q(z|x)||p(z)] =
                 # E_q[log(q(z|x)/p(z))] = E_q[log(q(z|x))] - E_q[log(p(z))]
                 KL = log_q_z_given_x - log_p_z
 
-            # Get mean KL for all N_z dim. --> shape = (N_z)
+            # Get mean KL for all D_z dim. --> shape = (D_z)
             self.KL_all = tf.reduce_mean(
                 tf.reshape(KL, [-1, self.latent_size]),
                 axis = 0
@@ -728,15 +728,13 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             tf.add_to_collection('losses', KL_qp)
             self.KL = KL_qp
 
-            # (N_iw, N_mc, B, N_x) --> (N_iw, N_mc, B)
+            # (R, L, B, D_x) --> (R, L, B)
             KL = tf.reduce_sum(KL, axis = -1)
 
             # From all z-samples compute importance weighted estimate of 
-            # E_x[p(x)] = E_{z_mc}[1/L * sum(E_x[p(x_l|z_l)]) p(z_l)/q(z_l|x) ] 
-            # p(z)/q(z|x) = exp(-KL)
-            # (iw_samples, mc_samples, batch_size, feature_size) --> 
-            # (batch_size, feature_size)
-            # (N_iw, N_mc, B) --> (N_iw, B, 1)
+            # E_x[p(x)] = E_{z_mc}[1/R * sum(E_x[p(x_r|z_r)]) p(z_r)/q(z_r|x) ] 
+            #   where: w_r = p(z_r)/q(z_r|x) = exp(-KL[q(z_r|x) || p(z_r)])
+            # (R, L, B) --> (R, B, 1)
             iw_weight_given_z = tf.expand_dims(
                 tf.exp(
                     tf.where(self.number_of_iw_samples > 1, 1.0, 0.0) * \
@@ -748,36 +746,60 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             # Importance weighted Monte Carlo estimates of: 
             # Reconstruction mean (marginalised conditional mean): 
             ##      E[x] = E[E[x|z]] = E_q(z|x)[E_p(x|z)[x]]
-            ##           = E_z[p_x_given_z.mean]
-            ##     \approx 1/(R*L) \sum^R_r w_r \sum^L_{l=1} p_x_given_z.mean 
+            ##           = E_z[p_x_given_z.mean] = E_z[<x|z_{r,l}>]
+            ##     \approx Ê[x] = 1/(R*L) \sum^R_r w_r \sum^L_{l=1} <x|z_{r,l}>
+            ##          where <x|z_{r,l}> is explicitly known from p(x|z).
 
-            # E_x[p(x)] = E_{z_mc}[1/L * sum(E_x[p(x_l|z_l)]) p(z_l)/q(z_l|x) ] 
-            # (N_iw, N_mc, B, N_x) --> (N_iw, B, N_x) --> (B, N_x)
-            self.x_tilde_mean = tf.reduce_mean(
-                tf.reduce_mean(self.x_mean, 1) * iw_weight_given_z, 
+            # (R, L, B, D_x) --> (R, B, D_x) --> (B, D_x)
+            self.p_x_mean = tf.reduce_mean(
+                tf.reduce_mean(self.p_x_given_z_mean, 1) * iw_weight_given_z, 
                 0
             )
 
-            # Reconstruction standard deviation: 
-            ##      sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
-            ##      = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
-            # (N_iw, N_mc, B, N_x)
-            variance_given_z = self.x_variance + tf.square(
-                self.x_mean - tf.reshape(
-                    self.x_tilde_mean, 
-                    [1, 1, -1, self.feature_size]
+            # Estimated variance of likelihood expectation:
+            # ^V[E[x|z]] = ( E[x|z_l] - Ê[x] )^2
+            self.variance_of_p_x_given_z_mean = tf.reduce_mean(
+                iw_weight_given_z * tf.reduce_mean(
+                    tf.square(
+                        self.p_x_given_z_mean - tf.reshape(
+                            self.p_x_mean, 
+                            [1, 1, -1, self.feature_size]
+                        )
+                    ),
+                    1
+                ), 
+                0
+            )
+
+            self.stddev_of_p_x_given_z_mean = tf.sqrt(
+                self.variance_of_p_x_given_z_mean
+            )
+
+            # Reconstruction standard deviation of Monte Carlo estimator: 
+            ##      ^V[Ê[x]] = 1/(R*L) * V[E_p(x|z)[x]] = 1/(R*L)^2 * V[<x|z>]
+            ##              = 1/(R*L) * Ê_z[(E[x|z] - E[x])^2]
+            ##              = 1/(R*L) * Ê_z[(p_x_given_z.mean - Ê[x])^2]
+            ##              = 1/(R*L) * ^V[E[x|z]]
+            # (R, L, B, D_x)
+            self.variance_of_p_x_mean = self.variance_of_p_x_given_z_mean / tf.cast(self.number_of_iw_samples * self.number_of_mc_samples, dtype=tf.float32)
+
+            self.stddev_of_p_x_mean = tf.sqrt(self.variance_of_p_x_mean)
+
+            ## Estimator for variance decomposition:
+            # V[x] = E[V(x|z)] + V[E(x|z)] \approx ^V_z[E[x|z]] + Ê_z[V[x|z]]
+            self.p_x_variance = self.variance_of_p_x_given_z_mean +\
+                tf.reduce_mean(
+                    iw_weight_given_z * tf.reduce_mean(
+                        self.p_x_given_z_variance,
+                        1
+                    ), 
+                    0
                 )
-            )
 
-            # (N_iw, N_mc, B, N_x) --> (N_iw, B, N_x) --> (B, N_x)
-            self.x_tilde_stddev = tf.sqrt(tf.reduce_mean(
-                tf.reduce_mean(variance_given_z, 1) * iw_weight_given_z, 
-                0
-            )
-            )
+            self.p_x_stddev = tf.sqrt(self.p_x_variance)
 
         # log-mean-exp (to avoid over- and underflow) over iw_samples dimension
-        ## -> shape: (N_mc, batch_size)
+        ## -> shape: (L, batch_size)
         LL = log_reduce_exp(log_p_x_given_z - self.warm_up_weight * KL, reduction_function=tf.reduce_mean, axis = 0)
 
         # average over eq_samples, batch_size dimensions    -> shape: ()
@@ -1161,7 +1183,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 KL_valid = 0
                 ENRE_valid = 0
                 
-                z_mean_valid = numpy.empty([M_valid, self.latent_size])
+                q_z_mean_valid = numpy.empty([M_valid, self.latent_size])
                 
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
@@ -1184,8 +1206,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     if self.count_sum_feature:
                         feed_dict_batch[self.n_feature] = n_feature_valid[subset]
 
-                    ELBO_i, KL_i, ENRE_i, z_mean_i = session.run(
-                        [self.ELBO, self.KL, self.ENRE, self.z_mean],
+                    ELBO_i, KL_i, ENRE_i, q_z_mean_i = session.run(
+                        [self.ELBO, self.KL, self.ENRE, self.q_z_mean],
                         feed_dict = feed_dict_batch
                     )
                     
@@ -1193,7 +1215,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     KL_valid += KL_i
                     ENRE_valid += ENRE_i
                     
-                    z_mean_valid[subset] = z_mean_i
+                    q_z_mean_valid[subset] = q_z_mean_i
                 
                 ELBO_valid /= M_valid / batch_size
                 KL_valid /= M_valid / batch_size
@@ -1351,7 +1373,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         centroids = None
                     analyseIntermediateResults(
                         learning_curves, epoch_start, epoch,
-                        z_mean_valid, validation_set, centroids,
+                        q_z_mean_valid, validation_set, centroids,
                         self.training_name, self.type,
                         self.main_results_directory
                     )
@@ -1456,10 +1478,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             KL_test = 0
             ENRE_test = 0
             
-            x_tilde_mean_test = numpy.empty([M_test, F_test])
-            x_tilde_stddev_test = numpy.empty([M_test, F_test])
+            p_x_mean_test = numpy.empty([M_test, F_test])
+            p_x_stddev_test = numpy.empty([M_test, F_test])
+            stddev_of_p_x_mean_test = numpy.empty([M_test, F_test])
 
-            z_mean_test = numpy.empty([M_test, self.latent_size])
+            q_z_mean_test = numpy.empty([M_test, self.latent_size])
             
             if use_deterministic_z:
                 number_of_iw_samples = 1
@@ -1487,9 +1510,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 if self.count_sum_feature:
                     feed_dict_batch[self.n_feature] = n_feature_test[subset]
                 
-                ELBO_i, KL_i, ENRE_i, x_tilde_mean_i, x_tilde_stddev_i, z_mean_i = session.run(
+                ELBO_i, KL_i, ENRE_i, p_x_mean_i, p_x_stddev_i, stddev_of_p_x_mean_i, q_z_mean_i = session.run(
                     [self.ELBO, self.KL, self.ENRE,
-                        self.x_tilde_mean, self.x_tilde_stddev, self.z_mean],
+                        self.p_x_mean, self.p_x_stddev, self.stddev_of_p_x_given_z_mean, self.q_z_mean],
                     feed_dict = feed_dict_batch
                 )
                 
@@ -1502,14 +1525,18 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 ##      E[x] = E[E[x|z]] = E_q(z|x)[E_p(x|z)[x]]
                 ##           = E_z[p_x_given_z.mean]
                 ##     \approx 1/(R*L) \sum^R_r w_r \sum^L_{l=1} p_x_given_z.mean 
-                x_tilde_mean_test[subset] = x_tilde_mean_i
+                p_x_mean_test[subset] = p_x_mean_i
 
                 # Reconstruction standard deviation: 
                 ##      sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
                 ##      = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
-                x_tilde_stddev_test[subset] = x_tilde_stddev_i
+                p_x_stddev_test[subset] = p_x_stddev_i
 
-                z_mean_test[subset] = z_mean_i
+                # Estimated standard deviation of Monte Carlo estimate E[x].
+                stddev_of_p_x_mean_test[subset] = stddev_of_p_x_mean_i
+
+
+                q_z_mean_test[subset] = q_z_mean_i
             
             ELBO_test /= M_test / batch_size
             KL_test /= M_test / batch_size
@@ -1521,6 +1548,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 [self.p_z_probabilities, self.p_z_means, self.p_z_variances]
             )
             
+
             ## Summaries
             
             summary = tf.Summary()
@@ -1585,10 +1613,12 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             else:
                 transformed_test_set = test_set
             
+            stddevs_dict = {"values": p_x_stddev_test, "expectations": stddev_of_p_x_mean_test}
+
             reconstructed_test_set = DataSet(
                 name = test_set.name,
-                values = x_tilde_mean_test,
-                standard_deviations = x_tilde_stddev_test,
+                values = p_x_mean_test,
+                standard_deviations = stddevs_dict,
                 preprocessed_values = None,
                 labels = test_set.labels,
                 example_names = test_set.example_names,
@@ -1602,7 +1632,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             latent_test_set = DataSet(
                 name = test_set.name,
-                values = z_mean_test,
+                values = q_z_mean_test,
                 preprocessed_values = None,
                 labels = test_set.labels,
                 example_names = test_set.example_names,
