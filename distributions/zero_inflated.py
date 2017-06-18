@@ -163,6 +163,12 @@ class ZeroInflated(distribution.Distribution):
       # batch_shape and event_shape.
       return (1-self._pi) * self._dist.mean() 
 
+  def _variance(self):
+    with ops.control_dependencies(self._assertions):
+      # These should all be the same shape by virtue of matching
+      # batch_shape and event_shape.
+      return (1-self._pi) * (self._dist.variance() + math_ops.square(self._dist.mean())) - math_ops.square(self._mean())
+
   def _log_prob(self, x):
     with ops.control_dependencies(self._assertions):
       x = ops.convert_to_tensor(x, name="x")
