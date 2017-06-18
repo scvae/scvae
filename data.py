@@ -123,6 +123,48 @@ data_sets = {
             "name": "Macosko",
             "label": lambda symbol: "$\log ({} / 10^{{4}} + 1)$".format(symbol),
             "function": lambda values: numpy.log(values / 1e4 + 1)
+        },
+        "PCA limits": {
+            "full": {
+                "PC1": {
+                    "minimum": -250,
+                    "maximum": 1750
+                },
+                "PC2": {
+                    "minimum": -700,
+                    "maximum":  700
+                }
+            },
+            "training": {
+                "PC1": {
+                    "minimum": -250,
+                    "maximum": 1750
+                },
+                "PC2": {
+                    "minimum": -700,
+                    "maximum":  700
+                }
+            },
+            "validation": {
+                "PC1": {
+                    "minimum": -300,
+                    "maximum":  800
+                },
+                "PC2": {
+                    "minimum": -300,
+                    "maximum":  500
+                }
+            },
+            "test": {
+                "PC1": {
+                    "minimum": -200,
+                    "maximum":  800
+                },
+                "PC2": {
+                    "minimum": -400,
+                    "maximum":  400
+                }
+            }
         }
     },
     
@@ -334,6 +376,48 @@ data_sets = {
             "name": "Macosko",
             "label": lambda symbol: "$\log ({} / 10^{{4}} + 1)$".format(symbol),
             "function": lambda values: numpy.log(values / 1e4 + 1)
+        },
+        "PCA limits": {
+            "full": {
+                "PC1": {
+                    "minimum": -500,
+                    "maximum": 2000
+                },
+                "PC2": {
+                    "minimum": -500,
+                    "maximum": 1000
+                }
+            },
+            "training": {
+                "PC1": {
+                    "minimum": -500,
+                    "maximum": 2000
+                },
+                "PC2": {
+                    "minimum": -500,
+                    "maximum": 1000
+                }
+            },
+            "validation": {
+                "PC1": {
+                    "minimum": -500,
+                    "maximum": 1500
+                },
+                "PC2": {
+                    "minimum": -500,
+                    "maximum": 1000
+                }
+            },
+            "test": {
+                "PC1": {
+                    "minimum": -500,
+                    "maximum": 1500
+                },
+                "PC2": {
+                    "minimum": -300,
+                    "maximum":  700
+                }
+            }
         }
     }
 }
@@ -373,9 +457,6 @@ class DataSet(object):
         
         # Feature dimensions for data set
         self.feature_dimensions = dataSetFeatureDimensions(self.title)
-        
-        # Heat map transformation for data set
-        self.heat_map_transformation = dataSetHeatMapTransformation(self.title)
         
         # Literature probabilities for data set
         self.literature_probabilities = dataSetLiteratureProbabilities(self.title)
@@ -455,6 +536,12 @@ class DataSet(object):
         
         # Version of data set (original, reconstructed)
         self.version = version
+        
+        # Heat map transformation for data set
+        self.heat_map_transformation = dataSetHeatMapTransformation(self.title)
+        
+        # PCA limits for data set
+        self.pca_limits = dataSetPCALimits(self.title, self.kind)
         
         # Directories for data set
         self.directory = os.path.join(directory, self.name)
@@ -1070,6 +1157,12 @@ def dataSetFeatureDimensions(title):
 def dataSetHeatMapTransformation(title):
     if "heat map transformation" in data_sets[title]:
         return data_sets[title]["heat map transformation"]
+    else:
+        return None
+
+def dataSetPCALimits(title, kind):
+    if "PCA limits" in data_sets[title]:
+        return data_sets[title]["PCA limits"][kind]
     else:
         return None
 

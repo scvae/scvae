@@ -66,6 +66,7 @@ number_of_profile_comparisons = 25
 profile_comparison_count_cut_off = 10.5
 
 maximum_count_scales = [1, 5]
+axis_limits_scales = [1, 5]
 
 def analyseData(data_sets, decomposition_methods = ["PCA"],
     highlight_feature_indices = [], plot_heat_maps_for_large_data_sets = False,
@@ -785,6 +786,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         decomposition_methods = decomposition_methods,
         highlight_feature_indices = highlight_feature_indices,
         symbol = "\\tilde{{x}}",
+        pca_limits = test_set.pca_limits,
         title = "reconstruction space",
         results_directory = results_directory
     )
@@ -798,13 +800,14 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         decomposition_methods = decomposition_methods,
         highlight_feature_indices = highlight_feature_indices,
         symbol = "x",
+        pca_limits = test_set.pca_limits,
         title = "original space",
         results_directory = results_directory
     )
     
     if model.type == "GMVAE_alt":
         
-        ## Reconstructions decomposed with predicted labels
+        ## Originals decomposed with predicted labels
         
         analyseDecompositions(
             test_set,
@@ -824,6 +827,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
             symbol = "\\tilde{{x}}",
+            pca_limits = test_set.pca_limits,
             title = "reconstruction space with predicted labels",
             results_directory = results_directory
         )
@@ -838,6 +842,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
             symbol = "x",
+            pca_limits = test_set.pca_limits,
             title = "original space with predicted labels",
             results_directory = results_directory
         )
@@ -990,8 +995,6 @@ def analyseDistributions(data_set, colouring_data_set = None,
     maximum_counts = {0: None}
     
     if original_maximum_count and data_set.example_type == "counts":
-        
-        data_set_maximum_count = data_set.values.max()
         
         for maximum_count_scale in maximum_count_scales:
             
@@ -1195,7 +1198,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
     
 def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
-    highlight_feature_indices = [], symbol = None,
+    highlight_feature_indices = [], symbol = None, pca_limits = None,
     title = "data set", specifier = None,
     results_directory = "results"):
     
@@ -1370,161 +1373,253 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 print("No values to plot.\n")
                 return
             
-            # Plot data set
+            axis_limits_set = {} # TODO {0: None}
             
-            print("Plotting {}{}.".format(
-                "decomposed " if decomposition_method else "", title_with_ID))
+            if pca_limits and normaliseString(decomposition_method) == "pca":
+                
+                values_x_min = plot_values_decomposed[:, 0].min()
+                values_x_max = plot_values_decomposed[:, 0].max()
+                values_y_min = plot_values_decomposed[:, 1].min()
+                values_y_max = plot_values_decomposed[:, 1].max()
+                
+                for axis_limits_scale in axis_limits_scales:
+                    
+                    axis_limits = {
+                        "x": {
+                            "minimum": None,
+                            "maximum": None
+                        },
+                        "y": {
+                            "minimum": None,
+                            "maximum": None
+                        }
+                    }
+                    
+                    axis_limits_changed = False
+                    
+                    # x minimum
+                    
+                    x_min_indices = plot_values_decomposed[:, 0] \
+                        >= axis_limits_scale * pca_limits["PC1"]["minimum"]
+                    x_min = plot_values_decomposed[x_min_indices][:, 0].min()
+                                        
+                    if x_min > values_x_min:
+                        axis_limits_changed = True
+                        axis_limits["x"]["minimum"] = numpy.floor(x_min)
+                    
+                    # x maximum
+                    
+                    x_max_indices = plot_values_decomposed[:, 0] \
+                        <= axis_limits_scale * pca_limits["PC1"]["maximum"]
+                    x_max = plot_values_decomposed[x_max_indices][:, 0].max()
+                                        
+                    if x_max < values_x_max:
+                        axis_limits_changed = True
+                        axis_limits["x"]["maximum"] = numpy.ceil(x_max)
+                    
+                    # y minimum
+                    
+                    y_min_indices = plot_values_decomposed[:, 1] \
+                        >= axis_limits_scale * pca_limits["PC2"]["minimum"]
+                    y_min = plot_values_decomposed[y_min_indices][:, 1].min()
+                                        
+                    if y_min > values_y_min:
+                        axis_limits_changed = True
+                        axis_limits["y"]["minimum"] = numpy.floor(y_min)
+                    
+                    # y maximum
+                    
+                    y_max_indices = plot_values_decomposed[:, 1] \
+                        <= axis_limits_scale * pca_limits["PC2"]["maximum"]
+                    y_max = plot_values_decomposed[y_max_indices][:, 1].max()
+                                        
+                    if y_max < values_y_max:
+                        axis_limits_changed = True
+                        axis_limits["y"]["maximum"] = numpy.ceil(y_max)
+                    
+                    # Add axis limits set if axis limits changed
+                    
+                    if axis_limits_changed:
+                        axis_limits_set[axis_limits_scale] = axis_limits
+                                
+            # Loop over axis limits set
             
-            ## No colour-coding
+            for axis_limits_scale, axis_limits in axis_limits_set.items():
+                
+                if axis_limits:
+                    plot_name = "{}-axis_limits_scale-{}".format(
+                        name, axis_limits_scale)
+                    axis_limits_string = " (axis limits for original set" \
+                        + " scaled by {})".format(axis_limits_scale)
+                else:
+                    plot_name = name
+                    axis_limits_string = ""
+                
+                # Plot data set
             
-            plot_time_start = time()
+                print("Plotting {}{}{}.".format(
+                    "decomposed " if decomposition_method else "",
+                    title_with_ID,
+                    axis_limits_string
+                ))
             
-            figure, figure_name = plotValues(
-                plot_values_decomposed,
-                centroids = centroids_decomposed,
-                figure_labels = figure_labels,
-                name = name
-            )
-            saveFigure(figure, figure_name, decompositions_directory)
+                ## No colour-coding
             
-            plot_duration = time() - plot_time_start
-            print("    {} plotted and saved ({}).".format(
-                title_with_ID.capitalize(),
-                formatDuration(plot_duration)
-            ))
-        
-            # Labels
-        
-            if colouring_data_set.labels is not None:
                 plot_time_start = time()
             
                 figure, figure_name = plotValues(
                     plot_values_decomposed,
-                    colour_coding = "labels",
-                    colouring_data_set = colouring_data_set,
                     centroids = centroids_decomposed,
                     figure_labels = figure_labels,
-                    name = name
+                    axis_limits = axis_limits,
+                    name = plot_name
                 )
                 saveFigure(figure, figure_name, decompositions_directory)
-        
+            
                 plot_duration = time() - plot_time_start
-                print("    {} (with labels) plotted and saved ({}).".format(
-                    title_with_ID.capitalize(), formatDuration(plot_duration)))
-                
-                if colouring_data_set.superset_labels is not None:
+                print("    {} plotted and saved ({}).".format(
+                    title_with_ID.capitalize(),
+                    formatDuration(plot_duration)
+                ))
+        
+                # Labels
+        
+                if colouring_data_set.labels is not None:
                     plot_time_start = time()
-                    
+            
                     figure, figure_name = plotValues(
                         plot_values_decomposed,
-                        colour_coding = "superset labels",
+                        colour_coding = "labels",
                         colouring_data_set = colouring_data_set,
                         centroids = centroids_decomposed,
                         figure_labels = figure_labels,
-                        name = name
+                        axis_limits = axis_limits,
+                        name = plot_name
                     )
                     saveFigure(figure, figure_name, decompositions_directory)
-                    
-                    plot_duration = time() - plot_time_start
-                    print("    " +
-                        "{} (with superset labels) plotted and saved ({})."\
-                            .format(
-                                title_with_ID.capitalize(),
-                                formatDuration(plot_duration)
-                        )
-                    )
         
-                if colouring_data_set.number_of_classes <= 10:
-                    plot_time_start = time()
-                    
-                    for class_name in colouring_data_set.class_names:
-                        figure, figure_name = plotValues(
-                            plot_values_decomposed,
-                            colour_coding = "class",
-                            colouring_data_set = colouring_data_set,
-                            centroids = centroids_decomposed,
-                            class_name = class_name,
-                            figure_labels = figure_labels,
-                            name = name
-                        )
-                        saveFigure(figure, figure_name, decompositions_directory)
-                    
                     plot_duration = time() - plot_time_start
-                    print("    {} (for each class) plotted and saved ({})."\
-                        .format(
-                            title_with_ID.capitalize(),
-                            formatDuration(plot_duration)
-                    ))
+                    print("    {} (with labels) plotted and saved ({}).".format(
+                        title_with_ID.capitalize(), formatDuration(plot_duration)))
                 
-                if colouring_data_set.superset_labels is not None \
-                    and data_set.number_of_superset_classes <= 10:
+                    if colouring_data_set.superset_labels is not None:
+                        plot_time_start = time()
                     
-                    plot_time_start = time()
-                    
-                    for superset_class_name in \
-                        colouring_data_set.superset_class_names:
                         figure, figure_name = plotValues(
                             plot_values_decomposed,
-                            colour_coding = "superset class",
+                            colour_coding = "superset labels",
                             colouring_data_set = colouring_data_set,
                             centroids = centroids_decomposed,
-                            class_name = superset_class_name,
                             figure_labels = figure_labels,
-                            name = name
+                            axis_limits = axis_limits,
+                            name = plot_name
                         )
                         saveFigure(figure, figure_name, decompositions_directory)
                     
-                    plot_duration = time() - plot_time_start
-                    print("    " +
-                        "{} (for each superset class) plotted and saved ({})."\
+                        plot_duration = time() - plot_time_start
+                        print("    " +
+                            "{} (with superset labels) plotted and saved ({})."\
+                                .format(
+                                    title_with_ID.capitalize(),
+                                    formatDuration(plot_duration)
+                            )
+                        )
+        
+                    if colouring_data_set.number_of_classes <= 10:
+                        plot_time_start = time()
+                    
+                        for class_name in colouring_data_set.class_names:
+                            figure, figure_name = plotValues(
+                                plot_values_decomposed,
+                                colour_coding = "class",
+                                colouring_data_set = colouring_data_set,
+                                centroids = centroids_decomposed,
+                                class_name = class_name,
+                                figure_labels = figure_labels,
+                                axis_limits = axis_limits,
+                                name = plot_name
+                            )
+                            saveFigure(figure, figure_name, decompositions_directory)
+                    
+                        plot_duration = time() - plot_time_start
+                        print("    {} (for each class) plotted and saved ({})."\
                             .format(
                                 title_with_ID.capitalize(),
                                 formatDuration(plot_duration)
-                    ))
+                        ))
+                
+                    if colouring_data_set.superset_labels is not None \
+                        and data_set.number_of_superset_classes <= 10:
+                    
+                        plot_time_start = time()
+                    
+                        for superset_class_name in \
+                            colouring_data_set.superset_class_names:
+                            figure, figure_name = plotValues(
+                                plot_values_decomposed,
+                                colour_coding = "superset class",
+                                colouring_data_set = colouring_data_set,
+                                centroids = centroids_decomposed,
+                                class_name = superset_class_name,
+                                figure_labels = figure_labels,
+                                axis_limits = axis_limits,
+                                name = plot_name
+                            )
+                            saveFigure(figure, figure_name, decompositions_directory)
+                    
+                        plot_duration = time() - plot_time_start
+                        print("    " +
+                            "{} (for each superset class) plotted and saved ({})."\
+                                .format(
+                                    title_with_ID.capitalize(),
+                                    formatDuration(plot_duration)
+                        ))
         
-            # Count sum
+                # Count sum
         
-            plot_time_start = time()
-        
-            figure, figure_name = plotValues(
-                plot_values_decomposed,
-                colour_coding = "count sum",
-                colouring_data_set = colouring_data_set,
-                centroids = centroids_decomposed,
-                figure_labels = figure_labels,
-                name = name
-            )
-            saveFigure(figure, figure_name, decompositions_directory)
-        
-            plot_duration = time() - plot_time_start
-            print("    {} (with count sum) plotted and saved ({}).".format(
-                title_with_ID.capitalize(), formatDuration(plot_duration)))
-        
-            # Features
-        
-            for feature_index in highlight_feature_indices:
-            
                 plot_time_start = time()
-            
+        
                 figure, figure_name = plotValues(
                     plot_values_decomposed,
-                    colour_coding = "feature",
+                    colour_coding = "count sum",
                     colouring_data_set = colouring_data_set,
                     centroids = centroids_decomposed,
-                    feature_index = feature_index,
                     figure_labels = figure_labels,
-                    name = name
+                    axis_limits = axis_limits,
+                    name = plot_name
                 )
                 saveFigure(figure, figure_name, decompositions_directory)
-            
+        
                 plot_duration = time() - plot_time_start
-                print("   {} (with {}) plotted and saved ({}).".format(
-                    title_with_ID.capitalize(),
-                    data_set.feature_names[feature_index],
-                    formatDuration(plot_duration)
-                ))
+                print("    {} (with count sum) plotted and saved ({}).".format(
+                    title_with_ID.capitalize(), formatDuration(plot_duration)))
+        
+                # Features
+        
+                for feature_index in highlight_feature_indices:
             
-            print()
+                    plot_time_start = time()
+            
+                    figure, figure_name = plotValues(
+                        plot_values_decomposed,
+                        colour_coding = "feature",
+                        colouring_data_set = colouring_data_set,
+                        centroids = centroids_decomposed,
+                        feature_index = feature_index,
+                        figure_labels = figure_labels,
+                        axis_limits = axis_limits,
+                        name = plot_name
+                    )
+                    saveFigure(figure, figure_name, decompositions_directory)
+            
+                    plot_duration = time() - plot_time_start
+                    print("   {} (with {}) plotted and saved ({}).".format(
+                        title_with_ID.capitalize(),
+                        data_set.feature_names[feature_index],
+                        formatDuration(plot_duration)
+                    ))
+            
+                print()
 
 def analyseCentroidProbabilities(centroids, name = None,
     results_directory = "results"):
@@ -2597,12 +2692,9 @@ def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
 
 def plotValues(values, colour_coding = None, colouring_data_set = None,
     centroids = None, class_name = None, feature_index = None,
-    figure_labels = None, name = "scatter"):
+    figure_labels = None, axis_limits = None, name = "scatter"):
     
-    # Randomise examples in values to remove any prior order
-    M, N = values.shape
-    shuffled_indices = numpy.random.permutation(M)
-    values = values[shuffled_indices]
+    # Setup
     
     figure_name = name
     
@@ -2625,6 +2717,61 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         figure_name += "-" + colour_coding
         if colouring_data_set is None:
             raise ValueError("Colouring data set not given.")
+    
+    legend = None
+    
+    # Values
+    
+    values = values.copy()
+    
+    # Randomise examples in values to remove any prior order
+    M, N = values.shape
+    shuffled_indices = numpy.random.permutation(M)
+    values = values[shuffled_indices]
+    
+    if axis_limits:
+        
+        original_x_min = values[:, 0].min()
+        original_x_max = values[:, 0].max()
+        original_y_min = values[:, 1].min()
+        original_y_max = values[:, 1].max()
+
+        if axis_limits["x"]["minimum"]:
+            x_min = axis_limits["x"]["minimum"]
+        else:
+            x_min = original_x_min
+
+        if axis_limits["x"]["maximum"]:
+            x_max = axis_limits["x"]["maximum"]
+        else:
+            x_max = original_x_max
+
+        if axis_limits["y"]["minimum"]:
+            y_min = axis_limits["y"]["minimum"]
+        else:
+            y_min = original_y_min
+
+        if axis_limits["y"]["maximum"]:
+            y_max = axis_limits["y"]["maximum"]
+        else:
+            y_max = original_y_max
+        
+        include_indices = []
+        outlier_indices = []
+    
+        for i in range(M):
+            if values[i, 0] < x_min or values[i, 0] > x_max \
+                or values[i, 1] < y_min or values[i, 1] > y_max:
+                outlier_indices.append(i)
+            else:
+                include_indices.append(i)
+    
+        values = values[include_indices]
+        shuffled_indices = shuffled_indices[include_indices]
+        
+        outliers_string = "{} counts omitted".format(len(outlier_indices))
+    
+    # Figure
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -2679,7 +2826,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 handles, labels = axis.get_legend_handles_labels()
                 labels, handles = zip(*sorted(zip(labels, handles),
                     key = lambda t: classLabelSortKey(t[0])))
-                axis.legend(handles, labels, loc = "best")
+                legend = axis.legend(handles, labels, loc = "best")
         
         elif "class" in colour_coding:
             colours = []
@@ -2717,7 +2864,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 handles, labels = axis.get_legend_handles_labels()
                 labels, handles = zip(*sorted(zip(labels, handles),
                     key = lambda t: classLabelSortKey(t[0])))
-                axis.legend(handles, labels, loc = "best")
+                legend = axis.legend(handles, labels, loc = "best")
     
     elif colour_coding == "count_sum":
         
@@ -2777,6 +2924,13 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                     colour = centroids_palette[k]
                 )
                 axis.add_patch(ellipse)
+    
+    if axis_limits:
+    
+        if not legend:
+            legend = axis.legend(handles = [])
+    
+        legend.set_title(outliers_string, {"size": "small"})
     
     return figure, figure_name
 
