@@ -708,11 +708,17 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         expected_series = reconstructed_test_set.values[i]
         example_name = str(test_set.example_names[i])
         
-        if reconstructed_test_set.standard_deviations is not None:
-            expected_series_standard_deviations = \
-                reconstructed_test_set.standard_deviations[i]
+        if reconstructed_test_set.total_standard_deviations is not None:
+            expected_series_total_standard_deviations = \
+                reconstructed_test_set.total_standard_deviations[i]
         else:
-            expected_series_standard_deviations = None
+            expected_series_total_standard_deviations = None
+        
+        if reconstructed_test_set.explained_standard_deviations is not None:
+            expected_series_explained_standard_deviations = \
+                reconstructed_test_set.explained_standard_deviations[i]
+        else:
+            expected_series_explained_standard_deviations = None
         
         maximum_count = max(observed_series.max(), expected_series.max())
     
@@ -721,7 +727,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             figure, figure_name = plotProfileComparison(
                 observed_series,
                 expected_series,
-                expected_series_standard_deviations,
+                expected_series_total_standard_deviations,
+                expected_series_explained_standard_deviations,
                 x_name = test_set.tags["feature"],
                 y_name = test_set.tags["value"],
                 sort_by = "expected",
@@ -737,7 +744,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                 figure, figure_name = plotProfileComparison(
                     observed_series,
                     expected_series,
-                    expected_series_standard_deviations,
+                    expected_series_total_standard_deviations,
+                    expected_series_explained_standard_deviations,
                     x_name = test_set.tags["feature"],
                     y_name = test_set.tags["value"],
                     sort_by = "expected",
@@ -2470,7 +2478,8 @@ def plotEvaluationsForModels(models_summaries, name = None):
     return figure, figure_name
 
 def plotProfileComparison(observed_series, expected_series,
-    expected_series_standard_deviations = None,
+    expected_series_total_standard_deviations = None,
+    expected_series_explained_standard_deviations = None,
     x_name = "feature", y_name = "value",
     sort_by = "expected", sort_direction = "ascending",
     x_scale = "linear", y_scale = "linear", y_cutoff = None,
@@ -2486,7 +2495,12 @@ def plotProfileComparison(observed_series, expected_series,
     N = observed_series.shape[0]
     
     observed_colour = standard_palette[0]
-    expected_colour = standard_palette[1]
+    
+    expected_palette = seaborn.light_palette(standard_palette[1], 5)
+    
+    expected_colour = expected_palette[-1]
+    expected_total_standard_deviations_colour = expected_palette[1]
+    expected_explained_standard_deviations_colour = expected_palette[3]
     
     x_label = "{}s sorted {} by {} {}s [sort index]".format(
         x_name.capitalize(), sort_direction, sort_by, y_name.lower())
@@ -2494,6 +2508,9 @@ def plotProfileComparison(observed_series, expected_series,
     
     observed_label = "Observed"
     expected_label = "Expected"
+    expected_total_standard_deviations_label = "Total standard deviations"
+    expected_explained_standard_deviations_label = \
+        "Explained standard deviations"
     
     # Sorting
     
@@ -2501,18 +2518,18 @@ def plotProfileComparison(observed_series, expected_series,
         sort_series = expected_series
         expected_marker = ""
         expected_line_style = "solid"
-        expected_z_order = 2
+        expected_z_order = 3
         observed_marker = "o"
         observed_line_style = ""
-        observed_z_order = 1
+        observed_z_order = 2
     elif sort_by == "observed":
         sort_series = observed_series
         expected_marker = "o"
         expected_line_style = ""
-        expected_z_order = 1
+        expected_z_order = 2
         observed_marker = ""
         observed_line_style = "solid"
-        observed_z_order = 2
+        observed_z_order = 3
         
     sort_indices = numpy.argsort(sort_series)
     
@@ -2523,12 +2540,26 @@ def plotProfileComparison(observed_series, expected_series,
     
     # Standard deviations
     
-    if expected_series_standard_deviations is not None:
-        expected_series_lower = expected_series - \
-            expected_series_standard_deviations
-        expected_series_upper = expected_series + \
-            expected_series_standard_deviations
-        alpha = 0.3
+    
+    
+    if expected_series_total_standard_deviations is not None:
+        with_total_standard_deviations = True
+        expected_series_total_standard_deviations_lower = expected_series - \
+            expected_series_total_standard_deviations
+        expected_series_total_standard_deviations_upper = expected_series + \
+            expected_series_total_standard_deviations
+    else:
+        with_total_standard_deviations = False
+    
+    if expected_series_explained_standard_deviations is not None \
+        and expected_series_explained_standard_deviations.mean() > 0:
+        with_explained_standard_deviations = True
+        expected_series_explained_standard_deviations_lower = expected_series - \
+            expected_series_explained_standard_deviations
+        expected_series_explained_standard_deviations_upper = expected_series + \
+            expected_series_explained_standard_deviations
+    else:
+        with_explained_standard_deviations = False
     
     # Figure
     
@@ -2546,7 +2577,9 @@ def plotProfileComparison(observed_series, expected_series,
         axis = figure.add_subplot(1, 1, 1)
         axes = [axis]
     
-    for axis in axes:
+    handles = []
+    
+    for i, axis in enumerate(axes):
         observed_plot, = axis.plot(
             feature_indices,
             observed_series[sort_indices],
@@ -2556,36 +2589,55 @@ def plotProfileComparison(observed_series, expected_series,
             linestyle = observed_line_style,
             zorder = observed_z_order
         )
+        if i == 0:
+            handles.append(observed_plot)
         expected_plot, = axis.plot(
             feature_indices,
             expected_series[sort_indices],
-            label = expected_colour,
+            label = expected_label,
             color = expected_colour,
             marker = expected_marker,
             linestyle = expected_line_style,
             zorder = expected_z_order
         )
-        if expected_series_standard_deviations is not None:
+        if i == 0:
+            handles.append(expected_plot)
+        if with_total_standard_deviations:
             axis.fill_between(
                 feature_indices,
-                expected_series_lower[sort_indices],
-                expected_series_upper[sort_indices],
-                color = expected_colour,
-                alpha = alpha,
+                expected_series_total_standard_deviations_lower[sort_indices],
+                expected_series_total_standard_deviations_upper[sort_indices],
+                color = expected_total_standard_deviations_colour,
                 zorder = 0
             )
-            expected_plot_standard_deviations, = axis.fill(
-                numpy.nan, numpy.nan,
-                color = expected_colour,
-                alpha = alpha
+            expected_plot_standard_deviations_values = \
+                matplotlib.patches.Patch(
+                label = expected_total_standard_deviations_label,
+                color = expected_total_standard_deviations_colour
             )
-            expected_plots = (expected_plot, expected_plot_standard_deviations)
-            
+            if i == 0:
+                handles.append(expected_plot_standard_deviations_values)
+        if with_explained_standard_deviations:
+            axis.fill_between(
+                feature_indices,
+                expected_series_explained_standard_deviations_lower[
+                    sort_indices],
+                expected_series_explained_standard_deviations_upper[
+                    sort_indices],
+                color = expected_explained_standard_deviations_colour,
+                zorder = 1
+            )
+            expected_plot_standard_deviations_expectations = \
+                matplotlib.patches.Patch(
+                label = expected_explained_standard_deviations_label,
+                color = expected_explained_standard_deviations_colour
+            )
+            if i == 0:
+                handles.append(expected_plot_standard_deviations_expectations)
     
     if y_scale == "both":
         axis_upper.legend(
-            handles = [observed_plot, expected_plots],
-            labels = [observed_label, expected_label],
+            handles = handles,
             loc = "best"
         )
         
@@ -2604,12 +2656,11 @@ def plotProfileComparison(observed_series, expected_series,
             axis_upper.set_ylim(y_cutoff, y_upper_max)
             
             y_lower_min, y_lower_max = axis_lower.get_ylim()
-            y_lower_min = max(0, y_lower_min)
+            y_lower_min = max(-1, y_lower_min)
             axis_lower.set_ylim(y_lower_min, y_cutoff)
     else:
         axis.legend(
-            handles = [observed_plot, expected_plots],
-            labels = [observed_label, expected_label],
+            handles = handles,
             loc = "best"
         )
         
@@ -2623,7 +2674,7 @@ def plotProfileComparison(observed_series, expected_series,
         
         if y_cutoff:
             y_min, y_max = axis.get_ylim()
-            y_min = max(0, y_min)
+            y_min = max(-1, y_min)
             
             if y_scale == "linear":
                 axis.set_ylim(y_min, y_cutoff)

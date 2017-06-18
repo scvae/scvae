@@ -1613,12 +1613,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             else:
                 transformed_test_set = test_set
             
-            stddevs_dict = {"values": p_x_stddev_test, "expectations": stddev_of_p_x_mean_test}
-
             reconstructed_test_set = DataSet(
                 name = test_set.name,
                 values = p_x_mean_test,
-                standard_deviations = stddevs_dict,
+                total_standard_deviations = p_x_stddev_test,
+                explained_standard_deviations = stddev_of_p_x_mean_test,
                 preprocessed_values = None,
                 labels = test_set.labels,
                 example_names = test_set.example_names,
