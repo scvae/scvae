@@ -1603,36 +1603,36 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             
             return status
     
-    def evaluate(self, test_set, batch_size = 100,
+    def evaluate(self, evaluation_set, batch_size = 100,
         use_early_stopping_model = False):
         
         # Examples
         
         if self.count_sum:
-            n_test = test_set.count_sum
+            n_eval = evaluation_set.count_sum
 
         if self.count_sum_feature:
-            n_feature_test = test_set.normalised_count_sum
+            n_feature_eval = evaluation_set.normalised_count_sum
         
-        M_test = test_set.number_of_examples
-        F_test = test_set.number_of_features
+        M_eval = evaluation_set.number_of_examples
+        F_eval = evaluation_set.number_of_features
         
-        noisy_preprocess = test_set.noisy_preprocess
+        noisy_preprocess = evaluation_set.noisy_preprocess
         
         if not noisy_preprocess:
             
-            x_test = test_set.preprocessed_values
+            x_eval = evaluation_set.preprocessed_values
         
             if self.reconstruction_distribution_name == "bernoulli":
-                t_test = test_set.binarised_values
+                t_eval = evaluation_set.binarised_values
             else:
-                t_test = test_set.values
+                t_eval = evaluation_set.values
             
         else:
             print("Noisily preprocess values.")
             noisy_time_start = time()
-            x_test = noisy_preprocess(test_set.preprocessed_values)
-            t_test = x_test
+            x_eval = noisy_preprocess(evaluation_set.preprocessed_values)
+            t_eval = x_eval
             noisy_duration = time() - noisy_time_start
             print("Values noisily preprocessed ({}).".format(
                 formatDuration(noisy_duration)))
@@ -1641,36 +1641,36 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         ## Labels
         
         class_names_to_class_ids = numpy.vectorize(lambda class_name:
-            test_set.class_name_to_class_id[class_name])
+            evaluation_set.class_name_to_class_id[class_name])
         class_ids_to_class_names = numpy.vectorize(lambda class_id:
-            test_set.class_id_to_class_name[class_id])
+            evaluation_set.class_id_to_class_name[class_id])
         
-        test_set_label_ids = class_names_to_class_ids(test_set.labels)
+        evaluation_set_label_ids = class_names_to_class_ids(evaluation_set.labels)
         
-        if test_set.excluded_classes:
+        if evaluation_set.excluded_classes:
             excluded_class_ids = class_names_to_class_ids(
-                test_set.excluded_classes)
+                evaluation_set.excluded_classes)
         else:
             excluded_class_ids = []
         
         ## Superset labels
         
-        if test_set.label_superset:
+        if evaluation_set.label_superset:
         
             superset_class_names_to_superset_class_ids = numpy.vectorize(
                 lambda superset_class_name:
-                    test_set.superset_class_name_to_superset_class_id\
+                    evaluation_set.superset_class_name_to_superset_class_id\
                         [superset_class_name]
             )
         
-            test_set_superset_label_ids = \
+            evaluation_set_superset_label_ids = \
                 superset_class_names_to_superset_class_ids(
-                    test_set.superset_labels)
+                    evaluation_set.superset_labels)
             
-            if test_set.excluded_superset_classes:
+            if evaluation_set.excluded_superset_classes:
                 excluded_superset_class_ids = \
                     superset_class_names_to_superset_class_ids(
-                        test_set.excluded_superset_classes)
+                        evaluation_set.excluded_superset_classes)
             else:
                 excluded_superset_class_ids = []
         
@@ -1683,14 +1683,14 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             
         checkpoint = tf.train.get_checkpoint_state(log_directory)
         
-        test_summary_directory = os.path.join(log_directory, "test")
-        if os.path.exists(test_summary_directory):
-            shutil.rmtree(test_summary_directory)
+        eval_summary_directory = os.path.join(log_directory, "evaluation")
+        if os.path.exists(eval_summary_directory):
+            shutil.rmtree(eval_summary_directory)
         
         with tf.Session(graph = self.graph) as session:
             
-            test_summary_writer = tf.summary.FileWriter(
-                test_summary_directory)
+            eval_summary_writer = tf.summary.FileWriter(
+                eval_summary_directory)
             
             if checkpoint:
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
@@ -1700,31 +1700,31 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 raise BaseError(
                     "Cannot evaluate model when it has not been trained.")
             
-            data_string = dataString(test_set,
+            data_string = dataString(evaluation_set,
                 self.reconstruction_distribution_name)
             print('Evaluating trained model on {}.'.format(data_string))
             evaluating_time_start = time()
             
-            ELBO_test = 0
-            KL_z_test = 0
-            KL_y_test = 0
-            ENRE_test = 0
+            ELBO_eval = 0
+            KL_z_eval = 0
+            KL_y_eval = 0
+            ENRE_eval = 0
             q_y_probabilities = numpy.zeros(self.K)
             q_z_means = numpy.zeros((self.K, self.latent_size))
             q_z_variances = numpy.zeros((self.K, self.latent_size))
             p_y_probabilities = numpy.zeros(self.K)
             p_z_means = numpy.zeros((self.K, self.latent_size))
             p_z_variances = numpy.zeros((self.K, self.latent_size))
-            q_y_logits = numpy.zeros((M_test, self.K))
-            z_mean_test = numpy.zeros((M_test, self.latent_size))
-            x_mean_test = numpy.zeros((M_test, F_test))
-            x_stddev_test = numpy.zeros((M_test, F_test))
-            y_mean_test = numpy.zeros((M_test, self.K))
+            q_y_logits = numpy.zeros((M_eval, self.K))
+            z_mean_eval = numpy.zeros((M_eval, self.latent_size))
+            x_mean_eval = numpy.zeros((M_eval, F_eval))
+            x_stddev_eval = numpy.zeros((M_eval, F_eval))
+            y_mean_eval = numpy.zeros((M_eval, self.K))
 
-            for i in range(0, M_test, batch_size):
+            for i in range(0, M_eval, batch_size):
                 subset = slice(i, (i + batch_size))
-                x_batch = x_test[subset]
-                t_batch = t_test[subset]
+                x_batch = x_eval[subset]
+                t_batch = t_eval[subset]
                 feed_dict_batch = {
                     self.x: x_batch,
                     self.t: t_batch,
@@ -1736,10 +1736,10 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         self.number_of_monte_carlo_samples["evaluation"]
                 }
                 if self.count_sum:
-                    feed_dict_batch[self.n] = n_test[subset]
+                    feed_dict_batch[self.n] = n_eval[subset]
 
                 if self.count_sum_feature:
-                    feed_dict_batch[self.n_feature] = n_feature_test[subset]
+                    feed_dict_batch[self.n_feature] = n_feature_eval[subset]
 
                 ELBO_i, ENRE_i, KL_z_i, KL_y_i, \
                 q_y_probabilities_i, q_z_means_i, q_z_variances_i, p_y_probabilities_i, p_z_means_i, p_z_variances_i, q_y_logits_i, x_mean_i, x_stddev_i, y_mean_i, z_mean_i = session.run(
@@ -1747,10 +1747,10 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     feed_dict = feed_dict_batch
                 )
                 
-                ELBO_test += ELBO_i
-                KL_z_test += KL_z_i
-                KL_y_test += KL_y_i
-                ENRE_test += ENRE_i
+                ELBO_eval += ELBO_i
+                KL_z_eval += KL_z_i
+                KL_y_eval += KL_y_i
+                ENRE_eval += ENRE_i
                 q_y_probabilities += numpy.array(q_y_probabilities_i)
                 q_z_means += numpy.array(q_z_means_i)
                 q_z_variances += numpy.array(q_z_variances_i)
@@ -1760,63 +1760,63 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
 
                 q_y_logits[subset] = q_y_logits_i
 
-                x_mean_test[subset] = x_mean_i 
-                y_mean_test[subset] = y_mean_i 
-                z_mean_test[subset] = z_mean_i 
+                x_mean_eval[subset] = x_mean_i 
+                y_mean_eval[subset] = y_mean_i 
+                z_mean_eval[subset] = z_mean_i 
 
-                x_stddev_test[subset] = x_stddev_i
+                x_stddev_eval[subset] = x_stddev_i
             
-            ELBO_test /= M_test / batch_size
-            KL_z_test /= M_test / batch_size
-            KL_y_test /= M_test / batch_size
-            ENRE_test /= M_test / batch_size
-            q_y_probabilities /= M_test / batch_size
-            q_z_means /= M_test / batch_size
-            q_z_variances /= M_test / batch_size
-            p_y_probabilities /= M_test / batch_size
-            p_z_means /= M_test / batch_size
-            p_z_variances /= M_test / batch_size
+            ELBO_eval /= M_eval / batch_size
+            KL_z_eval /= M_eval / batch_size
+            KL_y_eval /= M_eval / batch_size
+            ENRE_eval /= M_eval / batch_size
+            q_y_probabilities /= M_eval / batch_size
+            q_z_means /= M_eval / batch_size
+            q_z_variances /= M_eval / batch_size
+            p_y_probabilities /= M_eval / batch_size
+            p_z_means /= M_eval / batch_size
+            p_z_variances /= M_eval / batch_size
             
-            predicted_label_ids_test = predict_label_ids(
-                test_set_label_ids, 
+            predicted_label_ids_eval = predict_label_ids(
+                evaluation_set_label_ids, 
                 q_y_logits,
                 excluded_class_ids
             )
-            accuracy_test = accuracy(
-                test_set_label_ids,
-                predicted_label_ids_test,
+            accuracy_eval = accuracy(
+                evaluation_set_label_ids,
+                predicted_label_ids_eval,
                 excluded_class_ids
             )
 
-            if test_set.label_superset is not None:
-                predicted_superset_label_ids_test = predict_label_ids(
-                    test_set_superset_label_ids, 
+            if evaluation_set.label_superset is not None:
+                predicted_superset_label_ids_eval = predict_label_ids(
+                    evaluation_set_superset_label_ids, 
                     q_y_logits,
                     excluded_superset_class_ids
                 )
-                accuracy_superset_test = accuracy(
-                    test_set_superset_label_ids,
-                    predicted_superset_label_ids_test,
+                accuracy_superset_eval = accuracy(
+                    evaluation_set_superset_label_ids,
+                    predicted_superset_label_ids_eval,
                     excluded_superset_class_ids
                 )
-                accuracy_display = accuracy_superset_test
+                accuracy_display = accuracy_superset_eval
             else:
-                accuracy_superset_test = None
-                accuracy_display = accuracy_test
+                accuracy_superset_eval = None
+                accuracy_display = accuracy_eval
 
             summary = tf.Summary()
             summary.value.add(tag="losses/lower_bound",
-                simple_value = ELBO_test)
+                simple_value = ELBO_eval)
             summary.value.add(tag="losses/reconstruction_error",
-                simple_value = ENRE_test)
+                simple_value = ENRE_eval)
             summary.value.add(tag="losses/kl_divergence_z",
-                simple_value = KL_z_test)
+                simple_value = KL_z_eval)
             summary.value.add(tag="losses/kl_divergence_y",
-                simple_value = KL_y_test)
-            summary.value.add(tag="accuracy", simple_value = accuracy_test)
-            if accuracy_superset_test:
+                simple_value = KL_y_eval)
+            summary.value.add(tag="accuracy", simple_value = accuracy_eval)
+            if accuracy_superset_eval:
                 summary.value.add(tag="superset_accuracy",
-                    simple_value = accuracy_superset_test)
+                    simple_value = accuracy_superset_eval)
 
             for k in range(self.K):
                 summary.value.add(
@@ -1847,82 +1847,84 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         simple_value = q_z_variances[k, l]
                     )
 
-            test_summary_writer.add_summary(summary,
+            eval_summary_writer.add_summary(summary,
                 global_step = epoch + 1)
-            test_summary_writer.flush()
+            eval_summary_writer.flush()
             
             evaluating_duration = time() - evaluating_time_start
-            print("    Test set ({}): ".format(
+            print("    {} set ({}): ".format(
+                evaluation_set.kind.capitalize(),
                 formatDuration(evaluating_duration)) + \
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}, Acc: {:.5g}.".format(
-                ELBO_test, ENRE_test, KL_z_test, KL_y_test, accuracy_display))
+                ELBO_eval, ENRE_eval, KL_z_eval, KL_y_eval, accuracy_display))
             
             if noisy_preprocess or \
                 self.reconstruction_distribution_name == "bernoulli":
                 
-                transformed_test_set = DataSet(
-                    name = test_set.name,
-                    values = t_test,
+                transformed_evaluation_set = DataSet(
+                    name = evaluation_set.name,
+                    values = t_eval,
                     preprocessed_values = None,
-                    labels = test_set.labels,
-                    example_names = test_set.example_names,
-                    feature_names = test_set.feature_names,
-                    feature_selection = test_set.feature_selection,
-                    example_filter = test_set.example_filter,
-                    preprocessing_methods = test_set.preprocessing_methods,
-                    kind = "test",
+                    labels = evaluation_set.labels,
+                    example_names = evaluation_set.example_names,
+                    feature_names = evaluation_set.feature_names,
+                    feature_selection = evaluation_set.feature_selection,
+                    example_filter = evaluation_set.example_filter,
+                    preprocessing_methods = evaluation_set.preprocessing_methods,
+                    kind = evaluation_set.kind,
                     version = "binarised"
                 )
             else:
-                transformed_test_set = test_set
+                transformed_evaluation_set = evaluation_set
             
-            reconstructed_test_set = DataSet(
-                name = test_set.name,
-                values = x_mean_test,
-                total_standard_deviations = x_stddev_test,
+            reconstructed_evaluation_set = DataSet(
+                name = evaluation_set.name,
+                values = x_mean_eval,
+                total_standard_deviations = x_stddev_eval,
                 preprocessed_values = None,
-                labels = class_ids_to_class_names(predicted_label_ids_test),
-                example_names = test_set.example_names,
-                feature_names = test_set.feature_names,
-                feature_selection = test_set.feature_selection,
-                example_filter = test_set.example_filter,
-                preprocessing_methods = test_set.preprocessing_methods,
-                kind = "test",
+                labels = class_ids_to_class_names(predicted_label_ids_eval),
+                example_names = evaluation_set.example_names,
+                feature_names = evaluation_set.feature_names,
+                feature_selection = evaluation_set.feature_selection,
+                example_filter = evaluation_set.example_filter,
+                preprocessing_methods = evaluation_set.preprocessing_methods,
+                kind = evaluation_set.kind,
                 version = "reconstructed"
             )
             
-            z_test_set = DataSet(
-                name = test_set.name,
-                values = z_mean_test,
+            z_evaluation_set = DataSet(
+                name = evaluation_set.name,
+                values = z_mean_eval,
                 preprocessed_values = None,
-                labels = test_set.labels,
-                example_names = test_set.example_names,
+                labels = evaluation_set.labels,
+                example_names = evaluation_set.example_names,
                 feature_names = numpy.array(["z variable {}".format(
                     i + 1) for i in range(self.latent_size)]),
-                feature_selection = test_set.feature_selection,
-                example_filter = test_set.example_filter,
-                preprocessing_methods = test_set.preprocessing_methods,
-                kind = "test",
+                feature_selection = evaluation_set.feature_selection,
+                example_filter = evaluation_set.example_filter,
+                preprocessing_methods = evaluation_set.preprocessing_methods,
+                kind = evaluation_set.kind,
                 version = "z"
             )
 
-            y_test_set = DataSet(
-                name = test_set.name,
-                values = y_mean_test,
+            y_evaluation_set = DataSet(
+                name = evaluation_set.name,
+                values = y_mean_eval,
                 preprocessed_values = None,
-                labels = test_set.labels,
-                example_names = test_set.example_names,
+                labels = evaluation_set.labels,
+                example_names = evaluation_set.example_names,
                 feature_names = numpy.array(["y variable {}".format(
                     i + 1) for i in range(self.K)]),
-                feature_selection = test_set.feature_selection,
-                example_filter = test_set.example_filter,
-                preprocessing_methods = test_set.preprocessing_methods,
-                kind = "test",
+                feature_selection = evaluation_set.feature_selection,
+                example_filter = evaluation_set.example_filter,
+                preprocessing_methods = evaluation_set.preprocessing_methods,
+                kind = evaluation_set.kind,
                 version = "y"
             )
-            latent_test_sets = (z_test_set, y_test_set)
+            latent_evaluation_sets = (z_evaluation_set, y_evaluation_set)
 
-            return transformed_test_set, reconstructed_test_set, latent_test_sets
+            return transformed_evaluation_set, reconstructed_evaluation_set, \
+                latent_evaluation_sets
 
 def predict_label_ids(label_ids, logits, excluded_class_ids = []):
     cat_pred = logits.argmax(1)

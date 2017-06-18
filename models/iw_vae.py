@@ -1408,7 +1408,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             return status
     
-    def evaluate(self, test_set, batch_size = 100,
+    def evaluate(self, evaluation_set, batch_size = 100,
         use_early_stopping_model = False, use_deterministic_z = False):
         
         batch_size /= self.number_of_importance_samples["evaluation"] \
@@ -1416,30 +1416,30 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         batch_size = int(numpy.ceil(batch_size))
         
         if self.count_sum:
-            n_test = test_set.normalised_count_sum
+            n_eval = evaluation_set.normalised_count_sum
         
         if self.count_sum_feature:
-            n_feature_test = test_set.normalised_count_sum
+            n_feature_eval = evaluation_set.normalised_count_sum
 
-        M_test = test_set.number_of_examples
-        F_test = test_set.number_of_features
+        M_eval = evaluation_set.number_of_examples
+        F_eval = evaluation_set.number_of_features
         
-        noisy_preprocess = test_set.noisy_preprocess
+        noisy_preprocess = evaluation_set.noisy_preprocess
         
         if not noisy_preprocess:
             
-            x_test = test_set.preprocessed_values
+            x_eval = evaluation_set.preprocessed_values
         
             if self.reconstruction_distribution_name == "bernoulli":
-                t_test = test_set.binarised_values
+                t_eval = evaluation_set.binarised_values
             else:
-                t_test = test_set.values
+                t_eval = evaluation_set.values
             
         else:
             print("Noisily preprocess values.")
             noisy_time_start = time()
-            x_test = noisy_preprocess(test_set.preprocessed_values)
-            t_test = x_test
+            x_eval = noisy_preprocess(evaluation_set.preprocessed_values)
+            t_eval = x_eval
             noisy_duration = time() - noisy_time_start
             print("Values noisily preprocessed ({}).".format(
                 formatDuration(noisy_duration)))
@@ -1452,14 +1452,14 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
         checkpoint = tf.train.get_checkpoint_state(log_directory)
         
-        test_summary_directory = os.path.join(log_directory, "test")
-        if os.path.exists(test_summary_directory):
-            shutil.rmtree(test_summary_directory)
+        eval_summary_directory = os.path.join(log_directory, "evaluation")
+        if os.path.exists(eval_summary_directory):
+            shutil.rmtree(eval_summary_directory)
         
         with tf.Session(graph = self.graph) as session:
             
-            test_summary_writer = tf.summary.FileWriter(
-                test_summary_directory)
+            eval_summary_writer = tf.summary.FileWriter(
+                eval_summary_directory)
             
             if checkpoint:
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
@@ -1469,20 +1469,20 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 print("Cannot evaluate model when it has not been trained.")
                 return None, None, None
             
-            data_string = dataString(test_set,
+            data_string = dataString(evaluation_set,
                 self.reconstruction_distribution_name)
             print('Evaluating trained model on {}.'.format(data_string))
             evaluating_time_start = time()
             
-            ELBO_test = 0
-            KL_test = 0
-            ENRE_test = 0
+            ELBO_eval = 0
+            KL_eval = 0
+            ENRE_eval = 0
             
-            p_x_mean_test = numpy.empty([M_test, F_test])
-            p_x_stddev_test = numpy.empty([M_test, F_test])
-            stddev_of_p_x_mean_test = numpy.empty([M_test, F_test])
+            p_x_mean_eval = numpy.empty([M_eval, F_eval])
+            p_x_stddev_eval = numpy.empty([M_eval, F_eval])
+            stddev_of_p_x_mean_eval = numpy.empty([M_eval, F_eval])
 
-            q_z_mean_test = numpy.empty([M_test, self.latent_size])
+            q_z_mean_eval = numpy.empty([M_eval, self.latent_size])
             
             if use_deterministic_z:
                 number_of_iw_samples = 1
@@ -1491,10 +1491,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 number_of_iw_samples = self.number_of_importance_samples["evaluation"]
                 number_of_mc_samples = self.number_of_monte_carlo_samples["evaluation"]
 
-            for i in range(0, M_test, batch_size):
+            for i in range(0, M_eval, batch_size):
                 subset = slice(i, (i + batch_size))
-                x_batch = x_test[subset]
-                t_batch = t_test[subset]
+                x_batch = x_eval[subset]
+                t_batch = t_eval[subset]
                 feed_dict_batch = {
                     self.x: x_batch,
                     self.t: t_batch,
@@ -1505,10 +1505,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     self.number_of_mc_samples: number_of_mc_samples
                 }
                 if self.count_sum:
-                    feed_dict_batch[self.n] = n_test[subset]
+                    feed_dict_batch[self.n] = n_eval[subset]
                 
                 if self.count_sum_feature:
-                    feed_dict_batch[self.n_feature] = n_feature_test[subset]
+                    feed_dict_batch[self.n_feature] = n_feature_eval[subset]
                 
                 ELBO_i, KL_i, ENRE_i, p_x_mean_i, p_x_stddev_i, stddev_of_p_x_mean_i, q_z_mean_i = session.run(
                     [self.ELBO, self.KL, self.ENRE,
@@ -1516,31 +1516,31 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                     feed_dict = feed_dict_batch
                 )
                 
-                ELBO_test += ELBO_i
-                KL_test += KL_i
-                ENRE_test += ENRE_i
+                ELBO_eval += ELBO_i
+                KL_eval += KL_i
+                ENRE_eval += ENRE_i
                 
                 # Save Importance weighted Monte Carlo estimates of: 
                 # Reconstruction mean (marginalised conditional mean): 
                 ##      E[x] = E[E[x|z]] = E_q(z|x)[E_p(x|z)[x]]
                 ##           = E_z[p_x_given_z.mean]
                 ##     \approx 1/(R*L) \sum^R_r w_r \sum^L_{l=1} p_x_given_z.mean 
-                p_x_mean_test[subset] = p_x_mean_i
+                p_x_mean_eval[subset] = p_x_mean_i
 
                 # Reconstruction standard deviation: 
                 ##      sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
                 ##      = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
-                p_x_stddev_test[subset] = p_x_stddev_i
+                p_x_stddev_eval[subset] = p_x_stddev_i
 
                 # Estimated standard deviation of Monte Carlo estimate E[x].
-                stddev_of_p_x_mean_test[subset] = stddev_of_p_x_mean_i
+                stddev_of_p_x_mean_eval[subset] = stddev_of_p_x_mean_i
 
 
-                q_z_mean_test[subset] = q_z_mean_i
+                q_z_mean_eval[subset] = q_z_mean_i
             
-            ELBO_test /= M_test / batch_size
-            KL_test /= M_test / batch_size
-            ENRE_test /= M_test / batch_size
+            ELBO_eval /= M_eval / batch_size
+            KL_eval /= M_eval / batch_size
+            ENRE_eval /= M_eval / batch_size
             
             ## Centroids
             
@@ -1553,11 +1553,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             
             summary = tf.Summary()
             summary.value.add(tag="losses/lower_bound",
-                simple_value = ELBO_test)
+                simple_value = ELBO_eval)
             summary.value.add(tag="losses/reconstruction_error",
-                simple_value = ENRE_test)
+                simple_value = ENRE_eval)
             summary.value.add(tag="losses/kl_divergence",
-                simple_value = KL_test)
+                simple_value = KL_eval)
             
             for k in range(len(p_z_probabilities)):
                 summary.value.add(
@@ -1583,65 +1583,67 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                         simple_value = p_z_variances_k_l
                     )
             
-            test_summary_writer.add_summary(summary, global_step = epoch)
-            test_summary_writer.flush()
+            eval_summary_writer.add_summary(summary, global_step = epoch)
+            eval_summary_writer.flush()
             
             evaluating_duration = time() - evaluating_time_start
-            print("    Test set ({}): ".format(
+            print("    {} set ({}): ".format(
+                evaluation_set.kind.capitalize(),
                 formatDuration(evaluating_duration)) + \
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
-                ELBO_test, ENRE_test, KL_test))
+                ELBO_eval, ENRE_eval, KL_eval))
             
             # Data sets
             
             if noisy_preprocess or \
                 self.reconstruction_distribution_name == "bernoulli":
                 
-                transformed_test_set = DataSet(
-                    name = test_set.name,
-                    values = t_test,
+                transformed_evaluation_set = DataSet(
+                    name = evaluation_set.name,
+                    values = t_eval,
                     preprocessed_values = None,
-                    labels = test_set.labels,
-                    example_names = test_set.example_names,
-                    feature_names = test_set.feature_names,
-                    feature_selection = test_set.feature_selection,
-                    example_filter = test_set.example_filter,
-                    preprocessing_methods = test_set.preprocessing_methods,
-                    kind = "test",
+                    labels = evaluation_set.labels,
+                    example_names = evaluation_set.example_names,
+                    feature_names = evaluation_set.feature_names,
+                    feature_selection = evaluation_set.feature_selection,
+                    example_filter = evaluation_set.example_filter,
+                    preprocessing_methods = evaluation_set.preprocessing_methods,
+                    kind = evaluation_set.kind,
                     version = "binarised"
                 )
             else:
-                transformed_test_set = test_set
+                transformed_evaluation_set = evaluation_set
             
-            reconstructed_test_set = DataSet(
-                name = test_set.name,
-                values = p_x_mean_test,
-                total_standard_deviations = p_x_stddev_test,
-                explained_standard_deviations = stddev_of_p_x_mean_test,
+            reconstructed_evaluation_set = DataSet(
+                name = evaluation_set.name,
+                values = p_x_mean_eval,
+                total_standard_deviations = p_x_stddev_eval,
+                explained_standard_deviations = stddev_of_p_x_mean_eval,
                 preprocessed_values = None,
-                labels = test_set.labels,
-                example_names = test_set.example_names,
-                feature_names = test_set.feature_names,
-                feature_selection = test_set.feature_selection,
-                example_filter = test_set.example_filter,
-                preprocessing_methods = test_set.preprocessing_methods,
-                kind = "test",
+                labels = evaluation_set.labels,
+                example_names = evaluation_set.example_names,
+                feature_names = evaluation_set.feature_names,
+                feature_selection = evaluation_set.feature_selection,
+                example_filter = evaluation_set.example_filter,
+                preprocessing_methods = evaluation_set.preprocessing_methods,
+                kind = evaluation_set.kind,
                 version = "reconstructed"
             )
             
-            latent_test_set = DataSet(
-                name = test_set.name,
-                values = q_z_mean_test,
+            latent_evaluation_set = DataSet(
+                name = evaluation_set.name,
+                values = q_z_mean_eval,
                 preprocessed_values = None,
-                labels = test_set.labels,
-                example_names = test_set.example_names,
+                labels = evaluation_set.labels,
+                example_names = evaluation_set.example_names,
                 feature_names = numpy.array(["latent variable {}".format(
                     i + 1) for i in range(self.latent_size)]),
-                feature_selection = test_set.feature_selection,
-                example_filter = test_set.example_filter,
-                preprocessing_methods = test_set.preprocessing_methods,
-                kind = "test",
+                feature_selection = evaluation_set.feature_selection,
+                example_filter = evaluation_set.example_filter,
+                preprocessing_methods = evaluation_set.preprocessing_methods,
+                kind = evaluation_set.kind,
                 version = "z"
             )
             
-            return transformed_test_set, reconstructed_test_set, latent_test_set
+            return transformed_evaluation_set, reconstructed_evaluation_set, \
+                latent_evaluation_set

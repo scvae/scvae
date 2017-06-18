@@ -507,7 +507,8 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
         print("{} plotted and saved ({}).".format(
             latent_set_name.capitalize(), formatDuration(plot_duration)))
 
-def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
+def analyseResults(evaluation_set, reconstructed_evaluation_set,
+    latent_evaluation_sets, model,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     plot_heat_maps_for_large_data_sets = False,
     early_stopping = False, results_directory = "results"):
@@ -521,13 +522,16 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     results_directory = os.path.join(results_directory, model_name)
     
+    if evaluation_set.kind != "test":
+        results_directory = os.path.join(results_directory, evaluation_set.kind)
+    
     if early_stopping:
         results_directory = os.path.join(results_directory, "early_stopping")
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
     
-    M = test_set.number_of_examples
+    M = evaluation_set.number_of_examples
     
     # Loading
     
@@ -536,15 +540,15 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     number_of_epochs_trained = loadNumberOfEpochsTrained(model,
         early_stopping = early_stopping)
-    evaluation_test = loadLearningCurves(model, "test",
+    evaluation_eval = loadLearningCurves(model, "evaluation",
         early_stopping = early_stopping)
-    accuracy_test = loadAccuracies(model, "test",
+    accuracy_eval = loadAccuracies(model, "evaluation",
         early_stopping = early_stopping)
-    superset_accuracy_test = loadAccuracies(model, "test", superset = True,
+    superset_accuracy_eval = loadAccuracies(model, "evaluation", superset = True,
         early_stopping = early_stopping)
     
     if "AE" in model.type:
-        centroids = loadCentroids(model, data_set_kinds = "test",
+        centroids = loadCentroids(model, data_set_kinds = "evaluation",
             early_stopping = early_stopping)
     else:
         centroids = None
@@ -560,28 +564,28 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     print("Calculating metrics for results.")
     metrics_time_start = time()
 
-    test_set_statistics = [
+    evaluation_set_statistics = [
         statistics(data_set.values, data_set.version, tolerance = 0.5)
-            for data_set in [test_set, reconstructed_test_set]
+            for data_set in [evaluation_set, reconstructed_evaluation_set]
     ]
 
-    x_diff = reconstructed_test_set.values - test_set.values
-    test_set_statistics.append(statistics(numpy.abs(x_diff), "differences",
+    x_diff = reconstructed_evaluation_set.values - evaluation_set.values
+    evaluation_set_statistics.append(statistics(numpy.abs(x_diff), "differences",
         skip_sparsity = True))
 
-    x_log_ratio = numpy.log((reconstructed_test_set.values + 1) \
-        / (test_set.values + 1))
-    test_set_statistics.append(statistics(numpy.abs(x_log_ratio), "log-ratios",
-        skip_sparsity = True))
+    x_log_ratio = numpy.log((reconstructed_evaluation_set.values + 1) \
+        / (evaluation_set.values + 1))
+    evaluation_set_statistics.append(statistics(numpy.abs(x_log_ratio),
+        "log-ratios", skip_sparsity = True))
 
-    if test_set.values.max() > 20:
+    if evaluation_set.values.max() > 20:
         count_accuracy_method = "orders of magnitude"
     else:
         count_accuracy_method = None
 
     count_accuracies = computeCountAccuracies(
-        test_set.values,
-        reconstructed_test_set.values,
+        evaluation_set.values,
+        reconstructed_evaluation_set.values,
         method = count_accuracy_method
     )
 
@@ -590,10 +594,12 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         formatDuration(metrics_duration)))
 
     ## Saving
-
-    metrics_log_path = os.path.join(results_directory, "test_metrics.log")
+    
+    metrics_log_filename = "{}_metrics".format(evaluation_set.kind)
+    metrics_log_path = os.path.join(results_directory,
+        metrics_log_filename + ".log")
     metrics_dictionary_path = os.path.join(results_directory,
-        "test_metrics.pkl.gz")
+        metrics_log_filename + ".pkl.gz")
 
     metrics_saving_time_start = time()
 
@@ -609,38 +615,38 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         if model.type == "SNN":
             metrics_string += \
                 "    log-likelihood: {:.5g}.\n".format(
-                    evaluation_test["log_likelihood"][-1])
+                    evaluation_eval["log_likelihood"][-1])
         elif "AE" in model.type:
             metrics_string += \
                 "    ELBO: {:.5g}.\n".format(
-                    evaluation_test["lower_bound"][-1]) + \
+                    evaluation_eval["lower_bound"][-1]) + \
                 "    ENRE: {:.5g}.\n".format(
-                    evaluation_test["reconstruction_error"][-1])
+                    evaluation_eval["reconstruction_error"][-1])
             if model.type not in ["CVAE", "GMVAE", "GMVAE_alt"]:
                 metrics_string += \
                     "    KL: {:.5g}.\n".format(
-                        evaluation_test["kl_divergence"][-1])
+                        evaluation_eval["kl_divergence"][-1])
             elif model.type in ["GMVAE", "GMVAE_alt"]:
                 metrics_string += \
                     "    KL_z: {:.5g}.\n".format(
-                        evaluation_test["kl_divergence_z"][-1]) + \
+                        evaluation_eval["kl_divergence_z"][-1]) + \
                     "    KL_y: {:.5g}.\n".format(
-                        evaluation_test["kl_divergence_y"][-1])
+                        evaluation_eval["kl_divergence_y"][-1])
             elif model.type == "CVAE":
                 metrics_string += \
                     "    KL_z1: {:.5g}.\n".format(
-                        evaluation_test["kl_divergence_z1"][-1]) + \
+                        evaluation_eval["kl_divergence_z1"][-1]) + \
                     "    KL_z2: {:.5g}.\n".format(
-                        evaluation_test["kl_divergence_z2"][-1]) + \
+                        evaluation_eval["kl_divergence_z2"][-1]) + \
                     "    KL_y: {:.5g}.\n".format(
-                        evaluation_test["kl_divergence_y"][-1])
-        if accuracy_test is not None:
+                        evaluation_eval["kl_divergence_y"][-1])
+        if accuracy_eval is not None:
             metrics_string += "    Accuracy: {:6.2f} %.\n".format(
-                100 * accuracy_test[-1])
-        if superset_accuracy_test is not None:
+                100 * accuracy_eval[-1])
+        if superset_accuracy_eval is not None:
             metrics_string += "    Accuracy (superset): {:6.2f} %.\n".format(
-                100 * superset_accuracy_test[-1])
-        metrics_string += "\n" + formatStatistics(test_set_statistics)
+                100 * superset_accuracy_eval[-1])
+        metrics_string += "\n" + formatStatistics(evaluation_set_statistics)
         metrics_string += "\n" + formatCountAccuracies(count_accuracies)
         metrics_file.write(metrics_string)
 
@@ -648,10 +654,10 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         metrics_dictionary = {
             "timestamp": metrics_saving_time_start,
             "number of epochs trained": number_of_epochs_trained,
-            "evaluation": evaluation_test,
-            "accuracy": accuracy_test,
-            "superset_accuracy": superset_accuracy_test,
-            "statistics": test_set_statistics,
+            "evaluation": evaluation_eval,
+            "accuracy": accuracy_eval,
+            "superset_accuracy": superset_accuracy_eval,
+            "statistics": evaluation_set_statistics,
             "count accuracies": count_accuracies
         }
         pickle.dump(metrics_dictionary, metrics_file)
@@ -664,7 +670,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     ## Displaying
     
-    print(formatStatistics(test_set_statistics))
+    print(formatStatistics(evaluation_set_statistics))
     print(formatCountAccuracies(count_accuracies))
     
     # Reconstructions
@@ -673,14 +679,17 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     ## Examples
     
-    if reconstructed_test_set.example_type == "images":
+    if reconstructed_evaluation_set.example_type == "images":
         print("Saving image of {} random examples".format(
-            number_of_random_examples), "from reconstructed test set.")
+            number_of_random_examples),
+            "from reconstructed {} set.".format(
+                evaluation_set.kind
+            ))
         image_time_start = time()
         image, image_name = combineRandomImagesFromDataSet(
-            reconstructed_test_set,
+            reconstructed_evaluation_set,
             number_of_random_examples,
-            name = reconstructed_test_set.version
+            name = reconstructed_evaluation_set.version
         )
         saveImage(image, image_name, results_directory)
         image_duration = time() - image_time_start
@@ -704,19 +713,19 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     for i in subset:
         
-        observed_series = test_set.values[i]
-        expected_series = reconstructed_test_set.values[i]
-        example_name = str(test_set.example_names[i])
+        observed_series = evaluation_set.values[i]
+        expected_series = reconstructed_evaluation_set.values[i]
+        example_name = str(evaluation_set.example_names[i])
         
-        if reconstructed_test_set.total_standard_deviations is not None:
+        if reconstructed_evaluation_set.total_standard_deviations is not None:
             expected_series_total_standard_deviations = \
-                reconstructed_test_set.total_standard_deviations[i]
+                reconstructed_evaluation_set.total_standard_deviations[i]
         else:
             expected_series_total_standard_deviations = None
         
-        if reconstructed_test_set.explained_standard_deviations is not None:
+        if reconstructed_evaluation_set.explained_standard_deviations is not None:
             expected_series_explained_standard_deviations = \
-                reconstructed_test_set.explained_standard_deviations[i]
+                reconstructed_evaluation_set.explained_standard_deviations[i]
         else:
             expected_series_explained_standard_deviations = None
         
@@ -729,8 +738,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                 expected_series,
                 expected_series_total_standard_deviations,
                 expected_series_explained_standard_deviations,
-                x_name = test_set.tags["feature"],
-                y_name = test_set.tags["value"],
+                x_name = evaluation_set.tags["feature"],
+                y_name = evaluation_set.tags["value"],
                 sort_by = "expected",
                 sort_direction = "descending",
                 x_scale = "log",
@@ -746,8 +755,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
                     expected_series,
                     expected_series_total_standard_deviations,
                     expected_series_explained_standard_deviations,
-                    x_name = test_set.tags["feature"],
-                    y_name = test_set.tags["value"],
+                    x_name = evaluation_set.tags["feature"],
+                    y_name = evaluation_set.tags["value"],
                     sort_by = "expected",
                     sort_direction = "descending",
                     x_scale = "log",
@@ -768,33 +777,33 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     # Distributions
     
-    test_set_maximum_value = test_set.values.max()
+    evaluation_set_maximum_value = evaluation_set.values.max()
     
     analyseDistributions(
-        reconstructed_test_set,
-        colouring_data_set = test_set,
-        preprocessed = test_set.preprocessing_methods,
-        original_maximum_count = test_set_maximum_value,
+        reconstructed_evaluation_set,
+        colouring_data_set = evaluation_set,
+        preprocessed = evaluation_set.preprocessing_methods,
+        original_maximum_count = evaluation_set_maximum_value,
         results_directory = results_directory
     )
     
     if model.type == "GMVAE_alt":
         analyseDistributions(
-            reconstructed_test_set,
-            preprocessed = test_set.preprocessing_methods,
-            original_maximum_count = test_set_maximum_value,
+            reconstructed_evaluation_set,
+            preprocessed = evaluation_set.preprocessing_methods,
+            original_maximum_count = evaluation_set_maximum_value,
             results_directory = results_directory
         )
     
     ## Reconstructions decomposed
 
     analyseDecompositions(
-        reconstructed_test_set,
-        colouring_data_set = test_set,
+        reconstructed_evaluation_set,
+        colouring_data_set = evaluation_set,
         decomposition_methods = decomposition_methods,
         highlight_feature_indices = highlight_feature_indices,
         symbol = "\\tilde{{x}}",
-        pca_limits = test_set.pca_limits,
+        pca_limits = evaluation_set.pca_limits,
         title = "reconstruction space",
         results_directory = results_directory
     )
@@ -802,13 +811,13 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     ## Reconstructions plotted in original decomposed space
     
     analyseDecompositions(
-        test_set,
-        reconstructed_test_set,
-        colouring_data_set = test_set,
+        evaluation_set,
+        reconstructed_evaluation_set,
+        colouring_data_set = evaluation_set,
         decomposition_methods = decomposition_methods,
         highlight_feature_indices = highlight_feature_indices,
         symbol = "x",
-        pca_limits = test_set.pca_limits,
+        pca_limits = evaluation_set.pca_limits,
         title = "original space",
         results_directory = results_directory
     )
@@ -818,8 +827,8 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         ## Originals decomposed with predicted labels
         
         analyseDecompositions(
-            test_set,
-            colouring_data_set = reconstructed_test_set,
+            evaluation_set,
+            colouring_data_set = reconstructed_evaluation_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
             symbol = "x",
@@ -830,12 +839,12 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         ## Reconstructions decomposed with predicted labels
         
         analyseDecompositions(
-            reconstructed_test_set,
-            colouring_data_set = reconstructed_test_set,
+            reconstructed_evaluation_set,
+            colouring_data_set = reconstructed_evaluation_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
             symbol = "\\tilde{{x}}",
-            pca_limits = test_set.pca_limits,
+            pca_limits = evaluation_set.pca_limits,
             title = "reconstruction space with predicted labels",
             results_directory = results_directory
         )
@@ -844,13 +853,13 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         ## with predicted labels
         
         analyseDecompositions(
-            test_set,
-            reconstructed_test_set,
-            colouring_data_set = reconstructed_test_set,
+            evaluation_set,
+            reconstructed_evaluation_set,
+            colouring_data_set = reconstructed_evaluation_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
             symbol = "x",
-            pca_limits = test_set.pca_limits,
+            pca_limits = evaluation_set.pca_limits,
             title = "original space with predicted labels",
             results_directory = results_directory
         )
@@ -864,7 +873,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         maximum_number_of_values_for_heat_maps = \
             maximum_number_of_values_for_normal_heat_maps
     
-    if reconstructed_test_set.number_of_values \
+    if reconstructed_evaluation_set.number_of_values \
         <= maximum_number_of_values_for_heat_maps:
         
         print("Plotting heat maps.")
@@ -876,12 +885,13 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         heat_maps_time_start = time()
         
         figure, figure_name = plotHeatMap(
-            reconstructed_test_set.values,
-            labels = reconstructed_test_set.labels,
-            transformation = reconstructed_test_set.heat_map_transformation,
-            x_name = test_set.tags["feature"].capitalize() + "s",
-            y_name = test_set.tags["example"].capitalize() + "s",
-            z_name = test_set.tags["value"].capitalize() + "s",
+            reconstructed_evaluation_set.values,
+            labels = reconstructed_evaluation_set.labels,
+            transformation =
+                reconstructed_evaluation_set.heat_map_transformation,
+            x_name = evaluation_set.tags["feature"].capitalize() + "s",
+            y_name = evaluation_set.tags["example"].capitalize() + "s",
+            z_name = evaluation_set.tags["value"].capitalize() + "s",
             z_symbol = "\\tilde{{x}}",
             name = "reconstruction"
         )
@@ -897,9 +907,9 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         
         figure, figure_name = plotHeatMap(
             x_diff,
-            labels = reconstructed_test_set.labels,
-            x_name = test_set.tags["feature"].capitalize() + "s",
-            y_name = test_set.tags["example"].capitalize() + "s",
+            labels = reconstructed_evaluation_set.labels,
+            x_name = evaluation_set.tags["feature"].capitalize() + "s",
+            y_name = evaluation_set.tags["example"].capitalize() + "s",
             z_name = "Differences",
             z_symbol = "\\tilde{{x}} - x",
             name = "difference",
@@ -917,9 +927,9 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         
         figure, figure_name = plotHeatMap(
             x_log_ratio,
-            labels = reconstructed_test_set.labels,
-            x_name = test_set.tags["feature"].capitalize() + "s",
-            y_name = test_set.tags["example"].capitalize() + "s",
+            labels = reconstructed_evaluation_set.labels,
+            x_name = evaluation_set.tags["feature"].capitalize() + "s",
+            y_name = evaluation_set.tags["example"].capitalize() + "s",
             z_name = "log-ratios",
             z_symbol = "\\log \\frac{{\\tilde{{x}} + 1}}{{x + 1}}",
             name = "log_ratio",
@@ -935,14 +945,14 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     # Latent space
     
-    if latent_test_sets is not None:
+    if latent_evaluation_sets is not None:
         
         heading("Latent space")
         
         analyseDecompositions(
-            latent_test_sets,
+            latent_evaluation_sets,
             centroids = centroids,
-            colouring_data_set = test_set,
+            colouring_data_set = evaluation_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
             title = "latent space",
@@ -952,9 +962,9 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         
         if model.type == "GMVAE_alt":
             analyseDecompositions(
-                latent_test_sets,
+                latent_evaluation_sets,
                 centroids = centroids,
-                colouring_data_set = reconstructed_test_set,
+                colouring_data_set = reconstructed_evaluation_set,
                 decomposition_methods = decomposition_methods,
                 highlight_feature_indices = highlight_feature_indices,
                 title = "latent space with predicted labels",

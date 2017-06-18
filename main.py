@@ -43,7 +43,7 @@ def main(data_set_name, data_directory = "data",
     number_of_epochs = 200, batch_size = 100, learning_rate = 1e-4,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
-    analyse = True, analyse_data = False,
+    analyse = True, evaluation_set_name = "test", analyse_data = False,
     plot_heat_maps_for_large_data_sets = False):
     
     print()
@@ -366,24 +366,31 @@ def main(data_set_name, data_directory = "data",
         
         # Evaluating
         
-        subtitle("Evaluating")
+        for data_subset in [training_set, validation_set, test_set]:
+            if data_subset.kind == evaluation_set_name:
+                evaluation_set = data_subset
+        
+        subtitle("Evaluating on {} set".format(evaluation_set.kind))
         
         if "AE" in model.type:
-            transformed_test_set, reconstructed_test_set, latent_test_sets = \
-                model.evaluate(test_set, batch_size)
+            transformed_evaluation_set, reconstructed_evaluation_set, \
+                latent_evaluation_sets = \
+                model.evaluate(evaluation_set, batch_size)
             
             if model.stopped_early:
                 print()
-                subtitle("Evaluating earlier stopped model")
+                subtitle("Evaluating on {} set with earlier stopped model"\
+                    .format(evaluation_set.kind))
                 
-                early_stopped_transformed_test_set, \
-                    early_stopped_reconstructed_test_set, \
-                    early_stopped_latent_test_sets = \
-                    model.evaluate(test_set, batch_size, model.stopped_early)
+                early_stopped_transformed_evaluation_set, \
+                    early_stopped_reconstructed_evaluation_set, \
+                    early_stopped_latent_evaluation_sets = \
+                    model.evaluate(evaluation_set, batch_size,
+                        model.stopped_early)
         else:
-            transformed_test_set, reconstructed_test_set = \
-                model.evaluate(test_set, batch_size)
-            latent_test_sets = None
+            transformed_evaluation_set, reconstructed_evaluation_set = \
+                model.evaluate(evaluation_set, batch_size)
+            latent_evaluation_sets = None
         
         print()
         
@@ -394,20 +401,23 @@ def main(data_set_name, data_directory = "data",
             subtitle("Analysing model")
             analysis.analyseModel(model, results_directory)
 
-            subtitle("Analysing results")
+            subtitle("Analysing results for {} set".format(evaluation_set.kind))
             analysis.analyseResults(
-                transformed_test_set, reconstructed_test_set, latent_test_sets,
+                transformed_evaluation_set,
+                reconstructed_evaluation_set,
+                latent_evaluation_sets,
                 model, decomposition_methods, highlight_feature_indices,
                 plot_heat_maps_for_large_data_sets,
                 results_directory = results_directory
             )
 
             if model.stopped_early:
-                subtitle("Analysing results for earlier stopped model")
+                subtitle("Analysing results for {} set".format(
+                    evaluation_set.kind) + " with earlier stopped model")
                 analysis.analyseResults(
-                    early_stopped_transformed_test_set,
-                    early_stopped_reconstructed_test_set,
-                    early_stopped_latent_test_sets,
+                    early_stopped_transformed_evaluation_set,
+                    early_stopped_reconstructed_evaluation_set,
+                    early_stopped_latent_evaluation_sets,
                     model, decomposition_methods, highlight_feature_indices,
                     plot_heat_maps_for_large_data_sets,
                     early_stopping = True,
@@ -418,7 +428,8 @@ def main(data_set_name, data_directory = "data",
                 and ("No class" in data_set.class_names
                 or "No class" in data_set.superset_class_names):
                 
-                subtitle("Predicting labels for unlabelled examples")
+                subtitle("Predicting labels for unlabelled examples in {} set"\
+                    .format(evaluation_set.kind))
                 
                 unlablled_directory = os.path.join(results_directory,
                     model.testing_name)
@@ -1035,6 +1046,13 @@ parser.add_argument(
     help = "skip analysis"
 )
 parser.set_defaults(analyse = True)
+parser.add_argument(
+    "--evaluation-set-name",
+    type = str,
+    nargs = "?",
+    default = "test",
+    help = "parameter for feature selection"
+)
 parser.add_argument(
     "--analyse-data",
     action = "store_true",
