@@ -5,6 +5,9 @@ import pickle
 import gzip
 import argparse
 
+from analysis import formatStatistics
+from auxiliary import formatTime
+
 test_metrics_filename = "test_metrics.pkl.gz"
 
 def main(log_directory = None, results_directory = None,
@@ -60,10 +63,20 @@ def main(log_directory = None, results_directory = None,
             
                 print(model)
                 
-                E = test_metrics["number of epochs trained"]
-                evaluation = test_metrics["evaluation"]
+                # Time
                 
-                print("Epochs trained: {}".format(E))
+                timestamp = test_metrics["timestamp"]
+                
+                print("timestamp: {}".format(formatTime(timestamp)))
+                
+                # Epochs
+                
+                E = test_metrics["number of epochs trained"]
+                print("epochs_trained: {}".format(E))
+                
+                # Evaluation
+                
+                evaluation = test_metrics["evaluation"]
                 
                 losses = [
                     "log_likelihood",
@@ -79,6 +92,32 @@ def main(log_directory = None, results_directory = None,
                 for loss in losses:
                     if loss in evaluation:
                         print("{}: {:.5g}".format(loss, evaluation[loss][-1]))
+                
+                # Accuracies
+                
+                accuracies = ["accuracy", "superset_accuracy"]
+                
+                for accuracy in accuracies:
+                    if accuracy in test_metrics and test_metrics[accuracy]:
+                        print("{}: {:6.2f} %".format(
+                            accuracy, 100 * test_metrics[accuracy][-1]))
+                
+                # Statistics
+                
+                if isinstance(test_metrics["statistics"], list):
+                    statistics_sets = test_metrics["statistics"]
+                else:
+                    statistics_sets = None
+                
+                reconstructed_statistics = None
+                
+                if statistics_sets:
+                    for statistics_set in statistics_sets:
+                        if "reconstructed" in statistics_set["name"]:
+                            reconstructed_statistics = statistics_set
+                
+                if reconstructed_statistics:
+                    print(formatStatistics(reconstructed_statistics))
                 
                 print()
 
