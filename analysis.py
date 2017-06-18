@@ -643,7 +643,9 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
             "timestamp": metrics_saving_time_start,
             "number of epochs trained": number_of_epochs_trained,
             "evaluation": evaluation_test,
-            "statistics": statistics,
+            "accuracy": accuracy_test,
+            "superset_accuracy": superset_accuracy_test,
+            "statistics": test_set_statistics,
             "count accuracies": count_accuracies
         }
         pickle.dump(metrics_dictionary, metrics_file)
