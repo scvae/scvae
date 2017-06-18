@@ -65,6 +65,8 @@ number_of_random_examples = 100
 number_of_profile_comparisons = 25
 profile_comparison_count_cut_off = 10.5
 
+maximum_count_scales = [1, 5]
+
 def analyseData(data_sets, decomposition_methods = ["PCA"],
     highlight_feature_indices = [], plot_heat_maps_for_large_data_sets = False,
     results_directory = "results"):
@@ -169,8 +171,11 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         # Distributions
         
-        analyseDistributions(data_set, cutoffs = range(1, 10),
-            results_directory = results_directory)
+        analyseDistributions(
+            data_set,
+            cutoffs = range(1, 10),
+            results_directory = results_directory
+        )
         
         # Heat map for data set
         
@@ -754,10 +759,13 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
     
     # Distributions
     
+    test_set_maximum_value = test_set.values.max()
+    
     analyseDistributions(
         reconstructed_test_set,
         colouring_data_set = test_set,
         preprocessed = test_set.preprocessing_methods,
+        original_maximum_count = test_set_maximum_value,
         results_directory = results_directory
     )
     
@@ -765,6 +773,7 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         analyseDistributions(
             reconstructed_test_set,
             preprocessed = test_set.preprocessing_methods,
+            original_maximum_count = test_set_maximum_value,
             results_directory = results_directory
         )
     
@@ -947,10 +956,15 @@ def analyseResults(test_set, reconstructed_test_set, latent_test_sets, model,
         print()
 
 def analyseDistributions(data_set, colouring_data_set = None,
-    cutoffs = None, results_directory = "results", preprocessed = False):
+    cutoffs = None, preprocessed = False, original_maximum_count = None,
+    results_directory = "results"):
+    
+    # Setup
     
     if not colouring_data_set:
         colouring_data_set = data_set
+    
+    ## Naming
     
     data_set_title = data_set.kind + " set"
     data_set_name = data_set.kind
@@ -967,7 +981,32 @@ def analyseDistributions(data_set, colouring_data_set = None,
         data_set_title += " with predicted labels"
         distribution_directory += "-predicted_labels"
     
+    ## Discreteness
+    
     data_set_discreteness = data_set.discreteness and not preprocessed
+    
+    ## Maximum values for count histograms
+    
+    maximum_counts = {0: None}
+    
+    if original_maximum_count and data_set.example_type == "counts":
+        
+        data_set_maximum_count = data_set.values.max()
+        
+        for maximum_count_scale in maximum_count_scales:
+            
+            maximum_count_indcises = data_set.values \
+                <= maximum_count_scale * original_maximum_count
+            
+            number_of_outliers = data_set.number_of_values \
+                - maximum_count_indcises.sum()
+            
+            if number_of_outliers:
+                maximum_count = numpy.ceil(
+                    data_set.values[maximum_count_indcises].max())
+                maximum_counts[maximum_count_scale] = maximum_count
+    
+    # Plotting
     
     print("Plotting distributions for {}.".format(data_set_title))
     
@@ -1012,22 +1051,38 @@ def analyseDistributions(data_set, colouring_data_set = None,
     
     ## Count distribution
 
-    distribution_time_start = time()
-
-    figure, figure_name = plotHistogram(
-        series = data_set.values.reshape(-1),
-        title = "Counts",
-        discrete = data_set_discreteness,
-        normed = True,
-        scale = "log",
-        name = data_set_name
-    )
-    saveFigure(figure, figure_name, distribution_directory)
-
-    distribution_duration = time() - distribution_time_start
-    print("    Count distribution plotted and saved ({})."\
-        .format(formatDuration(distribution_duration)))
-
+    for maximum_count_scale, maximum_count in maximum_counts.items():
+        
+        distribution_time_start = time()
+            
+        if maximum_count:
+            count_histogram_name = [
+                data_set_name, "maximum_count_scale", maximum_count_scale]
+        else:
+            count_histogram_name = data_set_name
+        
+        figure, figure_name = plotHistogram(
+            series = data_set.values.reshape(-1),
+            title = "Counts",
+            discrete = data_set_discreteness,
+            normed = True,
+            scale = "log",
+            maximum_count = maximum_count,
+            name = count_histogram_name
+        )
+        saveFigure(figure, figure_name, distribution_directory)
+        
+        if maximum_count:
+            maximum_count_string = " (with a maximum count of {:d})".format(
+                int(maximum_count))
+        else:
+            maximum_count_string = ""
+        
+        distribution_duration = time() - distribution_time_start
+        print("    Count distribution{} plotted and saved ({})."\
+            .format(maximum_count_string,
+                formatDuration(distribution_duration)))
+    
     ## Count distributions with cut-off
 
     if cutoffs and data_set.example_type == "counts":
@@ -1105,7 +1160,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
                 normed = True,
                 scale = "log",
                 colour = class_palette[class_name],
-                name = [data_set_name, class_name]
+                name = [data_set_name, "class", class_name]
             )
             saveFigure(figure, figure_name,
                 class_count_distribution_directory)
@@ -1126,7 +1181,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
                 normed = True,
                 scale = "log",
                 colour = class_palette[class_name],
-                name = [data_set_name, class_name]
+                name = [data_set_name, "class", class_name]
             )
             saveFigure(figure, figure_name,
                 class_count_distribution_directory)
@@ -1833,8 +1888,9 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     
     return figure, figure_name
 
-def plotHistogram(series, title = None, cutoff = None, normed = False,
-    discrete = False, scale = "linear", colour = None, name = None):
+def plotHistogram(series, title = None, cutoff = None, maximum_count = None,
+    normed = False, discrete = False, scale = "linear", colour = None,
+    name = None):
     
     series = series.copy()
     
@@ -1849,6 +1905,11 @@ def plotHistogram(series, title = None, cutoff = None, normed = False,
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
+    
+    if maximum_count:
+        maximum_count_indcises = series <= maximum_count
+        number_of_outliers = series.size - maximum_count_indcises.sum()
+        series = series[maximum_count_indcises]
     
     if cutoff:
         figure_name += "-cutoff-{}".format(cutoff)
@@ -1881,6 +1942,15 @@ def plotHistogram(series, title = None, cutoff = None, normed = False,
         axis.set_ylabel("Number of counts")
     
     seaborn.despine()
+    
+    if maximum_count:
+        axis.text(
+            0.98, 0.98, "{} counts omitted".format(number_of_outliers),
+            horizontalalignment = "right",
+            verticalalignment = "top",
+            fontsize = 10,
+            transform = axis.transAxes
+        )
     
     return figure, figure_name
 
