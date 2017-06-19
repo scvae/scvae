@@ -114,13 +114,13 @@ class Categorized(distribution.Distribution):
     # Ensure that all batch and event ndims are consistent.
     with ops.name_scope(name, values=[cat.logits]):
       num_dist = cat.event_size
-      static_num_dist = tensor_util.constant_value(num_dist)
-      if static_num_dist is None:
+      self._static_cat_event_size = tensor_util.constant_value(num_dist)
+      if self._static_cat_event_size is None:
         raise ValueError(
             "Could not infer number of classes from cat and unable "
             "to compare this value to the number of components passed in.")
       # Possibly convert from numpy 0-D array.
-      static_num_dist = int(static_num_dist)
+      self._static_cat_event_size = int(self._static_cat_event_size)
 
       cat_batch_shape = cat.batch_shape_tensor()
       cat_batch_rank = array_ops.size(cat_batch_shape)
@@ -139,7 +139,7 @@ class Categorized(distribution.Distribution):
 
       self._cat = cat
       self._dist = dist
-      self._num_classes = static_num_dist - 1
+      self._K = self._static_cat_event_size - 1
       self._static_event_shape = static_event_shape
       self._static_batch_shape = static_batch_shape
 
@@ -168,9 +168,9 @@ class Categorized(distribution.Distribution):
     return self._dist
 
   @property
-  def num_classes(self):
+  def K(self):
     """K, Scalar `float32` tensor: the number of categorical classes without distribution."""
-    return self._num_classes
+    return self._K
 
   def _batch_shape_tensor(self):
     return self._cat.batch_shape_tensor()
@@ -186,15 +186,46 @@ class Categorized(distribution.Distribution):
 
   def _mean(self):
     with ops.control_dependencies(self._assertions):
-      cat_mode = math_ops.cast(self._cat.mode(), dtypes.float32)   
-      return where(cat_mode < self.num_classes, cat_mode, self._cat.prob(math_ops.cast(self.num_classes, dtypes.int32)) * (self._dist.mean() + self.num_classes))
+      # List of batch tensors for categorical probabilities, pi_k.  
+      cat_probs = self._cat_probs(log_probs = False)
+      # Individual contributions to categorical mean: k * pi_k
+      cat_means = [k * cat_probs[k] for k in range(self.K)]
+      # E_cat[x] = \sum^{K-1}_k k * pi_k
+      cat_mean = math_ops.add_n(cat_means)
+
+      # Scaled count distribution mean shifted by K: pi_K * (E_dist[x] + K) 
+      dist_mean = cat_probs[-1] * (self._dist.mean() + self.K)
+
+      return cat_mean + dist_mean
+
+  def _variance(self):
+    with ops.control_dependencies(self._assertions):
+      # List of batch tensors for categorical probabilities, pi_k.  
+      cat_probs = self._cat_probs(log_probs = False)
+      # Individual contributions to categorical 2nd moment: k^2 * pi_k
+      cat_2nd_moments = [k**2 * cat_probs[k] for k in range(self.K)]
+      # E_cat[x] = \sum^{K-1}_k k^2 * pi_k
+      cat_2nd_moment = math_ops.add_n(cat_2nd_moments)
+
+      # Scaled count distribution 2nd moment shifted by K: 
+      #    pi_K * (2*K*E_dist[x] + V_dist[x] + E_dist[x]^2 + K^2) 
+      dist_2nd_moment = cat_probs[-1] * \
+        (
+          2 * self.K * self._dist.mean() +\
+          self._dist.variance() +\
+          math_ops.square(self._dist.mean()) +\
+          self.K**2
+        )
+
+      # Variance: V[x] = E 
+      return (cat_2nd_moment + dist_2nd_moment) - math_ops.square(self._mean())
 
   def _log_prob(self, x):
     with ops.control_dependencies(self._assertions):
       x = ops.convert_to_tensor(x, name="x")
-      cat_log_prob = self._cat.log_prob(math_ops.cast(clip_ops.clip_by_value(x, 0, self.num_classes), dtypes.int32))
-      return where(x < self.num_classes, cat_log_prob, 
-        cat_log_prob + self._dist.log_prob(x - self.num_classes))
+      cat_log_prob = self._cat.log_prob(math_ops.cast(clip_ops.clip_by_value(x, 0, self.K), dtypes.int32))
+      return where(x < self.K, cat_log_prob, 
+        cat_log_prob + self._dist.log_prob(x - self.K))
 
   def _prob(self, x):
     return math_ops.exp(self._log_prob(x))
@@ -308,58 +339,62 @@ class Categorized(distribution.Distribution):
               self.event_shape))
       return ret
 
-  def entropy_lower_bound(self, name="entropy_lower_bound"):
-    r"""A lower bound on the entropy of this categorized model.
+  # def entropy_lower_bound(self, name="entropy_lower_bound"):
+  #   r"""A lower bound on the entropy of this categorized model.
 
-    The bound below is not always very tight, and its usefulness depends
-    on the categorized probabilities and the dist in use.
+  #   The bound below is not always very tight, and its usefulness depends
+  #   on the categorized probabilities and the dist in use.
 
-    A lower bound is useful for ELBO when the `Categorized` is the variational
-    distribution:
+  #   A lower bound is useful for ELBO when the `Categorized` is the variational
+  #   distribution:
 
-    \\(
-    \log p(x) >= ELBO = \int q(z) \log p(x, z) dz + H[q]
-    \\)
+  #   \\(
+  #   \log p(x) >= ELBO = \int q(z) \log p(x, z) dz + H[q]
+  #   \\)
 
-    where \\( p \\) is the prior distribution, \\( q \\) is the variational,
-    and \\( H[q] \\) is the entropy of \\( q \\). If there is a lower bound
-    \\( G[q] \\) such that \\( H[q] \geq G[q] \\) then it can be used in
-    place of \\( H[q] \\).
+  #   where \\( p \\) is the prior distribution, \\( q \\) is the variational,
+  #   and \\( H[q] \\) is the entropy of \\( q \\). If there is a lower bound
+  #   \\( G[q] \\) such that \\( H[q] \geq G[q] \\) then it can be used in
+  #   place of \\( H[q] \\).
 
-    For a categorized distribution \\( q(Z) = \sum_i c_i q_i(Z) \\) with
-    \\( \sum_i c_i = 1 \\), by the concavity of \\( f(x) = -x \log x \\), a
-    simple lower bound is:
+  #   For a categorized distribution \\( q(Z) = \sum_i c_i q_i(Z) \\) with
+  #   \\( \sum_i c_i = 1 \\), by the concavity of \\( f(x) = -x \log x \\), a
+  #   simple lower bound is:
 
-    \\(
-    \begin{align}
-    H[q] & = - \int q(z) \log q(z) dz \\\
-       & = - \int (\sum_i c_i q_i(z)) \log(\sum_i c_i q_i(z)) dz \\\
-       & \geq - \sum_i c_i \int q_i(z) \log q_i(z) dz \\\
-       & = \sum_i c_i H[q_i]
-    \end{align}
-    \\)
+  #   \\(
+  #   \begin{align}
+  #   H[q] & = - \int q(z) \log q(z) dz \\\
+  #      & = - \int (\sum_i c_i q_i(z)) \log(\sum_i c_i q_i(z)) dz \\\
+  #      & \geq - \sum_i c_i \int q_i(z) \log q_i(z) dz \\\
+  #      & = \sum_i c_i H[q_i]
+  #   \end{align}
+  #   \\)
 
-    This is the term we calculate below for \\( G[q] \\).
+  #   This is the term we calculate below for \\( G[q] \\).
 
-    Args:
-      name: A name for this operation (optional).
+  #   Args:
+  #     name: A name for this operation (optional).
 
-    Returns:
-      A lower bound on the entropy of categorized distribution.
-    """
-    with self._name_scope(name, values=[self.cat.logits]):
-      with ops.control_dependencies(self._assertions):
-        distribution_entropies = [d.entropy() for d in self.dist]
-        cat_probs = self._cat_probs(log_probs=False)
-        partial_entropies = [
-            c_p * m for (c_p, m) in zip(cat_probs, distribution_entropies)
-        ]
-        # These are all the same shape by virtue of matching batch_shape
-        return math_ops.add_n(partial_entropies)
+  #   Returns:
+  #     A lower bound on the entropy of categorized distribution.
+  #   """
+  #   with self._name_scope(name, values=[self.cat.logits]):
+  #     with ops.control_dependencies(self._assertions):
+  #       distribution_entropies = [d.entropy() for d in self.dist]
+  #       cat_probs = self._cat_probs(log_probs = False)
+  #       partial_entropies = [     
+  #           c_p * m for (c_p, m) in zip(cat_probs, distribution_entropies)
+  #       ]
+  #       # These are all the same shape by virtue of matching batch_shape
+  #       return math_ops.add_n(partial_entropies)
 
   def _cat_probs(self, log_probs):
     """Get a list of num_classes batchwise probabilities."""
     which_softmax = nn_ops.log_softmax if log_probs else nn_ops.softmax
     cat_probs = which_softmax(self.cat.logits)
-    cat_probs = array_ops.unstack(cat_probs, num=self.num_dist, axis=-1)
+    cat_probs = array_ops.unstack(
+      cat_probs,
+      num=self._static_cat_event_size,
+      axis=-1
+    )
     return cat_probs
