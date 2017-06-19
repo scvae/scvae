@@ -66,6 +66,10 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         self.reconstruction_distribution = distributions\
             [reconstruction_distribution]
         
+        # Number of categorical elements needed for reconstruction, e.g. K+1
+        self.number_of_reconstruction_classes = number_of_reconstruction_classes + 1
+        # K: For the sum over K-1 Categorical probabilities and the last K
+        #   count distribution pdf.
         self.k_max = number_of_reconstruction_classes
         
         self.batch_normalisation = batch_normalisation
@@ -592,7 +596,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             if self.k_max:
                 x_logits = dense_layer(
                     inputs = decoder,
-                    num_outputs = self.feature_size * self.k_max,
+                    num_outputs = self.feature_size * self.number_of_reconstruction_classes,
                     activation_fn = None,
                     is_training = self.is_training,
                     dropout_keep_probability = self.dropout_keep_probability_h,
@@ -600,7 +604,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 )
                 
                 x_logits = tf.reshape(x_logits,
-                    [-1, self.feature_size, self.k_max])
+                    [-1, self.feature_size, self.number_of_reconstruction_classes])
                 
                 self.p_x_given_z = Categorized(
                     dist = self.p_x_given_z,
