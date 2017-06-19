@@ -426,7 +426,8 @@ def main(data_set_name, data_directory = "data",
             
             if model.type == "GMVAE_alt" \
                 and ("No class" in data_set.class_names
-                or "No class" in data_set.superset_class_names):
+                or (data_set.label_superset \
+                and "No class" in data_set.superset_class_names)):
                 
                 subtitle("Predicting labels for unlabelled examples in {} set"\
                     .format(evaluation_set.kind))
@@ -452,7 +453,8 @@ def main(data_set_name, data_directory = "data",
                 
                 if "No class" in data_set.class_names:
                     labels = data_set.labels
-                elif "No class" in data_set.superset_class_names:
+                elif data_set.label_superset \
+                    and "No class" in data_set.superset_class_names:
                     labels = data_set.superset_labels
                 
                 unlablled_indices = labels == "No class"
