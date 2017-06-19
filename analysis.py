@@ -1391,7 +1391,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 print("No values to plot.\n")
                 return
             
-            axis_limits_set = {} # TODO {0: None}
+            axis_limits_set = {0: None}
             
             if pca_limits and normaliseString(decomposition_method) == "pca":
                 
@@ -1490,6 +1490,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     centroids = centroids_decomposed,
                     figure_labels = figure_labels,
                     axis_limits = axis_limits,
+                    example_tag = data_set.tags["example"],
                     name = plot_name
                 )
                 saveFigure(figure, figure_name, decompositions_directory)
@@ -1512,6 +1513,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         centroids = centroids_decomposed,
                         figure_labels = figure_labels,
                         axis_limits = axis_limits,
+                        example_tag = data_set.tags["example"],
                         name = plot_name
                     )
                     saveFigure(figure, figure_name, decompositions_directory)
@@ -1530,6 +1532,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             centroids = centroids_decomposed,
                             figure_labels = figure_labels,
                             axis_limits = axis_limits,
+                            example_tag = data_set.tags["example"],
                             name = plot_name
                         )
                         saveFigure(figure, figure_name, decompositions_directory)
@@ -1555,6 +1558,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                                 class_name = class_name,
                                 figure_labels = figure_labels,
                                 axis_limits = axis_limits,
+                                example_tag = data_set.tags["example"],
                                 name = plot_name
                             )
                             saveFigure(figure, figure_name, decompositions_directory)
@@ -1581,6 +1585,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                                 class_name = superset_class_name,
                                 figure_labels = figure_labels,
                                 axis_limits = axis_limits,
+                                example_tag = data_set.tags["example"],
                                 name = plot_name
                             )
                             saveFigure(figure, figure_name, decompositions_directory)
@@ -1604,6 +1609,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     centroids = centroids_decomposed,
                     figure_labels = figure_labels,
                     axis_limits = axis_limits,
+                    example_tag = data_set.tags["example"],
                     name = plot_name
                 )
                 saveFigure(figure, figure_name, decompositions_directory)
@@ -1626,6 +1632,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         feature_index = feature_index,
                         figure_labels = figure_labels,
                         axis_limits = axis_limits,
+                        example_tag = data_set.tags["example"],
                         name = plot_name
                     )
                     saveFigure(figure, figure_name, decompositions_directory)
@@ -2753,7 +2760,8 @@ def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
 
 def plotValues(values, colour_coding = None, colouring_data_set = None,
     centroids = None, class_name = None, feature_index = None,
-    figure_labels = None, axis_limits = None, name = "scatter"):
+    figure_labels = None, axis_limits = None, example_tag = None,
+    name = "scatter"):
     
     # Setup
     
@@ -2830,7 +2838,8 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         values = values[include_indices]
         shuffled_indices = shuffled_indices[include_indices]
         
-        outliers_string = "{} counts omitted".format(len(outlier_indices))
+        outliers_string = "{} {}s omitted".format(len(outlier_indices),
+            example_tag)
     
     # Figure
     
