@@ -1688,7 +1688,7 @@ def analyseCentroidProbabilities(centroids, name = None,
 def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
     x_mean = data_set.mean()
-    x_std  = data_set.std()
+    x_std  = data_set.std(ddof = 1)
     x_min  = data_set.min()
     x_max  = data_set.max()
     
