@@ -119,10 +119,12 @@ data_sets = {
         "excluded superset classes": [
             "No class"
         ],
-        "heat map transformation": {
+        "heat map normalisation": {
             "name": "Macosko",
-            "label": lambda symbol: "$\log ({} / 10^{{4}} + 1)$".format(symbol),
-            "function": lambda values: numpy.log(values / 1e4 + 1)
+            "label": lambda symbol:
+                "$\log ({} / n \\times 10^{{4}} + 1)$".format(symbol),
+            "function": lambda values, normalisation:
+                numpy.log(values / normalisation * 1e4 + 1)
         },
         "PCA limits": {
             "full": {
@@ -372,10 +374,12 @@ data_sets = {
         "excluded superset classes": [
             "No class"
         ],
-        "heat map transformation": {
+        "heat map normalisation": {
             "name": "Macosko",
-            "label": lambda symbol: "$\log ({} / 10^{{4}} + 1)$".format(symbol),
-            "function": lambda values: numpy.log(values / 1e4 + 1)
+            "label": lambda symbol:
+                "$\log ({} / n \\times 10^{{4}} + 1)$".format(symbol),
+            "function": lambda values, normalisation:
+                numpy.log(values / normalisation * 1e4 + 1)
         },
         "PCA limits": {
             "full": {
@@ -549,8 +553,8 @@ class DataSet(object):
         # Version of data set (original, reconstructed)
         self.version = version
         
-        # Heat map transformation for data set
-        self.heat_map_transformation = dataSetHeatMapTransformation(self.title)
+        # Heat map normalisation for data set
+        self.heat_map_normalisation = dataSetHeatMapNormalisation(self.title)
         
         # PCA limits for data set
         self.pca_limits = dataSetPCALimits(self.title, self.kind)
@@ -1176,9 +1180,9 @@ def dataSetFeatureDimensions(title):
     else:
         return None
 
-def dataSetHeatMapTransformation(title):
-    if "heat map transformation" in data_sets[title]:
-        return data_sets[title]["heat map transformation"]
+def dataSetHeatMapNormalisation(title):
+    if "heat map normalisation" in data_sets[title]:
+        return data_sets[title]["heat map normalisation"]
     else:
         return None
 

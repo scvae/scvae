@@ -202,7 +202,8 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             figure, figure_name = plotHeatMap(
                 data_set.values,
                 labels = labels,
-                transformation = data_set.heat_map_transformation,
+                normalisation = data_set.heat_map_normalisation,
+                normalisation_constants = data_set.count_sum,
                 x_name = data_set.tags["feature"].capitalize() + "s",
                 y_name = data_set.tags["example"].capitalize() + "s",
                 z_name = data_set.tags["value"].capitalize() + "s",
@@ -887,8 +888,9 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         figure, figure_name = plotHeatMap(
             reconstructed_evaluation_set.values,
             labels = reconstructed_evaluation_set.labels,
-            transformation =
-                reconstructed_evaluation_set.heat_map_transformation,
+            normalisation =
+                reconstructed_evaluation_set.heat_map_normalisation,
+            normalisation_constants = evaluation_set.count_sum,
             x_name = evaluation_set.tags["feature"].capitalize() + "s",
             y_name = evaluation_set.tags["example"].capitalize() + "s",
             z_name = evaluation_set.tags["value"].capitalize() + "s",
@@ -2702,7 +2704,7 @@ def plotProfileComparison(observed_series, expected_series,
 
 def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
     z_min = None, z_max = None, labels = None, center = None,
-    transformation = None, name = None):
+    normalisation = None, normalisation_constants = None, name = None):
     
     figure_name = figureName("heat_map", name)
     
@@ -2720,12 +2722,12 @@ def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
     if z_symbol:
         z_name = "$" + z_symbol + "$"
     
-    if transformation:
-        values = transformation["function"](values)
+    if normalisation:
+        values = normalisation["function"](values, normalisation_constants)
         if z_symbol:
-            z_name = transformation["label"](z_symbol)
+            z_name = normalisation["label"](z_symbol)
         elif z_name:
-            z_name = "Transformed " + z_name.lower()
+            z_name = "Normalised " + z_name.lower()
     
     cbar_dict = {}
     
