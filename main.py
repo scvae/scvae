@@ -37,6 +37,7 @@ def main(data_set_name, data_directory = "data",
     number_of_reconstruction_classes = 0,
     prior_probabilities_method = "uniform",
     number_of_warm_up_epochs = 50,
+    proportion_of_free_KL_nats = 0.0,
     batch_normalisation = True,
     dropout_keep_probabilities = [],
     count_sum = True,
@@ -282,6 +283,7 @@ def main(data_set_name, data_directory = "data",
                 analytical_kl_term = analytical_kl_term,
                 prior_probabilities = prior_probabilities,
                 number_of_latent_clusters = number_of_latent_clusters,
+                proportion_of_free_KL_nats = proportion_of_free_KL_nats,
                 reconstruction_distribution = reconstruction_distribution,
                 number_of_reconstruction_classes = number_of_reconstruction_classes,
                 batch_normalisation = batch_normalisation,
@@ -822,7 +824,7 @@ parser.add_argument(
     help = "directory where results are saved"
 )
 parser.add_argument(
-    "--feature-selection", "-f",
+    "--feature-selection", "-F",
     type = str,
     nargs = "?",
     default = None,
@@ -973,6 +975,12 @@ parser.add_argument(
     type = int,
     default = 0,
     help = "number of epochs with a linear weight on the KL-term"
+)
+parser.add_argument(
+    "--proportion-of-free-KL-nats", "-fn",
+    type = float,
+    default = 0.0,
+    help = "Proportion of maximum KL_y divergence which has constant term and zero gradients, ´free bits´ method"
 )
 parser.add_argument(
     "--batch-normalisation", "-b",

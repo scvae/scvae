@@ -36,6 +36,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         latent_distribution = "gaussian mixture",
         prior_probabilities = None,
         number_of_latent_clusters = 1,
+        proportion_of_free_KL_nats = 0.8,
         reconstruction_distribution = None,
         number_of_reconstruction_classes = None,
         batch_normalisation = True, 
@@ -66,6 +67,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             self.prior_probabilities_method = "uniform"
             self.prior_probabilities = None
         
+
         if self.prior_probabilities:
             self.K = len(self.prior_probabilities)
         else:
@@ -74,6 +76,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         self.number_of_latent_clusters = self.K
         self.analytical_kl_term = analytical_kl_term
         
+        self.proportion_of_free_KL_nats = proportion_of_free_KL_nats
+
         # Dictionary holding number of samples needed for the "monte carlo" 
         # estimator and "importance weighting" during both "train" and "test" time.  
         self.number_of_importance_samples = number_of_importance_samples
@@ -238,7 +242,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         
         if self.number_of_warm_up_epochs:
             reconstruction_part += "_wu_" + str(self.number_of_warm_up_epochs)
-        
+        if self.proportion_of_free_KL_nats:
+            reconstruction_part += "_fn_" + str(self.proportion_of_free_KL_nats)
+
         model_name = os.path.join(self.type, latent_part, reconstruction_part)
         
         return model_name
@@ -333,6 +339,12 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         
         if self.batch_normalisation:
             description_parts.append("using batch normalisation")
+
+        if self.number_of_warm_up_epochs:
+            description_parts.append("using linear warmup weighting for the first {} epochs".format(self.number_of_warm_up_epochs))
+
+        if self.proportion_of_free_KL_nats:
+            description_parts.append("using free nats of KL_y divergence of proportion: {}".format(self.proportion_of_free_KL_nats))
 
         if len(self.dropout_parts) > 0:
             description_parts.append("dropout keep probability: {}".format(", ".join(self.dropout_parts)))
@@ -713,13 +725,17 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             q_y_given_x_entropy = self.q_y_given_x.entropy()
             # H[q(y|x)||p(y)] = -E_{q(y|x)}[ log(p(y)) ] = -E_{q(y|x)}[ log(1/K) ] = log(K)
             # ()
-            p_y_cross_entropy = numpy.log(self.K)
+            p_y_entropy = numpy.log(self.K)
             # KL(q||p) = -E_q(y|x)[log p(y)/q(y|x)] = -E_q(y|x)[log p(y)] + E_q(y|x)[log q(y|x)] = H(q|p) - H(q)
             # (B)
-            KL_y = p_y_cross_entropy - q_y_given_x_entropy
+            KL_y = p_y_entropy - q_y_given_x_entropy
         else:
             KL_y = kl(self.q_y_given_x, self.p_y)
-        
+            p_y_entropy = tf.squeeze(self.p_y.entropy())
+
+        KL_y_threshhold = self.proportion_of_free_KL_nats * p_y_entropy
+        print("KL_y Threshold", KL_y_threshhold)
+
         KL_z = [None] * self.K
         KL_z_mean = [None] * self.K
         log_p_x_given_z_mean = [None] * self.K
@@ -870,10 +886,21 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         # (B) --> ()
         self.KL_z = tf.reduce_mean(tf.add_n(KL_z_mean))
         self.KL_y = tf.reduce_mean(KL_y)
+        if self.proportion_of_free_KL_nats:
+            KL_y_modified = tf.where(
+                self.KL_y > KL_y_threshhold,
+                self.KL_y,
+                KL_y_threshhold
+            )
+        else:
+            KL_y_modified = self.KL_y
+
         self.KL = self.KL_z + self.KL_y
         self.KL_all = tf.expand_dims(self.KL, -1)
         self.ENRE = tf.reduce_mean(tf.add_n(log_p_x_given_z_mean))
-        self.lower_bound = self.ENRE - self.warm_up_weight * self.KL
+        self.lower_bound = self.ENRE - self.warm_up_weight * (
+            self.KL_z + KL_y_modified
+        )
         self.ELBO = self.lower_bound
         tf.add_to_collection('losses', self.lower_bound)
         
