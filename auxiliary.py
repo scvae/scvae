@@ -119,7 +119,7 @@ def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False):
     
     ## Data set kinds
     if data_set_kinds == "all":
-        data_set_kinds = ["training", "validation", "test"]
+        data_set_kinds = ["training", "validation", "evaluation"]
     elif not isinstance(data_set_kinds, list):
         data_set_kinds = [data_set_kinds]
     
@@ -182,7 +182,7 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False,
     
     ## Data set kinds
     if data_set_kinds == "all":
-        data_set_kinds = ["training", "validation", "test"]
+        data_set_kinds = ["training", "validation", "evaluation"]
     elif not isinstance(data_set_kinds, list):
         data_set_kinds = [data_set_kinds]
     
@@ -243,7 +243,7 @@ def loadCentroids(model, data_set_kinds = "all", early_stopping = False):
     
     ## Data set kinds
     if data_set_kinds == "all":
-        data_set_kinds = ["training", "validation", "test"]
+        data_set_kinds = ["training", "validation", "evaluation"]
     elif not isinstance(data_set_kinds, list):
         data_set_kinds = [data_set_kinds]
     
@@ -335,7 +335,7 @@ def loadCentroids(model, data_set_kinds = "all", early_stopping = False):
                 for e in range(E):
                     z_covariance_matrices[e, k] = numpy.diag(z_variances[e, k])
             
-            if data_set_kind == "test":
+            if data_set_kind == "evaluation":
                 z_probabilities = z_probabilities[0]
                 z_means = z_means[0]
                 z_covariance_matrices = z_covariance_matrices[0]
