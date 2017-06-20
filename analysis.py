@@ -231,10 +231,14 @@ def analyseModel(model, results_directory = "results"):
     
     # Setup
     
+    number_of_epochs_trained = loadNumberOfEpochsTrained(model)
+    
     if model.type in ["VAE", "IWVAE", "CVAE", "GMVAE", "GMVAE_alt"]:
         model_name = model.testing_name
     else:
         model_name = model.name
+    
+    model_name += "_e_" + str(number_of_epochs_trained)
     
     results_directory = os.path.join(results_directory, model_name)
     
@@ -513,10 +517,15 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     # Setup
     
+    number_of_epochs_trained = loadNumberOfEpochsTrained(model,
+        early_stopping = early_stopping)
+    
     if model.type in ["VAE", "IWVAE", "CVAE", "GMVAE", "GMVAE_alt"]:
         model_name = model.testing_name
     else:
         model_name = model.name
+    
+    model_name += "_e_" + str(number_of_epochs_trained)
     
     results_directory = os.path.join(results_directory, model_name)
     
@@ -536,8 +545,6 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     print("Loading results from model log directory.")
     loading_time_start = time()
     
-    number_of_epochs_trained = loadNumberOfEpochsTrained(model,
-        early_stopping = early_stopping)
     evaluation_eval = loadLearningCurves(model, "evaluation",
         early_stopping = early_stopping)
     accuracy_eval = loadAccuracies(model, "evaluation",
