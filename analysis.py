@@ -1136,7 +1136,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
     figure, figure_name = plotHistogram(
         series = data_set.count_sum,
         label = "Total number of {}s per {}".format(
-            data_set.tags["value"], data_set.tags["example"]
+            data_set.tags["item"], data_set.tags["example"]
         ),
         normed = True,
         scale = "log",
@@ -1204,7 +1204,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
             figure, figure_name = plotHistogram(
                 series = data_set.count_sum[class_indices],
                 label = "Total number of {}s per {}".format(
-                    data_set.tags["value"], data_set.tags["example"]
+                    data_set.tags["item"], data_set.tags["example"]
                 ),
                 normed = True,
                 scale = "log",
@@ -2998,7 +2998,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         colour_bar = figure.colorbar(scatter_plot)
         colour_bar.outline.set_linewidth(0)
         colour_bar.set_label("Total number of {}s per {}".format(
-            colouring_data_set.tags["value"],
+            colouring_data_set.tags["item"],
             colouring_data_set.tags["example"]
         ))
     

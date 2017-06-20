@@ -36,7 +36,8 @@ data_sets = {
         "tags": {
             "example": "cell",
             "feature": "gene",
-            "value": "transcript count"
+            "type": "count",
+            "item": "transcript"
         },
         "split": False,
         "preprocessing methods": None,
@@ -183,7 +184,8 @@ data_sets = {
         "tags": {
             "example": "digit",
             "feature": "pixel",
-            "value": "intensity count"
+            "type": "count",
+            "item": "intensity"
         },
         "split": ["training", "test"],
         "preprocessing methods": None,
@@ -211,7 +213,8 @@ data_sets = {
         "tags": {
             "example": "digit",
             "feature": "pixel",
-            "value": "value"
+            "type": "value",
+            "item": "intensity"
         },
         "split": ["training", "validation", "test"],
         "preprocessing methods": None,
@@ -230,7 +233,8 @@ data_sets = {
         "tags": {
             "example": "digit",
             "feature": "pixel",
-            "value": "pixel value"
+            "type": "value",
+            "item": "intensity"
         },
         "split": ["training", "validation", "test"],
         "preprocessing methods": ["binarise"],
@@ -259,7 +263,8 @@ data_sets = {
         "tags": {
             "example": "document",
             "feature": "word",
-            "value": "count"
+            "type": "count",
+            "item": "word"
         },
         "split": False,
         "preprocessing methods": None,
@@ -275,7 +280,8 @@ data_sets = {
         "tags": {
             "example": "document",
             "feature": "word",
-            "value": "count"
+            "type": "count",
+            "item": "word"
         },
         "split": ["training", "test"],
         "preprocessing methods": None,
@@ -1183,14 +1189,21 @@ def dataSetTitle(name):
 
 def dataSetTags(title):
     if "tags" in data_sets[title]:
-        return data_sets[title]["tags"]
+        tags = data_sets[title]["tags"]
     else:
         tags = {
             "example": "example",
             "feature": "feature",
-            "value": "value"
+            "type": "value",
+            "item": "item"
         }
-        return tags
+    
+    if "item" in tags and tags["item"]:
+        tags["value"] = tags["item"] + " " + tags["type"]
+    else:
+        tags["value"] = tags["type"]
+    
+    return tags
 
 def dataSetExampleType(title):
     if "example type" in data_sets[title]:
