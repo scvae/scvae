@@ -25,13 +25,10 @@ import re
 
 from time import time
 from auxiliary import (
-    formatTime, formatDuration,
-    normaliseString, properString,
-    heading
-)
-from auxiliary import (
     loadNumberOfEpochsTrained, loadLearningCurves, loadAccuracies,
-    loadCentroids, loadKLDivergences
+    loadCentroids, loadKLDivergences,
+    formatTime, formatDuration,
+    normaliseString, properString, heading
 )
 
 standard_palette = seaborn.color_palette('Set2', 8)
@@ -1046,6 +1043,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
             class_palette = data_set.class_palette,
             normed = True,
             scale = "linear",
+            label_sorter = data_set.label_sorter,
             name = data_set_name
         )
         saveFigure(figure, figure_name, distribution_directory)
@@ -1064,6 +1062,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
             class_palette = data_set.superset_class_palette,
             normed = True,
             scale = "linear",
+            label_sorter = data_set.superset_label_sorter,
             name = [data_set_name, "superset"]
         )
         saveFigure(figure, figure_name, distribution_directory)
@@ -1928,7 +1927,7 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
         return values_decomposed
 
 def plotClassHistogram(labels, class_names = None, class_palette = None,
-    normed = False, scale = "linear", name = None):
+    normed = False, scale = "linear", label_sorter = None, name = None):
     
     figure_name = "histogram"
     
@@ -1952,6 +1951,9 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
         class_palette = {class_name: index_palette[i] for i, class_name in
                          enumerate(sorted(class_names))}
     
+    if not label_sorter:
+        label_sorter = createLabelSorter()
+    
     histogram = {
         class_name: {
             "index": i,
@@ -1959,7 +1961,7 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
             "colour": class_palette[class_name]
         }
         for i, class_name in enumerate(sorted(class_names,
-            key = classLabelSortKey))
+            key = label_sorter))
     }
     
     total_count_sum = 0
@@ -2864,11 +2866,13 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             class_names = colouring_data_set.superset_class_names
             class_palette = colouring_data_set.superset_class_palette
             number_of_classes = colouring_data_set.number_of_superset_classes
+            label_sorter = colouring_data_set.superset_label_sorter
         else:
             labels = colouring_data_set.labels
             class_names = colouring_data_set.class_names
             class_palette = colouring_data_set.class_palette
             number_of_classes = colouring_data_set.number_of_classes
+            label_sorter = colouring_data_set.label_sorter
         
         if not class_palette:
             index_palette = lighter_palette(number_of_classes)
@@ -2897,7 +2901,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             if number_of_classes < 20:
                 handles, labels = axis.get_legend_handles_labels()
                 labels, handles = zip(*sorted(zip(labels, handles),
-                    key = lambda t: classLabelSortKey(t[0])))
+                    key = lambda t: label_sorter(t[0])))
                 legend = axis.legend(handles, labels, loc = "best")
         
         elif "class" in colour_coding:
@@ -2935,7 +2939,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 
                 handles, labels = axis.get_legend_handles_labels()
                 labels, handles = zip(*sorted(zip(labels, handles),
-                    key = lambda t: classLabelSortKey(t[0])))
+                    key = lambda t: label_sorter(t[0])))
                 legend = axis.legend(handles, labels, loc = "best")
     
     elif colour_coding == "count_sum":
@@ -3189,12 +3193,21 @@ def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
     
     return axis_label
 
-def classLabelSortKey(label):
-    label = str(label)
-    if label == "Miscellaneous":
-        label = "ZZZ" + label
-    if label == "No class":
-        label = "ZZZZ" + label
-    if label == "Others":
-        label = "ZZZZZ" + label
-    return label
+def createLabelSorter(sorted_class_names = []):
+    
+    def labelSorter(label):
+        label = str(label)
+        
+        if label in sorted_class_names:
+            index = sorted_class_names.index(label)
+            label = str(index) + "_" + label
+        elif label == "Miscellaneous":
+            label = "ZZZ_" + label
+        elif label == "No class":
+            label = "ZZZZ_" + label
+        elif label == "Others":
+            label = "ZZZZZ_" + label
+        
+        return label
+    
+    return labelSorter

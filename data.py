@@ -25,7 +25,7 @@ from auxiliary import (
     download
 )
 
-from analysis import lighter_palette
+from analysis import lighter_palette, createLabelSorter
 
 preprocess_suffix = "preprocessed"
 original_suffix = "original"
@@ -103,6 +103,15 @@ data_sets = {
             "Miscellaneous": [i for i in range(35, 40)],
             "No class": [0]
         },
+        "sorted superset class names": [
+            "Horizontal",
+            "Retinal ganglion",
+            "Amacrine",
+            "Rods",
+            "Cones",
+            "Bipolar",
+            "Muller glia"
+        ],
         "literature probabilities": {
             "Horizontal": 0.5 / 100,
             "Retinal ganglion": 0.5 / 100,
@@ -364,6 +373,10 @@ data_sets = {
             "Cones": [3],
             "No class": [0]
         },
+        "sorted superset class names": [
+            "Rods",
+            "Cones"
+        ],
         "literature probabilities": {
             "Rods": 0.8,
             "Cones": 0.2
@@ -510,6 +523,14 @@ class DataSet(object):
             feature_names = feature_names,
             class_names = class_names
         )
+        
+        # Sorted class names for data set
+        sorted_class_names = dataSetSortedClassNames(self.title)
+        self.label_sorter = createLabelSorter(sorted_class_names)
+        sorted_superset_class_names = dataSetSortedClassNames(self.title,
+            superset = True)
+        self.superset_label_sorter = createLabelSorter(
+            sorted_superset_class_names)
         
         # Feature selction
         self.feature_selection = feature_selection
@@ -1223,6 +1244,17 @@ def dataSetLabelSuperset(title):
     else:
         return None
 
+def dataSetSortedClassNames(title, superset = False):
+    if not superset:
+        sorted_class_names = "sorted class names"
+    else:
+        sorted_class_names = "sorted superset class names"
+    
+    if sorted_class_names in data_sets[title]:
+        return data_sets[title][sorted_class_names]
+    else:
+        return []
+
 def dataSetExcludedClasses(title):
     if "excluded classes" in data_sets[title]:
         return data_sets[title]["excluded classes"]
@@ -1432,6 +1464,13 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
         number_of_non_zero_elements = (values != 0).sum(axis = 1)
         filter_indices = numpy.nonzero(
             number_of_non_zero_elements > minimum_number_of_non_zero_elements
+        )[0]
+    
+    if example_filter == "inverse_macosko":
+        maximum_number_of_non_zero_elements = 900
+        number_of_non_zero_elements = (values != 0).sum(axis = 1)
+        filter_indices = numpy.nonzero(
+            number_of_non_zero_elements <= maximum_number_of_non_zero_elements
         )[0]
     
     elif example_filter in ["keep", "remove", "excluded_classes"]:
