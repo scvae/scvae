@@ -979,6 +979,7 @@ parser.add_argument(
 parser.add_argument(
     "--proportion-of-free-KL-nats", "-fn",
     type = float,
+    nargs = "?",
     default = 0.0,
     help = "Proportion of maximum KL_y divergence which has constant term and zero gradients, ´free bits´ method"
 )
