@@ -773,7 +773,10 @@ class DataSet(object):
             
             print()
             
-            if duration > 10:
+            if duration > 30:
+                if not os.path.exists(self.preprocess_directory):
+                    os.makedirs(self.preprocess_directory)
+                
                 print("Saving data set in sparse representation.")
                 saveAsSparseData(data_dictionary, sparse_path)
         
@@ -980,6 +983,9 @@ class DataSet(object):
             }
             
             if self.number_of_features > 1000:
+                if not os.path.exists(self.preprocess_directory):
+                    os.makedirs(self.preprocess_directory)
+                
                 print("Saving binarised data set in sparse representation.")
                 saveAsSparseData(data_dictionary, sparse_path)
         
@@ -1037,6 +1043,9 @@ class DataSet(object):
             print()
             
             if self.number_of_features > 1000:
+                if not os.path.exists(self.preprocess_directory):
+                    os.makedirs(self.preprocess_directory)
+                
                 print("Saving split data sets in sparse representation.")
                 saveAsSparseData(split_data_dictionary, sparse_path)
         
