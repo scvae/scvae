@@ -1420,7 +1420,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         batch_size = int(numpy.ceil(batch_size))
         
         if self.count_sum:
-            n_eval = evaluation_set.normalised_count_sum
+            n_eval = evaluation_set.count_sum
         
         if self.count_sum_feature:
             n_feature_eval = evaluation_set.normalised_count_sum
