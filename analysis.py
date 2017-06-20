@@ -1079,13 +1079,17 @@ def analyseDistributions(data_set, colouring_data_set = None,
             
         if maximum_count:
             count_histogram_name = [
-                data_set_name, "maximum_count_scale", maximum_count_scale]
+                "counts",
+                data_set_name,
+                "maximum_count_scale",
+                maximum_count_scale
+            ]
         else:
-            count_histogram_name = data_set_name
+            count_histogram_name = ["counts", data_set_name]
         
         figure, figure_name = plotHistogram(
             series = data_set.values.reshape(-1),
-            title = "Counts",
+            label = data_set.tags["value"].capitalize() + "s",
             discrete = data_set_discreteness,
             normed = True,
             scale = "log",
@@ -1131,10 +1135,12 @@ def analyseDistributions(data_set, colouring_data_set = None,
     
     figure, figure_name = plotHistogram(
         series = data_set.count_sum,
-        title = "Count sum",
+        label = "Total number of {}s per {}".format(
+            data_set.tags["value"], data_set.tags["example"]
+        ),
         normed = True,
         scale = "log",
-        name = data_set_name
+        name = ["count sum", data_set_name]
     )
     saveFigure(figure, figure_name, distribution_directory)
     
@@ -1175,12 +1181,12 @@ def analyseDistributions(data_set, colouring_data_set = None,
                 continue
             figure, figure_name = plotHistogram(
                 series = data_set.values[class_indices].reshape(-1),
-                title = "Counts",
+                label = data_set.tags["value"].capitalize() + "s",
                 discrete = data_set_discreteness,
                 normed = True,
                 scale = "log",
                 colour = class_palette[class_name],
-                name = [data_set_name, "class", class_name]
+                name = ["counts", data_set_name, "class", class_name]
             )
             saveFigure(figure, figure_name,
                 class_count_distribution_directory)
@@ -1197,11 +1203,13 @@ def analyseDistributions(data_set, colouring_data_set = None,
                 continue
             figure, figure_name = plotHistogram(
                 series = data_set.count_sum[class_indices],
-                title = "Count sum",
+                label = "Total number of {}s per {}".format(
+                    data_set.tags["value"], data_set.tags["example"]
+                ),
                 normed = True,
                 scale = "log",
                 colour = class_palette[class_name],
-                name = [data_set_name, "class", class_name]
+                name = ["count sum", data_set_name, "class", class_name]
             )
             saveFigure(figure, figure_name,
                 class_count_distribution_directory)
@@ -2010,7 +2018,7 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     
     return figure, figure_name
 
-def plotHistogram(series, title = None, maximum_count = None,
+def plotHistogram(series, label = None, maximum_count = None,
     normed = False, discrete = False, scale = "linear", colour = None,
     name = None):
     
@@ -2020,8 +2028,6 @@ def plotHistogram(series, title = None, maximum_count = None,
     
     if normed:
         figure_name += "-normed"
-    
-    figure_name += "-" + normaliseString(title)
     
     figure_name = figureName(figure_name, name)
     
@@ -2051,7 +2057,7 @@ def plotHistogram(series, title = None, maximum_count = None,
     
     axis.set_yscale(scale)
     
-    axis.set_xlabel(title)
+    axis.set_xlabel(label)
     
     if normed:
         axis.set_ylabel("Frequency")
@@ -2088,8 +2094,6 @@ def plotCutOffCountHistogram(series, cutoff = None, normed = False,
     if not colour:
         colour = standard_palette[0]
     
-    colour = seaborn.desaturate(colour, 0.75)
-    
     k = numpy.arange(cutoff + 1)
     C = numpy.empty(cutoff + 1)
     
@@ -2106,11 +2110,11 @@ def plotCutOffCountHistogram(series, cutoff = None, normed = False,
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
-    axis.bar(k, C)
+    axis.bar(k, C, color = colour, alpha = 0.4)
     
     axis.set_yscale(scale)
     
-    axis.set_xlabel("Count classes")
+    axis.set_xlabel("Count bins")
     
     if normed:
         axis.set_ylabel("Frequency")
@@ -2993,7 +2997,10 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             cmap = colour_map)
         colour_bar = figure.colorbar(scatter_plot)
         colour_bar.outline.set_linewidth(0)
-        colour_bar.set_label("Count sum")
+        colour_bar.set_label("Total number of {}s per {}".format(
+            colouring_data_set.tags["value"],
+            colouring_data_set.tags["example"]
+        ))
     
     elif colour_coding == "feature":
         
@@ -3241,15 +3248,17 @@ def createLabelSorter(sorted_class_names = []):
     def labelSorter(label):
         label = str(label)
         
+        K = len(sorted_class_names)
+        
         if label in sorted_class_names:
             index = sorted_class_names.index(label)
             label = str(index) + "_" + label
         elif label == "Miscellaneous":
-            label = "ZZZ_" + label
+            label = str(K) + "_" + label
         elif label == "No class":
-            label = "ZZZZ_" + label
+            label = str(K + 1) + "_" + label
         elif label == "Others":
-            label = "ZZZZZ_" + label
+            label = str(K + 2) + "_" + label
         
         return label
     
