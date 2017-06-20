@@ -1111,12 +1111,10 @@ def analyseDistributions(data_set, colouring_data_set = None,
         distribution_time_start = time()
 
         for cutoff in cutoffs:
-            figure, figure_name = plotHistogram(
+            figure, figure_name = plotCutOffCountHistogram(
                 series = data_set.values.reshape(-1),
-                title = "Counts",
-                discrete = data_set_discreteness,
-                normed = True,
                 cutoff = cutoff,
+                normed = True,
                 scale = "log",
                 name = data_set_name
             )
@@ -2012,7 +2010,7 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     
     return figure, figure_name
 
-def plotHistogram(series, title = None, cutoff = None, maximum_count = None,
+def plotHistogram(series, title = None, maximum_count = None,
     normed = False, discrete = False, scale = "linear", colour = None,
     name = None):
     
@@ -2034,11 +2032,6 @@ def plotHistogram(series, title = None, cutoff = None, maximum_count = None,
         maximum_count_indcises = series <= maximum_count
         number_of_outliers = series.size - maximum_count_indcises.sum()
         series = series[maximum_count_indcises]
-    
-    if cutoff:
-        figure_name += "-cutoff-{}".format(cutoff)
-        clip_indices = series > cutoff
-        series[clip_indices] = cutoff
     
     series_max = series.max()
     
@@ -2078,6 +2071,56 @@ def plotHistogram(series, title = None, cutoff = None, maximum_count = None,
     
     return figure, figure_name
 
+def plotCutOffCountHistogram(series, cutoff = None, normed = False,
+    scale = "linear", colour = None, name = None):
+    
+    series = series.copy()
+    
+    figure_name = "histogram"
+    
+    if normed:
+        figure_name += "-normed"
+    
+    figure_name += "-counts"
+    figure_name = figureName(figure_name, name)
+    figure_name += "-cutoff-{}".format(cutoff)
+    
+    if not colour:
+        colour = standard_palette[0]
+    
+    colour = seaborn.desaturate(colour, 0.75)
+    
+    k = numpy.arange(cutoff + 1)
+    C = numpy.empty(cutoff + 1)
+    
+    for i in range(cutoff + 1):
+        if k[i] < cutoff:
+            c = (series == k[i]).sum()
+        elif k[i] == cutoff:
+            c = (series >= cutoff).sum()
+        C[i] = c
+    
+    if normed:
+        C /= C.sum()
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    axis.bar(k, C)
+    
+    axis.set_yscale(scale)
+    
+    axis.set_xlabel("Count classes")
+    
+    if normed:
+        axis.set_ylabel("Frequency")
+    else:
+        axis.set_ylabel("Number of counts")
+    
+    seaborn.despine()
+    
+    return figure, figure_name
+    
 def plotSeries(series, x_label, y_label, scale = "linear", bar = False,
     name = None):
     
