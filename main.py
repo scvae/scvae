@@ -996,7 +996,7 @@ parser.add_argument(
 parser.add_argument(
     "--dropout-keep-probabilities", "-d",
     type = float,
-    nargs = "+",
+    nargs = "*",
     default = [],
     help = "List of probabilities, p, of keeping connections when using dropout. Interval: ]0, 1[, where p in {0, 1, False} means no dropout."
 )
