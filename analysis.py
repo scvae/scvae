@@ -1694,7 +1694,7 @@ def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     x_min  = data_set.min()
     x_max  = data_set.max()
     
-    x_dispersion = x_mean / x_std
+    x_dispersion = x_std**2 / x_mean
     
     if skip_sparsity:
         x_sparsity = nan
