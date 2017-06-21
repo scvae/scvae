@@ -754,8 +754,12 @@ def validateModelConfiguration(model_configuration):
             likelihood_error_list.append("zero-inflated distributions")
             likelihood_validity = False
         
-        if "negative binomial" in reconstruction_distribution:
-            likelihood_error_list.append("any negative binomial distribution")
+        # if "negative binomial" in reconstruction_distribution:
+        #     likelihood_error_list.append("any negative binomial distribution")
+        #     likelihood_validity = False
+        
+        if "constrained" in reconstruction_distribution:
+            likelihood_error_list.append("the multinomial distribution")
             likelihood_validity = False
         
         if "multinomial" in reconstruction_distribution:
