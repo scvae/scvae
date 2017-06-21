@@ -767,7 +767,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             KL_z_mean[k] = tf.reduce_mean(
                 KL_z[k], 
                 axis=(0,1)
-            ) * self.q_y_given_x_probs[:, k] 
+            ) * self.q_y_given_x_probs[:, k]
 
             # (R, L, B, F) --> (R, L, B)
             log_p_x_given_z = tf.reshape(
@@ -880,7 +880,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
 
         log_likelihood_x_z_sum = tf.add_n(log_likelihood_x_z)
 
-        # self.lower_bound = tf.reduce_mean(
+        # self.ELBO_train_modified = tf.reduce_mean(
         #     log_likelihood_x_z_sum - KL_y
         # )
         # (B) --> ()
@@ -898,11 +898,11 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         self.KL = self.KL_z + self.KL_y
         self.KL_all = tf.expand_dims(self.KL, -1)
         self.ENRE = tf.reduce_mean(tf.add_n(log_p_x_given_z_mean))
-        self.lower_bound = self.ENRE - self.warm_up_weight * (
+        self.ELBO_train_modified = self.ENRE - self.warm_up_weight * (
             self.KL_z + KL_y_modified
         )
-        self.ELBO = self.lower_bound
-        tf.add_to_collection('losses', self.lower_bound)
+        self.ELBO = self.ENRE - self.KL
+        tf.add_to_collection('losses', self.ELBO)
         
     
     def training(self):
@@ -921,11 +921,11 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             # (and also increment the global step counter) as a single training
             # step.
             # self.train_op = optimiser.minimize(
-            #     -self.lower_bound,
+            #     -self.ELBO_train_modified,
             #     global_step = self.global_step
             # )
         
-            gradients = optimiser.compute_gradients(-self.lower_bound)
+            gradients = optimiser.compute_gradients(-self.ELBO_train_modified)
             clipped_gradients = [(tf.clip_by_value(gradient, -1., 1.), variable) for gradient, variable in gradients]
             self.train_op = optimiser.apply_gradients(clipped_gradients, global_step = self.global_step)
         # Make sure that the updates of the moving_averages in batch_norm
@@ -1205,7 +1205,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     
                     # Run the stochastic batch training operation
                     _, batch_loss = session.run(
-                        [self.train_op, self.lower_bound],
+                        [self.train_op, self.ELBO],
                         feed_dict = feed_dict_batch
                     )
                     
