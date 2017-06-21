@@ -1650,7 +1650,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             
             # Clean up
             
-            removeOldCheckpoints(self.log_directory)
+            # removeOldCheckpoints(self.log_directory)
             
             status["completed"] = True
             status["training time"] = formatDuration(training_duration)
