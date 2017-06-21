@@ -736,7 +736,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         maximum_count = max(observed_series.max(), expected_series.max())
     
-        if maximum_count < 2 * y_cutoff:
+        if maximum_count < 3 * y_cutoff:
             example_name_parts = example_name
             figure, figure_name = plotProfileComparison(
                 observed_series,
