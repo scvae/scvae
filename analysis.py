@@ -10,6 +10,8 @@ from matplotlib import pyplot
 import matplotlib.patches
 import matplotlib.gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
+from matplotlib.ticker import LogFormatterSciNotation
+
 import seaborn
 
 from PIL import Image
@@ -735,9 +737,9 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             expected_series_explained_standard_deviations = None
         
         maximum_count = max(observed_series.max(), expected_series.max())
-    
-        if maximum_count < 3 * y_cutoff:
-            example_name_parts = example_name
+        
+        for y_scale in ["linear", "log"]:
+            example_name_parts = [example_name, y_scale]
             figure, figure_name = plotProfileComparison(
                 observed_series,
                 expected_series,
@@ -748,11 +750,12 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 sort_by = "expected",
                 sort_direction = "descending",
                 x_scale = "log",
-                y_scale = "linear",
+                y_scale = y_scale,
                 name = example_name_parts
             )
             saveFigure(figure, figure_name, profile_comparisons_directory)
-        else:
+        
+        if maximum_count > 3 * y_cutoff:
             for y_scale in ["linear", "log", "both"]:
                 example_name_parts = [example_name, y_scale]
                 figure, figure_name = plotProfileComparison(
@@ -2583,9 +2586,9 @@ def plotProfileComparison(observed_series, expected_series,
     
     observed_label = "Observed"
     expected_label = "Expected"
-    expected_total_standard_deviations_label = "Total standard deviations"
+    expected_total_standard_deviations_label = "Total standard deviation"
     expected_explained_standard_deviations_label = \
-        "Explained standard deviations"
+        "Explained standard deviation"
     
     # Sorting
     
@@ -2614,8 +2617,6 @@ def plotProfileComparison(observed_series, expected_series,
         raise ValueError("Sort direction can either be ascending or descending.")
     
     # Standard deviations
-    
-    
     
     if expected_series_total_standard_deviations is not None:
         with_total_standard_deviations = True
@@ -2726,13 +2727,16 @@ def plotProfileComparison(observed_series, expected_series,
         axis_lower.set_xscale(x_scale)
         axis_lower.set_xlabel(x_label)
         
-        if y_cutoff:
-            y_upper_min, y_upper_max = axis_upper.get_ylim()
-            axis_upper.set_ylim(y_cutoff, y_upper_max)
+        y_upper_min, y_upper_max = axis_upper.get_ylim()
+        y_lower_min, y_lower_max = axis_lower.get_ylim()
+        axis_upper.set_ylim(y_cutoff, y_upper_max)
             
-            y_lower_min, y_lower_max = axis_lower.get_ylim()
-            y_lower_min = max(-1, y_lower_min)
-            axis_lower.set_ylim(y_lower_min, y_cutoff)
+        y_lower_min = max(-1, y_lower_min)
+        axis_lower.set_ylim(y_lower_min, y_cutoff)
+        
+        # if y_upper_max < 100:
+        #     axis_upper.yaxis.set_major_formatter(CustomTicker())
+        
     else:
         axis.legend(
             handles = handles,
@@ -2747,15 +2751,20 @@ def plotProfileComparison(observed_series, expected_series,
         axis.set_xscale(x_scale)
         axis.set_xlabel(x_label)
         
+        y_min, y_max = axis.get_ylim()
+        y_min = max(-1, y_min)
+        
         if y_cutoff:
-            y_min, y_max = axis.get_ylim()
-            y_min = max(-1, y_min)
-            
             if y_scale == "linear":
-                axis.set_ylim(y_min, y_cutoff)
+                y_max = y_cutoff
             elif y_scale == "log":
-                axis.set_ylim(y_cutoff, y_max)
-    
+                y_min = y_cutoff
+        
+        axis.set_ylim(y_min, y_max)
+        
+        # if y_scale == "log" and y_max < 100:
+        #     axis.yaxis.set_major_formatter(CustomTicker())
+        
     return figure, figure_name
 
 def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
@@ -3270,3 +3279,14 @@ def createLabelSorter(sorted_class_names = []):
         return label
     
     return labelSorter
+
+class CustomTicker(LogFormatterSciNotation):
+    def __call__(self, x, pos = None):
+        if 0.1 <= x < 1:
+            tick_label = "{:.1f}".format(x)
+        elif 1 <= x < 100:
+            tick_label = "{:.0f}".format(x)
+        else:
+            tick_label =  LogFormatterSciNotation.__call__(self, x, pos = None)
+        print(tick_label)
+        return tick_label
