@@ -66,6 +66,8 @@ def main(data_set_name, data_directory = "data",
     training_set, validation_set, test_set = data_set.split(
         splitting_method, splitting_fraction)
     
+    all_data_sets = [data_set, training_set, validation_set, test_set]
+    
     print()
     
     # Set up log and results directories
@@ -82,7 +84,7 @@ def main(data_set_name, data_directory = "data",
     if analyse and analyse_data:
         subtitle("Analysing data")
         analysis.analyseData(
-            [data_set, training_set, validation_set, test_set],
+            all_data_sets,
             decomposition_methods, highlight_feature_indices,
             plot_heat_maps_for_large_data_sets,
             data_results_directory
@@ -367,7 +369,7 @@ def main(data_set_name, data_directory = "data",
         
         # Evaluating
         
-        for data_subset in [training_set, validation_set, test_set]:
+        for data_subset in all_data_sets:
             if data_subset.kind == evaluation_set_name:
                 evaluation_set = data_subset
         
