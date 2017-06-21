@@ -260,6 +260,10 @@ def analyseModel(model, results_directory = "results"):
     figure, figure_name = plotLearningCurves(learning_curves, model.type)
     saveFigure(figure, figure_name, results_directory)
     
+    # figure, figure_name = plotLearningCurves(learning_curves, model.type,
+    #     cut_off_learning_curve_at_epoch = 5)
+    # saveFigure(figure, figure_name, results_directory)
+    
     learning_curves_duration = time() - learning_curves_time_start
     print("Learning curves plotted and saved ({}).".format(
         formatDuration(learning_curves_duration)))
@@ -2167,9 +2171,17 @@ def plotSeries(series, x_label, y_label, scale = "linear", bar = False,
     
     return figure, figure_name
 
-def plotLearningCurves(curves, model_type, epoch_offset = 0, name = None):
+def plotLearningCurves(curves, model_type, epoch_offset = 0,
+    cut_off_learning_curve_at_epoch = 1, name = None):
+    
+    figure_name = "learning_curves"
     
     figure_name = figureName("learning_curves", name)
+    
+    epoch_cutoff = cut_off_learning_curve_at_epoch - 1
+    
+    if epoch_cutoff:
+        figure_name += "-cutoff-{}".format(epoch_cutoff + 1)
     
     x_label = "Epoch"
     y_label = "Nat"
@@ -2177,14 +2189,20 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, name = None):
     if model_type == "SNN":
         figure = pyplot.figure()
         axis_1 = figure.add_subplot(1, 1, 1)
+        log_likelihood_min = []
     elif model_type in ["CVAE", "GMVAE", "GMVAE_alt"]:
         figure, (axis_1, axis_2, axis_3) = pyplot.subplots(3, sharex = True,
             figsize = (6.4, 14.4))
         figure.subplots_adjust(hspace = 0.1)
+        log_likelihood_min = []
+        kl_z_max = []
+        kl_y_max = []
     elif "AE" in model_type:
         figure, (axis_1, axis_2) = pyplot.subplots(2, sharex = True,
             figsize = (6.4, 9.6))
         figure.subplots_adjust(hspace = 0.1)
+        log_likelihood_min = []
+        kl_z_max = []
     
     for curve_set_name, curve_set in sorted(curves.items()):
         
@@ -2203,15 +2221,18 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, name = None):
                 curve_name = "$\\mathcal{L}$"
                 colour = curve_colour(0)
                 axis = axis_1
+                log_likelihood_min.append(curve[epoch_cutoff])
             elif curve_name == "reconstruction_error":
                 curve_name = "$\\log p(x|z)$"
                 colour = curve_colour(1)
                 axis = axis_1
+                log_likelihood_min.append(curve[epoch_cutoff])
             elif "kl_divergence" in curve_name:
                 if curve_name == "kl_divergence":
                     index = ""
                     colour = curve_colour(0)
                     axis = axis_2
+                    kl_z_max.append(curve[epoch_cutoff])
                 else:
                     latent_variable = curve_name.replace("kl_divergence_", "")
                     latent_variable = re.sub(r"(\w)(\d)", r"\1_\2", latent_variable)
@@ -2219,16 +2240,20 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, name = None):
                     if latent_variable in ["z", "z_2"]:
                         colour = curve_colour(0)
                         axis = axis_2
+                        kl_z_max.append(curve[epoch_cutoff])
                     elif latent_variable == "z_1":
                         colour = curve_colour(1)
                         axis = axis_2
+                        kl_z_max.append(curve[epoch_cutoff])
                     elif latent_variable == "y":
                         colour = curve_colour(0)
                         axis = axis_3
+                        kl_y_max.append(curve[epoch_cutoff])
                 curve_name = "KL" + index + "$(p||q)$"
             elif curve_name == "log_likelihood":
                 curve_name = "$L$"
                 axis = axis_1
+                log_likelihood_min.append(curve[epoch_cutoff])
             epochs = numpy.arange(len(curve)) + 1 + epoch_offset
             label = curve_name + " ({} set)".format(curve_set_name)
             axis.plot(epochs, curve, color = colour, linestyle = line_style,
@@ -2242,6 +2267,9 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, name = None):
     if model_type == "SNN":
         axis_1.set_xlabel(x_label)
         axis_1.set_ylabel(y_label)
+        if epoch_cutoff:
+            y_1_min, y_1_max = axis_1.get_ylim()
+            axis_1.set_ylim(min(*log_likelihood_min), y_1_max)
     elif "AE" in model_type:
         handles, labels = axis_2.get_legend_handles_labels()
         labels, handles = zip(*sorted(zip(labels, handles),
@@ -2249,6 +2277,11 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, name = None):
         axis_2.legend(handles, labels, loc = "best")
         axis_1.set_ylabel("")
         axis_2.set_ylabel("")
+        if epoch_cutoff:
+            y_1_min, y_1_max = axis_1.get_ylim()
+            axis_1.set_ylim(min(*log_likelihood_min), y_1_max)
+            # y_2_min, y_2_max = axis_2.get_ylim()
+            # axis_2.set_ylim(max(*kl_z_max), y_2_max)
         if model_type in ["CVAE", "GMVAE", "GMVAE_alt"]:
             axis_3.legend(loc = "best")
             handles, labels = axis_3.get_legend_handles_labels()
@@ -2257,6 +2290,9 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, name = None):
             axis_3.legend(handles, labels, loc = "best")
             axis_3.set_xlabel(x_label)
             axis_3.set_ylabel("")
+            # if epoch_cutoff:
+                # y_3_min, y_3_max = axis_3.get_ylim()
+                # axis_3.set_ylim(max(*kl_y_max), y_3_max)
         else:
             axis_2.set_xlabel(x_label)
         figure.text(-0.01, 0.5, y_label, va = "center", rotation = "vertical")
