@@ -69,7 +69,7 @@ def properString(s, translation):
 
 # Loading function for TensorBoard summaries
 
-def loadNumberOfEpochsTrained(model, early_stopping = False):
+def loadNumberOfEpochsTrained(model, early_stopping = False, best_model = False):
     
     # Seup
     
@@ -85,6 +85,8 @@ def loadNumberOfEpochsTrained(model, early_stopping = False):
     ## Log directory
     if early_stopping:
         log_directory = model.early_stopping_log_directory
+    elif best_model:
+        log_directory = model.best_model_log_directory
     else:
         log_directory = model.log_directory
     
@@ -111,7 +113,8 @@ def loadNumberOfEpochsTrained(model, early_stopping = False):
     
     return E_1
 
-def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False):
+def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False,
+    best_model = False):
     
     # Setup
     
@@ -126,6 +129,8 @@ def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False):
     ## Log directory
     if early_stopping:
         log_directory = model.early_stopping_log_directory
+    elif best_model:
+        log_directory = model.best_model_log_directory
     else:
         log_directory = model.log_directory
     
@@ -174,7 +179,7 @@ def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False):
     return learning_curve_sets
 
 def loadAccuracies(model, data_set_kinds = "all", superset = False,
-    early_stopping = False):
+    early_stopping = False, best_model = False):
     
     # Setup
     
@@ -189,6 +194,8 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False,
     ## Log directory
     if early_stopping:
         log_directory = model.early_stopping_log_directory
+    elif best_model:
+        log_directory = model.best_model_log_directory
     else:
         log_directory = model.log_directory
     
@@ -235,7 +242,8 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False,
     
     return accuracies
 
-def loadCentroids(model, data_set_kinds = "all", early_stopping = False):
+def loadCentroids(model, data_set_kinds = "all", early_stopping = False,
+    best_model = False):
     
     # Setup
     
@@ -254,6 +262,8 @@ def loadCentroids(model, data_set_kinds = "all", early_stopping = False):
     ## Log directory
     if early_stopping:
         log_directory = model.early_stopping_log_directory
+    elif best_model:
+        log_directory = model.best_model_log_directory
     else:
         log_directory = model.log_directory
     
@@ -353,13 +363,15 @@ def loadCentroids(model, data_set_kinds = "all", early_stopping = False):
     
     return centroids_sets
 
-def loadKLDivergences(model, early_stopping = False):
+def loadKLDivergences(model, early_stopping = False, best_model = False):
     
     # Setup
     
     ## Log directory
     if early_stopping:
         log_directory = model.early_stopping_log_directory
+    elif best_model:
+        log_directory = model.best_model_log_directory
     else:
         log_directory = model.log_directory
     

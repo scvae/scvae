@@ -1114,6 +1114,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 ELBO_valid_prev = ELBO_valid_learning_curve[-1]
                 epochs_with_no_improvement = epochsWithNoImprovement(
                     ELBO_valid_learning_curve)
+                ELBO_valid_early_stopping = ELBO_valid_learning_curve[
+                    -1 - epochs_with_no_improvement]
                 
                 if os.path.exists(self.early_stopping_log_directory) \
                     and epochs_with_no_improvement == 0:
@@ -1135,6 +1137,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 ELBO_valid_maximum = - numpy.inf
                 ELBO_valid_prev = - numpy.inf
                 epochs_with_no_improvement = 0
+                ELBO_valid_early_stopping = - numpy.inf
                 
                 self.stopped_early = False
                 
@@ -1526,7 +1529,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 # Early stopping
                 if not self.stopped_early:
                     
-                    if ELBO_valid < ELBO_valid_prev:
+                    if ELBO_valid < ELBO_valid_early_stopping:
                         if epochs_with_no_improvement == 0:
                             print("    Early stopping:",
                                 "Validation loss did not improve",
@@ -1534,6 +1537,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                             print("        " + \
                                 "Saving model parameters for previous epoch.")
                             saving_time_start = time()
+                            ELBO_valid_early_stopping = ELBO_valid
                             current_checkpoint = \
                                 tf.train.get_checkpoint_state(self.log_directory)
                             if current_checkpoint:
@@ -1554,6 +1558,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                             print("    Early stopping cancelled:",
                                 "Validation loss improved.")
                         epochs_with_no_improvement = 0
+                        ELBO_valid_early_stopping = ELBO_valid
                         if os.path.exists(self.early_stopping_log_directory):
                             shutil.rmtree(self.early_stopping_log_directory)
                     
@@ -1659,7 +1664,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             return status
     
     def evaluate(self, evaluation_set, batch_size = 100,
-        use_early_stopping_model = False):
+        use_early_stopping_model = False, use_best_model = False):
         
         # Examples
         
@@ -1733,6 +1738,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         
         if use_early_stopping_model:
             log_directory = self.early_stopping_log_directory
+        elif use_best_model:
+            log_directory = self.best_model_log_directory
         else:
             log_directory = self.log_directory
             

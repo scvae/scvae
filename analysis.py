@@ -515,12 +515,16 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     latent_evaluation_sets, model,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     plot_heat_maps_for_large_data_sets = False,
-    early_stopping = False, results_directory = "results"):
+    early_stopping = False, best_model = False, results_directory = "results"):
+    
+    if early_stopping and best_model:
+        raise ValueError("Early-stopping model and best model cannot be"
+            + " evaluated at the same time.")
     
     # Setup
     
     number_of_epochs_trained = loadNumberOfEpochsTrained(model,
-        early_stopping = early_stopping)
+        early_stopping = early_stopping, best_model = best_model)
     
     if model.type in ["VAE", "IWVAE", "CVAE", "GMVAE", "GMVAE_alt"]:
         model_name = model.testing_name
@@ -536,6 +540,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     if early_stopping:
         results_directory = os.path.join(results_directory, "early_stopping")
+    elif best_model:
+        results_directory = os.path.join(results_directory, "best_model")
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
@@ -548,15 +554,15 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     loading_time_start = time()
     
     evaluation_eval = loadLearningCurves(model, "evaluation",
-        early_stopping = early_stopping)
+        early_stopping = early_stopping, best_model = best_model)
     accuracy_eval = loadAccuracies(model, "evaluation",
-        early_stopping = early_stopping)
+        early_stopping = early_stopping, best_model = best_model)
     superset_accuracy_eval = loadAccuracies(model, "evaluation", superset = True,
-        early_stopping = early_stopping)
+        early_stopping = early_stopping, best_model = best_model)
     
     if "AE" in model.type:
         centroids = loadCentroids(model, data_set_kinds = "evaluation",
-            early_stopping = early_stopping)
+            early_stopping = early_stopping, best_model = best_model)
     else:
         centroids = None
     
@@ -2963,9 +2969,10 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             
             if number_of_classes < 20:
                 handles, labels = axis.get_legend_handles_labels()
-                labels, handles = zip(*sorted(zip(labels, handles),
-                    key = lambda t: label_sorter(t[0])))
-                legend = axis.legend(handles, labels, loc = "best")
+                if labels:
+                    labels, handles = zip(*sorted(zip(labels, handles),
+                        key = lambda t: label_sorter(t[0])))
+                    legend = axis.legend(handles, labels, loc = "best")
         
         elif "class" in colour_coding:
             colours = []
@@ -3258,6 +3265,11 @@ def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
         + suffix + "$"
     
     return axis_label
+
+def betterModelExists(model):
+    E_current = loadNumberOfEpochsTrained(model, best_model = False)
+    E_best = loadNumberOfEpochsTrained(model, best_model = True)
+    return E_best < E_current
 
 def createLabelSorter(sorted_class_names = []):
     

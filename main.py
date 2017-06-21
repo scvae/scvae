@@ -380,6 +380,21 @@ def main(data_set_name, data_directory = "data",
                 latent_evaluation_sets = \
                 model.evaluate(evaluation_set, batch_size)
             
+            if analysis.betterModelExists(model):
+                better_model_exist = True
+                
+                print()
+                subtitle("Evaluating on {} set with best model parameters"\
+                    .format(evaluation_set.kind))
+                
+                best_model_transformed_evaluation_set, \
+                    best_model_reconstructed_evaluation_set, \
+                    best_model_latent_evaluation_sets = \
+                    model.evaluate(evaluation_set, batch_size,
+                        use_best_model = True)
+            else:
+                better_model_exist = False
+            
             if model.stopped_early:
                 print()
                 subtitle("Evaluating on {} set with earlier stopped model"\
@@ -389,11 +404,12 @@ def main(data_set_name, data_directory = "data",
                     early_stopped_reconstructed_evaluation_set, \
                     early_stopped_latent_evaluation_sets = \
                     model.evaluate(evaluation_set, batch_size,
-                        model.stopped_early)
+                        use_early_stopping_model = True)
         else:
             transformed_evaluation_set, reconstructed_evaluation_set = \
                 model.evaluate(evaluation_set, batch_size)
             latent_evaluation_sets = None
+            better_model_exist = False
         
         print()
         
@@ -413,7 +429,20 @@ def main(data_set_name, data_directory = "data",
                 plot_heat_maps_for_large_data_sets,
                 results_directory = results_directory
             )
-
+            
+            if better_model_exist:
+                subtitle("Analysing results for {} set".format(
+                    evaluation_set.kind) + " with best model parameters")
+                analysis.analyseResults(
+                    best_model_transformed_evaluation_set,
+                    best_model_reconstructed_evaluation_set,
+                    best_model_latent_evaluation_sets,
+                    model, decomposition_methods, highlight_feature_indices,
+                    plot_heat_maps_for_large_data_sets,
+                    best_model = True,
+                    results_directory = results_directory
+                )
+            
             if model.stopped_early:
                 subtitle("Analysing results for {} set".format(
                     evaluation_set.kind) + " with earlier stopped model")

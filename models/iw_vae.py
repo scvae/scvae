@@ -954,6 +954,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 ELBO_valid_prev = ELBO_valid_learning_curve[-1]
                 epochs_with_no_improvement = epochsWithNoImprovement(
                     ELBO_valid_learning_curve)
+                ELBO_valid_early_stopping = ELBO_valid_learning_curve[
+                    -1 - epochs_with_no_improvement]
                 
                 if os.path.exists(self.early_stopping_log_directory) \
                     and epochs_with_no_improvement == 0:
@@ -976,6 +978,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 ELBO_valid_maximum = - numpy.inf
                 ELBO_valid_prev = - numpy.inf
                 epochs_with_no_improvement = 0
+                ELBO_valid_early_stopping = - numpy.inf
                 
                 self.stopped_early = False
                 
@@ -1288,7 +1291,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 # Early stopping
                 if not self.stopped_early:
                     
-                    if ELBO_valid < ELBO_valid_prev:
+                    if ELBO_valid < ELBO_valid_early_stopping:
                         if epochs_with_no_improvement == 0:
                             print("    Early stopping:",
                                 "Validation loss did not improve",
@@ -1296,6 +1299,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                             print("        " + \
                                 "Saving model parameters for previous epoch.")
                             saving_time_start = time()
+                            ELBO_valid_early_stopping = ELBO_valid
                             current_checkpoint = \
                                 tf.train.get_checkpoint_state(self.log_directory)
                             if current_checkpoint:
@@ -1316,6 +1320,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                             print("    Early stopping cancelled:",
                                 "Validation loss improved.")
                         epochs_with_no_improvement = 0
+                        ELBO_valid_early_stopping = ELBO_valid
                         if os.path.exists(self.early_stopping_log_directory):
                             shutil.rmtree(self.early_stopping_log_directory)
                     
@@ -1413,7 +1418,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             return status
     
     def evaluate(self, evaluation_set, batch_size = 100,
-        use_early_stopping_model = False, use_deterministic_z = False):
+        use_early_stopping_model = False, use_best_model = False,
+        use_deterministic_z = False):
         
         batch_size /= self.number_of_importance_samples["evaluation"] \
             * self.number_of_monte_carlo_samples["evaluation"]
@@ -1424,7 +1430,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         
         if self.count_sum_feature:
             n_feature_eval = evaluation_set.normalised_count_sum
-
+        
         M_eval = evaluation_set.number_of_examples
         F_eval = evaluation_set.number_of_features
         
@@ -1451,6 +1457,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         
         if use_early_stopping_model:
             log_directory = self.early_stopping_log_directory
+        elif use_best_model:
+            log_directory = self.best_model_log_directory
         else:
             log_directory = self.log_directory
             
