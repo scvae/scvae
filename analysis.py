@@ -2896,7 +2896,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         values = values[include_indices]
         shuffled_indices = shuffled_indices[include_indices]
         
-        outliers_string = "{} {}s omitted".format(len(outlier_indices),
+        outliers_string = "{} {}s not shown".format(len(outlier_indices),
             example_tag)
     
     # Figure
