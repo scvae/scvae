@@ -5,6 +5,7 @@ import gzip
 import tarfile
 import pickle
 import struct
+import random
 
 import re
 from bs4 import BeautifulSoup
@@ -1653,6 +1654,29 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
             
             training_indices = slice(M_training)
             validation_indices = slice(M_training, M_training_validation)
+    
+    elif method == "macosko":
+        
+        values = data_dictionary["values"]
+        
+        minimum_number_of_non_zero_elements = 900
+        number_of_non_zero_elements = (values != 0).sum(axis = 1)
+        
+        training_indices = numpy.nonzero(
+            number_of_non_zero_elements > minimum_number_of_non_zero_elements
+        )[0]
+        
+        test_validation_indices = numpy.nonzero(
+            number_of_non_zero_elements <= minimum_number_of_non_zero_elements
+        )[0]
+        
+        random.shuffle(test_validation_indices)
+        
+        N_test_validation = len(test_validation_indices)
+        V = int((1 - fraction) * N_test_validation)
+        
+        validation_indices = test_validation_indices[:V]
+        test_indices = test_validation_indices[V:]
     
     split_data_dictionary = {
         "training set": {
