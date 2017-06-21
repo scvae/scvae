@@ -266,7 +266,6 @@ def main(data_set_name, data_directory = "data",
                 prior_probabilities_values = None
             else:
                 prior_probabilities_values = list(prior_probabilities.values())
-                random.shuffle(prior_probabilities_values)
             
             prior_probabilities = {
                 "method": prior_probabilities_method,
