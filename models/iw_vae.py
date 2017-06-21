@@ -739,13 +739,13 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             # E_x[p(x)] = E_{z_mc}[1/R * sum(E_x[p(x_r|z_r)]) p(z_r)/q(z_r|x) ] 
             #   where: w_r = p(z_r)/q(z_r|x) = exp(-KL[q(z_r|x) || p(z_r)])
             # (R, L, B) --> (R, B, 1)
-            iw_weight_given_z = tf.expand_dims(
-                tf.exp(
-                    tf.where(self.number_of_iw_samples > 1, 1.0, 0.0) * \
-                        - KL[:, 0, :]
-                ),
-                -1
-            ) 
+            # iw_weight_given_z = tf.expand_dims(
+            #     tf.exp(
+            #         tf.where(self.number_of_iw_samples > 1, 1.0, 0.0) * \
+            #             - KL[:, 0, :]
+            #     ),
+            #     -1
+            # ) 
 
             # Importance weighted Monte Carlo estimates of: 
             # Reconstruction mean (marginalised conditional mean): 
@@ -756,14 +756,14 @@ class ImportanceWeightedVariationalAutoEncoder(object):
 
             # (R, L, B, D_x) --> (R, B, D_x) --> (B, D_x)
             self.p_x_mean = tf.reduce_mean(
-                tf.reduce_mean(self.p_x_given_z_mean, 1) * iw_weight_given_z, 
+                tf.reduce_mean(self.p_x_given_z_mean, 1), 
                 0
             )
 
             # Estimated variance of likelihood expectation:
             # ^V[E[x|z]] = ( E[x|z_l] - Ê[x] )^2
             self.variance_of_p_x_given_z_mean = tf.reduce_mean(
-                iw_weight_given_z * tf.reduce_mean(
+                tf.reduce_mean(
                     tf.square(
                         self.p_x_given_z_mean - tf.reshape(
                             self.p_x_mean, 
@@ -793,7 +793,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             # V[x] = E[V(x|z)] + V[E(x|z)] \approx ^V_z[E[x|z]] + Ê_z[V[x|z]]
             self.p_x_variance = self.variance_of_p_x_given_z_mean +\
                 tf.reduce_mean(
-                    iw_weight_given_z * tf.reduce_mean(
+                    tf.reduce_mean(
                         self.p_x_given_z_variance,
                         1
                     ), 
