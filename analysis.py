@@ -264,6 +264,26 @@ def analyseModel(model, results_directory = "results"):
     #     cut_off_learning_curve_at_epoch = 5)
     # saveFigure(figure, figure_name, results_directory)
     
+    if model.type == "SNN":
+        figure, figure_name = plotSeparateLearningCurves(learning_curves,
+            loss = "log_likelihood")
+        saveFigure(figure, figure_name, results_directory)
+    elif "AE" in model.type:
+        figure, figure_name = plotSeparateLearningCurves(learning_curves,
+            loss = ["lower_bound", "reconstruction_error"])
+        saveFigure(figure, figure_name, results_directory)
+        if model.type in ["GMVAE_alt"]:
+            figure, figure_name = plotSeparateLearningCurves(learning_curves,
+                loss = "kl_divergence_z")
+            saveFigure(figure, figure_name, results_directory)
+            figure, figure_name = plotSeparateLearningCurves(learning_curves,
+                loss = "kl_divergence_y")
+            saveFigure(figure, figure_name, results_directory)
+        else:
+            figure, figure_name = plotSeparateLearningCurves(learning_curves,
+                loss = "kl_divergence")
+            saveFigure(figure, figure_name, results_directory)
+    
     learning_curves_duration = time() - learning_curves_time_start
     print("Learning curves plotted and saved ({}).".format(
         formatDuration(learning_curves_duration)))
@@ -2296,6 +2316,83 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0,
         else:
             axis_2.set_xlabel(x_label)
         figure.text(-0.01, 0.5, y_label, va = "center", rotation = "vertical")
+    
+    seaborn.despine()
+    
+    return figure, figure_name
+
+def plotSeparateLearningCurves(curves, loss, name = None):
+    
+    if not isinstance(loss, list):
+        losses = [loss]
+    else:
+        losses = loss
+    
+    if not isinstance(name, list):
+        names = [name]
+    else:
+        names = name
+    
+    names.extend(losses)
+    
+    figure_name = figureName("learning_curves", names)
+    
+    x_label = "Epoch"
+    y_label = "Nat"
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    for curve_set_name, curve_set in sorted(curves.items()):
+        
+        if curve_set_name == "training":
+            line_style = "solid"
+            colour_index_offset = 0
+        elif curve_set_name == "validation":
+            line_style = "dashed"
+            colour_index_offset = 1
+        
+        curve_colour = lambda i: standard_palette[len(curves) * i
+            + colour_index_offset]
+        
+        for curve_name, curve in sorted(curve_set.items()):
+            if curve_name not in losses:
+                continue
+            if curve_name == "lower_bound":
+                curve_name = "$\\mathcal{L}$"
+                colour = curve_colour(0)
+            elif curve_name == "reconstruction_error":
+                curve_name = "$\\log p(x|z)$"
+                colour = curve_colour(1)
+            elif "kl_divergence" in curve_name:
+                if curve_name == "kl_divergence":
+                    index = ""
+                    colour = curve_colour(0)
+                else:
+                    latent_variable = curve_name.replace("kl_divergence_", "")
+                    latent_variable = re.sub(r"(\w)(\d)", r"\1_\2", latent_variable)
+                    index = "$_{" + latent_variable + "}$"
+                    if latent_variable in ["z", "z_2"]:
+                        colour = curve_colour(0)
+                    elif latent_variable == "z_1":
+                        colour = curve_colour(1)
+                    elif latent_variable == "y":
+                        colour = curve_colour(0)
+                curve_name = "KL" + index + "$(p||q)$"
+            elif curve_name == "log_likelihood":
+                curve_name = "$L$"
+            epochs = numpy.arange(len(curve)) + 1
+            label = curve_name + " ({} set)".format(curve_set_name)
+            axis.plot(epochs, curve, color = colour, linestyle = line_style,
+                label = label)
+    
+    handles, labels = axis.get_legend_handles_labels()
+    labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+    
+    axis.legend(handles, labels, loc = "best")
+    
+    axis.set_xlabel(x_label)
+    axis.set_ylabel(y_label)
     
     seaborn.despine()
     
