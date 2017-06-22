@@ -101,8 +101,8 @@ data_sets = {
             "Rods": [24],
             "Cones": [25],
             "Bipolar": [i for i in range(26, 34)],
-            "Muller glia": [34],
-            "Miscellaneous": [i for i in range(35, 40)],
+            "Müller glia": [34],
+            "Others": [i for i in range(35, 40)],
             "No class": [0]
         },
         "sorted superset class names": [
@@ -112,7 +112,7 @@ data_sets = {
             "Rods",
             "Cones",
             "Bipolar",
-            "Muller glia"
+            "Müller glia"
         ],
         "literature probabilities": {
             "Horizontal": 0.5 / 100,
@@ -121,8 +121,8 @@ data_sets = {
             "Rods": 79.9 / 100,
             "Cones": 2.1 / 100,
             "Bipolar": 7.3 / 100,
-            "Muller glia": 2.8 / 100,
-            "Miscellaneous": 0
+            "Müller glia": 2.8 / 100,
+            "Others": 0
         },
         "excluded classes": [
             0

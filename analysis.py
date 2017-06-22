@@ -1778,7 +1778,7 @@ def formatStatistics(statistics_sets, name = "Data set"):
             "{:<9.5g}".format(statistics_set["mean"]),
             "{:<9.5g}".format(statistics_set["standard deviation"]),
             "{:<9.5g}".format(statistics_set["dispersion"]),
-            "{:<9.3g}".format(statistics_set["minimum"]),
+            "{:<11.5g}".format(statistics_set["minimum"]),
             "{:<11.5g}".format(statistics_set["maximum"]),
             "{:<7.5g}".format(statistics_set["sparsity"]),
         ]
@@ -3114,7 +3114,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             
             ordered_indices_set = {
                 str(class_name): [],
-                "Others": []
+                "Remaining": []
             }
             
             for i, label in enumerate(labels):
@@ -3123,14 +3123,14 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                     ordered_indices_set[str(class_name)].append(i)
                 else:
                     colour = neutral_colour
-                    ordered_indices_set["Others"].append(i)
+                    ordered_indices_set["Remaining"].append(i)
                 colours.append(colour)
             
             colours = numpy.array(colours)
             
             z_order_index = 1
             for label, ordered_indices in sorted(ordered_indices_set.items()):
-                if label == "Others":
+                if label == "Remaining":
                     z_order = 0
                 else:
                     z_order = z_order_index
@@ -3414,11 +3414,11 @@ def createLabelSorter(sorted_class_names = []):
         if label in sorted_class_names:
             index = sorted_class_names.index(label)
             label = str(index) + "_" + label
-        elif label == "Miscellaneous":
+        elif label == "Others":
             label = str(K) + "_" + label
         elif label == "No class":
             label = str(K + 1) + "_" + label
-        elif label == "Others":
+        elif label == "Remaining":
             label = str(K + 2) + "_" + label
         
         return label
