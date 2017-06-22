@@ -765,8 +765,6 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     while any(map(lambda x: x < counter_max, class_counter.values())):
         i = numpy.random.randint(0, M)
         label = labels[i]
-        print(class_counter)
-        print(subset)
         if class_counter[label] >= counter_max or i in subset:
             continue
         else:
