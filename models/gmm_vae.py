@@ -804,9 +804,9 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
 
             # w_{y,z} =( p(z|y)*p(y) ) / ( q(z|x,y) * q(y|x) )
             # (R, L, B) --> (R, B) --> (R, B, 1)
-            iw_weight_given_y_z = tf.exp(tf.where(self.S_iw > 1, 1.0, 0.0) *
-                tf.reshape(-KL_z[k][:,0,:], [self.S_iw, -1, 1])
-            )
+            # iw_weight_given_y_z = tf.exp(tf.where(self.S_iw > 1, 1.0, 0.0) *
+            #     tf.reshape(-KL_z[k][:,0,:], [self.S_iw, -1, 1])
+            # )
 
             # (R * L * B, F) --> (R, L, B, F) 
             p_x_given_z_mean = tf.reshape(
@@ -818,7 +818,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             p_x_means[k] = tf.reduce_mean(
                 tf.reduce_mean(
                     p_x_given_z_mean,
-                1) * iw_weight_given_y_z,
+                1),
             0) * tf.expand_dims(self.q_y_given_x_probs[:, k], -1)
 
             # Reconstruction standard deviation: 
@@ -834,7 +834,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         [self.S_iw, self.S_mc, -1, self.feature_size]
                     ),
                     1
-                ) * iw_weight_given_y_z,
+                ),
                 0
             ) * tf.expand_dims(self.q_y_given_x_probs[:, k], -1)
 
@@ -850,7 +850,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                         )
                     ),
                     1
-                ) * iw_weight_given_y_z,
+                ),
                 0
             ) * tf.expand_dims(self.q_y_given_x_probs[:, k], -1)
 
