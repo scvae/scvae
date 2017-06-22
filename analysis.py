@@ -746,7 +746,32 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     y_cutoff = profile_comparison_count_cut_off
     
-    subset = numpy.random.randint(M, size = number_of_profile_comparisons)
+    subset = set()
+    
+    if evaluation_set.label_superset:
+        class_names = evaluation_set.superset_class_names
+        labels = evaluation_set.superset_labels
+    else:
+        class_names = evaluation_set.class_names
+        labels = evaluation_set.labels
+    
+    class_counter = {}
+    
+    for class_name in class_names:
+        class_counter[class_name] = 0
+    
+    counter_max = 3
+
+    while any(map(lambda x: x < counter_max, class_counter.values())):
+        i = numpy.random.randint(0, M)
+        label = labels[i]
+        print(class_counter)
+        print(subset)
+        if class_counter[label] >= counter_max or i in subset:
+            continue
+        else:
+            class_counter[label] += 1
+            subset.add(i)        
     
     for i in subset:
         
@@ -768,7 +793,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         maximum_count = max(observed_series.max(), expected_series.max())
         
-        for y_scale in ["linear", "log"]:
+        for y_scale in ["linear"]:
             example_name_parts = [example_name, y_scale]
             figure, figure_name = plotProfileComparison(
                 observed_series,
