@@ -836,7 +836,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "--data-set-name", "-n",
     type = str,
-    default = "sample",
+    default = "mouse retina",
     help = "name of data set"
 )
 parser.add_argument(
@@ -927,21 +927,21 @@ parser.add_argument(
     "--hidden-sizes", "-H",
     type = int,
     nargs = "+",
-    default = [500],
+    default = [250, 250],
     help = "sizes of hidden layers"
 )
 parser.add_argument(
     "--number-of-importance-samples",
     type = int,
     nargs = "+",
-    default = [5],
+    default = [1 1000],
     help = "the number of importance weighted samples (if two numbers given, the first will be used for training and the second for evaluation)"
 )
 parser.add_argument(
     "--number-of-monte-carlo-samples",
     type = int,
     nargs = "+",
-    default = [10],
+    default = [1],
     help = "the number of Monte Carlo samples (if two numbers given, the first will be used for training and the second for evaluation)"
 )
 parser.add_argument(
@@ -1047,7 +1047,7 @@ parser.add_argument(
     action = "store_false",
     help = "do not use count sum"
 )
-parser.set_defaults(count_sum = True)
+parser.set_defaults(count_sum = False)
 parser.add_argument(
     "--decomposition-methods",
     type = str,

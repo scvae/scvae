@@ -21,3 +21,27 @@ This multidisciplinary project will be carried out in collaboration with Pers La
 [Macosko]: http://www.cell.com/abstract/S0092-8674(15)00549-8
 [Kingma]: https://arxiv.org/abs/1312.6114
 [Salimans]: https://arxiv.org/abs/1701.05517
+
+## Setup ##
+
+The model has been implemented in Python using the [TensorFlow][]. [Pandas][], 
+[Beautiful Soup][], and the [stemming][] module were used for importing and preprocessing data. Analyses of the models and the results were performed using [NumPy][], [SciPy][], and [scikit-learn][], and figures were made using [matplotlib][], [Seaborn][], and [Pillow][].
+
+[TensorFlow]: https://www.tensorflow.org
+[Pandas]: http://pandas.pydata.org
+[Beautiful Soup]: https://www.crummy.com/software/BeautifulSoup/
+[stemming]: https://bitbucket.org/mchaput/stemming
+[NumPy]: http://www.numpy.org
+[SciPy]: https://www.scipy.org
+[scikit-learn]: http://scikit-learn.org
+[matplotlib]: http://matplotlib.org
+[Seaborn]: http://seaborn.pydata.org
+[Pillow]: https://python-pillow.org
+
+All necessary data are downloaded as needed.
+
+## Running ##
+
+The standard configuration of the model using the standard data set, can be run by just running the `main.py` script. Be aware that it might take some time to load and preprocess the data the first time.
+
+For how to change the standard configuration and the standard data set, issue `./main.py -h` at the command line.
