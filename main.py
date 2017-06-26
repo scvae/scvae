@@ -41,7 +41,8 @@ def main(data_set_name, data_directory = "data",
     batch_normalisation = True,
     dropout_keep_probabilities = [],
     count_sum = True,
-    number_of_epochs = 200, batch_size = 100, learning_rate = 1e-4,
+    number_of_epochs = 200, plot_for_every_n_epochs = 1, 
+    batch_size = 100, learning_rate = 1e-4,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
     analyse = True, evaluation_set_name = "test", analyse_data = False,
@@ -343,7 +344,7 @@ def main(data_set_name, data_directory = "data",
         status = model.train(
             training_set, validation_set,
             number_of_epochs, batch_size, learning_rate,
-            reset_training
+            reset_training, plot_for_every_n_epochs
         )
         
         if not status["completed"]:
@@ -934,7 +935,7 @@ parser.add_argument(
     "--number-of-importance-samples",
     type = int,
     nargs = "+",
-    default = [1 1000],
+    default = [1, 1000],
     help = "the number of importance weighted samples (if two numbers given, the first will be used for training and the second for evaluation)"
 )
 parser.add_argument(
@@ -993,6 +994,11 @@ parser.add_argument(
     help = "number of epochs for which to train"
 )
 parser.add_argument(
+    "--plot-for-every-n-epochs",
+    type = int,
+    help = "number of training epochs between each intermediate plot starting at the first"
+)
+parser.add_argument(
     "--batch-size", "-i",
     type = int,
     default = 100,
@@ -1011,7 +1017,7 @@ parser.add_argument(
     help = "number of epochs with a linear weight on the KL-term"
 )
 parser.add_argument(
-    "--proportion-of-free-KL-nats", "-fn",
+    "--proportion-of-free-KL-nats",
     type = float,
     nargs = "?",
     default = 0.0,

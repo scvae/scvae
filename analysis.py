@@ -8,6 +8,7 @@ from sklearn.manifold import TSNE
 
 from matplotlib import pyplot
 import matplotlib.patches
+import matplotlib.lines
 import matplotlib.gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
 from matplotlib.ticker import LogFormatterSciNotation
@@ -435,9 +436,19 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
     print("Plotting learning curves.")
     learning_curves_time_start = time()
     
+    if epoch is not None:
+        epoch_name = "epoch-{}".format(epoch + 1)
+    else:
+        epoch_name = None
+
     figure, figure_name = plotLearningCurves(learning_curves, model_type,
-        epoch_offset = epoch_start)
-    saveFigure(figure, figure_name, results_directory)
+        epoch_offset = epoch_start, name = epoch_name)
+    
+    if epoch is not None:
+        saveFigure(figure, figure_name, intermediate_directory, for_video=False)
+    else:
+        saveFigure(figure, figure_name, results_directory)
+
     
     learning_curves_duration = time() - learning_curves_time_start
     print("Learning curves plotted and saved ({}).".format(
@@ -508,7 +519,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                 figure_labels = figure_labels,
                 name = name
             )
-            saveFigure(figure, figure_name, intermediate_directory)
+            saveFigure(figure, figure_name, intermediate_directory, for_video=True)
             if data_set.label_superset is not None:
                 figure, figure_name = plotValues(
                     latent_values_decomposed,
@@ -518,7 +529,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                     figure_labels = figure_labels,
                     name = name
                 )
-                saveFigure(figure, figure_name, intermediate_directory)
+                saveFigure(figure, figure_name, intermediate_directory, for_video=True)
         else:
             figure, figure_name = plotValues(
                 latent_values_decomposed,
@@ -526,10 +537,10 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                 figure_labels = figure_labels,
                 name = name
             )
-            saveFigure(figure, figure_name, intermediate_directory)
+            saveFigure(figure, figure_name, intermediate_directory, for_video=True)
     
         if centroids:
-            analyseCentroidProbabilities(centroids, epoch_name, intermediate_directory)
+            analyseCentroidProbabilities(centroids, epoch_name, intermediate_directory, for_video=True)
     
         plot_duration = time() - plot_time_start
         print("{} plotted and saved ({}).".format(
@@ -1717,7 +1728,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 print()
 
 def analyseCentroidProbabilities(centroids, name = None,
-    results_directory = "results"):
+    results_directory = "results", for_video = False):
     
     print("Plotting centroid probabilities.")
     plot_time_start = time()
@@ -1725,31 +1736,57 @@ def analyseCentroidProbabilities(centroids, name = None,
     if name:
         name = normaliseString(name)
     
-    for distribution, distribution_centroids in centroids.items():
-        if distribution_centroids:
-            centroid_probabilities = \
-                distribution_centroids["probabilities"]
-            K = len(centroid_probabilities)
-            centroids_palette = darker_palette(K)
-            x_label = "$k$"
+    posterior_probabilities = None
+    prior_probabilities = None
+
+    if "posterior" in centroids and centroids["posterior"]:
+        posterior_probabilities = centroids["posterior"]["probabilities"]
+        K = len(posterior_probabilities)
+    if "prior" in centroids and centroids["prior"]:
+        prior_probabilities = centroids["prior"]["probabilities"]
+        K = len(prior_probabilities)
+
+    centroids_palette = darker_palette(K)
+    x_label = "$k$"
+    if prior_probabilities is not None:
+        if posterior_probabilities is not None:
             y_label = axisLabelForSymbol(
                 symbol = "\\pi",
-                distribution = normaliseString(distribution),
-                suffix = "^k"
-            )
+                distribution = normaliseString("posterior"),
+                suffix = "^k")
             if name:
-                plot_name = [name, distribution]
+                plot_name = [name, "posterior", "prior"]
             else:
-                plot_name = distribution
-            figure, figure_name = plotProbabilities(
-                centroid_probabilities,
-                x_label = x_label,
-                y_label = y_label,
-                palette = centroids_palette,
-                uniform = False,
-                name = plot_name
-            )
-            saveFigure(figure, figure_name, results_directory)
+                plot_name = ["posterior", "prior"]
+        else:
+            y_label = axisLabelForSymbol(
+                symbol = "\\pi",
+                distribution = normaliseString("prior"),
+                suffix = "^k")
+            if name:
+                plot_name = [name, "prior"]
+            else:
+                plot_name = "prior"
+    elif posterior_probabilities is not None:
+        y_label = axisLabelForSymbol(
+            symbol = "\\pi",
+            distribution = normaliseString("posterior"),
+            suffix = "^k")
+        if name:
+            plot_name = [name, "posterior"]
+        else:
+            plot_name = "posterior"
+
+    figure, figure_name = plotProbabilities(
+        posterior_probabilities,
+        prior_probabilities,
+        x_label = x_label,
+        y_label = y_label,
+        palette = centroids_palette,
+        uniform = False,
+        name = plot_name
+    )
+    saveFigure(figure, figure_name, results_directory, for_video=for_video)
     
     plot_duration = time() - plot_time_start
     print("Centroid probabilities plotted and saved ({}).".format(
@@ -2437,7 +2474,7 @@ def plotAccuracies(accuracies, name = None):
             line_style = "dashed"
             colour = standard_palette[1]
         
-        label = "{} set".format(accuracies_kind)
+        label = "{} set".format(accuracies_kind.capitalize())
         
         epochs = numpy.arange(len(accuracies)) + 1
         axis.plot(epochs, 100 * accuracies, color = colour,
@@ -3239,7 +3276,8 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     
     return figure, figure_name
 
-def plotProbabilities(probabilities, x_label = None, y_label = None, 
+def plotProbabilities(posterior_probabilities, prior_probabilities, 
+    x_label = None, y_label = None,
     palette = None, uniform = False, name = None):
     
     figure_name = figureName("probabilities", name)
@@ -3248,25 +3286,34 @@ def plotProbabilities(probabilities, x_label = None, y_label = None,
         x_label = "$k$"
     
     if not y_label:
-        y_label = "$\pi_k$"
+        y_label = "$\\pi_k$"
     
-    figure = pyplot.figure()
+    figure = pyplot.figure(figsize=(8, 6), dpi=80)
     axis = figure.add_subplot(1, 1, 1)
-    
-    K = len(probabilities)
     
     if not palette:
         palette = [standard_palette[0]] * K
     
-    for k in range(K):
-        axis.bar(k, probabilities[k], color = palette[k])
-    
-    if uniform:
-        axis.plot([0, K], 2 * [1 / K], color = neutral_colour,
-            linestyle = "dashed")
+    if posterior_probabilities is not None:
+        K = len(posterior_probabilities)
+        for k in range(K):
+            axis.bar(k, posterior_probabilities[k], color = palette[k])
+        axis.set_ylabel("$\\pi_{\\phi}^k$")
+        if prior_probabilities is not None: 
+            for k in range(K):
+                axis.plot([k-0.4, k+0.4], 2 * [prior_probabilities[k]],
+                    color = "black",
+                    linestyle = "dashed"
+                )
+            prior_line = matplotlib.lines.Line2D([], [], color="black", linestyle="dashed", label = "$\\pi_{\\theta}^k$")
+            axis.legend(handles=[prior_line], loc="best", fontsize=18)
+    elif prior_probabilities is not None:
+        K = len(prior_probabilities)
+        for k in range(K):
+            axis.bar(k, prior_probabilities[k], color = palette[k])
+        axis.set_ylabel("$\\pi_{\\theta}^k$")
     
     axis.set_xlabel(x_label)
-    axis.set_ylabel(y_label)
     
     seaborn.despine()
     
@@ -3350,6 +3397,7 @@ def figureName(base_name, other_names = None):
     
     if other_names:
         if not isinstance(other_names, list):
+            other_names = str(other_names)
             other_names = [other_names]
         else:
             other_names = [str(name) for name in other_names if name is not None]
@@ -3357,13 +3405,20 @@ def figureName(base_name, other_names = None):
     
     return figure_name
 
-def saveFigure(figure, figure_name, results_directory):
+def saveFigure(figure, figure_name, results_directory, for_video=False):
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
     
     figure_path = os.path.join(results_directory, figure_name) + figure_extension
-    figure.savefig(figure_path, bbox_inches = 'tight')
+    if for_video:
+        bounding_box = None
+        dpi = 'figure'
+    else:
+        bounding_box = 'tight'
+        dpi = None
+
+    figure.savefig(figure_path, bbox_inches = bounding_box, dpi = dpi)
     
     pyplot.close(figure)
 

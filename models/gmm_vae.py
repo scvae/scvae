@@ -942,7 +942,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
 
     def train(self, training_set, validation_set,
         number_of_epochs = 100, batch_size = 100, learning_rate = 1e-3,
-        reset_training = False):
+        reset_training = False, plot_for_every_n_epochs = False):
         
         if reset_training and os.path.exists(self.log_directory):
             shutil.rmtree(self.log_directory)
@@ -968,7 +968,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             epoch_start = 0
         
         status["trained"] = "{}-{}".format(epoch_start, number_of_epochs)
-        
+
         # Training message
         
         data_string = dataString(training_set,
@@ -1596,14 +1596,22 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 print()
                 
                 # Plot latent validation values
-                under_10 = epoch < 10
-                under_100 = epoch < 100 and (epoch + 1) % 10 == 0
-                under_1000 = epoch < 1000 and (epoch + 1) % 50 == 0 
-                above_1000 = epoch > 1000 and (epoch + 1) % 100 == 0 
-                last_one = epoch == number_of_epochs - 1
-                if under_10 or under_100 or under_1000 or above_1000 \
-                    or last_one:
-                    
+                if plot_for_every_n_epochs is None:
+                    under_10 = epoch < 10
+                    under_100 = epoch < 100 and (epoch + 1) % 10 == 0
+                    under_1000 = epoch < 1000 and (epoch + 1) % 50 == 0 
+                    above_1000 = epoch > 1000 and (epoch + 1) % 100 == 0 
+                    last_one = epoch == number_of_epochs - 1
+                    plot_intermediate_results = under_10 \
+                        or under_100 \
+                        or under_1000 \
+                        or above_1000 \
+                        or last_one
+                else: 
+                    plot_intermediate_results =\
+                        epoch % plot_for_every_n_epochs == 0
+
+                if plot_intermediate_results:
                     if "mixture" in self.latent_distribution_name:
                         K = self.K
                         L = self.latent_size
