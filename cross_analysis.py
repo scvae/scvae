@@ -5,7 +5,7 @@ import pickle
 import gzip
 import argparse
 
-from analysis import formatStatistics
+from analysis import formatStatistics, plotCountLikelihoods, saveFigure
 from auxiliary import formatTime
 
 test_metrics_filename = "test_metrics.pkl.gz"
@@ -20,7 +20,6 @@ def main(log_directory = None, results_directory = None,
     if results_directory:
         results_directory = os.path.normpath(results_directory) + os.sep
         test_metrics_set = testMetricsInResultsDirectory(results_directory)
-        
         for data_set, models in test_metrics_set.items():
             
             data_set_match = True
@@ -42,6 +41,8 @@ def main(log_directory = None, results_directory = None,
             
             print(data_set)
             print()
+            count_likelihoods = []
+            count_distribution_names = []
             for model, test_metrics in models.items():
                 
                 model_match = True
@@ -120,6 +121,17 @@ def main(log_directory = None, results_directory = None,
                     print(formatStatistics(reconstructed_statistics))
                 
                 print()
+
+                # Count likelihoods
+
+                count_likelihoods.append(test_metrics["count likelihoods"])
+                count_distribution_names.append(test_metrics["count distribution name"])
+
+            # Plot count likelihood curves for all models
+            if len(count_likelihoods) > 0:
+                print("Plotting count likelihoods for found models")
+                figure, figure_name = plotCountLikelihoods(count_likelihoods, count_distribution_names)
+                saveFigure(figure, figure_name, os.path.join(results_directory, data_set))
 
 def testMetricsInResultsDirectory(results_directory):
     

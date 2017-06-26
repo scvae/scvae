@@ -547,7 +547,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
             latent_set_name.capitalize(), formatDuration(plot_duration)))
 
 def analyseResults(evaluation_set, reconstructed_evaluation_set,
-    latent_evaluation_sets, model,
+    likelihood_evaluation_set, latent_evaluation_sets, model,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     plot_heat_maps_for_large_data_sets = False,
     early_stopping = False, best_model = False, results_directory = "results"):
@@ -698,6 +698,27 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         metrics_string += "\n" + formatCountAccuracies(count_accuracies)
         metrics_file.write(metrics_string)
 
+    # Compute model likelihoods for each count in bins. 
+    count_likelihoods = computeCountLikelihoods(evaluation_set.values, likelihood_evaluation_set.values)
+
+    count_distribution_name = model.reconstruction_distribution_name
+    if model.k_max:
+        count_distribution_name = count_distribution_name + " ({} count classes)".format(model.k_max)
+
+    # Plot likelihoods in bar plots
+    figure, figure_name = plotCountLikelihoods(
+        count_likelihoods,
+        count_distribution_name,
+        bar_plot=True)
+    saveFigure(figure, figure_name, results_directory)
+
+    # Plot likelihoods in line plot
+    figure, figure_name = plotCountLikelihoods(
+        count_likelihoods,
+        count_distribution_name
+    )
+    saveFigure(figure, figure_name, results_directory)
+
     with gzip.open(metrics_dictionary_path, "w") as metrics_file:
         metrics_dictionary = {
             "timestamp": metrics_saving_time_start,
@@ -706,7 +727,9 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             "accuracy": accuracy_eval,
             "superset_accuracy": superset_accuracy_eval,
             "statistics": evaluation_set_statistics,
-            "count accuracies": count_accuracies
+            "count accuracies": count_accuracies,
+            "count likelihoods": count_likelihoods,
+            "count distribution name": count_distribution_name
         }
         pickle.dump(metrics_dictionary, metrics_file)
     
@@ -866,7 +889,16 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             original_maximum_count = evaluation_set_maximum_value,
             results_directory = results_directory
         )
-    
+
+    # Likelihood histograms
+    analyseDistributions(
+        likelihood_evaluation_set,
+        colouring_data_set = evaluation_set,
+        preprocessed = evaluation_set.preprocessing_methods,
+        original_maximum_count = evaluation_set_maximum_value,
+        results_directory = os.path.join(results_directory, "likelihoods")
+    )
+
     ## Reconstructions decomposed
 
     analyseDecompositions(
@@ -3318,6 +3350,57 @@ def plotProbabilities(posterior_probabilities, prior_probabilities,
     seaborn.despine()
     
     return figure, figure_name
+
+def plotCountLikelihoods(count_likelihoods, count_distribution_names, bar_plot=False, name = None):
+    figure = pyplot.figure(figsize=(8, 6), dpi=120)
+    axis = figure.add_subplot(1, 1, 1)
+
+    if not isinstance(count_likelihoods, list):
+        count_likelihoods = [count_likelihoods]
+    if not isinstance(count_distribution_names, list):
+        count_distribution_names = [count_distribution_names]
+
+    count_range = numpy.arange(count_likelihoods[0].shape[0])
+
+    if bar_plot:
+        for i in range(len(count_likelihoods)):
+            axis.bar(
+                count_range,
+                count_likelihoods[i],
+                label=count_distribution_names[i].capitalize()
+            )
+        figure_name = figureName("likelihood_bar_plot", name)
+    else:
+        for i in range(len(count_likelihoods)):
+            axis.plot(count_range,
+                count_likelihoods[i],
+                linestyle = "dashed",
+                label=count_distribution_names[i].capitalize()
+            )
+        figure_name = figureName("likelihood_line_plot", name)
+
+    axis.set_xlabel("Counts")
+    axis.set_ylabel("Average likelihood")
+
+    if len(count_likelihoods) > 1:
+        handles, labels = axis.get_legend_handles_labels()
+        axis.legend(handles, labels)
+
+    seaborn.despine()
+
+    return figure, figure_name
+
+def computeCountLikelihoods(values, likelihoods, max_value = None):
+    if max_value is None:
+        max_value = int(numpy.amax(values))
+
+    count_likelihoods = numpy.zeros(max_value+1)
+
+    for i in range(max_value + 1):
+        count_likelihoods[i] = numpy.mean(likelihoods[values == i])
+
+    return count_likelihoods
+
 
 def covarianceMatrixAsEllipse(covariance_matrix, mean, colour,
     linestyle = "solid", radius_stddev = 1, label = None):

@@ -41,7 +41,7 @@ def main(data_set_name, data_directory = "data",
     batch_normalisation = True,
     dropout_keep_probabilities = [],
     count_sum = True,
-    number_of_epochs = 200, plot_for_every_n_epochs = 1, 
+    number_of_epochs = 200, plot_for_every_n_epochs = None, 
     batch_size = 100, learning_rate = 1e-4,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
@@ -377,8 +377,8 @@ def main(data_set_name, data_directory = "data",
         subtitle("Evaluating on {} set".format(evaluation_set.kind))
         
         if "AE" in model.type:
-            transformed_evaluation_set, reconstructed_evaluation_set, \
-                latent_evaluation_sets = \
+            transformed_evaluation_set, reconstructed_evaluation_set,\
+                likelihood_evaluation_set, latent_evaluation_sets = \
                 model.evaluate(evaluation_set, batch_size)
             
             if analysis.betterModelExists(model):
@@ -390,6 +390,7 @@ def main(data_set_name, data_directory = "data",
                 
                 best_model_transformed_evaluation_set, \
                     best_model_reconstructed_evaluation_set, \
+                    best_model_likelihood_evaluation_set, \
                     best_model_latent_evaluation_sets = \
                     model.evaluate(evaluation_set, batch_size,
                         use_best_model = True)
@@ -403,11 +404,13 @@ def main(data_set_name, data_directory = "data",
                 
                 early_stopped_transformed_evaluation_set, \
                     early_stopped_reconstructed_evaluation_set, \
+                    early_stopped_likelihood_evaluation_set, \
                     early_stopped_latent_evaluation_sets = \
                     model.evaluate(evaluation_set, batch_size,
                         use_early_stopping_model = True)
         else:
-            transformed_evaluation_set, reconstructed_evaluation_set = \
+            transformed_evaluation_set, reconstructed_evaluation_set, \
+                likelihood_evaluation_set = \
                 model.evaluate(evaluation_set, batch_size)
             latent_evaluation_sets = None
             better_model_exist = False
@@ -425,6 +428,7 @@ def main(data_set_name, data_directory = "data",
             analysis.analyseResults(
                 transformed_evaluation_set,
                 reconstructed_evaluation_set,
+                likelihood_evaluation_set,
                 latent_evaluation_sets,
                 model, decomposition_methods, highlight_feature_indices,
                 plot_heat_maps_for_large_data_sets,
@@ -437,6 +441,7 @@ def main(data_set_name, data_directory = "data",
                 analysis.analyseResults(
                     best_model_transformed_evaluation_set,
                     best_model_reconstructed_evaluation_set,
+                    best_model_likelihood_evaluation_set,
                     best_model_latent_evaluation_sets,
                     model, decomposition_methods, highlight_feature_indices,
                     plot_heat_maps_for_large_data_sets,
@@ -450,6 +455,7 @@ def main(data_set_name, data_directory = "data",
                 analysis.analyseResults(
                     early_stopped_transformed_evaluation_set,
                     early_stopped_reconstructed_evaluation_set,
+                    early_stopped_likelihood_evaluation_set,
                     early_stopped_latent_evaluation_sets,
                     model, decomposition_methods, highlight_feature_indices,
                     plot_heat_maps_for_large_data_sets,
@@ -996,6 +1002,7 @@ parser.add_argument(
 parser.add_argument(
     "--plot-for-every-n-epochs",
     type = int,
+    nargs = "?",
     help = "number of training epochs between each intermediate plot starting at the first"
 )
 parser.add_argument(

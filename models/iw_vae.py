@@ -664,12 +664,23 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         ### 1. Evaluate all log(p(x|z)) (R * L * batchsize, D_x) target values in the (R * L * batchsize, D_x) probability distributions learned
         ### 2. Sum over all N_x features
         ### 3. and reshape it back to (R, L, batchsize) 
+        p_x_given_z_log_prob = self.p_x_given_z.log_prob(t_tiled)
         log_p_x_given_z = tf.reshape(
             tf.reduce_sum(
-                self.p_x_given_z.log_prob(t_tiled),
+                p_x_given_z_log_prob,
                 axis = -1
             ),
             [self.number_of_iw_samples, self.number_of_mc_samples, -1]
+        )
+        # (B, D_x)
+        self.p_x_loglik = log_reduce_exp(
+            tf.reshape(
+                p_x_given_z_log_prob,
+                [self.number_of_iw_samples*self.number_of_mc_samples,
+                -1, self.feature_size]
+            ),
+            reduction_function=tf.reduce_mean,
+            axis = 0
         )
 
         # Average over all samples and examples and add to losses in summary
@@ -1502,6 +1513,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             p_x_mean_eval = numpy.empty([M_eval, F_eval])
             p_x_stddev_eval = numpy.empty([M_eval, F_eval])
             stddev_of_p_x_mean_eval = numpy.empty([M_eval, F_eval])
+            p_x_loglik = numpy.empty([M_eval, F_eval])
 
             q_z_mean_eval = numpy.empty([M_eval, self.latent_size])
             
@@ -1531,9 +1543,11 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 if self.count_sum_feature:
                     feed_dict_batch[self.n_feature] = n_feature_eval[subset]
                 
-                ELBO_i, KL_i, ENRE_i, p_x_mean_i, p_x_stddev_i, stddev_of_p_x_mean_i, q_z_mean_i = session.run(
+                ELBO_i, KL_i, ENRE_i, p_x_mean_i, p_x_stddev_i, stddev_of_p_x_mean_i, p_x_loglik_i, q_z_mean_i = session.run(
                     [self.ELBO, self.KL, self.ENRE,
-                        self.p_x_mean, self.p_x_stddev, self.stddev_of_p_x_given_z_mean, self.q_z_mean],
+                        self.p_x_mean, self.p_x_stddev,
+                        self.stddev_of_p_x_given_z_mean, self.p_x_loglik,
+                        self.q_z_mean],
                     feed_dict = feed_dict_batch
                 )
                 
@@ -1556,6 +1570,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 # Estimated standard deviation of Monte Carlo estimate E[x].
                 stddev_of_p_x_mean_eval[subset] = stddev_of_p_x_mean_i
 
+                p_x_loglik[subset] = p_x_loglik_i
 
                 q_z_mean_eval[subset] = q_z_mean_i
             
@@ -1650,6 +1665,20 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 kind = evaluation_set.kind,
                 version = "reconstructed"
             )
+
+            likelihood_evaluation_set = DataSet(
+                name = evaluation_set.name,
+                values = numpy.exp(p_x_loglik),
+                preprocessed_values = None,
+                labels = evaluation_set.labels,
+                example_names = evaluation_set.example_names,
+                feature_names = evaluation_set.feature_names,
+                feature_selection = evaluation_set.feature_selection,
+                example_filter = evaluation_set.example_filter,
+                preprocessing_methods = evaluation_set.preprocessing_methods,
+                kind = evaluation_set.kind,
+                version = "likelihood"
+            )
             
             latent_evaluation_set = DataSet(
                 name = evaluation_set.name,
@@ -1666,5 +1695,5 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 version = "z"
             )
             
-            return transformed_evaluation_set, reconstructed_evaluation_set, \
-                latent_evaluation_set
+            return transformed_evaluation_set, reconstructed_evaluation_set,\
+                likelihood_evaluation_set, latent_evaluation_set
