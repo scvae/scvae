@@ -46,7 +46,7 @@ def main(data_set_name, data_directory = "data",
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
     analyse = True, evaluation_set_name = "test", analyse_data = False,
-    plot_heat_maps_for_large_data_sets = False):
+    plot_heat_maps_for_large_data_sets = False, video = False):
     
     print()
     
@@ -422,7 +422,7 @@ def main(data_set_name, data_directory = "data",
         if analyse:
             
             subtitle("Analysing model")
-            analysis.analyseModel(model, results_directory)
+            analysis.analyseModel(model, results_directory, for_video = video)
 
             subtitle("Analysing results for {} set".format(evaluation_set.kind))
             analysis.analyseResults(
@@ -1135,6 +1135,18 @@ parser.add_argument(
     help = "skip plotting heat maps for large data sets"
 )
 parser.set_defaults(plot_heat_maps_for_large_data_sets = False)
+parser.add_argument(
+    "--video", "-v",
+    action = "store_true",
+    help = "analyse model evolution for video"
+)
+parser.add_argument(
+    "--no-video", "-V",
+    dest = "video",
+    action = "store_false",
+    help = "do not analyse model evolution for video"
+)
+parser.set_defaults(video = False)
 
 if __name__ == '__main__':
     arguments = parser.parse_args()
