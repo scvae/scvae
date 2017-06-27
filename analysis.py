@@ -519,6 +519,10 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                 figure_labels = figure_labels,
                 name = name
             )
+            figure.axes[0].set_xbound([-8, 13])
+            figure.axes[0].set_ybound([-5, 12])
+            figure.axes[0].set_xlim([-8, 13])
+            figure.axes[0].set_ylim([-5, 12])
             saveFigure(figure, figure_name, intermediate_directory, for_video=True)
             if data_set.label_superset is not None:
                 figure, figure_name = plotValues(
@@ -529,6 +533,10 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                     figure_labels = figure_labels,
                     name = name
                 )
+                figure.axes[0].set_xbound([-8, 13])
+                figure.axes[0].set_ybound([-5, 12])
+                figure.axes[0].set_xlim([-8, 13])
+                figure.axes[0].set_ylim([-5, 12])
                 saveFigure(figure, figure_name, intermediate_directory, for_video=True)
         else:
             figure, figure_name = plotValues(
@@ -537,6 +545,10 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                 figure_labels = figure_labels,
                 name = name
             )
+            figure.axes[0].set_xbound([-8, 13])
+            figure.axes[0].set_ybound([-5, 12])
+            figure.axes[0].set_xlim([-8, 13])
+            figure.axes[0].set_ylim([-5, 12])
             saveFigure(figure, figure_name, intermediate_directory, for_video=True)
     
         if centroids:
