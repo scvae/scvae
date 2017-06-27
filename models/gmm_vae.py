@@ -740,6 +740,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         KL_z_mean = [None] * self.K
         log_p_x_given_z_mean = [None] * self.K
         log_likelihood_x_z = [None] * self.K
+        p_x_logliks = [None] * self.K
         p_x_means = [None] * self.K
         p_x_variance_weighted = [None] * self.K
         mean_of_p_x_given_z_variances = [None] * self.K
@@ -769,10 +770,19 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 axis=(0,1)
             ) * self.q_y_given_x_probs[:, k]
 
+            # (R, L, B, F)
+            p_x_given_z_log_prob = self.p_x_given_z[k].log_prob(t_tiled)
+            # (R, L, B, F) --> (B, F)
+            p_x_logliks[k] = log_reduce_exp(
+                p_x_given_z_log_prob,
+                reduction_function=tf.reduce_mean,
+                axis = (0, 1)
+            ) * tf.expand_dims(self.q_y_given_x_probs[:, k], -1)
+
             # (R, L, B, F) --> (R, L, B)
             log_p_x_given_z = tf.reshape(
                 tf.reduce_sum(
-                    self.p_x_given_z[k].log_prob(t_tiled), 
+                    p_x_given_z_log_prob, 
                     axis=-1
                 ),
                 [self.S_iw, self.S_mc, -1]
@@ -873,6 +883,8 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         )
 
         self.p_x_mean = tf.add_n(p_x_means)
+
+        self.p_x_loglik = tf.add_n(p_x_logliks)
 
         # Marginalise z importance samples out
         # (R * S_mc, B, F) --> (B, F)
@@ -1790,6 +1802,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             p_x_mean_eval = numpy.zeros((M_eval, F_eval))
             p_x_stddev_eval = numpy.zeros((M_eval, F_eval))
             stddev_of_p_x_given_z_mean_eval = numpy.zeros((M_eval, F_eval))
+            p_x_loglik = numpy.empty([M_eval, F_eval])
             y_mean_eval = numpy.zeros((M_eval, self.K))
 
             for i in range(0, M_eval, batch_size):
@@ -1816,7 +1829,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     q_y_probabilities_i, q_z_means_i, q_z_variances_i, \
                     p_y_probabilities_i, p_z_means_i, p_z_variances_i, \
                     q_y_logits_i, p_x_mean_i, p_x_stddev_i, \
-                    stddev_of_p_x_given_z_mean_i, y_mean_i, z_mean_i = \
+                    stddev_of_p_x_given_z_mean_i, p_x_loglik_i, y_mean_i, z_mean_i = \
                     session.run(
                         [
                             self.ELBO, self.ENRE, self.KL_z, self.KL_y,
@@ -1824,7 +1837,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                             self.q_z_variances, self.p_y_probabilities, 
                             self.p_z_means, self.p_z_variances, self.q_y_logits,
                             self.p_x_mean, self.p_x_stddev, 
-                            self.stddev_of_p_x_given_z_mean, 
+                            self.stddev_of_p_x_given_z_mean, self.p_x_loglik,
                             self.y_mean, self.z_mean
                         ],
                         feed_dict = feed_dict_batch
@@ -1850,6 +1863,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 p_x_stddev_eval[subset] = p_x_stddev_i
                 stddev_of_p_x_given_z_mean_eval[subset] =\
                     stddev_of_p_x_given_z_mean_i
+                p_x_loglik[subset] = p_x_loglik_i
             
             ELBO_eval /= M_eval / batch_size
             KL_z_eval /= M_eval / batch_size
@@ -1977,6 +1991,20 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 kind = evaluation_set.kind,
                 version = "reconstructed"
             )
+
+            likelihood_evaluation_set = DataSet(
+                name = evaluation_set.name,
+                values = numpy.exp(p_x_loglik),
+                preprocessed_values = None,
+                labels = evaluation_set.labels,
+                example_names = evaluation_set.example_names,
+                feature_names = evaluation_set.feature_names,
+                feature_selection = evaluation_set.feature_selection,
+                example_filter = evaluation_set.example_filter,
+                preprocessing_methods = evaluation_set.preprocessing_methods,
+                kind = evaluation_set.kind,
+                version = "likelihood"
+            )
             
             z_evaluation_set = DataSet(
                 name = evaluation_set.name,
@@ -2010,7 +2038,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             latent_evaluation_sets = (z_evaluation_set, y_evaluation_set)
 
             return transformed_evaluation_set, reconstructed_evaluation_set, \
-                latent_evaluation_sets
+                likelihood_evaluation_set, latent_evaluation_sets
 
 def predict_label_ids(label_ids, logits, excluded_class_ids = []):
     cat_pred = logits.argmax(1)
