@@ -3352,7 +3352,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         colour_bar.set_label(feature_name)
     
     else:
-        axis.scatter(values[:, 0], values[:, 1], color = standard_palette[0])
+        axis.scatter(values[:, 0], values[:, 1], color = neutral_colour)
     
     if centroids:
         prior_centroids = centroids["prior"]
@@ -3372,13 +3372,16 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             
             for k in range(K):
                 axis.scatter(means[k, 0], means[k, 1], marker = "x",
-                    color = centroids_palette[k])
-                ellipse = covarianceMatrixAsEllipse(
+                    color = "black", linewidth = 3, s = 60)
+                axis.scatter(means[k, 0], means[k, 1], marker = "x",
+                    facecolor = centroids_palette[k], edgecolors = "black")
+                ellipse_fill, ellipse_edge = covarianceMatrixAsEllipse(
                     covariance_matrices[k],
                     means[k],
                     colour = centroids_palette[k]
                 )
-                axis.add_patch(ellipse)
+                axis.add_patch(ellipse_edge)
+                axis.add_patch(ellipse_fill)
     
     if axis_limits:
     
@@ -3495,7 +3498,7 @@ def covarianceMatrixAsEllipse(covariance_matrix, mean, colour,
     
     theta = numpy.degrees(numpy.arctan2(eigenvectors[1, 0], eigenvectors[0, 0]))
     
-    ellipse = matplotlib.patches.Ellipse(
+    ellipse_fill = matplotlib.patches.Ellipse(
         xy = mean,
         width  = 2 * radius_stddev * lambda_1,
         height = 2 * radius_stddev * lambda_2,
@@ -3506,8 +3509,19 @@ def covarianceMatrixAsEllipse(covariance_matrix, mean, colour,
         edgecolor = colour,
         label = label
     )
+    ellipse_edge = matplotlib.patches.Ellipse(
+        xy = mean,
+        width  = 2 * radius_stddev * lambda_1,
+        height = 2 * radius_stddev * lambda_2,
+        angle = theta,
+        linewidth = 3,
+        linestyle = linestyle,
+        facecolor = "none",
+        edgecolor = "black",
+        label = label
+    )
     
-    return ellipse
+    return ellipse_fill, ellipse_edge
 
 def combineRandomImagesFromDataSet(data_set, number_of_random_examples, name = None):
     
