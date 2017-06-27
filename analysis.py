@@ -836,6 +836,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         observed_series = evaluation_set.values[i]
         expected_series = reconstructed_evaluation_set.values[i]
         example_name = str(evaluation_set.example_names[i])
+        example_label = str(evaluation_set.labels[i])
         
         if reconstructed_evaluation_set.total_standard_deviations is not None:
             expected_series_total_standard_deviations = \
@@ -852,7 +853,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         maximum_count = max(observed_series.max(), expected_series.max())
         
         for y_scale in ["linear"]:
-            example_name_parts = [example_name, y_scale]
+            example_name_parts = [example_name, example_label, y_scale]
             figure, figure_name = plotProfileComparison(
                 observed_series,
                 expected_series,
@@ -870,7 +871,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         if maximum_count > 3 * y_cutoff:
             for y_scale in ["linear", "log", "both"]:
-                example_name_parts = [example_name, y_scale]
+                example_name_parts = [example_name, example_label, y_scale]
                 figure, figure_name = plotProfileComparison(
                     observed_series,
                     expected_series,
@@ -887,6 +888,43 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 )
                 saveFigure(figure, figure_name, profile_comparisons_directory)
         
+        for y_scale in ["linear"]:
+            example_name_parts = [example_name, example_label, y_scale, "unsorted"]
+            figure, figure_name = plotProfileComparison(
+                observed_series,
+                expected_series,
+                expected_series_total_standard_deviations,
+                expected_series_explained_standard_deviations,
+                x_name = evaluation_set.tags["feature"],
+                y_name = evaluation_set.tags["value"],
+                sort = False,
+                sort_by = "expected",
+                sort_direction = "descending",
+                x_scale = "log",
+                y_scale = y_scale,
+                name = example_name_parts
+            )
+            saveFigure(figure, figure_name, profile_comparisons_directory)
+        
+        if maximum_count > 3 * y_cutoff:
+            for y_scale in ["linear", "log", "both"]:
+                example_name_parts = [example_name, example_label, y_scale, "unsorted"]
+                figure, figure_name = plotProfileComparison(
+                    observed_series,
+                    expected_series,
+                    expected_series_total_standard_deviations,
+                    expected_series_explained_standard_deviations,
+                    x_name = evaluation_set.tags["feature"],
+                    y_name = evaluation_set.tags["value"],
+                    sort = False,
+                    sort_by = "expected",
+                    sort_direction = "descending",
+                    x_scale = "log",
+                    y_scale = y_scale,
+                    y_cutoff = y_cutoff,
+                    name = example_name_parts
+                )
+                saveFigure(figure, figure_name, profile_comparisons_directory)
 
     profile_comparisons_duration = time() - profile_comparisons_time_start
     print("Profile comparisons plotted and saved ({}).".format(
@@ -2870,7 +2908,7 @@ def plotEvaluationsForModels(models_summaries, name = None):
 def plotProfileComparison(observed_series, expected_series,
     expected_series_total_standard_deviations = None,
     expected_series_explained_standard_deviations = None,
-    x_name = "feature", y_name = "value",
+    x_name = "feature", y_name = "value", sort = True,
     sort_by = "expected", sort_direction = "ascending",
     x_scale = "linear", y_scale = "linear", y_cutoff = None,
     name = None):
@@ -2892,8 +2930,11 @@ def plotProfileComparison(observed_series, expected_series,
     expected_total_standard_deviations_colour = expected_palette[1]
     expected_explained_standard_deviations_colour = expected_palette[3]
     
-    x_label = "{}s sorted {} by {} {}s [sort index]".format(
-        x_name.capitalize(), sort_direction, sort_by, y_name.lower())
+    if sort:
+        x_label = "{}s sorted {} by {} {}s [sort index]".format(
+            x_name.capitalize(), sort_direction, sort_by, y_name.lower())
+    else:
+        x_label = "Gene [original index]"
     y_label = y_name.capitalize() + "s"
     
     observed_label = "Observed"
@@ -2920,14 +2961,16 @@ def plotProfileComparison(observed_series, expected_series,
         observed_marker = ""
         observed_line_style = "solid"
         observed_z_order = 3
+    
+    if sort:
+        sort_indices = numpy.argsort(sort_series)
+        if sort_direction == "descending":
+            sort_indices = sort_indices[::-1]
+        elif sort_direction != "ascending":
+            raise ValueError("Sort direction can either be ascending or descending.")
+    else:
+        sort_indices = slice(None)
         
-    sort_indices = numpy.argsort(sort_series)
-    
-    if sort_direction == "descending":
-        sort_indices = sort_indices[::-1]
-    elif sort_direction != "ascending":
-        raise ValueError("Sort direction can either be ascending or descending.")
-    
     # Standard deviations
     
     if expected_series_total_standard_deviations is not None:

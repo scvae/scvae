@@ -133,6 +133,8 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             if self.count_sum:
                 self.n = tf.placeholder(tf.float32, [None, 1], 'count_sum')
             
+            # self.max_count = tf.placeholder(tf.int32, [1], 'max_count')
+
             self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
             
             self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
@@ -682,6 +684,34 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             reduction_function=tf.reduce_mean,
             axis = 0
         )
+
+        # self.p_x_count_loglik = tf.zeros(self.max_count)
+        # loglik_condition = lambda i, loglik, count_loglik, t, max_count: i < 100
+        # loglik_body = lambda i, loglik, count_loglik, t, max_count: (
+        #     tf.add(i, 1),
+        #     count_loglik[i].assign(
+        #         tf.divide(
+        #             tf.reduce_sum(
+        #                 tf.where(
+        #                     tf.equal(t, tf.cast(i, tf.float32)),
+        #                     loglik,
+        #                     tf.zeros_like(loglik)
+        #                 )
+        #             ),
+        #             tf.cast(tf.reduce_sum(tf.cast(tf.equal(t, tf.cast(i, tf.float32)), tf.int32)), tf.float32)
+        #         )
+        #     )
+        # )
+
+        # i = tf.constant(0)
+
+        # loglik_loop = tf.while_loop(
+        #     loglik_condition,
+        #     loglik_body,
+        #     [i, self.p_x_loglik, self.p_x_count_loglik, self.t, self.max_count]
+        # )
+
+        # self.p_x_count_loglik_means = loglik_loop[2]
 
         # Average over all samples and examples and add to losses in summary
         self.ENRE = tf.reduce_mean(log_p_x_given_z)
@@ -1474,7 +1504,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             print("Values noisily preprocessed ({}).".format(
                 formatDuration(noisy_duration)))
             print()
-        
+    
+        # max_count = int(max(t_eval, axis = (0, 1)))
+
         if use_early_stopping_model:
             log_directory = self.early_stopping_log_directory
         elif use_best_model:
@@ -1514,6 +1546,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
             p_x_stddev_eval = numpy.empty([M_eval, F_eval])
             stddev_of_p_x_mean_eval = numpy.empty([M_eval, F_eval])
             p_x_loglik = numpy.empty([M_eval, F_eval])
+            # p_x_count_loglik_means = numpy.zeros(max_count)
 
             q_z_mean_eval = numpy.empty([M_eval, self.latent_size])
             
@@ -1571,6 +1604,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
                 stddev_of_p_x_mean_eval[subset] = stddev_of_p_x_mean_i
 
                 p_x_loglik[subset] = p_x_loglik_i
+                # p_x_count_loglik_means += p_x_count_loglik_means_i
 
                 q_z_mean_eval[subset] = q_z_mean_i
             
