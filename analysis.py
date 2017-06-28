@@ -436,7 +436,11 @@ def analyseModel(model, results_directory = "results", for_video = False):
                     linestyle = "solid",
                     name = ["epoch", i]
                 )
-                saveFigure(figure, figure_name, centroids_directory)
+                saveFigure(figure,
+                    figure_name,
+                    centroids_directory,
+                    for_video = for_video
+                )
 
             print()
 
@@ -2398,32 +2402,6 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, epoch_slice = slice
     figure_name = "learning_curves"
     
     figure_name = figureName("learning_curves", name)
-
-    # if not isinstance(epoch_range, (list, tuple)):
-    #     # epoch_range = [1, epoch_range, None]
-    #     if epoch_range is not None:
-    #         epoch_slice = slice(epoch_range - 1)
-    #         figure_name += "-epoch_end-{}".format(epoch_range)
-    #     else: 
-    #         epoch_slice = slice(epoch_range)
-
-    # elif len(epoch_range) == 1:
-    #     # epoch_range = [1, epoch_range[0], None]
-    #     if epoch_range[0] is not None:
-    #         epoch_slice = slice(epoch_range[0] - 1)
-    #         figure_name += "-epoch_end-{}".format(epoch_range[1])
-    #     else:
-    #         epoch_slice = slice(epoch_range)
-
-    # elif len(epoch_range) == 0:
-    #     epoch_slice = slice(None)
-
-    # elif len(epoch_range) == 2:
-    #     epoch_range = [epoch_range[0], epoch_range[1], None]
-    #     figure_name += "-epoch_range-{}_{}".format(epoch_range[0], epoch_range[1])
-    # else:
-    #     epoch_range = [epoch_range[0], epoch_range[1], epoch_range[2]]
-    #     figure_name += "-epoch_range-{}_{}_{}".format(epoch_range[0], epoch_range[1], epoch_range[2])
     
     if epoch_slice.start is not None:
         figure_name += "-in_range-{}".format(epoch_slice.start + epoch_offset)
@@ -2752,12 +2730,13 @@ def plotEvolutionOfCentroidProbabilities(probabilities, distribution, figure = N
     
     if figure is not None:
         # axis = figure.as_list()[0]
-        axis = figure.gca()
+        figure_new = figure
+        axis = figure_new.gca()
+        axis.plot(1,1,color="black",linestyle=linestyle,label = distribution)
+        axis.legend(loc = "upper left")
     else:
-        figure = pyplot.figure()
-        axis = figure.add_subplot(1, 1, 1)
-    
-    label_string = " ({})".format(distribution)
+        figure_new = pyplot.figure()
+        axis = figure_new.add_subplot(1, 1, 1)
 
     for k in range(K):
         axis.plot(
@@ -2765,21 +2744,23 @@ def plotEvolutionOfCentroidProbabilities(probabilities, distribution, figure = N
             probabilities[:, k],
             color = centroids_palette[k],
             linestyle = linestyle,
-            label = "$k = {} {}$".format(k, label_string)
+            label = "$k = {}$".format(k)
         )
-    
+
+    if figure is not None:
+        axis.set_xlabel("Epochs")
+        axis.set_ylabel(y_label)
+        seaborn.despine()
+        return figure_new, figure_name
+
+    axis.plot(1,1,color="black",linestyle=linestyle,label = distribution)
+    axis.legend(loc = "best")
     axis.set_xlabel("Epochs")
     axis.set_ylabel(y_label)
     
-    if figure is not None:
-        axis.set_ylim([0., 1.])
-        axis.legend(loc = "upper left")
-    else:
-        axis.legend(loc = "best")
-    
     seaborn.despine()
     
-    return figure, figure_name
+    return figure_new, figure_name
 
 def plotEvolutionOfCentroidMeans(means, distribution, decomposed = False,
     name = None):
