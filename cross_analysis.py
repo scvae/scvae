@@ -10,11 +10,15 @@ from auxiliary import formatTime
 
 test_metrics_filename = "test_metrics.pkl.gz"
 
-def main(log_directory = None, results_directory = None, y_scale = 'log', max_count_limit = None, name = "",
-    data_set_include_search_strings = [], model_include_search_strings = [],
-    data_set_exclude_search_strings = [], model_exclude_search_strings = []):
+def main(log_directory = None, results_directory = None,
+    name = "", y_scale = 'log', bar_plot = False, 
+    max_count_limit = None, min_count_limit = None,
+    data_set_include_search_strings = [], 
+    model_include_search_strings = [],
+    data_set_exclude_search_strings = [], 
+    model_exclude_search_strings = []):
     
-    max_count_limit_slice = slice(max_count_limit + 1)
+    count_limit_slice = slice(min_count_limit, max_count_limit + 1)
 
     if log_directory:
         log_directory = os.path.normpath(log_directory) + os.sep
@@ -126,13 +130,13 @@ def main(log_directory = None, results_directory = None, y_scale = 'log', max_co
 
                 # Count likelihoods
 
-                count_likelihoods.append(test_metrics["count likelihoods"][max_count_limit_slice])
+                count_likelihoods.append(test_metrics["count likelihoods"])
                 count_distribution_names.append(test_metrics["count distribution name"])
 
             # Plot count likelihood curves for all models
             if len(count_likelihoods) > 0:
                 print("Plotting count likelihoods for found models")
-                figure, figure_name = plotCountLikelihoods(count_likelihoods, count_distribution_names, y_scale = y_scale, name = name)
+                figure, figure_name = plotCountLikelihoods(count_likelihoods, count_distribution_names, y_scale = y_scale, name = name, count_limit = count_limit_slice)
                 saveFigure(figure, figure_name, os.path.join(results_directory, data_set))
 
 def testMetricsInResultsDirectory(results_directory):
@@ -181,6 +185,11 @@ parser.add_argument(
     "--max-count-limit", "-c",
     type = int,
     help = "Choose maximum count for likelihood plot limits"
+)
+parser.add_argument(
+    "--min-count-limit", "-C",
+    type = int,
+    help = "Choose minimum count for likelihood plot limits"
 )
 parser.add_argument(
     "--name", "-n",

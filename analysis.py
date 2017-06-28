@@ -437,7 +437,7 @@ def analyseModel(model, results_directory = "results", for_video = False):
                     name = ["epoch", i]
                 )
                 saveFigure(figure, figure_name, centroids_directory)
-                
+
             print()
 
 def analyseAllModels(models_summaries, results_directory = "results"):
@@ -3538,7 +3538,7 @@ def plotProbabilities(posterior_probabilities, prior_probabilities,
     
     return figure, figure_name
 
-def plotCountLikelihoods(count_likelihoods, count_distribution_names, x_scale = 'linear', y_scale = 'log', bar_plot = False, name = None):
+def plotCountLikelihoods(count_likelihoods, count_distribution_names, x_scale = 'linear', y_scale = 'log', bar_plot = False, name = None, count_limit = slice(None)):
     figure = pyplot.figure(figsize=(8, 6), dpi=120)
     axis = figure.add_subplot(1, 1, 1)
 
@@ -3552,15 +3552,15 @@ def plotCountLikelihoods(count_likelihoods, count_distribution_names, x_scale = 
     if bar_plot:
         for i in range(len(count_likelihoods)):
             axis.bar(
-                count_range,
-                count_likelihoods[i],
+                count_range[count_limit],
+                count_likelihoods[i][count_limit],
                 label=count_distribution_names[i].capitalize()
             )
         figure_name = figureName("likelihood_bar_plot", name)
     else:
         for i in range(len(count_likelihoods)):
-            axis.plot(count_range,
-                count_likelihoods[i],
+            axis.plot(count_range[count_limit],
+                count_likelihoods[i][count_limit],
                 linestyle = "dashed",
                 label=count_distribution_names[i].capitalize()
             )
