@@ -928,7 +928,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 sort = False,
                 sort_by = "expected",
                 sort_direction = "descending",
-                x_scale = "log",
+                x_scale = "linear",
                 y_scale = y_scale,
                 name = example_name_parts
             )
@@ -947,7 +947,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                     sort = False,
                     sort_by = "expected",
                     sort_direction = "descending",
-                    x_scale = "log",
+                    x_scale = "linear",
                     y_scale = y_scale,
                     y_cutoff = y_cutoff,
                     name = example_name_parts
