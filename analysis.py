@@ -3539,8 +3539,19 @@ def plotProbabilities(posterior_probabilities, prior_probabilities,
     return figure, figure_name
 
 def plotCountLikelihoods(count_likelihoods, count_distribution_names, x_scale = 'linear', y_scale = 'log', bar_plot = False, name = None, count_limit = slice(None)):
+    
     figure = pyplot.figure(figsize=(8, 6), dpi=120)
     axis = figure.add_subplot(1, 1, 1)
+
+    distribution_colour = {
+        "poisson": standard_palette[0],
+        "constrained poisson": standard_palette[1],
+        "negative binomial": standard_palette[2],
+        "zero-inflated poisson": standard_palette[3],
+        "zero-inflated negative binomial": standard_palette[4],
+        "poisson (5 count classes)": standard_palette[5],
+        "negative binomial (5 count classes)": standard_palette[6]
+    }
 
     if not isinstance(count_likelihoods, list):
         count_likelihoods = [count_likelihoods]
@@ -3554,6 +3565,7 @@ def plotCountLikelihoods(count_likelihoods, count_distribution_names, x_scale = 
             axis.bar(
                 count_range[count_limit],
                 count_likelihoods[i][count_limit],
+                color = distribution_colour[count_distribution_names[i]],
                 label=count_distribution_names[i].capitalize()
             )
         figure_name = figureName("likelihood_bar_plot", name)
@@ -3561,6 +3573,7 @@ def plotCountLikelihoods(count_likelihoods, count_distribution_names, x_scale = 
         for i in range(len(count_likelihoods)):
             axis.plot(count_range[count_limit],
                 count_likelihoods[i][count_limit],
+                color = distribution_colour[count_distribution_names[i]],
                 linestyle = "dashed",
                 label=count_distribution_names[i].capitalize()
             )
