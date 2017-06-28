@@ -10,13 +10,15 @@ from auxiliary import formatTime
 
 test_metrics_filename = "test_metrics.pkl.gz"
 
-def main(log_directory = None, results_directory = None, y_scale = 'log', name = "",
+def main(log_directory = None, results_directory = None, y_scale = 'log', max_count_limit = None, name = "",
     data_set_include_search_strings = [], model_include_search_strings = [],
     data_set_exclude_search_strings = [], model_exclude_search_strings = []):
     
+    max_count_limit_slice = slice(max_count_limit + 1)
+
     if log_directory:
         log_directory = os.path.normpath(log_directory) + os.sep
-    
+
     if results_directory:
         results_directory = os.path.normpath(results_directory) + os.sep
         test_metrics_set = testMetricsInResultsDirectory(results_directory)
@@ -124,7 +126,7 @@ def main(log_directory = None, results_directory = None, y_scale = 'log', name =
 
                 # Count likelihoods
 
-                count_likelihoods.append(test_metrics["count likelihoods"])
+                count_likelihoods.append(test_metrics["count likelihoods"][max_count_limit_slice])
                 count_distribution_names.append(test_metrics["count distribution name"])
 
             # Plot count likelihood curves for all models
@@ -174,6 +176,11 @@ parser.add_argument(
     type = str,
     default = 'log',
     help = "Choose 'log' (default) or y-scale for likelihood plot"
+)
+parser.add_argument(
+    "--max-count-limit", "-c",
+    type = int,
+    help = "Choose maximum count for likelihood plot limits"
 )
 parser.add_argument(
     "--name", "-n",
