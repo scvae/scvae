@@ -3342,7 +3342,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 if labels:
                     labels, handles = zip(*sorted(zip(labels, handles),
                         key = lambda t: label_sorter(t[0])))
-                    legend = axis.legend(handles, labels, loc = "best")
+                    legend = axis.legend(handles, labels, loc = "upper left")
         
         elif "class" in colour_coding:
             colours = []
