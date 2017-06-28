@@ -2732,7 +2732,7 @@ def plotEvolutionOfCentroidProbabilities(probabilities, distribution, figure = N
         # axis = figure.as_list()[0]
         figure_new = figure
         axis = figure_new.gca()
-        axis.plot(1,1,color="black",linestyle=linestyle,label = distribution)
+        axis.plot(1,0,color="black",linestyle=linestyle,label = distribution)
         axis.legend(loc = "upper left")
     else:
         figure_new = pyplot.figure()
@@ -2753,7 +2753,7 @@ def plotEvolutionOfCentroidProbabilities(probabilities, distribution, figure = N
         seaborn.despine()
         return figure_new, figure_name
 
-    axis.plot(1,1,color="black",linestyle=linestyle,label = distribution)
+    axis.plot(1,0,color="black",linestyle=linestyle,label = distribution)
     axis.legend(loc = "best")
     axis.set_xlabel("Epochs")
     axis.set_ylabel(y_label)
