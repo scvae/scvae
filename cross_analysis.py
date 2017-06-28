@@ -10,7 +10,7 @@ from auxiliary import formatTime
 
 test_metrics_filename = "test_metrics.pkl.gz"
 
-def main(log_directory = None, results_directory = None,
+def main(log_directory = None, results_directory = None, y_scale = 'log',
     data_set_include_search_strings = [], model_include_search_strings = [],
     data_set_exclude_search_strings = [], model_exclude_search_strings = []):
     
@@ -130,7 +130,7 @@ def main(log_directory = None, results_directory = None,
             # Plot count likelihood curves for all models
             if len(count_likelihoods) > 0:
                 print("Plotting count likelihoods for found models")
-                figure, figure_name = plotCountLikelihoods(count_likelihoods, count_distribution_names)
+                figure, figure_name = plotCountLikelihoods(count_likelihoods, count_distribution_names, y_scale = y_scale)
                 saveFigure(figure, figure_name, os.path.join(results_directory, data_set))
 
 def testMetricsInResultsDirectory(results_directory):
@@ -168,6 +168,12 @@ parser.add_argument(
     "--results-directory", "-R",
     type = str,
     help = "directory where results were saved"
+)
+parser.add_argument(
+    "--y-scale", "-y",
+    type = str,
+    default = 'log',
+    help = "Choose 'log' (default) or y-scale for likelihood plot"
 )
 parser.add_argument(
     "--data-set-include-search-strings", "-d",

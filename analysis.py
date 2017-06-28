@@ -160,7 +160,7 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             print("Saving image of {} random examples from {} set.".format(
                 number_of_random_examples, data_set.kind))
             image_time_start = time()
-            image, image_name = combineRandomImagesFromDataSet(
+            image, image_name = combineImagesFromDataSet(
                 data_set,
                 number_of_random_examples,
                 name = data_set.kind
@@ -783,7 +783,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 evaluation_set.kind
             ))
         image_time_start = time()
-        image, image_name = combineRandomImagesFromDataSet(
+        image, image_name = combineImagesFromDataSet(
             reconstructed_evaluation_set,
             number_of_random_examples,
             name = reconstructed_evaluation_set.version
@@ -798,7 +798,10 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     numpy.random.seed(80)
     
     print("Plotting profile comparisons.")
-    
+
+    image_comparisons_directory = os.path.join(
+            results_directory, "image_comparisons")
+
     profile_comparisons_directory = os.path.join(
             results_directory, "profile_comparisons")
     
@@ -925,6 +928,24 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                     name = example_name_parts
                 )
                 saveFigure(figure, figure_name, profile_comparisons_directory)
+
+        # Plot image examples for subset
+        if evaluation_set.example_type == "images":
+            image, image_name = combineImagesFromDataSet(
+                evaluation_set,
+                number_of_random_examples=1,
+                indices=[i],
+                name = ["original", example_name, example_label]
+            )
+            saveImage(image, image_name, image_comparisons_directory)
+        if reconstructed_evaluation_set.example_type == "images":
+            image, image_name = combineImagesFromDataSet(
+                reconstructed_evaluation_set,
+                number_of_random_examples=1,
+                indices=[i],
+                name = ["reconstructed", example_name, example_label]
+            )
+            saveImage(image, image_name, image_comparisons_directory)
 
     profile_comparisons_duration = time() - profile_comparisons_time_start
     print("Profile comparisons plotted and saved ({}).".format(
@@ -2934,7 +2955,7 @@ def plotProfileComparison(observed_series, expected_series,
         x_label = "{}s sorted {} by {} {}s [sort index]".format(
             x_name.capitalize(), sort_direction, sort_by, y_name.lower())
     else:
-        x_label = "Gene [original index]"
+        x_label = "{}s [original index]".format(x_name.capitalize())
     y_label = y_name.capitalize() + "s"
     
     observed_label = "Observed"
@@ -3478,7 +3499,7 @@ def plotProbabilities(posterior_probabilities, prior_probabilities,
     
     return figure, figure_name
 
-def plotCountLikelihoods(count_likelihoods, count_distribution_names, bar_plot=False, name = None):
+def plotCountLikelihoods(count_likelihoods, count_distribution_names, x_scale = 'linear', y_scale = 'log', bar_plot = False, name = None):
     figure = pyplot.figure(figsize=(8, 6), dpi=120)
     axis = figure.add_subplot(1, 1, 1)
 
@@ -3506,7 +3527,10 @@ def plotCountLikelihoods(count_likelihoods, count_distribution_names, bar_plot=F
             )
         figure_name = figureName("likelihood_line_plot", name)
 
+    axis.set_xscale(x_scale)
     axis.set_xlabel("Counts")
+
+    axis.set_yscale(y_scale)
     axis.set_ylabel("Average likelihood")
 
     if len(count_likelihoods) > 1:
@@ -3566,14 +3590,26 @@ def covarianceMatrixAsEllipse(covariance_matrix, mean, colour,
     
     return ellipse_fill, ellipse_edge
 
-def combineRandomImagesFromDataSet(data_set, number_of_random_examples, name = None):
+def combineImagesFromDataSet(data_set, number_of_random_examples = 100, indices = None, name = None):
     
-    image_name = figureName("random_examples", name)
-    
-    M = number_of_random_examples
+    image_name = figureName("random_image_examples", name)
     
     numpy.random.seed(60)
-    indices = numpy.random.permutation(data_set.number_of_examples)[:M]
+    if not isinstance(indices, (list, tuple)):
+        M = number_of_random_examples
+        indices = numpy.random.permutation(data_set.number_of_examples)[:M]
+        if M == 1:
+            image_name = figureName("image_example", name)
+        else:
+            image_name = figureName("image_examples", name)
+    else: 
+        M = len(indices)
+        if M == 1:
+            image_name = figureName("image_example", name)
+        else:
+            image_name = figureName("image_examples", name)
+
+
     numpy.random.seed()
     
     W, H = data_set.feature_dimensions
