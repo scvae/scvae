@@ -3550,7 +3550,8 @@ def plotCountLikelihoods(count_likelihoods, count_distribution_names, x_scale = 
         "zero-inflated poisson": standard_palette[3],
         "zero-inflated negative binomial": standard_palette[4],
         "poisson (5 count classes)": standard_palette[5],
-        "negative binomial (5 count classes)": standard_palette[6]
+        "negative binomial (5 count classes)": standard_palette[6],
+        "bernoulli": standard_palette[7]
     }
 
     if not isinstance(count_likelihoods, list):
