@@ -397,10 +397,12 @@ def analyseModel(model, results_directory = "results", for_video = False):
                 centroid_means_decomposed = \
                     distribution_centroids_decomposed["means"]
                 
+
                 figure, figure_name = plotEvolutionOfCentroidProbabilities(
                     centroid_probabilities, distribution)
                 saveFigure(figure, figure_name, centroids_directory)
-                
+
+
                 figure, figure_name = plotEvolutionOfCentroidMeans(
                     centroid_means_decomposed, distribution, decomposed)
                 saveFigure(figure, figure_name, centroids_directory)
@@ -414,6 +416,29 @@ def analyseModel(model, results_directory = "results", for_video = False):
                     .format(distribution, formatDuration(centroids_duration)))
                 
                 print()
+
+        if for_video:
+            print("Plotting evolution of latent class probabilities for video")
+            centroid_prior_probabilities = centroids["prior"]["probabilities"]
+            centroid_posterior_probabilities = centroids["posterior"]["probabilities"]
+            for i in range(number_of_epochs_trained):
+                figure, figure_name = plotEvolutionOfCentroidProbabilities(
+                    centroid_prior_probabilities[:(i+1), :],
+                    distribution = "prior",
+                    figure = None,
+                    linestyle = "dashed",
+                    name = ["epoch", i]
+                )                
+                figure, figure_name = plotEvolutionOfCentroidProbabilities(
+                    centroid_posterior_probabilities[:(i+1), :],
+                    distribution = "posterior",
+                    figure = figure,
+                    linestyle = "solid",
+                    name = ["epoch", i]
+                )
+                saveFigure(figure, figure_name, centroids_directory)
+                
+            print()
 
 def analyseAllModels(models_summaries, results_directory = "results"):
     
@@ -2706,8 +2731,7 @@ def plotKLDivergenceEvolution(KL_neurons, scale = "log", name = None):
     
     return figure, figure_name
 
-def plotEvolutionOfCentroidProbabilities(probabilities, distribution,
-    name = None):
+def plotEvolutionOfCentroidProbabilities(probabilities, distribution, figure = None, linestyle = "solid", name = None):
     
     distribution = normaliseString(distribution)
     
@@ -2726,17 +2750,32 @@ def plotEvolutionOfCentroidProbabilities(probabilities, distribution,
     centroids_palette = darker_palette(K)
     epochs = numpy.arange(E) + 1
     
-    figure = pyplot.figure()
-    axis = figure.add_subplot(1, 1, 1)
+    if figure is not None:
+        # axis = figure.as_list()[0]
+        axis = figure.gca()
+    else:
+        figure = pyplot.figure()
+        axis = figure.add_subplot(1, 1, 1)
     
+    label_string = " ({})".format(distribution)
+
     for k in range(K):
-        axis.plot(epochs, probabilities[:, k], color = centroids_palette[k],
-            label = "$k = {}$".format(k))
+        axis.plot(
+            epochs,
+            probabilities[:, k],
+            color = centroids_palette[k],
+            linestyle = linestyle,
+            label = "$k = {} {}$".format(k, label_string)
+        )
     
     axis.set_xlabel("Epochs")
     axis.set_ylabel(y_label)
     
-    axis.legend(loc = "best")
+    if figure is not None:
+        axis.set_ylim([0., 1.])
+        axis.legend(loc = "upper left")
+    else:
+        axis.legend(loc = "best")
     
     seaborn.despine()
     
