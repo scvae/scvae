@@ -11,6 +11,7 @@ import re
 from bs4 import BeautifulSoup
 
 import pandas
+import tables
 import numpy
 import scipy.sparse
 import sklearn.preprocessing
@@ -179,6 +180,27 @@ data_sets = {
                 }
             }
         }
+    },
+    
+    "10x ARC LIRA": {
+        "tags": {
+            "example": "cell",
+            "feature": "gene",
+            "type": "count",
+            "item": "transcript"
+        },
+        "split": False,
+        "preprocessing methods": None,
+        "URLs": {
+            "values": {
+                "full": ".h5"
+            },
+            "labels": {
+                "full": None
+            }
+        },
+        "load function": lambda x: load10xDataSet(x),
+        "example type": "counts"
     },
     
     "MNIST (original)": {
@@ -1317,6 +1339,10 @@ def downloadDataSet(title, directory):
             
             if not os.path.isfile(path):
                 
+                if URL.startswith("."):
+                    raise Exception("Data set file have to be manually placed " +
+                        "in correct folder.")
+                
                 print("Downloading {} for {} set.".format(
                     values_or_labels, kind, title))
                 start_time = time()
@@ -1818,6 +1844,33 @@ def loadMouseRetinaDataSet(paths):
     data_dictionary = {
         "values": values,
         "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names
+    }
+    
+    return data_dictionary
+
+def load10xDataSet(paths):
+    
+    genome = "mm10"
+
+    with tables.open_file(paths["values"]["full"], 'r') as f:
+        table = {}
+        for node in f.walk_nodes('/' + genome, 'Array'):
+            table[node.name] = node.read()
+        matrix = scipy.sparse.csc_matrix(
+            (table['data'], table['indices'], table['indptr']),
+            shape=table['shape']
+        )
+
+    values = matrix.T.todense().A
+    
+    example_names = table["barcodes"]
+    feature_names = table["gene_names"]
+    
+    data_dictionary = {
+        "values": values,
+        "labels": None,
         "example names": example_names,
         "feature names": feature_names
     }
