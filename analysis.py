@@ -1312,7 +1312,19 @@ def analyseDistributions(data_set, colouring_data_set = None,
             label = data_set.tags["value"].capitalize() + "s",
             discrete = data_set_discreteness,
             normed = True,
-            scale = "log",
+            y_scale = "log",
+            maximum_count = maximum_count,
+            name = count_histogram_name
+        )
+        saveFigure(figure, figure_name, distribution_directory)
+        
+        figure, figure_name = plotHistogram(
+            series = data_set.values.reshape(-1),
+            label = data_set.tags["value"].capitalize() + "s",
+            discrete = data_set_discreteness,
+            normed = True,
+            x_scale = "log",
+            y_scale = "log",
             maximum_count = maximum_count,
             name = count_histogram_name
         )
@@ -1359,7 +1371,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
             data_set.tags["item"], data_set.tags["example"]
         ),
         normed = True,
-        scale = "log",
+        y_scale = "log",
         name = ["count sum", data_set_name]
     )
     saveFigure(figure, figure_name, distribution_directory)
@@ -1404,7 +1416,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
                 label = data_set.tags["value"].capitalize() + "s",
                 discrete = data_set_discreteness,
                 normed = True,
-                scale = "log",
+                y_scale = "log",
                 colour = class_palette[class_name],
                 name = ["counts", data_set_name, "class", class_name]
             )
@@ -1427,7 +1439,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
                     data_set.tags["item"], data_set.tags["example"]
                 ),
                 normed = True,
-                scale = "log",
+                y_scale = "log",
                 colour = class_palette[class_name],
                 name = ["count sum", data_set_name, "class", class_name]
             )
@@ -2265,8 +2277,8 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     return figure, figure_name
 
 def plotHistogram(series, label = None, maximum_count = None,
-    normed = False, discrete = False, scale = "linear", colour = None,
-    name = None):
+    normed = False, discrete = False, x_scale = "linear", y_scale = "linear",
+    colour = None, name = None):
     
     series = series.copy()
     
@@ -2298,12 +2310,18 @@ def plotHistogram(series, label = None, maximum_count = None,
     if colour is None:
         colour = standard_palette[0]
     
+    if x_scale == "log":
+        series += 1
+        label += " (shifted one)"
+        figure_name += "-log_values"
+    
     seaborn.distplot(series, bins = number_of_bins, norm_hist = normed,
         color = colour, kde = False, ax = axis)
     
-    axis.set_yscale(scale)
+    axis.set_xscale(x_scale)
+    axis.set_yscale(y_scale)
     
-    axis.set_xlabel(label)
+    axis.set_xlabel(label.capitalize())
     
     if normed:
         axis.set_ylabel("Frequency")
