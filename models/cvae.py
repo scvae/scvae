@@ -9,7 +9,7 @@ from models.auxiliary import (
 from tensorflow.python.ops.nn import relu, softmax, softplus
 from tensorflow import sigmoid, identity
 
-from tensorflow.contrib.distributions import Normal, Bernoulli, kl, Categorical
+from tensorflow.contrib.distributions import Normal, Bernoulli,kl_divergence, Categorical
 from distributions import distributions, latent_distributions, Categorized
 
 import numpy

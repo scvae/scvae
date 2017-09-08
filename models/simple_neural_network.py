@@ -5,7 +5,7 @@ from models.auxiliary import dense_layer
 from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
 
-from tensorflow.contrib.distributions import Normal, kl, Categorical
+from tensorflow.contrib.distributions import Normal,kl_divergence, Categorical
 from distributions import distributions, Categorized
 import numpy
 from numpy import inf

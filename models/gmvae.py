@@ -5,7 +5,7 @@ from models.auxiliary import dense_layer, dense_layers, log_reduce_exp, reduce_l
 from tensorflow.python.ops.nn import relu, softmax, softplus
 from tensorflow import sigmoid, identity
 
-from tensorflow.contrib.distributions import Normal, Bernoulli, kl, Categorical
+from tensorflow.contrib.distributions import Normal, Bernoulli,kl_divergence, Categorical
 from distributions import distributions, latent_distributions, Categorized
 
 import numpy
@@ -780,7 +780,7 @@ class GaussianMixtureVariationalAutoEncoder(object):
 
         # KL_y (B) --> ()
         self.KL_y = tf.reduce_mean(kl(self.q_y_given_x, self.p_y))
-        # self.KL_y = kl(self.q_y, self.p_y)
+        # self.KL_y =kl_divergence(self.q_y, self.p_y)
 
 
         # KL = KL_y + KL_z

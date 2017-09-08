@@ -10,7 +10,7 @@ from models.auxiliary import (
 from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
 
-from tensorflow.contrib.distributions import Normal, Bernoulli, kl, Categorical
+from tensorflow.contrib.distributions import Normal, Bernoulli,kl_divergence, Categorical
 from distributions import distributions, latent_distributions, Categorized
 
 import numpy
@@ -750,7 +750,7 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         else:
             if self.analytical_kl_term:
                 ## Evaluate Kullback-Leibler divergence analytically without sampling
-                KL = kl(self.q_z_given_x, self.p_z)
+                KL =kl_divergence(self.q_z_given_x, self.p_z)
             else:
                 ## Evaluate Kullback-Leibler divergence numerically with sampling
                 ### Evaluate all log(q(z|x)) and log(p(z)) on (R, L, batchsize, D_z) latent sample values.

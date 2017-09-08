@@ -8,7 +8,7 @@ from math import floor
 
 import urllib.request
 
-from tensorflow.tensorboard.backend.event_processing import event_multiplexer
+from tensorboard.backend.event_processing import event_multiplexer
 import numpy
 
 # Time
