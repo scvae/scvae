@@ -760,19 +760,19 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     if model.k_max:
         count_distribution_name = count_distribution_name + " ({} count classes)".format(model.k_max)
 
-    # Plot likelihoods in bar plots
-    figure, figure_name = plotCountLikelihoods(
-        count_likelihoods,
-        count_distribution_name,
-        bar_plot=True)
-    saveFigure(figure, figure_name, results_directory)
-
-    # Plot likelihoods in line plot
-    figure, figure_name = plotCountLikelihoods(
-        count_likelihoods,
-        count_distribution_name
-    )
-    saveFigure(figure, figure_name, results_directory)
+    # # Plot likelihoods in bar plots
+    # figure, figure_name = plotCountLikelihoods(
+    #     count_likelihoods,
+    #     count_distribution_name,
+    #     bar_plot=True)
+    # saveFigure(figure, figure_name, results_directory)
+    #
+    # # Plot likelihoods in line plot
+    # figure, figure_name = plotCountLikelihoods(
+    #     count_likelihoods,
+    #     count_distribution_name
+    # )
+    # saveFigure(figure, figure_name, results_directory)
 
     with gzip.open(metrics_dictionary_path, "w") as metrics_file:
         metrics_dictionary = {
