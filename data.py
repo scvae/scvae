@@ -301,7 +301,7 @@ data_sets = {
         "preprocessing methods": None,
         "URLs": {
             "all": {
-                "full": "http://people.compute.dtu.dk/s147246/datasets/blobs.pkl.gz"
+                "full": "http://people.compute.dtu.dk/maxvo/datasets/blobs.pkl.gz"
             }
         },
         "load function": lambda x: loadSampleDataSet(x),
@@ -313,7 +313,7 @@ data_sets = {
         "preprocessing methods": None,
         "URLs": {
             "all": {
-                "full": "http://people.compute.dtu.dk/s147246/datasets/circles.pkl.gz"
+                "full": "http://people.compute.dtu.dk/maxvo/datasets/circles.pkl.gz"
             }
         },
         "load function": lambda x: loadSampleDataSet(x),
@@ -325,7 +325,7 @@ data_sets = {
         "preprocessing methods": None,
         "URLs": {
             "all": {
-                "full": "http://people.compute.dtu.dk/s147246/datasets/moons.pkl.gz"
+                "full": "http://people.compute.dtu.dk/maxvo/datasets/moons.pkl.gz"
             }
         },
         "load function": lambda x: loadSampleDataSet(x),
@@ -337,7 +337,7 @@ data_sets = {
         "preprocessing methods": None,
         "URLs": {
             "all": {
-                "full": "http://people.compute.dtu.dk/s152421/data-sets/count_samples.pkl.gz"
+                "full": "http://people.compute.dtu.dk/chegr/data-sets/count_samples.pkl.gz"
             }
         },
         "load function": lambda x: loadSampleDataSet(x),
@@ -349,7 +349,7 @@ data_sets = {
         "preprocessing methods": None,
         "URLs": {
             "all": {
-                "full": "http://people.compute.dtu.dk/s152421/data-sets/count_samples_sparse.pkl.gz"
+                "full": "http://people.compute.dtu.dk/chegr/data-sets/count_samples_sparse.pkl.gz"
             }
         },
         "load function": lambda x: loadSampleDataSet(x),
