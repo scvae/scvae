@@ -45,7 +45,8 @@ def main(data_set_name, data_directory = "data",
     batch_size = 100, learning_rate = 1e-4,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
-    analyse = True, evaluation_set_name = "test", analyse_data = False,
+    analyse = True, evaluation_set_name = "test",
+    analyse_data = False, extended_analysis = False,
     plot_heat_maps_for_large_data_sets = False, video = False):
     
     print()
@@ -87,6 +88,7 @@ def main(data_set_name, data_directory = "data",
         analysis.analyseData(
             all_data_sets,
             decomposition_methods, highlight_feature_indices,
+            extended_analysis,
             plot_heat_maps_for_large_data_sets,
             data_results_directory
         )
@@ -1123,6 +1125,18 @@ parser.add_argument(
     help = "skip data analysis"
 )
 parser.set_defaults(analyse_data = False)
+parser.add_argument(
+    "--extended-analysis",
+    action = "store_true",
+    help = "if analysing, do so extensively"
+)
+parser.add_argument(
+    "--no-extended-analysis",
+    dest = "extended_analysis",
+    action = "store_false",
+    help = "if analysing, do so quickly"
+)
+parser.set_defaults(extended_analysis = False)
 parser.add_argument(
     "--plot-heat-maps-for-large-data-sets",
     action = "store_true",

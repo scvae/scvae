@@ -68,8 +68,11 @@ profile_comparison_count_cut_off = 10.5
 maximum_count_scales = [1, 5]
 axis_limits_scales = [1, 5]
 
+default_cutoffs = range(1, 10)
+
 def analyseData(data_sets, decomposition_methods = ["PCA"],
-    highlight_feature_indices = [], plot_heat_maps_for_large_data_sets = False,
+    highlight_feature_indices = [], extended_analysis = False,
+    plot_heat_maps_for_large_data_sets = False,
     results_directory = "results"):
     
     # Setup
@@ -172,9 +175,14 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         # Distributions
         
+        if extended_analysis:
+            cutoffs = default_cutoffs
+        else:
+            cutoffs = None
+        
         analyseDistributions(
             data_set,
-            cutoffs = range(1, 10),
+            cutoffs = cutoffs,
             results_directory = results_directory
         )
         
@@ -1393,10 +1401,12 @@ def analyseDistributions(data_set, colouring_data_set = None,
             labels = colouring_data_set.superset_labels
             class_names = colouring_data_set.superset_class_names
             class_palette = colouring_data_set.superset_class_palette
+            label_sorter = colouring_data_set.superset_label_sorter
         else:
             labels = colouring_data_set.labels
             class_names = colouring_data_set.class_names
             class_palette = colouring_data_set.class_palette
+            label_sorter = colouring_data_set.label_sorter
         
         N = colouring_data_set.number_of_features
         
@@ -1405,7 +1415,8 @@ def analyseDistributions(data_set, colouring_data_set = None,
         if not class_palette:
             index_palette = lighter_palette(colouring_data_set.number_of_classes)
             class_palette = {class_name: index_palette[i] for i, class_name in
-                             enumerate(sorted(class_names))}
+                             enumerate(sorted(class_names,
+                             key = label_sorter))}
 
         for class_name in class_names:
             class_indices = labels == class_name
