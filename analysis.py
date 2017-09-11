@@ -2210,13 +2210,14 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     
     K = len(class_names)
     
+    if not label_sorter:
+        label_sorter = createLabelSorter()
+    
     if not class_palette:
         index_palette = lighter_palette(K)
         class_palette = {class_name: index_palette[i] for i, class_name in
-                         enumerate(sorted(class_names))}
-    
-    if not label_sorter:
-        label_sorter = createLabelSorter()
+                         enumerate(sorted(class_names,
+                         key = label_sorter))}
     
     histogram = {
         class_name: {
@@ -2261,9 +2262,16 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     ])
     if maximum_class_name_width > 5:
         y_ticks_rotation = 45
+        y_ticks_horizontal_alignment = "right"
+        y_ticks_rotation_mode = "anchor"
     else:
         y_ticks_rotation = 0
-    pyplot.xticks(indices, class_names, rotation = y_ticks_rotation)
+        y_ticks_horizontal_alignment = "center"
+        y_ticks_rotation_mode = None
+    pyplot.xticks(indices, class_names,
+        horizontalalignment = y_ticks_horizontal_alignment,
+        rotation = y_ticks_rotation, rotation_mode = y_ticks_rotation_mode
+    )
     
     axis.set_xlabel("Classes")
     
@@ -3802,11 +3810,13 @@ def createLabelSorter(sorted_class_names = []):
             index = sorted_class_names.index(label)
             label = str(index) + "_" + label
         elif label == "Others":
-            label = str(K) + "_" + label
+            label = "ZZZ" + str(K) + "_" + label
+        elif label.startswith("Unknown"):
+            label = "ZZZ" + str(K + 1) + "_" + label
         elif label == "No class":
-            label = str(K + 1) + "_" + label
+            label = "ZZZ" + str(K + 2) + "_" + label
         elif label == "Remaining":
-            label = str(K + 2) + "_" + label
+            label = "ZZZ" +str(K + 3) + "_" + label
         
         return label
     
