@@ -196,7 +196,7 @@ data_sets = {
                 "full": ".h5"
             },
             "labels": {
-                "full": None
+                "full": ".csv"
             }
         },
         "load function": lambda x: load10xDataSet(x),
@@ -1340,8 +1340,8 @@ def downloadDataSet(title, directory):
             if not os.path.isfile(path):
                 
                 if URL.startswith("."):
-                    raise Exception("Data set file have to be manually placed " +
-                        "in correct folder.")
+                    raise Exception("Data set file have to be manually placed "
+                        + "in correct folder.")
                 
                 print("Downloading {} for {} set.".format(
                     values_or_labels, kind, title))
@@ -1865,12 +1865,26 @@ def load10xDataSet(paths):
 
     values = matrix.T.todense().A
     
-    example_names = table["barcodes"]
-    feature_names = table["gene_names"]
+    M, N = values.shape
+    
+    example_names = table["barcodes"].astype("U")
+    feature_names = table["gene_names"].astype("U")
+    
+    metadata = pandas.read_csv(paths["labels"]["full"], index_col = "cell_index")
+
+    label_key = "Cell_types_res0.8"
+
+    labels = numpy.zeros(example_names.shape, metadata[label_key].dtype)
+    labels[labels == 0] = "No class"
+    
+    for example_name, label in metadata[label_key].iteritems():
+        labels[example_names == example_name] = label
+    
+    labels = labels.astype("U")
     
     data_dictionary = {
         "values": values,
-        "labels": None,
+        "labels": labels,
         "example names": example_names,
         "feature names": feature_names
     }
