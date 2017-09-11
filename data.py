@@ -200,7 +200,8 @@ data_sets = {
             }
         },
         "load function": lambda x: load10xDataSet(x),
-        "example type": "counts"
+        "example type": "counts",
+        "label superset": "infer"
     },
     
     "MNIST (original)": {
@@ -783,7 +784,8 @@ class DataSet(object):
                 self.superset_labels = supersetLabels(
                     self.labels, self.label_superset)
                 
-                self.superset_class_names = sorted(self.label_superset.keys())
+                self.superset_class_names = numpy.unique(
+                    self.superset_labels).tolist()
                 
                 self.superset_class_id_to_superset_class_name = {}
                 self.superset_class_name_to_superset_class_id = {}
@@ -2346,21 +2348,31 @@ def computeInverseGlobalFrequencyWeights(data):
 def supersetLabels(labels, label_superset):
     
     if not label_superset:
-        return None
+        superset_labels = None
     
-    label_superset_reverse = {v: k for k, vs in label_superset.items()
-        for v in vs}
+    elif label_superset == "infer":
+        superset_labels = []
+
+        for label in labels:
+            superset_label = re.match("^( ?[A-Za-z])+", label).group()
+            superset_labels.append(superset_label)
+        
+        superset_labels = numpy.array(superset_labels)
     
-    label_to_superset_label = lambda label: label_superset_reverse[label]
-    labels_to_superset_labels = numpy.vectorize(label_to_superset_label)
-    
-    superset_labels = labels_to_superset_labels(labels)
+    else:
+        label_superset_reverse = {v: k for k, vs in label_superset.items()
+            for v in vs}
+            
+        label_to_superset_label = lambda label: label_superset_reverse[label]
+        labels_to_superset_labels = numpy.vectorize(label_to_superset_label)
+        
+        superset_labels = labels_to_superset_labels(labels)
     
     return superset_labels
 
 def supersetClassPalette(class_palette, label_superset):
     
-    if not label_superset:
+    if not label_superset or label_superset == "infer":
         return None
     
     superset_class_palette = {}
