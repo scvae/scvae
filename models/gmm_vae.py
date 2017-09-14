@@ -734,7 +734,6 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             p_y_entropy = tf.squeeze(self.p_y.entropy())
 
         KL_y_threshhold = self.proportion_of_free_KL_nats * p_y_entropy
-        print("KL_y Threshold", KL_y_threshhold)
 
         KL_z = [None] * self.K
         KL_z_mean = [None] * self.K
@@ -1041,17 +1040,19 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         
         ## Labels
         
-        class_names_to_class_ids = numpy.vectorize(lambda class_name:
-            training_set.class_name_to_class_id[class_name])
+        if training_set.has_labels:
+            
+            class_names_to_class_ids = numpy.vectorize(lambda class_name:
+                training_set.class_name_to_class_id[class_name])
         
-        training_set_label_ids = class_names_to_class_ids(training_set.labels)
-        validation_set_label_ids = class_names_to_class_ids(validation_set.labels)
+            training_set_label_ids = class_names_to_class_ids(training_set.labels)
+            validation_set_label_ids = class_names_to_class_ids(validation_set.labels)
         
-        if training_set.excluded_classes:
-            excluded_class_ids = \
-                class_names_to_class_ids(training_set.excluded_classes)
-        else:
-            excluded_class_ids = []
+            if training_set.excluded_classes:
+                excluded_class_ids = \
+                    class_names_to_class_ids(training_set.excluded_classes)
+            else:
+                excluded_class_ids = []
         
         ## Superset labels
         
@@ -1326,17 +1327,20 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 learning_curves["training"]["kl_divergence_z"].append(KL_z_train)
                 learning_curves["training"]["kl_divergence_y"].append(KL_y_train)
                 
-                predicted_label_ids_train = predict_label_ids(
-                    training_set_label_ids,
-                    q_y_logits_train,
-                    excluded_class_ids
-                )
-                accuracy_train = accuracy(
-                    training_set_label_ids,
-                    predicted_label_ids_train,
-                    excluded_class_ids
-                )
-
+                if training_set.has_labels:
+                    predicted_label_ids_train = predict_label_ids(
+                        training_set_label_ids,
+                        q_y_logits_train,
+                        excluded_class_ids
+                    )
+                    accuracy_train = accuracy(
+                        training_set_label_ids,
+                        predicted_label_ids_train,
+                        excluded_class_ids
+                    )
+                else:
+                    accuracy_train = None
+                
                 if training_set.label_superset:
                     predicted_superset_label_ids_train = predict_label_ids(
                         training_set_superset_label_ids, 
@@ -1377,10 +1381,22 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     global_step = epoch + 1)
                 training_summary_writer.flush()
                 
-                print("    Training set ({}): ".format(
-                    formatDuration(evaluating_duration)) + \
-                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}, Acc: {:.5g}.".format(
-                    ELBO_train, ENRE_train, KL_z_train, KL_y_train, accuracy_display))
+                evaluation_string = "    Training set ({}): ".format(
+                    formatDuration(evaluating_duration))
+                evaluation_metrics = [
+                    "ELBO: {:.5g}".format(ELBO_train),
+                    "ENRE: {:.5g}".format(ENRE_train),
+                    "KL_z: {:.5g}".format(KL_z_train),
+                    "KL_y: {:.5g}".format(KL_y_train)
+                ]
+                if accuracy_display:
+                    evaluation_metrics.append(
+                        "Acc: {:.5g}".format(accuracy_display)
+                    )
+                evaluation_string += ", ".join(evaluation_metrics)
+                evaluation_string += "."
+                
+                print(evaluation_string)
                 
                 ## Validation
                 
@@ -1456,17 +1472,20 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 learning_curves["validation"]["kl_divergence_z"].append(KL_z_valid)
                 learning_curves["validation"]["kl_divergence_y"].append(KL_y_valid)
                 
-                predicted_label_ids_valid = predict_label_ids(
-                    validation_set_label_ids,
-                    q_y_logits_valid,
-                    excluded_class_ids
-                )
-                accuracy_valid = accuracy(
-                    validation_set_label_ids,
-                    predicted_label_ids_valid,
-                    excluded_class_ids
-                )
-
+                if validation_set.has_labels:
+                    predicted_label_ids_valid = predict_label_ids(
+                        validation_set_label_ids,
+                        q_y_logits_valid,
+                        excluded_class_ids
+                    )
+                    accuracy_valid = accuracy(
+                        validation_set_label_ids,
+                        predicted_label_ids_valid,
+                        excluded_class_ids
+                    )
+                else:
+                    accuracy_valid = None
+                
                 if validation_set.label_superset:
                     predicted_superset_label_ids_valid = predict_label_ids(
                         validation_set_superset_label_ids, 
@@ -1532,11 +1551,23 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                 validation_summary_writer.flush()
                 
                 evaluating_duration = time() - evaluating_time_start
-                print("    Validation set ({}): ".format(
-                    formatDuration(evaluating_duration)) + \
-                    "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}, Acc: {:.5g}.".format(
-                    ELBO_valid, ENRE_valid, KL_z_valid, KL_y_valid, accuracy_display))
                 
+                evaluation_string = "    Validation set ({}): ".format(
+                    formatDuration(evaluating_duration))
+                evaluation_metrics = [
+                    "ELBO: {:.5g}".format(ELBO_valid),
+                    "ENRE: {:.5g}".format(ENRE_valid),
+                    "KL_z: {:.5g}".format(KL_z_valid),
+                    "KL_y: {:.5g}".format(KL_y_valid)
+                ]
+                if accuracy_display:
+                    evaluation_metrics.append(
+                        "Acc: {:.5g}".format(accuracy_display)
+                    )
+                evaluation_string += ", ".join(evaluation_metrics)
+                evaluation_string += "."
+                
+                print(evaluation_string)
                 
                 # Early stopping
                 if not self.stopped_early:
@@ -1720,18 +1751,20 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         
         ## Labels
         
-        class_names_to_class_ids = numpy.vectorize(lambda class_name:
-            evaluation_set.class_name_to_class_id[class_name])
-        class_ids_to_class_names = numpy.vectorize(lambda class_id:
-            evaluation_set.class_id_to_class_name[class_id])
-        
-        evaluation_set_label_ids = class_names_to_class_ids(evaluation_set.labels)
-        
-        if evaluation_set.excluded_classes:
-            excluded_class_ids = class_names_to_class_ids(
-                evaluation_set.excluded_classes)
-        else:
-            excluded_class_ids = []
+        if evaluation_set.has_labels:
+            
+            class_names_to_class_ids = numpy.vectorize(lambda class_name:
+                evaluation_set.class_name_to_class_id[class_name])
+            class_ids_to_class_names = numpy.vectorize(lambda class_id:
+                evaluation_set.class_id_to_class_name[class_id])
+                
+            evaluation_set_label_ids = class_names_to_class_ids(evaluation_set.labels)
+            
+            if evaluation_set.excluded_classes:
+                excluded_class_ids = class_names_to_class_ids(
+                    evaluation_set.excluded_classes)
+            else:
+                excluded_class_ids = []
         
         ## Superset labels
         
@@ -1876,17 +1909,20 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             p_z_means /= M_eval / batch_size
             p_z_variances /= M_eval / batch_size
             
-            predicted_label_ids_eval = predict_label_ids(
-                evaluation_set_label_ids, 
-                q_y_logits,
-                excluded_class_ids
-            )
-            accuracy_eval = accuracy(
-                evaluation_set_label_ids,
-                predicted_label_ids_eval,
-                excluded_class_ids
-            )
-
+            if evaluation_set.has_labels:
+                predicted_label_ids_eval = predict_label_ids(
+                    evaluation_set_label_ids, 
+                    q_y_logits,
+                    excluded_class_ids
+                )
+                accuracy_eval = accuracy(
+                    evaluation_set_label_ids,
+                    predicted_label_ids_eval,
+                    excluded_class_ids
+                )
+            else:
+                accuracy_eval = None
+            
             if evaluation_set.label_superset is not None:
                 predicted_superset_label_ids_eval = predict_label_ids(
                     evaluation_set_superset_label_ids, 
@@ -1951,11 +1987,24 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             eval_summary_writer.flush()
             
             evaluating_duration = time() - evaluating_time_start
-            print("    {} set ({}): ".format(
+            
+            evaluation_string = "    {} set ({}): ".format(
                 evaluation_set.kind.capitalize(),
-                formatDuration(evaluating_duration)) + \
-                "ELBO: {:.5g}, ENRE: {:.5g}, KL_z: {:.5g}, KL_y: {:.5g}, Acc: {:.5g}.".format(
-                ELBO_eval, ENRE_eval, KL_z_eval, KL_y_eval, accuracy_display))
+                formatDuration(evaluating_duration))
+            evaluation_metrics = [
+                "ELBO: {:.5g}".format(ELBO_eval),
+                "ENRE: {:.5g}".format(ENRE_eval),
+                "KL_z: {:.5g}".format(KL_z_eval),
+                "KL_y: {:.5g}".format(KL_y_eval)
+            ]
+            if accuracy_display:
+                evaluation_metrics.append(
+                    "Acc: {:.5g}".format(accuracy_display)
+                )
+            evaluation_string += ", ".join(evaluation_metrics)
+            evaluation_string += "."
+            
+            print(evaluation_string)
             
             if noisy_preprocess or \
                 self.reconstruction_distribution_name == "bernoulli":
@@ -1976,13 +2025,19 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
             else:
                 transformed_evaluation_set = evaluation_set
             
+            if evaluation_set.has_labels:
+                evaluation_labels = class_ids_to_class_names(
+                    predicted_label_ids_eval)
+            else:
+                evaluation_labels = None
+            
             reconstructed_evaluation_set = DataSet(
                 name = evaluation_set.name,
                 values = p_x_mean_eval,
                 total_standard_deviations = p_x_stddev_eval,
                 explained_standard_deviations = stddev_of_p_x_given_z_mean_eval,
                 preprocessed_values = None,
-                labels = class_ids_to_class_names(predicted_label_ids_eval),
+                labels = evaluation_labels,
                 example_names = evaluation_set.example_names,
                 feature_names = evaluation_set.feature_names,
                 feature_selection = evaluation_set.feature_selection,
