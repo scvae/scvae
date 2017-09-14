@@ -204,6 +204,27 @@ data_sets = {
         "label superset": "infer"
     },
     
+    "10x 20k": {
+        "tags": {
+            "example": "cell",
+            "feature": "gene",
+            "type": "count",
+            "item": "transcript"
+        },
+        "split": False,
+        "preprocessing methods": None,
+        "URLs": {
+            "values": {
+                "full": "http://cf.10xgenomics.com/samples/cell-exp/1.3.0/1M_neurons/1M_neurons_neuron20k.h5"
+            },
+            "labels": {
+                "full": None
+            }
+        },
+        "load function": lambda x: load10xDataSet(x),
+        "example type": "counts"
+    },
+    
     "MNIST (original)": {
         "tags": {
             "example": "digit",
@@ -1328,6 +1349,7 @@ def downloadDataSet(title, directory):
             URL = URLs[values_or_labels][kind]
             
             if not URL:
+                paths[values_or_labels][kind] = None
                 continue
             
             URL_filename = os.path.split(URL)[-1]
@@ -1872,17 +1894,23 @@ def load10xDataSet(paths):
     example_names = table["barcodes"].astype("U")
     feature_names = table["gene_names"].astype("U")
     
-    metadata = pandas.read_csv(paths["labels"]["full"], index_col = "cell_index")
-
-    label_key = "Cell_types_res0.8"
-
-    labels = numpy.zeros(example_names.shape, metadata[label_key].dtype)
-    labels[labels == 0] = "No class"
+    if paths["labels"]["full"]:
+        
+        metadata = pandas.read_csv(paths["labels"]["full"],
+            index_col = "cell_index")
+        
+        label_key = "Cell_types_res0.8"
+        
+        labels = numpy.zeros(example_names.shape, metadata[label_key].dtype)
+        labels[labels == 0] = "No class"
+        
+        for example_name, label in metadata[label_key].iteritems():
+            labels[example_names == example_name] = label
+        
+        labels = labels.astype("U")
     
-    for example_name, label in metadata[label_key].iteritems():
-        labels[example_names == example_name] = label
-    
-    labels = labels.astype("U")
+    else:
+        labels = None
     
     data_dictionary = {
         "values": values,
