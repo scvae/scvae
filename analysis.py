@@ -62,7 +62,8 @@ number_of_pca_components_before_tsne = 32
 
 number_of_random_examples = 100
 
-number_of_profile_comparisons = 25
+profile_comparison_maximum_number_of_examples = 25
+profile_comparison_maximum_number_of_examples_per_class = 3
 profile_comparison_count_cut_off = 10.5
 
 maximum_count_scales = [1, 5]
@@ -846,37 +847,44 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     y_cutoff = profile_comparison_count_cut_off
     
-    subset = set()
+    if evaluation_set.has_labels:
+        
+        subset = set()
     
-    if evaluation_set.label_superset:
-        class_names = evaluation_set.superset_class_names
-        labels = evaluation_set.superset_labels
-    else:
-        class_names = evaluation_set.class_names
-        labels = evaluation_set.labels
-    
-    class_counter = {}
-    
-    for class_name in class_names:
-        class_counter[class_name] = 0
-    
-    counter_max = 3
-
-    while any(map(lambda x: x < counter_max, class_counter.values())):
-        i = numpy.random.randint(0, M)
-        label = labels[i]
-        if class_counter[label] >= counter_max or i in subset:
-            continue
+        if evaluation_set.label_superset:
+            class_names = evaluation_set.superset_class_names
+            labels = evaluation_set.superset_labels
         else:
-            class_counter[label] += 1
-            subset.add(i)        
+            class_names = evaluation_set.class_names
+            labels = evaluation_set.labels
+    
+        class_counter = {}
+    
+        for class_name in class_names:
+            class_counter[class_name] = 0
+    
+        counter_max = profile_comparison_maximum_number_of_examples_per_class
+
+        while any(map(lambda x: x < counter_max, class_counter.values())):
+            i = numpy.random.randint(0, M)
+            label = labels[i]
+            if class_counter[label] >= counter_max or i in subset:
+                continue
+            else:
+                class_counter[label] += 1
+                subset.add(i)
+    else:
+        subset = numpy.random.permutation(M)\
+            [:profile_comparison_maximum_number_of_examples]
     
     for i in subset:
         
         observed_series = evaluation_set.values[i]
         expected_series = reconstructed_evaluation_set.values[i]
         example_name = str(evaluation_set.example_names[i])
-        example_label = str(evaluation_set.labels[i])
+        
+        if evaluation_set.has_labels:
+            example_label = str(evaluation_set.labels[i])
         
         if reconstructed_evaluation_set.total_standard_deviations is not None:
             expected_series_total_standard_deviations = \
@@ -892,26 +900,17 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         maximum_count = max(observed_series.max(), expected_series.max())
         
-        for y_scale in ["linear"]:
-            example_name_parts = [example_name, example_label, y_scale]
-            figure, figure_name = plotProfileComparison(
-                observed_series,
-                expected_series,
-                expected_series_total_standard_deviations,
-                expected_series_explained_standard_deviations,
-                x_name = evaluation_set.tags["feature"],
-                y_name = evaluation_set.tags["value"],
-                sort_by = "expected",
-                sort_direction = "descending",
-                x_scale = "log",
-                y_scale = y_scale,
-                name = example_name_parts
-            )
-            saveFigure(figure, figure_name, profile_comparisons_directory)
+        if evaluation_set.has_labels:
+            example_name_base_parts = [example_name, example_label]
+        else:
+            example_name_base_parts = [example_name]
         
-        if maximum_count > 3 * y_cutoff:
-            for y_scale in ["linear", "log", "both"]:
-                example_name_parts = [example_name, example_label, y_scale]
+        for sort_profile_comparison in [True, False]:
+            for y_scale in ["linear"]:
+                example_name_parts = example_name_base_parts.copy()
+                example_name_parts.append(y_scale)
+                if not sort_profile_comparison:
+                    example_name_parts.append("unsorted")
                 figure, figure_name = plotProfileComparison(
                     observed_series,
                     expected_series,
@@ -919,68 +918,55 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                     expected_series_explained_standard_deviations,
                     x_name = evaluation_set.tags["feature"],
                     y_name = evaluation_set.tags["value"],
+                    sort = sort_profile_comparison,
                     sort_by = "expected",
                     sort_direction = "descending",
                     x_scale = "log",
                     y_scale = y_scale,
-                    y_cutoff = y_cutoff,
                     name = example_name_parts
                 )
                 saveFigure(figure, figure_name, profile_comparisons_directory)
         
-        for y_scale in ["linear"]:
-            example_name_parts = [example_name, example_label, y_scale, "unsorted"]
-            figure, figure_name = plotProfileComparison(
-                observed_series,
-                expected_series,
-                expected_series_total_standard_deviations,
-                expected_series_explained_standard_deviations,
-                x_name = evaluation_set.tags["feature"],
-                y_name = evaluation_set.tags["value"],
-                sort = False,
-                sort_by = "expected",
-                sort_direction = "descending",
-                x_scale = "linear",
-                y_scale = y_scale,
-                name = example_name_parts
-            )
-            saveFigure(figure, figure_name, profile_comparisons_directory)
+            if maximum_count > 3 * y_cutoff:
+                for y_scale in ["linear", "log", "both"]:
+                    example_name_parts = example_name_base_parts.copy()
+                    example_name_parts.append(y_scale)
+                    if not sort_profile_comparison:
+                        example_name_parts.append("unsorted")
+                    figure, figure_name = plotProfileComparison(
+                        observed_series,
+                        expected_series,
+                        expected_series_total_standard_deviations,
+                        expected_series_explained_standard_deviations,
+                        x_name = evaluation_set.tags["feature"],
+                        y_name = evaluation_set.tags["value"],
+                        sort = sort_profile_comparison,
+                        sort_by = "expected",
+                        sort_direction = "descending",
+                        x_scale = "log",
+                        y_scale = y_scale,
+                        y_cutoff = y_cutoff,
+                        name = example_name_parts
+                    )
+                    saveFigure(figure, figure_name, profile_comparisons_directory)
         
-        if maximum_count > 3 * y_cutoff:
-            for y_scale in ["linear", "log", "both"]:
-                example_name_parts = [example_name, example_label, y_scale, "unsorted"]
-                figure, figure_name = plotProfileComparison(
-                    observed_series,
-                    expected_series,
-                    expected_series_total_standard_deviations,
-                    expected_series_explained_standard_deviations,
-                    x_name = evaluation_set.tags["feature"],
-                    y_name = evaluation_set.tags["value"],
-                    sort = False,
-                    sort_by = "expected",
-                    sort_direction = "descending",
-                    x_scale = "linear",
-                    y_scale = y_scale,
-                    y_cutoff = y_cutoff,
-                    name = example_name_parts
-                )
-                saveFigure(figure, figure_name, profile_comparisons_directory)
-
         # Plot image examples for subset
         if evaluation_set.example_type == "images":
+            example_name_parts = ["original"] + example_name_base_parts
             image, image_name = combineImagesFromDataSet(
                 evaluation_set,
-                number_of_random_examples=1,
-                indices=[i],
-                name = ["original", example_name, example_label]
+                number_of_random_examples = 1,
+                indices = [i],
+                name = example_name_parts
             )
             saveImage(image, image_name, image_comparisons_directory)
         if reconstructed_evaluation_set.example_type == "images":
+            example_name_parts = ["reconstructed"] + example_name_base_parts
             image, image_name = combineImagesFromDataSet(
                 reconstructed_evaluation_set,
-                number_of_random_examples=1,
-                indices=[i],
-                name = ["reconstructed", example_name, example_label]
+                number_of_random_examples = 1,
+                indices = [i],
+                name = example_name_parts
             )
             saveImage(image, image_name, image_comparisons_directory)
 
