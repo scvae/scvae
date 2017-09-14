@@ -784,6 +784,8 @@ class DataSet(object):
         
         if labels is not None:
             
+            self.has_labels = True
+            
             self.labels = labels
             
             if class_names is not None:
@@ -817,6 +819,9 @@ class DataSet(object):
                     self.superset_class_id_to_superset_class_name[i] = class_name
                 
                 self.number_of_superset_classes = len(self.superset_class_names)
+        
+        else:
+            self.has_labels = False
         
         if total_standard_deviations is not None:
             self.total_standard_deviations = total_standard_deviations
