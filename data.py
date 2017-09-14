@@ -1482,6 +1482,9 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
     else:
         indices = numpy.arange(N)
     
+    if feature_selection and len(indices) == N:
+        raise ValueError("No features excluded using feature selection. Exiting.")
+    
     feature_selected_values = {}
     
     for version, values in values_dictionary.items():
@@ -1490,8 +1493,9 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
     feature_selected_feature_names = feature_names[indices]
     
     duration = time() - start_time
-    print("{} features selected ({}).".format(
+    print("{} features selected, {} excluded ({}).".format(
         len(indices),
+        N - len(indices),
         formatDuration(duration)
     ))
     
@@ -1530,7 +1534,7 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
             number_of_non_zero_elements > minimum_number_of_non_zero_elements
         )[0]
     
-    if example_filter == "inverse_macosko":
+    elif example_filter == "inverse_macosko":
         maximum_number_of_non_zero_elements = 900
         number_of_non_zero_elements = (values != 0).sum(axis = 1)
         filter_indices = numpy.nonzero(
@@ -1565,12 +1569,13 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
                         label_indices = filter_labels != class_name
                         filter_labels = filter_labels[label_indices]
                         filter_indices = filter_indices[label_indices]
-        
-        
     
     elif example_filter == "remove_count_sum_above":
         threshold = int(example_filter_parameters[0])
         filter_indices = filter_indices[count_sum.reshape(-1) <= threshold]
+    
+    if example_filter and len(filter_indices) == M:
+        raise ValueError("No examples filtered out using example filter. Exiting.")
     
     example_filtered_values = {}
     
