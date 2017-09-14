@@ -465,7 +465,7 @@ def main(data_set_name, data_directory = "data",
                     results_directory = results_directory
                 )
             
-            if model.type == "GMVAE_alt" \
+            if model.type == "GMVAE_alt" and data_set.has_labels \
                 and ("No class" in data_set.class_names
                 or (data_set.label_superset \
                 and "No class" in data_set.superset_class_names)):
