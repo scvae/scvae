@@ -13,6 +13,7 @@ from tensorflow import sigmoid, identity
 
 from distributions.zero_inflated import ZeroInflated
 from distributions.categorized import Categorized
+from distributions.lomax import Lomax
 from distributions.pareto import Pareto
 from distributions.generalised_pareto import GeneralisedPareto
 from distributions.multinomial_non_permuted import NonPermutedMultinomial
@@ -126,6 +127,24 @@ distributions = {
         },
         "class": lambda theta, N: Poisson(
             rate = theta["lambda"] * N
+        )
+    },
+
+    "lomax": {
+        "parameters": {
+            "log_concentration": {
+                "support": [-10, 10],
+                "activation function": identity
+            },
+            "log_scale": {
+                "support": [-10, 10],
+                "activation function": identity
+            }
+        },
+        "class": lambda theta: Lomax(
+            concentration = tf.exp(theta["log_concentration"]),
+            scale = tf.exp(theta["log_scale"]),
+            validate_args = True
         )
     },
 
