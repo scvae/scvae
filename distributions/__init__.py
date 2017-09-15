@@ -143,8 +143,7 @@ distributions = {
         },
         "class": lambda theta: Lomax(
             concentration = tf.exp(theta["log_concentration"]),
-            scale = tf.exp(theta["log_scale"]),
-            validate_args = True
+            scale = tf.exp(theta["log_scale"])
         )
     },
 
