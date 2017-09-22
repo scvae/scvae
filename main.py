@@ -26,8 +26,7 @@ def main(data_set_name, data_directory = "data",
     feature_selection = [], feature_parameter = None, example_filter = [],
     preprocessing_methods = [], noisy_preprocessing_methods = [],
     splitting_method = "default", splitting_fraction = 0.8,
-    model_configurations_path = None, model_type = "VAE",
-    latent_size = 50, hidden_sizes = [500],
+    model_type = "VAE", latent_size = 50, hidden_sizes = [500],
     number_of_importance_samples = [5],
     number_of_monte_carlo_samples = [10],
     latent_distribution = "gaussian",
@@ -94,656 +93,350 @@ def main(data_set_name, data_directory = "data",
         )
         print()
     
+    # Modelling
+    
     if skip_modelling:
+        print("Modelling skipped.")
         return
     
-    # Set up model configurations
+    title("Modelling")
     
-    title("Model configurations")
+    if "VAE" in model_type:
+        if latent_distribution == "gaussian":
+            analytical_kl_term = True
+        else:
+            analytical_kl_term = False
     
-    print("Setting up model configurations.")
-    
-    feature_size = data_set.number_of_features
-    
-    model_configurations, configuration_errors = setUpModelConfigurations(
-        model_configurations_path, model_type,
-        latent_size, hidden_sizes,
-        number_of_importance_samples,
-        number_of_monte_carlo_samples,
-        latent_distribution,
-        number_of_latent_clusters,
-        parameterise_latent_posterior,
-        reconstruction_distribution,
-        number_of_reconstruction_classes, number_of_warm_up_epochs,
-        batch_normalisation, count_sum, number_of_epochs,
-        batch_size, learning_rate
+    model_valid, model_errors = validateModelParameters(
+        model_type, latent_distribution,
+        reconstruction_distribution, number_of_reconstruction_classes,
+        parameterise_latent_posterior
     )
     
-    number_of_models = len(model_configurations)
+    if not model_valid:
+        for model_error in model_errors:
+            print(model_error)
+        print("")
+        print("Modelling cancelled.")
     
-    if configuration_errors:
-        print("Invalid model configurations:")
-        for errors in configuration_errors:
-            for error in errors:
-                print("    ", error)
+    feature_size = data_set.number_of_features
+    number_of_monte_carlo_samples = parseSampleLists(
+        number_of_monte_carlo_samples)
+    number_of_importance_samples = parseSampleLists(
+        number_of_importance_samples)
+    
+    subtitle("Setting up model")
+    
+    if model_type == "VAE":
+        model = VariationalAutoEncoder(
+            feature_size = feature_size,
+            latent_size = latent_size,
+            hidden_sizes = hidden_sizes,
+            number_of_monte_carlo_samples =number_of_monte_carlo_samples,
+            analytical_kl_term = analytical_kl_term,
+            latent_distribution = latent_distribution,
+            number_of_latent_clusters = number_of_latent_clusters,
+            parameterise_latent_posterior = parameterise_latent_posterior,
+            reconstruction_distribution = reconstruction_distribution,
+            number_of_reconstruction_classes = number_of_reconstruction_classes,
+            batch_normalisation = batch_normalisation,
+            dropout_keep_probabilities = dropout_keep_probabilities,
+            count_sum = count_sum,
+            number_of_warm_up_epochs = number_of_warm_up_epochs,
+            log_directory = log_directory,
+            results_directory = results_directory
+        )
+    
+    elif model_type == "IWVAE":
+        model = ImportanceWeightedVariationalAutoEncoder(
+            feature_size = feature_size,
+            latent_size = latent_size,
+            hidden_sizes = hidden_sizes,
+            number_of_monte_carlo_samples =number_of_monte_carlo_samples,
+            number_of_importance_samples = number_of_importance_samples,
+            analytical_kl_term = analytical_kl_term,
+            latent_distribution = latent_distribution,
+            number_of_latent_clusters = number_of_latent_clusters,
+            parameterise_latent_posterior = parameterise_latent_posterior,
+            reconstruction_distribution = reconstruction_distribution,
+            number_of_reconstruction_classes = number_of_reconstruction_classes,
+            batch_normalisation = batch_normalisation,
+            dropout_keep_probabilities = dropout_keep_probabilities,
+            count_sum = count_sum,
+            number_of_warm_up_epochs = number_of_warm_up_epochs,
+            log_directory = log_directory,
+            results_directory = results_directory
+        )
+
+    elif model_type == "GMVAE_alt":
+        if prior_probabilities_method == "uniform":
+            prior_probabilities = None
+        elif prior_probabilities_method == "infer":
+            prior_probabilities = data_set.class_probabilities
+        elif prior_probabilities_method == "literature":
+            prior_probabilities = data_set.literature_probabilities
+        else:
+            prior_probabilities = None
+        
+        if not prior_probabilities:
+            prior_probabilities_method = "uniform"
+            prior_probabilities_values = None
+        else:
+            prior_probabilities_values = list(prior_probabilities.values())
+        
+        prior_probabilities = {
+            "method": prior_probabilities_method,
+            "values": prior_probabilities_values
+        }
+        
+        model = GaussianMixtureVariationalAutoEncoder_alternative(
+            feature_size = feature_size,
+            latent_size = latent_size,
+            hidden_sizes = hidden_sizes,
+            number_of_monte_carlo_samples = number_of_monte_carlo_samples,
+            number_of_importance_samples = number_of_importance_samples, 
+            analytical_kl_term = analytical_kl_term,
+            prior_probabilities = prior_probabilities,
+            number_of_latent_clusters = number_of_latent_clusters,
+            proportion_of_free_KL_nats = proportion_of_free_KL_nats,
+            reconstruction_distribution = reconstruction_distribution,
+            number_of_reconstruction_classes = number_of_reconstruction_classes,
+            batch_normalisation = batch_normalisation,
+            dropout_keep_probabilities = dropout_keep_probabilities,
+            count_sum = count_sum,
+            number_of_warm_up_epochs = number_of_warm_up_epochs,
+            log_directory = log_directory,
+            results_directory= results_directory
+        )
+    
+    else:
+        return ValueError("Model type not found.")
+    
+    print(model.description)
+    print()
+    
+    print(model.parameters)
+    print()
+    
+    # Training
+    
+    subtitle("Training model")
+    
+    status = model.train(
+        training_set, validation_set,
+        number_of_epochs, batch_size, learning_rate,
+        reset_training, plot_for_every_n_epochs
+    )
+    
+    if not status["completed"]:
+        print(status["message"])
+        return
+    
+    status_filename = "status"
+    if "trained" in status:
+        status_filename += "-" + status["trained"]
+    status_path = os.path.join(
+        model.log_directory,
+        status_filename + ".log"
+    )
+    with open(status_path, "w") as status_file:
+        for status_field, status_value in status.items():
+            if status_value:
+                status_file.write(
+                    status_field + ": " + str(status_value) + "\n"
+                )
     
     print()
     
-    # Loop over models
+    # Evaluating
     
-    print("Looping over {} models.\n".format(len(model_configurations)))
+    for data_subset in all_data_sets:
+        if data_subset.kind == evaluation_set_name:
+            evaluation_set = data_subset
     
-    for model_number, model_configuration in enumerate(model_configurations):
+    subtitle("Evaluating on {} set".format(evaluation_set.kind))
+    
+    if "VAE" in model.type:
+        transformed_evaluation_set, reconstructed_evaluation_set,\
+            likelihood_evaluation_set, latent_evaluation_sets = \
+            model.evaluate(evaluation_set, batch_size)
         
-        title("Model {}".format(model_number + 1))
-        
-        model_type = model_configuration["model type"]
-        hidden_sizes = model_configuration["hidden sizes"]
-        reconstruction_distribution = \
-            model_configuration["reconstruction distribution"]
-        number_of_reconstruction_classes = \
-            model_configuration["number of reconstruction classes"]
-        batch_normalisation = model_configuration["batch normalisation"]
-        count_sum = model_configuration["count sum"]
-        number_of_epochs = model_configuration["number of epochs"]
-        batch_size = model_configuration["batch size"]
-        learning_rate = model_configuration["learning rate"]
-        
-        if "AE" in model_type:
-            latent_size = model_configuration["latent size"]
+        if analysis.betterModelExists(model):
+            better_model_exist = True
             
-            latent_distribution = \
-                model_configuration["latent distribution"]
-            
-            if latent_distribution == "gaussian mixture":
-                number_of_latent_clusters = \
-                    model_configuration["number of latent clusters"]
-            
-            parameterise_latent_posterior = \
-                model_configuration["parameterise latent posterior"]
-            
-            number_of_monte_carlo_samples = model_configuration[
-                "number of monte carlo samples"]
-            
-            number_of_warm_up_epochs = \
-                model_configuration["number of warm up epochs"]
-            
-            analytical_kl_term = latent_distribution == "gaussian"
-        
-        # Modeling
-        
-        subtitle("Setting up")
-        
-        if model_type == "VAE":
-            model = VariationalAutoEncoder(
-                feature_size = feature_size,
-                latent_size = latent_size,
-                hidden_sizes = hidden_sizes,
-                number_of_monte_carlo_samples =number_of_monte_carlo_samples,
-                analytical_kl_term = analytical_kl_term,
-                latent_distribution = latent_distribution,
-                number_of_latent_clusters = number_of_latent_clusters,
-                parameterise_latent_posterior = parameterise_latent_posterior,
-                reconstruction_distribution = reconstruction_distribution,
-                number_of_reconstruction_classes = number_of_reconstruction_classes,
-                batch_normalisation = batch_normalisation,
-                dropout_keep_probabilities = dropout_keep_probabilities,
-                count_sum = count_sum,
-                number_of_warm_up_epochs = number_of_warm_up_epochs,
-                log_directory = log_directory,
-                results_directory = results_directory
-            )
-        
-        elif model_type == "OVAE":
-            model = OriginalVariationalAutoEncoder(
-                feature_size = feature_size,
-                latent_size = latent_size,
-                hidden_sizes = hidden_sizes,
-                latent_distribution = latent_distribution,
-                number_of_latent_clusters = number_of_latent_clusters,
-                reconstruction_distribution = reconstruction_distribution,
-                number_of_reconstruction_classes = number_of_reconstruction_classes,
-                batch_normalisation = batch_normalisation,
-                dropout_keep_probabilities = dropout_keep_probabilities,
-                count_sum = count_sum,
-                number_of_warm_up_epochs = number_of_warm_up_epochs,
-                log_directory = log_directory
-            )
-        
-        elif model_type == "IWVAE":
-            number_of_importance_samples = model_configuration[
-                "number of importance samples"]
-            model = ImportanceWeightedVariationalAutoEncoder(
-                feature_size = feature_size,
-                latent_size = latent_size,
-                hidden_sizes = hidden_sizes,
-                number_of_monte_carlo_samples =number_of_monte_carlo_samples,
-                number_of_importance_samples = number_of_importance_samples,
-                analytical_kl_term = analytical_kl_term,
-                latent_distribution = latent_distribution,
-                number_of_latent_clusters = number_of_latent_clusters,
-                parameterise_latent_posterior = parameterise_latent_posterior,
-                reconstruction_distribution = reconstruction_distribution,
-                number_of_reconstruction_classes = number_of_reconstruction_classes,
-                batch_normalisation = batch_normalisation,
-                dropout_keep_probabilities = dropout_keep_probabilities,
-                count_sum = count_sum,
-                number_of_warm_up_epochs = number_of_warm_up_epochs,
-                log_directory = log_directory,
-                results_directory = results_directory
-            )
-
-        elif model_type == "CVAE":
-            number_of_importance_samples = model_configuration[
-                "number of importance samples"]
-            model = ClusterVariationalAutoEncoder(
-                feature_size = feature_size,
-                latent_size = latent_size,
-                hidden_sizes = hidden_sizes,
-                number_of_monte_carlo_samples = number_of_monte_carlo_samples,
-                number_of_importance_samples = number_of_importance_samples,
-                number_of_latent_clusters = number_of_latent_clusters,
-                reconstruction_distribution = reconstruction_distribution,
-                number_of_reconstruction_classes = number_of_reconstruction_classes,
-                batch_normalisation = batch_normalisation,
-                dropout_keep_probabilities = dropout_keep_probabilities,
-                count_sum = count_sum,
-                number_of_warm_up_epochs = number_of_warm_up_epochs,
-                log_directory = log_directory,
-                results_directory = results_directory
-            )
-
-        elif model_type == "GMVAE_alt":
-            number_of_importance_samples = model_configuration[
-                "number of importance samples"]
-            
-            if prior_probabilities_method == "uniform":
-                prior_probabilities = None
-            elif prior_probabilities_method == "infer":
-                prior_probabilities = data_set.class_probabilities
-            elif prior_probabilities_method == "literature":
-                prior_probabilities = data_set.literature_probabilities
-            else:
-                prior_probabilities = None
-            
-            if not prior_probabilities:
-                prior_probabilities_method = "uniform"
-                prior_probabilities_values = None
-            else:
-                prior_probabilities_values = list(prior_probabilities.values())
-            
-            prior_probabilities = {
-                "method": prior_probabilities_method,
-                "values": prior_probabilities_values
-            }
-            
-            model = \
-            GaussianMixtureVariationalAutoEncoder_alternative(
-                feature_size = feature_size,
-                latent_size = latent_size,
-                hidden_sizes = hidden_sizes,
-                number_of_monte_carlo_samples = number_of_monte_carlo_samples,
-                number_of_importance_samples = number_of_importance_samples, 
-                analytical_kl_term = analytical_kl_term,
-                prior_probabilities = prior_probabilities,
-                number_of_latent_clusters = number_of_latent_clusters,
-                proportion_of_free_KL_nats = proportion_of_free_KL_nats,
-                reconstruction_distribution = reconstruction_distribution,
-                number_of_reconstruction_classes = number_of_reconstruction_classes,
-                batch_normalisation = batch_normalisation,
-                dropout_keep_probabilities = dropout_keep_probabilities,
-                count_sum = count_sum,
-                number_of_warm_up_epochs = number_of_warm_up_epochs,
-                log_directory = log_directory,
-                results_directory= results_directory
-            )
-        elif model_type == "GMVAE":
-            number_of_importance_samples = model_configuration[
-                "number of importance samples"]
-            model = GaussianMixtureVariationalAutoEncoder(
-                feature_size = feature_size,
-                latent_size = latent_size,
-                hidden_sizes = hidden_sizes,
-                number_of_monte_carlo_samples = number_of_monte_carlo_samples,
-                number_of_importance_samples = number_of_importance_samples,
-                analytical_kl_term = analytical_kl_term,
-                number_of_latent_clusters = number_of_latent_clusters,
-                reconstruction_distribution = reconstruction_distribution,
-                number_of_reconstruction_classes = number_of_reconstruction_classes,
-                batch_normalisation = batch_normalisation,
-                dropout_keep_probabilities = dropout_keep_probabilities,
-                count_sum = count_sum,
-                number_of_warm_up_epochs = number_of_warm_up_epochs,
-                log_directory = log_directory,
-                results_directory = results_directory 
-            )
-        
-        elif model_type == "SNN":
-            
-            model = SimpleNeuralNetwork(
-                feature_size = feature_size,
-                hidden_sizes = hidden_sizes,
-                reconstruction_distribution = reconstruction_distribution,
-                number_of_reconstruction_classes = number_of_reconstruction_classes,
-                batch_normalisation = batch_normalisation,
-                dropout_keep_probabilities = dropout_keep_probabilities,
-                count_sum = count_sum,
-                log_directory = log_directory
-            )
-        else:
-            return ValueError("Model type not found.")
-        
-        print(model.description)
-        print()
-        
-        print(model.parameters)
-        print()
-        
-        # Training
-        
-        subtitle("Training")
-        
-        status = model.train(
-            training_set, validation_set,
-            number_of_epochs, batch_size, learning_rate,
-            reset_training, plot_for_every_n_epochs
-        )
-        
-        if not status["completed"]:
-            print(status["message"])
             print()
-            continue
-        
-        status_filename = "status"
-        if "trained" in status:
-            status_filename += "-" + status["trained"]
-        status_path = os.path.join(
-            model.log_directory,
-            status_filename + ".log"
-        )
-        with open(status_path, "w") as status_file:
-            for status_field, status_value in status.items():
-                if status_value:
-                    status_file.write(
-                        status_field + ": " + str(status_value) + "\n"
-                    )
-        
-        print()
-        
-        # Evaluating
-        
-        for data_subset in all_data_sets:
-            if data_subset.kind == evaluation_set_name:
-                evaluation_set = data_subset
-        
-        subtitle("Evaluating on {} set".format(evaluation_set.kind))
-        
-        if "AE" in model.type:
-            transformed_evaluation_set, reconstructed_evaluation_set,\
-                likelihood_evaluation_set, latent_evaluation_sets = \
-                model.evaluate(evaluation_set, batch_size)
+            subtitle("Evaluating on {} set with best model parameters"\
+                .format(evaluation_set.kind))
             
-            if analysis.betterModelExists(model):
-                better_model_exist = True
-                
-                print()
-                subtitle("Evaluating on {} set with best model parameters"\
-                    .format(evaluation_set.kind))
-                
-                best_model_transformed_evaluation_set, \
-                    best_model_reconstructed_evaluation_set, \
-                    best_model_likelihood_evaluation_set, \
-                    best_model_latent_evaluation_sets = \
-                    model.evaluate(evaluation_set, batch_size,
-                        use_best_model = True)
-            else:
-                better_model_exist = False
-            
-            if model.stopped_early:
-                print()
-                subtitle("Evaluating on {} set with earlier stopped model"\
-                    .format(evaluation_set.kind))
-                
-                early_stopped_transformed_evaluation_set, \
-                    early_stopped_reconstructed_evaluation_set, \
-                    early_stopped_likelihood_evaluation_set, \
-                    early_stopped_latent_evaluation_sets = \
-                    model.evaluate(evaluation_set, batch_size,
-                        use_early_stopping_model = True)
+            best_model_transformed_evaluation_set, \
+                best_model_reconstructed_evaluation_set, \
+                best_model_likelihood_evaluation_set, \
+                best_model_latent_evaluation_sets = \
+                model.evaluate(evaluation_set, batch_size,
+                    use_best_model = True)
         else:
-            transformed_evaluation_set, reconstructed_evaluation_set, \
-                likelihood_evaluation_set = \
-                model.evaluate(evaluation_set, batch_size)
-            latent_evaluation_sets = None
             better_model_exist = False
         
-        print()
-        
-        # Analysis
-        
-        if analyse:
+        if model.stopped_early:
+            print()
+            subtitle("Evaluating on {} set with earlier stopped model"\
+                .format(evaluation_set.kind))
             
-            subtitle("Analysing model")
-            analysis.analyseModel(model, results_directory, for_video = video)
+            early_stopped_transformed_evaluation_set, \
+                early_stopped_reconstructed_evaluation_set, \
+                early_stopped_likelihood_evaluation_set, \
+                early_stopped_latent_evaluation_sets = \
+                model.evaluate(evaluation_set, batch_size,
+                    use_early_stopping_model = True)
+    else:
+        transformed_evaluation_set, reconstructed_evaluation_set, \
+            likelihood_evaluation_set = \
+            model.evaluate(evaluation_set, batch_size)
+        latent_evaluation_sets = None
+        better_model_exist = False
+    
+    print()
+    
+    # Analysis
+    
+    title("Analyses")
+    
+    if analyse:
+        
+        subtitle("Analysing model")
+        analysis.analyseModel(model, results_directory, for_video = video)
 
-            subtitle("Analysing results for {} set".format(evaluation_set.kind))
+        subtitle("Analysing results for {} set".format(evaluation_set.kind))
+        analysis.analyseResults(
+            transformed_evaluation_set,
+            reconstructed_evaluation_set,
+            likelihood_evaluation_set,
+            latent_evaluation_sets,
+            model, decomposition_methods, highlight_feature_indices,
+            plot_heat_maps_for_large_data_sets,
+            results_directory = results_directory
+        )
+        
+        if better_model_exist:
+            subtitle("Analysing results for {} set".format(
+                evaluation_set.kind) + " with best model parameters")
             analysis.analyseResults(
-                transformed_evaluation_set,
-                reconstructed_evaluation_set,
-                likelihood_evaluation_set,
-                latent_evaluation_sets,
+                best_model_transformed_evaluation_set,
+                best_model_reconstructed_evaluation_set,
+                best_model_likelihood_evaluation_set,
+                best_model_latent_evaluation_sets,
                 model, decomposition_methods, highlight_feature_indices,
                 plot_heat_maps_for_large_data_sets,
+                best_model = True,
                 results_directory = results_directory
             )
+        
+        if model.stopped_early:
+            subtitle("Analysing results for {} set".format(
+                evaluation_set.kind) + " with earlier stopped model")
+            analysis.analyseResults(
+                early_stopped_transformed_evaluation_set,
+                early_stopped_reconstructed_evaluation_set,
+                early_stopped_likelihood_evaluation_set,
+                early_stopped_latent_evaluation_sets,
+                model, decomposition_methods, highlight_feature_indices,
+                plot_heat_maps_for_large_data_sets,
+                early_stopping = True,
+                results_directory = results_directory
+            )
+        
+        if model.type == "GMVAE_alt" and data_set.has_labels \
+            and ("No class" in data_set.class_names
+            or (data_set.label_superset \
+            and "No class" in data_set.superset_class_names)):
             
-            if better_model_exist:
-                subtitle("Analysing results for {} set".format(
-                    evaluation_set.kind) + " with best model parameters")
-                analysis.analyseResults(
-                    best_model_transformed_evaluation_set,
-                    best_model_reconstructed_evaluation_set,
-                    best_model_likelihood_evaluation_set,
-                    best_model_latent_evaluation_sets,
-                    model, decomposition_methods, highlight_feature_indices,
-                    plot_heat_maps_for_large_data_sets,
-                    best_model = True,
-                    results_directory = results_directory
-                )
+            subtitle("Predicting labels for unlabelled examples in {} set"\
+                .format(evaluation_set.kind))
+            
+            unlablled_directory = os.path.join(results_directory,
+                model.testing_name)
             
             if model.stopped_early:
-                subtitle("Analysing results for {} set".format(
-                    evaluation_set.kind) + " with earlier stopped model")
-                analysis.analyseResults(
-                    early_stopped_transformed_evaluation_set,
-                    early_stopped_reconstructed_evaluation_set,
-                    early_stopped_likelihood_evaluation_set,
-                    early_stopped_latent_evaluation_sets,
-                    model, decomposition_methods, highlight_feature_indices,
-                    plot_heat_maps_for_large_data_sets,
-                    early_stopping = True,
-                    results_directory = results_directory
-                )
-            
-            if model.type == "GMVAE_alt" and data_set.has_labels \
-                and ("No class" in data_set.class_names
-                or (data_set.label_superset \
-                and "No class" in data_set.superset_class_names)):
-                
-                subtitle("Predicting labels for unlabelled examples in {} set"\
-                    .format(evaluation_set.kind))
-                
-                unlablled_directory = os.path.join(results_directory,
-                    model.testing_name)
-                
-                if model.stopped_early:
-                    unlablled_directory = os.path.join(unlablled_directory,
-                        "early_stopping")
-                
                 unlablled_directory = os.path.join(unlablled_directory,
-                    "unlabelled_examples")
-                
-                ## Evaluation
-                
-                transformed_data_set, reconstructed_data_set, latent_data_sets \
-                    = model.evaluate(data_set, batch_size, model.stopped_early)
-                
-                print()
-                
-                ## Selection
-                
-                if "No class" in data_set.class_names:
-                    labels = data_set.labels
-                elif data_set.label_superset \
-                    and "No class" in data_set.superset_class_names:
-                    labels = data_set.superset_labels
-                
-                unlablled_indices = labels == "No class"
-                
-                transformed_data_set.applyIndices(unlablled_indices)
-                reconstructed_data_set.applyIndices(unlablled_indices)
-                
-                for i in range(len(latent_data_sets)):
-                    latent_data_sets[i].applyIndices(unlablled_indices)
-                
-                ## Analysis
-                
-                analysis.analyseDecompositions(
-                    latent_data_sets,
-                    colouring_data_set =
-                        reconstructed_data_set,
-                    decomposition_methods = decomposition_methods,
-                    highlight_feature_indices = highlight_feature_indices,
-                    symbol = "z",
-                    title = "latent space with predicted labels",
-                    specifier = lambda data_set: data_set.version,
-                    results_directory = unlablled_directory
-                )
-                
-                analysis.analyseDecompositions(
-                    transformed_data_set,
-                    colouring_data_set =
-                        reconstructed_data_set,
-                    decomposition_methods = decomposition_methods,
-                    highlight_feature_indices = highlight_feature_indices,
-                    symbol = "x",
-                    title = "original space with predicted labels",
-                    results_directory = unlablled_directory
-                )
-
-def setUpModelConfigurations(model_configurations_path, model_type,
-    latent_size, hidden_sizes,
-    number_of_importance_samples, number_of_monte_carlo_samples,
-    latent_distribution, number_of_latent_clusters,
-    parameterise_latent_posterior,
-    reconstruction_distribution, number_of_reconstruction_classes,
-    number_of_warm_up_epochs, batch_normalisation, count_sum, number_of_epochs,
-    batch_size, learning_rate):
-    
-    model_configurations = []
-    configuration_errors = []
-    
-    if model_configurations_path:
-        
-        with open(model_configurations_path, "r") as configurations_file:
-            configurations = json.load(configurations_file)
-        
-        model_types = configurations["model types"]
-        network = configurations["network"]
-        likelihood = configurations["likelihood"]
-        training = configurations["training"]
-        
-        for model_type in model_types:
+                    "early_stopping")
             
-            configurations_product = itertools.product(
-                network["structure of hidden layers"],
-                network["count sum"],
-                network["batch normalisation"],
-                likelihood["reconstruction distributions"],
-                likelihood["numbers of reconstruction classes"]
+            unlablled_directory = os.path.join(unlablled_directory,
+                "unlabelled_examples")
+            
+            ## Evaluation
+            
+            transformed_data_set, reconstructed_data_set, latent_data_sets \
+                = model.evaluate(data_set, batch_size, model.stopped_early)
+            
+            print()
+            
+            ## Selection
+            
+            if "No class" in data_set.class_names:
+                labels = data_set.labels
+            elif data_set.label_superset \
+                and "No class" in data_set.superset_class_names:
+                labels = data_set.superset_labels
+            
+            unlablled_indices = labels == "No class"
+            
+            transformed_data_set.applyIndices(unlablled_indices)
+            reconstructed_data_set.applyIndices(unlablled_indices)
+            
+            for i in range(len(latent_data_sets)):
+                latent_data_sets[i].applyIndices(unlablled_indices)
+            
+            ## Analysis
+            
+            analysis.analyseDecompositions(
+                latent_data_sets,
+                colouring_data_set =
+                    reconstructed_data_set,
+                decomposition_methods = decomposition_methods,
+                highlight_feature_indices = highlight_feature_indices,
+                symbol = "z",
+                title = "latent space with predicted labels",
+                specifier = lambda data_set: data_set.version,
+                results_directory = unlablled_directory
             )
             
-            for hidden_sizes, count_sum, batch_normalisation, \
-                reconstruction_distribution, number_of_reconstruction_classes \
-                in configurations_product:
-                
-                model_configuration = {
-                        "model type": model_type,
-                        "hidden sizes": hidden_sizes,
-                        "reconstruction distribution":
-                            reconstruction_distribution,
-                        "number of reconstruction classes":
-                            number_of_reconstruction_classes,
-                        "batch normalisation": batch_normalisation,
-                        "count sum": count_sum,
-                        "number of epochs": training["number of epochs"],
-                        "batch size": training["batch size"],
-                        "learning rate": training["learning rate"]
-                }
-                
-                if "AE" in model_type:
-                    
-                    model_configuration[
-                        "number of monte carlo samples"] = \
-                        network["number of monte carlo samples"]
-                    
-                    if "IW" in model_type or model_type in ["GMVAE", "CVAE", "GMVAE_alt"]:
-                        model_configuration[
-                            "number of importance samples"] = \
-                            network["number of importance samples"]
-                    
-                    if not "parameterise latent posterior" in network:
-                        network["parameterise latent posterior"] = [False]
-                    
-                    model_configuration["number of warm up epochs"] = \
-                        training["number of warm-up epochs"]
-                    
-                    for latent_distribution in likelihood["latent distributions"]:
-                        
-                        model_configuration["latent distribution"] = \
-                            latent_distribution
-                        
-                        if "mixture" in latent_distribution \
-                            or model_type in ["GMVAE", "CVAE", "GMVAE_alt"]:
-                            
-                            sub_configurations_product = itertools.product(
-                                likelihood["numbers of latent clusters"],
-                                network["latent sizes"],
-                                network["parameterise latent posterior"]
-                            )
-                            
-                            for number_of_latent_clusters, latent_size, \
-                                parameterise_latent_posterior in \
-                                sub_configurations_product:
-                                
-                                sub_model_configuration = model_configuration.copy()
-                                sub_model_configuration[
-                                    "number of latent clusters"] = \
-                                        number_of_latent_clusters
-                                sub_model_configuration["latent size"] = latent_size
-                                sub_model_configuration[
-                                    "parameterise latent posterior"] = \
-                                        parameterise_latent_posterior
-                                model_configurations.append(sub_model_configuration)
-                
-                        else:
-                            number_of_latent_clusters = 1
-                            
-                            sub_configurations_product = itertools.product(
-                                network["latent sizes"],
-                                network["parameterise latent posterior"]
-                            )
-                            
-                            for latent_size, parameterise_latent_posterior in \
-                                sub_configurations_product:
-                                
-                                sub_model_configuration = model_configuration.copy()
-                                sub_model_configuration[
-                                    "number of latent clusters"] = \
-                                        number_of_latent_clusters
-                                sub_model_configuration["latent size"] = latent_size
-                                sub_model_configuration[
-                                    "parameterise latent posterior"] = \
-                                        parameterise_latent_posterior
-                                model_configurations.append(sub_model_configuration)
-                
-                else:
-                    model_configurations.append(model_configuration)
-                
-    else:
-        model_configuration = {
-            "model type": model_type,
-            "hidden sizes": hidden_sizes,
-            "reconstruction distribution": reconstruction_distribution,
-            "number of reconstruction classes":
-                number_of_reconstruction_classes,
-            "batch normalisation": batch_normalisation,
-            "count sum": count_sum,
-            "number of epochs": number_of_epochs,
-            "batch size": batch_size,
-            "learning rate": learning_rate
-        }
-        
-        if "AE" in model_type:
-            
-            # Network
-            
-            model_configuration["latent size"] = latent_size
-            model_configuration["latent distribution"] = latent_distribution
-            
-            if latent_distribution == "gaussian mixture":
-                model_configuration["number of latent clusters"] = \
-                    number_of_latent_clusters
-            
-            # Monte Carlo samples
-            
-            if len(number_of_monte_carlo_samples) > 1:
-                number_of_monte_carlo_samples = {
-                    "training": number_of_monte_carlo_samples[0],
-                    "evaluation": number_of_monte_carlo_samples[1]
-                }
-            else:
-                number_of_monte_carlo_samples = {
-                    "training": number_of_monte_carlo_samples[0],
-                    "evaluation": number_of_monte_carlo_samples[0]
-                }
-            
-            model_configuration["number of monte carlo samples"] = \
-                number_of_monte_carlo_samples
-            
-            # Importance samples
-            
-            if "IW" in model_type or model_type in ["GMVAE", "CVAE","GMVAE_alt"]:
-                
-                if len(number_of_importance_samples) > 1:
-                    number_of_importance_samples = {
-                        "training": number_of_importance_samples[0],
-                        "evaluation": number_of_importance_samples[1]
-                    }
-                else:
-                    number_of_importance_samples = {
-                        "training": number_of_importance_samples[0],
-                        "evaluation": number_of_importance_samples[0]
-                    }
-            
-                model_configuration["number of importance samples"] = \
-                    number_of_importance_samples
-            
-            # Parameterisation of latent posterior for IW-VAE
-            if "AE" in model_type:
-                model_configuration["parameterise latent posterior"] = \
-                    parameterise_latent_posterior
-            
-            # Training
-            
-            model_configuration["number of warm up epochs"] = \
-                number_of_warm_up_epochs
-        
-        model_configurations.append(model_configuration)
-    
-    for model_configuration in model_configurations:
-        
-        model_valid, model_errors = \
-            validateModelConfiguration(model_configuration)
-        
-        if not model_valid:
-            model_configurations.remove(model_configuration)
-            configuration_errors.append(model_errors)
-    
-    return model_configurations, configuration_errors
+            analysis.analyseDecompositions(
+                transformed_data_set,
+                colouring_data_set =
+                    reconstructed_data_set,
+                decomposition_methods = decomposition_methods,
+                highlight_feature_indices = highlight_feature_indices,
+                symbol = "x",
+                title = "original space with predicted labels",
+                results_directory = unlablled_directory
+            )
 
-def validateModelConfiguration(model_configuration):
+def parseSampleLists(list_with_number_of_samples):
+    
+    if len(list_with_number_of_samples) == 2:
+        number_of_samples = {
+            "training": list_with_number_of_samples[0],
+            "evaluation": list_with_number_of_samples[1]
+        }
+    
+    elif len(list_with_number_of_samples) == 1:
+        number_of_samples = {
+            "training": list_with_number_of_samples[0],
+            "evaluation": list_with_number_of_samples[0]
+        }
+    
+    else:
+        raise ValueError("List of number of samples can only contain " +
+            "one or two numbers.")
+    
+    return number_of_samples
+
+def validateModelParameters(model_type, latent_distribution,
+    reconstruction_distribution, number_of_reconstruction_classes,
+    parameterise_latent_posterior):
     
     validity = True
     errors = []
-    
-    model_type = model_configuration["model type"]
-    if "AE" in model_type:
-        latent_distribution = model_configuration["latent distribution"]
-    reconstruction_distribution = \
-        model_configuration["reconstruction distribution"]
-    number_of_reconstruction_classes = \
-        model_configuration["number of reconstruction classes"]
     
     # Likelihood
     
@@ -797,7 +490,7 @@ def validateModelConfiguration(model_configuration):
     
     # Latent distribution
     
-    if "AE" in model_type:
+    if "VAE" in model_type:
         
         latent_distribution_validity = True
         latent_distribution_error = ""
@@ -815,10 +508,7 @@ def validateModelConfiguration(model_configuration):
         errors.append(latent_distribution_error)
     
     # Parameterisation of latent posterior for IWVAE
-    if "AE" in model_type:
-        parameterise_latent_posterior = model_configuration[
-            "parameterise latent posterior"]
-        
+    if "VAE" in model_type:
         parameterise_validity = True
         parameterise_error = ""
         
@@ -914,14 +604,7 @@ parser.add_argument(
     help = "fraction to use when splitting data into training, validation, and test sets"
 )
 parser.add_argument(
-    "--model-configurations", "-m",
-    dest = "model_configurations_path",
-    type = str,
-    default = None,
-    help = "file with model configurations"
-)
-parser.add_argument(
-    "--model-type", "-M",
+    "--model-type", "-m",
     type = str,
     default = "VAE",
     help = "type of model"
