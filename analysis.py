@@ -763,11 +763,11 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         metrics_file.write(metrics_string)
 
     # Compute model likelihoods for each count in bins. 
-    count_likelihoods = computeCountLikelihoods(evaluation_set.values, likelihood_evaluation_set.values)
-
-    count_distribution_name = model.reconstruction_distribution_name
-    if model.k_max:
-        count_distribution_name = count_distribution_name + " ({} count classes)".format(model.k_max)
+    # count_likelihoods = computeCountLikelihoods(evaluation_set.values, likelihood_evaluation_set.values)
+    #
+    # count_distribution_name = model.reconstruction_distribution_name
+    # if model.k_max:
+    #     count_distribution_name = count_distribution_name + " ({} count classes)".format(model.k_max)
 
     # # Plot likelihoods in bar plots
     # figure, figure_name = plotCountLikelihoods(
@@ -792,8 +792,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             "superset_accuracy": superset_accuracy_eval,
             "statistics": evaluation_set_statistics,
             "count accuracies": count_accuracies,
-            "count likelihoods": count_likelihoods,
-            "count distribution name": count_distribution_name
+            # "count likelihoods": count_likelihoods,
+            # "count distribution name": count_distribution_name
         }
         pickle.dump(metrics_dictionary, metrics_file)
     
