@@ -53,8 +53,7 @@ image_extension = ".png"
 
 maximum_feature_size_for_analyses = 2000
 
-maximum_number_of_values_for_normal_heat_maps = 70000 * 1000
-maximum_number_of_values_for_large_heat_maps = 5000 * 25000
+maximum_number_of_values_for_heat_maps = 5000 * 25000
 
 maximum_number_of_features_for_t_sne = 100
 maximum_number_of_examples_for_t_sne = 50000
@@ -71,9 +70,18 @@ axis_limits_scales = [1, 5]
 
 default_cutoffs = range(1, 10)
 
-def analyseData(data_sets, decomposition_methods = ["PCA"],
-    highlight_feature_indices = [], extended_analysis = False,
-    plot_heat_maps_for_large_data_sets = False,
+analysis_groups = {
+    "simple": ["metrics", "images", "learning_curves", "accuracies"],
+    "default": ["kl_heat_maps", "profile_comparisons", "distributions",
+        "decompositions"],
+    "complete": ["heat_maps", "latent_distributions"]
+}
+analysis_groups["default"] += analysis_groups["simple"]
+analysis_groups["complete"] += analysis_groups["default"]
+
+def analyseData(data_sets,
+    decomposition_methods = ["PCA"], highlight_feature_indices = [],
+    analyses = ["default"], analysis_level = "normal",
     results_directory = "results"):
     
     # Setup
@@ -83,84 +91,88 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
     
+    analyses = parseAnalyses(analyses)
+    
     # Metrics
     
-    heading("Metrics")
-    
-    print("Calculating metrics for data set.")
-    metrics_time_start = time()
-    
-    data_set_statistics = []
-    histogram_statistics = []
-    number_of_examples = {}
-    number_of_features = 0
-    
-    for data_set in data_sets:
-        number_of_examples[data_set.kind] = data_set.number_of_examples
-        if data_set.kind == "full":
-            number_of_features = data_set.number_of_features
-            histogram_statistics.extend([
-                statistics(series, series_name, skip_sparsity = True)
-                for series_name, series in {
-                    "count sum": data_set.count_sum
-                }.items()
-            ])
-        data_set_statistics.append(
-            statistics(data_set.values, data_set.kind, tolerance = 0.5)
-        )
-    
-    metrics_duration = time() - metrics_time_start
-    print("Metrics calculated ({}).".format(
-        formatDuration(metrics_duration)))
-    
-    ## Saving
-    
-    metrics_path = os.path.join(results_directory, "data_set_metrics.log")
-    
-    metrics_saving_time_start = time()
-    
-    with open(metrics_path, "w") as metrics_file:
-        metrics_string = "Timestamp: {}\n".format(
-            formatTime(metrics_saving_time_start)) \
-            + "\n" \
-            + "Features: {}\n".format(number_of_features) \
-            + "Examples: {}\n".format(number_of_examples["full"]) \
-            + "\n".join(["{} examples: {}".format(kind.capitalize(), number)
-                         for kind, number in number_of_examples.items()
-                         if kind != "full"]) + "\n" \
-            + "\n" \
-            + "Metrics:\n" \
-            + formatStatistics(data_set_statistics) \
-            + "\n" \
-            + "Series:\n" \
-            + formatStatistics(histogram_statistics)
-        metrics_file.write(metrics_string)
-    
-    metrics_saving_duration = time() - metrics_saving_time_start
-    print("Metrics saved ({}).".format(formatDuration(
-        metrics_saving_duration)))
-    
-    print()
-    
-    ## Displaying
-    
-    print(formatStatistics(data_set_statistics), end = "")
-    
-    print()
-    
-    print(formatStatistics(histogram_statistics, name = "Series"), end = "")
-    
-    print()
+    if "metrics" in analyses:
+        
+        heading("Metrics")
+        
+        print("Calculating metrics for data set.")
+        metrics_time_start = time()
+        
+        data_set_statistics = []
+        histogram_statistics = []
+        number_of_examples = {}
+        number_of_features = 0
+        
+        for data_set in data_sets:
+            number_of_examples[data_set.kind] = data_set.number_of_examples
+            if data_set.kind == "full":
+                number_of_features = data_set.number_of_features
+                histogram_statistics.extend([
+                    statistics(series, series_name, skip_sparsity = True)
+                    for series_name, series in {
+                        "count sum": data_set.count_sum
+                    }.items()
+                ])
+            data_set_statistics.append(
+                statistics(data_set.values, data_set.kind, tolerance = 0.5)
+            )
+        
+        metrics_duration = time() - metrics_time_start
+        print("Metrics calculated ({}).".format(
+            formatDuration(metrics_duration)))
+        
+        ## Saving
+        
+        metrics_path = os.path.join(results_directory, "data_set_metrics.log")
+        
+        metrics_saving_time_start = time()
+        
+        with open(metrics_path, "w") as metrics_file:
+            metrics_string = "Timestamp: {}\n".format(
+                formatTime(metrics_saving_time_start)) \
+                + "\n" \
+                + "Features: {}\n".format(number_of_features) \
+                + "Examples: {}\n".format(number_of_examples["full"]) \
+                + "\n".join(["{} examples: {}".format(kind.capitalize(), number)
+                             for kind, number in number_of_examples.items()
+                             if kind != "full"]) + "\n" \
+                + "\n" \
+                + "Metrics:\n" \
+                + formatStatistics(data_set_statistics) \
+                + "\n" \
+                + "Series:\n" \
+                + formatStatistics(histogram_statistics)
+            metrics_file.write(metrics_string)
+        
+        metrics_saving_duration = time() - metrics_saving_time_start
+        print("Metrics saved ({}).".format(formatDuration(
+            metrics_saving_duration)))
+        
+        print()
+        
+        ## Displaying
+        
+        print(formatStatistics(data_set_statistics), end = "")
+        
+        print()
+        
+        print(formatStatistics(histogram_statistics, name = "Series"), end = "")
+        
+        print()
     
     # Loop over data sets
     
     for data_set in data_sets:
         
-        heading("Plots for {} set".format(data_set.kind))
+        heading("Analyses of {} set".format(data_set.kind))
         
         # Examples for data set
         
-        if data_set.example_type == "images":
+        if "images" in analyses and data_set.example_type == "images":
             print("Saving image of {} random examples from {} set.".format(
                 number_of_random_examples, data_set.kind))
             image_time_start = time()
@@ -176,27 +188,18 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
         
         # Distributions
         
-        if extended_analysis:
-            cutoffs = default_cutoffs
-        else:
-            cutoffs = None
-        
         analyseDistributions(
             data_set,
-            cutoffs = cutoffs,
+            cutoffs = default_cutoffs,
+            analysis_level = analysis_level,
             results_directory = results_directory
         )
         
         # Heat map for data set
         
-        if plot_heat_maps_for_large_data_sets:
-            maximum_number_of_values_for_heat_maps = \
-                maximum_number_of_values_for_large_heat_maps
-        else:
-            maximum_number_of_values_for_heat_maps = \
-                maximum_number_of_values_for_normal_heat_maps
-        
-        if data_set.number_of_values <= maximum_number_of_values_for_heat_maps:
+        if "heat_maps" in analyses and \
+            data_set.number_of_values <= maximum_number_of_values_for_heat_maps:
+            
             print("Plotting heat map for {} set.".format(data_set.kind))
             
             heat_maps_directory = os.path.join(results_directory, "heat_maps")
@@ -236,10 +239,12 @@ def analyseData(data_sets, decomposition_methods = ["PCA"],
             symbol = "x",
             title = "original space",
             specifier = lambda data_set: data_set.kind,
+            analysis_level = analysis_level,
             results_directory = results_directory
         )
 
-def analyseModel(model, results_directory = "results", for_video = False):
+def analyseModel(model, analyses = ["default"], analysis_level = "normal",
+    for_video = False, results_directory = "results"):
     
     # Setup
     
@@ -257,93 +262,96 @@ def analyseModel(model, results_directory = "results", for_video = False):
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
     
+    analyses = parseAnalyses(analyses)
+    
     # Learning curves
     
-    heading("Learning curves")
-    
-    print("Plotting learning curves.")
-    learning_curves_time_start = time()
-    
-    learning_curves = loadLearningCurves(model,
-        data_set_kinds = ["training", "validation"])
-    
-    figure, figure_name = plotLearningCurves(learning_curves, model.type)
-    saveFigure(figure, figure_name, results_directory)
-
-    if for_video:
-        print("Plotting learning curve evolution for video")
-        for epoch in range(number_of_epochs_trained):
-            figure, figure_name = plotLearningCurves(
-                learning_curves,
-                model.type,
-                epoch_slice = slice(epoch + 1),
-                global_y_lim = for_video
-            )
-            saveFigure(figure, figure_name, os.path.join(results_directory, "learning_curve_evolution"))
-    
-    # figure, figure_name = plotLearningCurves(learning_curves, model.type,
-    #     cut_off_learning_curve_at_epoch = 5)
-    # saveFigure(figure, figure_name, results_directory)
-    
-    if model.type == "SNN":
-        figure, figure_name = plotSeparateLearningCurves(learning_curves,
-            loss = "log_likelihood")
-        saveFigure(figure, figure_name, results_directory)
-    elif "AE" in model.type:
-        figure, figure_name = plotSeparateLearningCurves(learning_curves,
-            loss = ["lower_bound", "reconstruction_error"])
-        saveFigure(figure, figure_name, results_directory)
-        if model.type in ["GMVAE_alt"]:
-            figure, figure_name = plotSeparateLearningCurves(learning_curves,
-                loss = "kl_divergence_z")
-            saveFigure(figure, figure_name, results_directory)
-            figure, figure_name = plotSeparateLearningCurves(learning_curves,
-                loss = "kl_divergence_y")
-            saveFigure(figure, figure_name, results_directory)
-        else:
-            figure, figure_name = plotSeparateLearningCurves(learning_curves,
-                loss = "kl_divergence")
-            saveFigure(figure, figure_name, results_directory)
-    
-    learning_curves_duration = time() - learning_curves_time_start
-    print("Learning curves plotted and saved ({}).".format(
-        formatDuration(learning_curves_duration)))
-    
-    print()
-    
-    # Accuracies
-    
-    accuracies_time_start = time()
-    
-    accuracies = loadAccuracies(model,
-        data_set_kinds = ["training", "validation"])
-    
-    if accuracies is not None:
-    
-        heading("Accuracies")
-    
-        print("Plotting accuracies.")
-    
-        figure, figure_name = plotAccuracies(accuracies)
+    if "learning_curves" in analyses:
+        
+        heading("Learning curves")
+            
+        print("Plotting learning curves.")
+        learning_curves_time_start = time()
+        
+        learning_curves = loadLearningCurves(model,
+            data_set_kinds = ["training", "validation"])
+        
+        figure, figure_name = plotLearningCurves(learning_curves, model.type)
         saveFigure(figure, figure_name, results_directory)
         
-        superset_accuracies = loadAccuracies(model,
-            data_set_kinds = ["training", "validation"], superset = True)
+        if for_video:
+            print("Plotting learning curve evolution for video")
+            for epoch in range(number_of_epochs_trained):
+                figure, figure_name = plotLearningCurves(
+                    learning_curves,
+                    model.type,
+                    epoch_slice = slice(epoch + 1),
+                    global_y_lim = for_video
+                )
+                saveFigure(figure, figure_name, os.path.join(results_directory, "learning_curve_evolution"))
         
-        if superset_accuracies is not None:
-            figure, figure_name = plotAccuracies(superset_accuracies,
-                name = "superset")
+        if model.type == "SNN":
+            figure, figure_name = plotSeparateLearningCurves(learning_curves,
+                loss = "log_likelihood")
             saveFigure(figure, figure_name, results_directory)
-        
-        accuracies_duration = time() - accuracies_time_start
-        print("Accuracies plotted and saved ({}).".format(
-            formatDuration(accuracies_duration)))
+        elif "VAE" in model.type:
+            figure, figure_name = plotSeparateLearningCurves(learning_curves,
+                loss = ["lower_bound", "reconstruction_error"])
+            saveFigure(figure, figure_name, results_directory)
+            if model.type in ["GMVAE_alt"]:
+                figure, figure_name = plotSeparateLearningCurves(learning_curves,
+                    loss = "kl_divergence_z")
+                saveFigure(figure, figure_name, results_directory)
+                figure, figure_name = plotSeparateLearningCurves(learning_curves,
+                    loss = "kl_divergence_y")
+                saveFigure(figure, figure_name, results_directory)
+            else:
+                figure, figure_name = plotSeparateLearningCurves(learning_curves,
+                    loss = "kl_divergence")
+                saveFigure(figure, figure_name, results_directory)
+    
+        learning_curves_duration = time() - learning_curves_time_start
+        print("Learning curves plotted and saved ({}).".format(
+            formatDuration(learning_curves_duration)))
     
         print()
     
+    # Accuracies
+    
+    if "accuracies" in analyses:
+        
+        accuracies_time_start = time()
+        
+        accuracies = loadAccuracies(model,
+            data_set_kinds = ["training", "validation"])
+        
+        if accuracies is not None:
+            
+            heading("Accuracies")
+            
+            print("Plotting accuracies.")
+            
+            figure, figure_name = plotAccuracies(accuracies)
+            saveFigure(figure, figure_name, results_directory)
+            
+            superset_accuracies = loadAccuracies(model,
+                data_set_kinds = ["training", "validation"], superset = True)
+            
+            if superset_accuracies is not None:
+                figure, figure_name = plotAccuracies(superset_accuracies,
+                    name = "superset")
+                saveFigure(figure, figure_name, results_directory)
+            
+            accuracies_duration = time() - accuracies_time_start
+            print("Accuracies plotted and saved ({}).".format(
+                formatDuration(accuracies_duration)))
+            
+            print()
+    
     # Heat map of KL for all latent neurons
     
-    if "AE" in model.type and model.type not in ["CVAE", "GMVAE", "GMVAE_alt"]:
+    if "kl_heat_maps" in analyses and \
+        "VAE" in model.type and "GM" not in model.type:
         
         heading("KL divergence")
     
@@ -364,12 +372,13 @@ def analyseModel(model, results_directory = "results", for_video = False):
         
         print()
     
-    # Evolution of latent centroids
+    # Latent distributions
     
-    if "AE" in model.type and "mixture" in model.latent_distribution_name:
+    if "latent_distributions" in analyses and \
+        "VAE" in model.type and "mixture" in model.latent_distribution_name:
         
         heading("Latent distributions")
-    
+        
         centroids = loadCentroids(model, data_set_kinds = "validation")
         
         centroids_directory = os.path.join(results_directory, "centroids_evolution")
@@ -406,12 +415,10 @@ def analyseModel(model, results_directory = "results", for_video = False):
                 centroid_means_decomposed = \
                     distribution_centroids_decomposed["means"]
                 
-
                 figure, figure_name = plotEvolutionOfCentroidProbabilities(
                     centroid_probabilities, distribution)
                 saveFigure(figure, figure_name, centroids_directory)
-
-
+                
                 figure, figure_name = plotEvolutionOfCentroidMeans(
                     centroid_means_decomposed, distribution, decomposed)
                 saveFigure(figure, figure_name, centroids_directory)
@@ -575,7 +582,8 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
             figure.axes[0].set_ybound([-5, 12])
             figure.axes[0].set_xlim([-8, 13])
             figure.axes[0].set_ylim([-5, 12])
-            saveFigure(figure, figure_name, intermediate_directory, for_video=True)
+            saveFigure(figure, figure_name, intermediate_directory,
+                for_video = True)
             if data_set.label_superset is not None:
                 figure, figure_name = plotValues(
                     latent_values_decomposed,
@@ -589,7 +597,8 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                 figure.axes[0].set_ybound([-5, 12])
                 figure.axes[0].set_xlim([-8, 13])
                 figure.axes[0].set_ylim([-5, 12])
-                saveFigure(figure, figure_name, intermediate_directory, for_video=True)
+                saveFigure(figure, figure_name, intermediate_directory,
+                    for_video = True)
         else:
             figure, figure_name = plotValues(
                 latent_values_decomposed,
@@ -601,10 +610,14 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
             figure.axes[0].set_ybound([-5, 12])
             figure.axes[0].set_xlim([-8, 13])
             figure.axes[0].set_ylim([-5, 12])
-            saveFigure(figure, figure_name, intermediate_directory, for_video=True)
+            saveFigure(figure, figure_name, intermediate_directory,
+                for_video = True)
     
         if centroids:
-            analyseCentroidProbabilities(centroids, epoch_name, intermediate_directory, for_video=True)
+            analyseCentroidProbabilities(
+                centroids, epoch_name,
+                for_video = True,
+                results_directory = intermediate_directory)
     
         plot_duration = time() - plot_time_start
         print("{} plotted and saved ({}).".format(
@@ -613,8 +626,9 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
 def analyseResults(evaluation_set, reconstructed_evaluation_set,
     likelihood_evaluation_set, latent_evaluation_sets, model,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
-    plot_heat_maps_for_large_data_sets = False,
-    early_stopping = False, best_model = False, results_directory = "results"):
+    early_stopping = False, best_model = False,
+    analyses = ["default"], analysis_level = "normal",
+    results_directory = "results"):
     
     if early_stopping and best_model:
         raise ValueError("Early-stopping model and best model cannot be"
@@ -647,128 +661,155 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     M = evaluation_set.number_of_examples
     
-    # Loading
-    
-    print("Loading results from model log directory.")
-    loading_time_start = time()
-    
-    evaluation_eval = loadLearningCurves(model, "evaluation",
-        early_stopping = early_stopping, best_model = best_model)
-    accuracy_eval = loadAccuracies(model, "evaluation",
-        early_stopping = early_stopping, best_model = best_model)
-    superset_accuracy_eval = loadAccuracies(model, "evaluation", superset = True,
-        early_stopping = early_stopping, best_model = best_model)
-    
-    if "AE" in model.type:
-        centroids = loadCentroids(model, data_set_kinds = "evaluation",
-            early_stopping = early_stopping, best_model = best_model)
-    else:
-        centroids = None
-    
-    loading_duration = time() - loading_time_start
-    print("Results loaded ({}).".format(formatDuration(loading_duration)))
-    print()
+    analyses = parseAnalyses(analyses)
     
     # Metrics
-
-    heading("Metrics")
     
-    print("Calculating metrics for results.")
-    metrics_time_start = time()
-
-    evaluation_set_statistics = [
-        statistics(data_set.values, data_set.version, tolerance = 0.5)
-            for data_set in [evaluation_set, reconstructed_evaluation_set]
-    ]
-
-    x_diff = reconstructed_evaluation_set.values - evaluation_set.values
-    evaluation_set_statistics.append(statistics(numpy.abs(x_diff), "differences",
-        skip_sparsity = True))
-
-    x_log_ratio = numpy.log((reconstructed_evaluation_set.values + 1) \
-        / (evaluation_set.values + 1))
-    evaluation_set_statistics.append(statistics(numpy.abs(x_log_ratio),
-        "log-ratios", skip_sparsity = True))
-
-    if evaluation_set.values.max() > 20:
-        count_accuracy_method = "orders of magnitude"
-    else:
-        count_accuracy_method = None
-
-    count_accuracies = computeCountAccuracies(
-        evaluation_set.values,
-        reconstructed_evaluation_set.values,
-        method = count_accuracy_method
-    )
-
-    metrics_duration = time() - metrics_time_start
-    print("Metrics calculated ({}).".format(
-        formatDuration(metrics_duration)))
-
-    ## Saving
+    if "metrics" in analyses:
     
-    metrics_log_filename = "{}_metrics".format(evaluation_set.kind)
-    metrics_log_path = os.path.join(results_directory,
-        metrics_log_filename + ".log")
-    metrics_dictionary_path = os.path.join(results_directory,
-        metrics_log_filename + ".pkl.gz")
-
-    metrics_saving_time_start = time()
-
-    with open(metrics_log_path, "w") as metrics_file:
-        metrics_string = "Timestamp: {}".format(
-            formatTime(metrics_saving_time_start))
-        metrics_string += "\n"
-        metrics_string += "Number of epochs trained: {}".format(
-            number_of_epochs_trained)
-        metrics_string += "\n"*2
-        metrics_string += "Evaluation:"
-        metrics_string += "\n"
-        if model.type == "SNN":
-            metrics_string += \
-                "    log-likelihood: {:.5g}.\n".format(
-                    evaluation_eval["log_likelihood"][-1])
-        elif "AE" in model.type:
-            metrics_string += \
-                "    ELBO: {:.5g}.\n".format(
-                    evaluation_eval["lower_bound"][-1]) + \
-                "    ENRE: {:.5g}.\n".format(
-                    evaluation_eval["reconstruction_error"][-1])
-            if model.type not in ["CVAE", "GMVAE", "GMVAE_alt"]:
+        heading("Metrics")
+        
+        ## Loading
+        
+        print("Loading results from model log directory.")
+        loading_time_start = time()
+        
+        evaluation_eval = loadLearningCurves(model, "evaluation",
+            early_stopping = early_stopping, best_model = best_model)
+        accuracy_eval = loadAccuracies(model, "evaluation",
+            early_stopping = early_stopping, best_model = best_model)
+        superset_accuracy_eval = loadAccuracies(
+            model, "evaluation", superset = True,
+            early_stopping = early_stopping, best_model = best_model
+        )
+        
+        loading_duration = time() - loading_time_start
+        print("Results loaded ({}).".format(formatDuration(loading_duration)))
+        print()
+        
+        ## Calculating
+        
+        print("Calculating metrics for results.")
+        metrics_time_start = time()
+        
+        evaluation_set_statistics = [
+            statistics(data_set.values, data_set.version, tolerance = 0.5)
+                for data_set in [evaluation_set, reconstructed_evaluation_set]
+        ]
+        
+        x_diff = reconstructed_evaluation_set.values - evaluation_set.values
+        evaluation_set_statistics.append(statistics(numpy.abs(x_diff),
+            "differences", skip_sparsity = True))
+        
+        x_log_ratio = numpy.log((reconstructed_evaluation_set.values + 1) \
+            / (evaluation_set.values + 1))
+        evaluation_set_statistics.append(statistics(numpy.abs(x_log_ratio),
+            "log-ratios", skip_sparsity = True))
+        
+        if evaluation_set.values.max() > 20:
+            count_accuracy_method = "orders of magnitude"
+        else:
+            count_accuracy_method = None
+        
+        count_accuracies = computeCountAccuracies(
+            evaluation_set.values,
+            reconstructed_evaluation_set.values,
+            method = count_accuracy_method
+        )
+        
+        metrics_duration = time() - metrics_time_start
+        print("Metrics calculated ({}).".format(
+            formatDuration(metrics_duration)))
+        
+        ## Saving
+        
+        metrics_log_filename = "{}_metrics".format(evaluation_set.kind)
+        metrics_log_path = os.path.join(results_directory,
+            metrics_log_filename + ".log")
+        metrics_dictionary_path = os.path.join(results_directory,
+            metrics_log_filename + ".pkl.gz")
+        
+        metrics_saving_time_start = time()
+        
+        with open(metrics_log_path, "w") as metrics_file:
+            metrics_string = "Timestamp: {}".format(
+                formatTime(metrics_saving_time_start))
+            metrics_string += "\n"
+            metrics_string += "Number of epochs trained: {}".format(
+                number_of_epochs_trained)
+            metrics_string += "\n"*2
+            metrics_string += "Evaluation:"
+            metrics_string += "\n"
+            if model.type == "SNN":
                 metrics_string += \
-                    "    KL: {:.5g}.\n".format(
-                        evaluation_eval["kl_divergence"][-1])
-            elif model.type in ["GMVAE", "GMVAE_alt"]:
+                    "    log-likelihood: {:.5g}.\n".format(
+                        evaluation_eval["log_likelihood"][-1])
+            elif "AE" in model.type:
                 metrics_string += \
-                    "    KL_z: {:.5g}.\n".format(
-                        evaluation_eval["kl_divergence_z"][-1]) + \
-                    "    KL_y: {:.5g}.\n".format(
-                        evaluation_eval["kl_divergence_y"][-1])
-            elif model.type == "CVAE":
-                metrics_string += \
-                    "    KL_z1: {:.5g}.\n".format(
-                        evaluation_eval["kl_divergence_z1"][-1]) + \
-                    "    KL_z2: {:.5g}.\n".format(
-                        evaluation_eval["kl_divergence_z2"][-1]) + \
-                    "    KL_y: {:.5g}.\n".format(
-                        evaluation_eval["kl_divergence_y"][-1])
-        if accuracy_eval is not None:
-            metrics_string += "    Accuracy: {:6.2f} %.\n".format(
-                100 * accuracy_eval[-1])
-        if superset_accuracy_eval is not None:
-            metrics_string += "    Accuracy (superset): {:6.2f} %.\n".format(
-                100 * superset_accuracy_eval[-1])
-        metrics_string += "\n" + formatStatistics(evaluation_set_statistics)
-        metrics_string += "\n" + formatCountAccuracies(count_accuracies)
-        metrics_file.write(metrics_string)
-
-    # Compute model likelihoods for each count in bins. 
+                    "    ELBO: {:.5g}.\n".format(
+                        evaluation_eval["lower_bound"][-1]) + \
+                    "    ENRE: {:.5g}.\n".format(
+                        evaluation_eval["reconstruction_error"][-1])
+                if model.type not in ["CVAE", "GMVAE", "GMVAE_alt"]:
+                    metrics_string += \
+                        "    KL: {:.5g}.\n".format(
+                            evaluation_eval["kl_divergence"][-1])
+                elif model.type in ["GMVAE", "GMVAE_alt"]:
+                    metrics_string += \
+                        "    KL_z: {:.5g}.\n".format(
+                            evaluation_eval["kl_divergence_z"][-1]) + \
+                        "    KL_y: {:.5g}.\n".format(
+                            evaluation_eval["kl_divergence_y"][-1])
+                elif model.type == "CVAE":
+                    metrics_string += \
+                        "    KL_z1: {:.5g}.\n".format(
+                            evaluation_eval["kl_divergence_z1"][-1]) + \
+                        "    KL_z2: {:.5g}.\n".format(
+                            evaluation_eval["kl_divergence_z2"][-1]) + \
+                        "    KL_y: {:.5g}.\n".format(
+                            evaluation_eval["kl_divergence_y"][-1])
+            if accuracy_eval is not None:
+                metrics_string += "    Accuracy: {:6.2f} %.\n".format(
+                    100 * accuracy_eval[-1])
+            if superset_accuracy_eval is not None:
+                metrics_string += "    Accuracy (superset): {:6.2f} %.\n".format(
+                    100 * superset_accuracy_eval[-1])
+            metrics_string += "\n" + formatStatistics(evaluation_set_statistics)
+            metrics_string += "\n" + formatCountAccuracies(count_accuracies)
+            metrics_file.write(metrics_string)
+        
+        with gzip.open(metrics_dictionary_path, "w") as metrics_file:
+            metrics_dictionary = {
+                "timestamp": metrics_saving_time_start,
+                "number of epochs trained": number_of_epochs_trained,
+                "evaluation": evaluation_eval,
+                "accuracy": accuracy_eval,
+                "superset_accuracy": superset_accuracy_eval,
+                "statistics": evaluation_set_statistics,
+                "count accuracies": count_accuracies,
+                # "count likelihoods": count_likelihoods,
+                # "count distribution name": count_distribution_name
+            }
+            pickle.dump(metrics_dictionary, metrics_file)
+        
+        metrics_saving_duration = time() - metrics_saving_time_start
+        print("Metrics saved ({}).".format(formatDuration(
+            metrics_saving_duration)))
+            
+        print()
+        
+        ## Displaying
+        
+        print(formatStatistics(evaluation_set_statistics))
+        print(formatCountAccuracies(count_accuracies))
+    
+    # # Compute model likelihoods for each count in bins.
     # count_likelihoods = computeCountLikelihoods(evaluation_set.values, likelihood_evaluation_set.values)
     #
     # count_distribution_name = model.reconstruction_distribution_name
     # if model.k_max:
     #     count_distribution_name = count_distribution_name + " ({} count classes)".format(model.k_max)
-
+    #
     # # Plot likelihoods in bar plots
     # figure, figure_name = plotCountLikelihoods(
     #     count_likelihoods,
@@ -783,38 +824,16 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     # )
     # saveFigure(figure, figure_name, results_directory)
 
-    with gzip.open(metrics_dictionary_path, "w") as metrics_file:
-        metrics_dictionary = {
-            "timestamp": metrics_saving_time_start,
-            "number of epochs trained": number_of_epochs_trained,
-            "evaluation": evaluation_eval,
-            "accuracy": accuracy_eval,
-            "superset_accuracy": superset_accuracy_eval,
-            "statistics": evaluation_set_statistics,
-            "count accuracies": count_accuracies,
-            # "count likelihoods": count_likelihoods,
-            # "count distribution name": count_distribution_name
-        }
-        pickle.dump(metrics_dictionary, metrics_file)
-    
-    metrics_saving_duration = time() - metrics_saving_time_start
-    print("Metrics saved ({}).".format(formatDuration(
-        metrics_saving_duration)))
-        
-    print()
-    
-    ## Displaying
-    
-    print(formatStatistics(evaluation_set_statistics))
-    print(formatCountAccuracies(count_accuracies))
-    
     # Reconstructions
     
-    heading("Reconstructions")
+    if "images" in analyses or "profile_comparisons" in analyses:
+        heading("Reconstructions")
     
     ## Examples
     
-    if reconstructed_evaluation_set.example_type == "images":
+    if "images" in analyses and \
+        reconstructed_evaluation_set.example_type == "images":
+        
         print("Saving image of {} random examples".format(
             number_of_random_examples),
             "from reconstructed {} set.".format(
@@ -833,102 +852,88 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
 
     ## Profile comparisons
     
-    numpy.random.seed(80)
-    
-    print("Plotting profile comparisons.")
-
-    image_comparisons_directory = os.path.join(
-            results_directory, "image_comparisons")
-
-    profile_comparisons_directory = os.path.join(
-            results_directory, "profile_comparisons")
-    
-    profile_comparisons_time_start = time()
-    
-    y_cutoff = profile_comparison_count_cut_off
-    
-    if evaluation_set.has_labels:
+    if "profile_comparisons" in analyses:
         
-        subset = set()
-    
-        if evaluation_set.label_superset:
-            class_names = evaluation_set.superset_class_names
-            labels = evaluation_set.superset_labels
+        numpy.random.seed(80)
+        
+        print("Plotting profile comparisons.")
+        
+        image_comparisons_directory = os.path.join(
+                results_directory, "image_comparisons")
+        
+        profile_comparisons_directory = os.path.join(
+                results_directory, "profile_comparisons")
+        
+        profile_comparisons_time_start = time()
+        
+        y_cutoff = profile_comparison_count_cut_off
+        
+        if analysis_level == "limited":
+            subset = [0]
         else:
-            class_names = evaluation_set.class_names
-            labels = evaluation_set.labels
-    
-        class_counter = {}
-    
-        for class_name in class_names:
-            class_counter[class_name] = 0
-    
-        counter_max = profile_comparison_maximum_number_of_examples_per_class
-
-        while any(map(lambda x: x < counter_max, class_counter.values())):
-            i = numpy.random.randint(0, M)
-            label = labels[i]
-            if class_counter[label] >= counter_max or i in subset:
-                continue
+            if evaluation_set.has_labels:
+                
+                subset = set()
+            
+                if evaluation_set.label_superset:
+                    class_names = evaluation_set.superset_class_names
+                    labels = evaluation_set.superset_labels
+                else:
+                    class_names = evaluation_set.class_names
+                    labels = evaluation_set.labels
+            
+                class_counter = {}
+            
+                for class_name in class_names:
+                    class_counter[class_name] = 0
+            
+                counter_max = profile_comparison_maximum_number_of_examples_per_class
+            
+                while any(map(lambda x: x < counter_max, class_counter.values())):
+                    i = numpy.random.randint(0, M)
+                    label = labels[i]
+                    if class_counter[label] >= counter_max or i in subset:
+                        continue
+                    else:
+                        class_counter[label] += 1
+                        subset.add(i)
             else:
-                class_counter[label] += 1
-                subset.add(i)
-    else:
-        subset = numpy.random.permutation(M)\
-            [:profile_comparison_maximum_number_of_examples]
-    
-    for i in subset:
+                subset = numpy.random.permutation(M)\
+                    [:profile_comparison_maximum_number_of_examples]
         
-        observed_series = evaluation_set.values[i]
-        expected_series = reconstructed_evaluation_set.values[i]
-        example_name = str(evaluation_set.example_names[i])
-        
-        if evaluation_set.has_labels:
-            example_label = str(evaluation_set.labels[i])
-        
-        if reconstructed_evaluation_set.total_standard_deviations is not None:
-            expected_series_total_standard_deviations = \
-                reconstructed_evaluation_set.total_standard_deviations[i]
-        else:
-            expected_series_total_standard_deviations = None
-        
-        if reconstructed_evaluation_set.explained_standard_deviations is not None:
-            expected_series_explained_standard_deviations = \
-                reconstructed_evaluation_set.explained_standard_deviations[i]
-        else:
-            expected_series_explained_standard_deviations = None
-        
-        maximum_count = max(observed_series.max(), expected_series.max())
-        
-        if evaluation_set.has_labels:
-            example_name_base_parts = [example_name, example_label]
-        else:
-            example_name_base_parts = [example_name]
-        
-        for sort_profile_comparison in [True, False]:
-            for y_scale in ["linear"]:
-                example_name_parts = example_name_base_parts.copy()
-                example_name_parts.append(y_scale)
-                if not sort_profile_comparison:
-                    example_name_parts.append("unsorted")
-                figure, figure_name = plotProfileComparison(
-                    observed_series,
-                    expected_series,
-                    expected_series_total_standard_deviations,
-                    expected_series_explained_standard_deviations,
-                    x_name = evaluation_set.tags["feature"],
-                    y_name = evaluation_set.tags["value"],
-                    sort = sort_profile_comparison,
-                    sort_by = "expected",
-                    sort_direction = "descending",
-                    x_scale = "log",
-                    y_scale = y_scale,
-                    name = example_name_parts
-                )
-                saveFigure(figure, figure_name, profile_comparisons_directory)
-        
-            if maximum_count > 3 * y_cutoff:
-                for y_scale in ["linear", "log", "both"]:
+        for i in subset:
+            
+            observed_series = evaluation_set.values[i]
+            expected_series = reconstructed_evaluation_set.values[i]
+            example_name = str(evaluation_set.example_names[i])
+            
+            if evaluation_set.has_labels:
+                example_label = str(evaluation_set.labels[i])
+            
+            if reconstructed_evaluation_set.total_standard_deviations \
+                is not None:
+                expected_series_total_standard_deviations = \
+                    reconstructed_evaluation_set.total_standard_deviations[i]
+            else:
+                expected_series_total_standard_deviations = None
+            
+            if reconstructed_evaluation_set.explained_standard_deviations \
+                is not None:
+                
+                expected_series_explained_standard_deviations = \
+                    reconstructed_evaluation_set.explained_standard_deviations[i]
+            else:
+                expected_series_explained_standard_deviations = None
+            
+            maximum_count = max(observed_series.max(), expected_series.max())
+            
+            if evaluation_set.has_labels:
+                example_name_base_parts = [example_name, example_label]
+            else:
+                example_name_base_parts = [example_name]
+            
+            for sort_profile_comparison in [True, False]:
+                for y_scale in ["linear"]:
                     example_name_parts = example_name_base_parts.copy()
                     example_name_parts.append(y_scale)
                     if not sort_profile_comparison:
@@ -945,147 +950,177 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                         sort_direction = "descending",
                         x_scale = "log",
                         y_scale = y_scale,
-                        y_cutoff = y_cutoff,
                         name = example_name_parts
                     )
-                    saveFigure(figure, figure_name, profile_comparisons_directory)
+                    saveFigure(figure, figure_name,
+                        profile_comparisons_directory)
+                
+                if maximum_count > 3 * y_cutoff:
+                    for y_scale in ["linear", "log", "both"]:
+                        example_name_parts = example_name_base_parts.copy()
+                        example_name_parts.append(y_scale)
+                        if not sort_profile_comparison:
+                            example_name_parts.append("unsorted")
+                        figure, figure_name = plotProfileComparison(
+                            observed_series,
+                            expected_series,
+                            expected_series_total_standard_deviations,
+                            expected_series_explained_standard_deviations,
+                            x_name = evaluation_set.tags["feature"],
+                            y_name = evaluation_set.tags["value"],
+                            sort = sort_profile_comparison,
+                            sort_by = "expected",
+                            sort_direction = "descending",
+                            x_scale = "log",
+                            y_scale = y_scale,
+                            y_cutoff = y_cutoff,
+                            name = example_name_parts
+                        )
+                        saveFigure(figure, figure_name,
+                            profile_comparisons_directory)
+            
+            # Plot image examples for subset
+            if evaluation_set.example_type == "images":
+                example_name_parts = ["original"] + example_name_base_parts
+                image, image_name = combineImagesFromDataSet(
+                    evaluation_set,
+                    number_of_random_examples = 1,
+                    indices = [i],
+                    name = example_name_parts
+                )
+                saveImage(image, image_name, image_comparisons_directory)
+            if reconstructed_evaluation_set.example_type == "images":
+                example_name_parts = ["reconstructed"] + example_name_base_parts
+                image, image_name = combineImagesFromDataSet(
+                    reconstructed_evaluation_set,
+                    number_of_random_examples = 1,
+                    indices = [i],
+                    name = example_name_parts
+                )
+                saveImage(image, image_name, image_comparisons_directory)
         
-        # Plot image examples for subset
-        if evaluation_set.example_type == "images":
-            example_name_parts = ["original"] + example_name_base_parts
-            image, image_name = combineImagesFromDataSet(
-                evaluation_set,
-                number_of_random_examples = 1,
-                indices = [i],
-                name = example_name_parts
-            )
-            saveImage(image, image_name, image_comparisons_directory)
-        if reconstructed_evaluation_set.example_type == "images":
-            example_name_parts = ["reconstructed"] + example_name_base_parts
-            image, image_name = combineImagesFromDataSet(
-                reconstructed_evaluation_set,
-                number_of_random_examples = 1,
-                indices = [i],
-                name = example_name_parts
-            )
-            saveImage(image, image_name, image_comparisons_directory)
-
-    profile_comparisons_duration = time() - profile_comparisons_time_start
-    print("Profile comparisons plotted and saved ({}).".format(
-        formatDuration(profile_comparisons_duration)))
-    
-    print()
-    
-    numpy.random.seed()
+        profile_comparisons_duration = time() - profile_comparisons_time_start
+        print("Profile comparisons plotted and saved ({}).".format(
+            formatDuration(profile_comparisons_duration)))
+        
+        print()
+        
+        numpy.random.seed()
     
     # Distributions
     
     evaluation_set_maximum_value = evaluation_set.values.max()
     
-    analyseDistributions(
-        reconstructed_evaluation_set,
-        colouring_data_set = evaluation_set,
-        preprocessed = evaluation_set.preprocessing_methods,
-        original_maximum_count = evaluation_set_maximum_value,
-        results_directory = results_directory
-    )
-    
-    if model.type == "GMVAE_alt":
+    if "distributions" in analyses:
+        
         analyseDistributions(
             reconstructed_evaluation_set,
+            colouring_data_set = evaluation_set,
             preprocessed = evaluation_set.preprocessing_methods,
             original_maximum_count = evaluation_set_maximum_value,
+            analysis_level = analysis_level,
             results_directory = results_directory
         )
+        
+        if model.type == "GMVAE_alt":
+            analyseDistributions(
+                reconstructed_evaluation_set,
+                preprocessed = evaluation_set.preprocessing_methods,
+                original_maximum_count = evaluation_set_maximum_value,
+                analysis_level = analysis_level,
+                results_directory = results_directory
+            )
 
     # Likelihood histograms
-    analyseDistributions(
-        likelihood_evaluation_set,
-        colouring_data_set = evaluation_set,
-        preprocessed = evaluation_set.preprocessing_methods,
-        original_maximum_count = evaluation_set_maximum_value,
-        results_directory = os.path.join(results_directory, "likelihoods")
-    )
-
+    # analyseDistributions(
+    #     likelihood_evaluation_set,
+    #     colouring_data_set = evaluation_set,
+    #     preprocessed = evaluation_set.preprocessing_methods,
+    #     original_maximum_count = evaluation_set_maximum_value,
+    #     analysis_level = analysis_level,
+    #     results_directory = os.path.join(results_directory, "likelihoods")
+    # )
+    
     ## Reconstructions decomposed
-
-    analyseDecompositions(
-        reconstructed_evaluation_set,
-        colouring_data_set = evaluation_set,
-        decomposition_methods = decomposition_methods,
-        highlight_feature_indices = highlight_feature_indices,
-        symbol = "\\tilde{{x}}",
-        pca_limits = evaluation_set.pca_limits,
-        title = "reconstruction space",
-        results_directory = results_directory
-    )
     
-    ## Reconstructions plotted in original decomposed space
-    
-    analyseDecompositions(
-        evaluation_set,
-        reconstructed_evaluation_set,
-        colouring_data_set = evaluation_set,
-        decomposition_methods = decomposition_methods,
-        highlight_feature_indices = highlight_feature_indices,
-        symbol = "x",
-        pca_limits = evaluation_set.pca_limits,
-        title = "original space",
-        results_directory = results_directory
-    )
-    
-    if model.type == "GMVAE_alt":
-        
-        ## Originals decomposed with predicted labels
-        
-        analyseDecompositions(
-            evaluation_set,
-            colouring_data_set = reconstructed_evaluation_set,
-            decomposition_methods = decomposition_methods,
-            highlight_feature_indices = highlight_feature_indices,
-            symbol = "x",
-            title = "original space with predicted labels",
-            results_directory = results_directory
-        )
-        
-        ## Reconstructions decomposed with predicted labels
+    if "decompositions" in analyses:
         
         analyseDecompositions(
             reconstructed_evaluation_set,
-            colouring_data_set = reconstructed_evaluation_set,
+            colouring_data_set = evaluation_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
             symbol = "\\tilde{{x}}",
             pca_limits = evaluation_set.pca_limits,
-            title = "reconstruction space with predicted labels",
+            title = "reconstruction space",
+            analysis_level = analysis_level,
             results_directory = results_directory
         )
         
         ## Reconstructions plotted in original decomposed space
-        ## with predicted labels
         
         analyseDecompositions(
             evaluation_set,
             reconstructed_evaluation_set,
-            colouring_data_set = reconstructed_evaluation_set,
+            colouring_data_set = evaluation_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
             symbol = "x",
             pca_limits = evaluation_set.pca_limits,
-            title = "original space with predicted labels",
+            title = "original space",
+            analysis_level = analysis_level,
             results_directory = results_directory
         )
-
+        
+        if model.type == "GMVAE_alt":
+            
+            ## Originals decomposed with predicted labels
+            
+            analyseDecompositions(
+                evaluation_set,
+                colouring_data_set = reconstructed_evaluation_set,
+                decomposition_methods = decomposition_methods,
+                highlight_feature_indices = highlight_feature_indices,
+                symbol = "x",
+                title = "original space with predicted labels",
+                analysis_level = analysis_level,
+                results_directory = results_directory
+            )
+            
+            ## Reconstructions decomposed with predicted labels
+            
+            analyseDecompositions(
+                reconstructed_evaluation_set,
+                colouring_data_set = reconstructed_evaluation_set,
+                decomposition_methods = decomposition_methods,
+                highlight_feature_indices = highlight_feature_indices,
+                symbol = "\\tilde{{x}}",
+                pca_limits = evaluation_set.pca_limits,
+                title = "reconstruction space with predicted labels",
+                analysis_level = analysis_level,
+                results_directory = results_directory
+            )
+            
+            ## Reconstructions plotted in original decomposed space
+            ## with predicted labels
+            
+            analyseDecompositions(
+                evaluation_set,
+                reconstructed_evaluation_set,
+                colouring_data_set = reconstructed_evaluation_set,
+                decomposition_methods = decomposition_methods,
+                highlight_feature_indices = highlight_feature_indices,
+                symbol = "x",
+                pca_limits = evaluation_set.pca_limits,
+                title = "original space with predicted labels",
+                analysis_level = analysis_level,
+                results_directory = results_directory
+            )
+    
     # Heat maps
     
-    if plot_heat_maps_for_large_data_sets:
-        maximum_number_of_values_for_heat_maps = \
-            maximum_number_of_values_for_large_heat_maps
-    else:
-        maximum_number_of_values_for_heat_maps = \
-            maximum_number_of_values_for_normal_heat_maps
-    
-    if reconstructed_evaluation_set.number_of_values \
+    if "heat_maps" in analyses and \
+        reconstructed_evaluation_set.number_of_values \
         <= maximum_number_of_values_for_heat_maps:
         
         print("Plotting heat maps.")
@@ -1158,9 +1193,25 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     # Latent space
     
-    if latent_evaluation_sets is not None:
+    if "latent_space" in analyses and "VAE" in model_type:
         
         heading("Latent space")
+        
+        if model.latent_distribution_name == "gaussian_mixture":
+        
+            print("Loading centroids from model log directory.")
+            loading_time_start = time()
+            
+            centroids = loadCentroids(model, data_set_kinds = "evaluation",
+                early_stopping = early_stopping, best_model = best_model)
+            
+            loading_duration = time() - loading_time_start
+            print("Centroids loaded ({}).".format(
+                formatDuration(loading_duration)))
+            print()
+        
+        else:
+            centroids = None
         
         analyseDecompositions(
             latent_evaluation_sets,
@@ -1170,6 +1221,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             highlight_feature_indices = highlight_feature_indices,
             title = "latent space",
             specifier = lambda data_set: data_set.version,
+            analysis_level = analysis_level,
             results_directory = results_directory
         )
         
@@ -1182,18 +1234,22 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 highlight_feature_indices = highlight_feature_indices,
                 title = "latent space with predicted labels",
                 specifier = lambda data_set: data_set.version,
+                analysis_level = analysis_level,
                 results_directory = results_directory
             )
         
         if centroids:
-            analyseCentroidProbabilities(centroids,
-                results_directory = results_directory)
-        
-        print()
+            analyseCentroidProbabilities(
+                centroids,
+                analysis_level = "normal",
+                results_directory = results_directory
+            )
+            
+            print()
 
 def analyseDistributions(data_set, colouring_data_set = None,
     cutoffs = None, preprocessed = False, original_maximum_count = None,
-    results_directory = "results"):
+    analysis_level = "normal", results_directory = "results"):
     
     # Setup
     
@@ -1337,7 +1393,9 @@ def analyseDistributions(data_set, colouring_data_set = None,
     
     ## Count distributions with cut-off
 
-    if cutoffs and data_set.example_type == "counts":
+    if analysis_level == "extensive" and cutoffs and \
+        data_set.example_type == "counts":
+        
         distribution_time_start = time()
 
         for cutoff in cutoffs:
@@ -1376,7 +1434,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
     
     ## Count distributions and count sum distributions for each class
     
-    if colouring_data_set.labels is not None:
+    if analysis_level == "extensive" and colouring_data_set.labels is not None:
         
         class_count_distribution_directory = distribution_directory
         
@@ -1454,7 +1512,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
     highlight_feature_indices = [], symbol = None, pca_limits = None,
     title = "data set", specifier = None,
-    results_directory = "results"):
+    analysis_level = "normal", results_directory = "results"):
     
     centroids_original = centroids
     
@@ -1781,58 +1839,62 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                                     formatDuration(plot_duration)
                             )
                         )
-        
-                    if colouring_data_set.number_of_classes <= 10:
-                        plot_time_start = time()
                     
-                        for class_name in colouring_data_set.class_names:
-                            figure, figure_name = plotValues(
-                                plot_values_decomposed,
-                                colour_coding = "class",
-                                colouring_data_set = colouring_data_set,
-                                centroids = centroids_decomposed,
-                                class_name = class_name,
-                                figure_labels = figure_labels,
-                                axis_limits = axis_limits,
-                                example_tag = data_set.tags["example"],
-                                name = plot_name
-                            )
-                            saveFigure(figure, figure_name, decompositions_directory)
-                    
-                        plot_duration = time() - plot_time_start
-                        print("    {} (for each class) plotted and saved ({})."\
-                            .format(
-                                title_with_ID.capitalize(),
-                                formatDuration(plot_duration)
-                        ))
-                
-                    if colouring_data_set.superset_labels is not None \
-                        and data_set.number_of_superset_classes <= 10:
-                    
-                        plot_time_start = time()
-                    
-                        for superset_class_name in \
-                            colouring_data_set.superset_class_names:
-                            figure, figure_name = plotValues(
-                                plot_values_decomposed,
-                                colour_coding = "superset class",
-                                colouring_data_set = colouring_data_set,
-                                centroids = centroids_decomposed,
-                                class_name = superset_class_name,
-                                figure_labels = figure_labels,
-                                axis_limits = axis_limits,
-                                example_tag = data_set.tags["example"],
-                                name = plot_name
-                            )
-                            saveFigure(figure, figure_name, decompositions_directory)
-                    
-                        plot_duration = time() - plot_time_start
-                        print("    " +
-                            "{} (for each superset class) plotted and saved ({})."\
+                    if analysis_level == "extensive":
+                        
+                        if colouring_data_set.number_of_classes <= 10:
+                            plot_time_start = time()
+                        
+                            for class_name in colouring_data_set.class_names:
+                                figure, figure_name = plotValues(
+                                    plot_values_decomposed,
+                                    colour_coding = "class",
+                                    colouring_data_set = colouring_data_set,
+                                    centroids = centroids_decomposed,
+                                    class_name = class_name,
+                                    figure_labels = figure_labels,
+                                    axis_limits = axis_limits,
+                                    example_tag = data_set.tags["example"],
+                                    name = plot_name
+                                )
+                                saveFigure(figure, figure_name,
+                                    decompositions_directory)
+                        
+                            plot_duration = time() - plot_time_start
+                            print("    {} (for each class) plotted and saved ({})."\
                                 .format(
                                     title_with_ID.capitalize(),
                                     formatDuration(plot_duration)
-                        ))
+                            ))
+                        
+                        if colouring_data_set.superset_labels is not None \
+                            and data_set.number_of_superset_classes <= 10:
+                        
+                            plot_time_start = time()
+                        
+                            for superset_class_name in \
+                                colouring_data_set.superset_class_names:
+                                figure, figure_name = plotValues(
+                                    plot_values_decomposed,
+                                    colour_coding = "superset class",
+                                    colouring_data_set = colouring_data_set,
+                                    centroids = centroids_decomposed,
+                                    class_name = superset_class_name,
+                                    figure_labels = figure_labels,
+                                    axis_limits = axis_limits,
+                                    example_tag = data_set.tags["example"],
+                                    name = plot_name
+                                )
+                                saveFigure(figure, figure_name,
+                                    decompositions_directory)
+                        
+                            plot_duration = time() - plot_time_start
+                            print("    " +
+                                "{} (for each superset class) plotted and saved ({})."\
+                                    .format(
+                                        title_with_ID.capitalize(),
+                                        formatDuration(plot_duration)
+                            ))
         
                 # Count sum
         
@@ -1853,9 +1915,9 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 plot_duration = time() - plot_time_start
                 print("    {} (with count sum) plotted and saved ({}).".format(
                     title_with_ID.capitalize(), formatDuration(plot_duration)))
-        
+                
                 # Features
-        
+                
                 for feature_index in highlight_feature_indices:
             
                     plot_time_start = time()
@@ -1879,11 +1941,11 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         data_set.feature_names[feature_index],
                         formatDuration(plot_duration)
                     ))
-            
+                
                 print()
 
 def analyseCentroidProbabilities(centroids, name = None,
-    results_directory = "results", for_video = False):
+    analysis_level = "normal", for_video = False, results_directory = "results"):
     
     print("Plotting centroid probabilities.")
     plot_time_start = time()
@@ -3829,3 +3891,21 @@ class CustomTicker(LogFormatterSciNotation):
             tick_label =  LogFormatterSciNotation.__call__(self, x, pos = None)
         print(tick_label)
         return tick_label
+
+def parseAnalyses(analyses):
+    
+    resulting_analyses = set()
+    
+    for analysis in analyses:
+        if analysis in analysis_groups:
+            group = analysis
+            resulting_analyses.update(map(normaliseString,
+                analysis_groups[group]))
+        elif analysis in analysis_groups["complete"]:
+            resulting_analyses.add(normaliseString(analysis))
+        else:
+            raise ValueError("Analysis `{}` not found.".format(analysis))
+    
+    resulting_analyses = list(resulting_analyses)
+    
+    return resulting_analyses

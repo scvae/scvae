@@ -44,9 +44,9 @@ def main(data_set_name, data_directory = "data",
     batch_size = 100, learning_rate = 1e-4,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
-    analyse = True, evaluation_set_name = "test",
-    analyse_data = False, extended_analysis = False,
-    plot_heat_maps_for_large_data_sets = False, video = False):
+    analyse = True, evaluation_set_name = "test", analyse_data = False,
+    analyses = ["default"], analysis_level = "normal",
+    video = False):
     
     print()
     
@@ -87,8 +87,7 @@ def main(data_set_name, data_directory = "data",
         analysis.analyseData(
             all_data_sets,
             decomposition_methods, highlight_feature_indices,
-            extended_analysis,
-            plot_heat_maps_for_large_data_sets,
+            analyses, analysis_level,
             data_results_directory
         )
         print()
@@ -304,7 +303,8 @@ def main(data_set_name, data_directory = "data",
     if analyse:
         
         subtitle("Analysing model")
-        analysis.analyseModel(model, results_directory, for_video = video)
+        analysis.analyseModel(model, analyses, analysis_level,
+            video, results_directory)
 
         subtitle("Analysing results for {} set".format(evaluation_set.kind))
         analysis.analyseResults(
@@ -312,8 +312,9 @@ def main(data_set_name, data_directory = "data",
             reconstructed_evaluation_set,
             likelihood_evaluation_set,
             latent_evaluation_sets,
-            model, decomposition_methods, highlight_feature_indices,
-            plot_heat_maps_for_large_data_sets,
+            model,
+            decomposition_methods, highlight_feature_indices,
+            analyses = analyses, analysis_level = analysis_level,
             results_directory = results_directory
         )
         
@@ -325,9 +326,10 @@ def main(data_set_name, data_directory = "data",
                 best_model_reconstructed_evaluation_set,
                 best_model_likelihood_evaluation_set,
                 best_model_latent_evaluation_sets,
-                model, decomposition_methods, highlight_feature_indices,
-                plot_heat_maps_for_large_data_sets,
+                model,
+                decomposition_methods, highlight_feature_indices,
                 best_model = True,
+                analyses = analyses, analysis_level = analysis_level,
                 results_directory = results_directory
             )
         
@@ -339,76 +341,11 @@ def main(data_set_name, data_directory = "data",
                 early_stopped_reconstructed_evaluation_set,
                 early_stopped_likelihood_evaluation_set,
                 early_stopped_latent_evaluation_sets,
-                model, decomposition_methods, highlight_feature_indices,
-                plot_heat_maps_for_large_data_sets,
+                model,
+                decomposition_methods, highlight_feature_indices,
                 early_stopping = True,
+                analyses = analyses, analysis_level = analysis_level,
                 results_directory = results_directory
-            )
-        
-        if model.type == "GMVAE_alt" and data_set.has_labels \
-            and ("No class" in data_set.class_names
-            or (data_set.label_superset \
-            and "No class" in data_set.superset_class_names)):
-            
-            subtitle("Predicting labels for unlabelled examples in {} set"\
-                .format(evaluation_set.kind))
-            
-            unlablled_directory = os.path.join(results_directory,
-                model.testing_name)
-            
-            if model.stopped_early:
-                unlablled_directory = os.path.join(unlablled_directory,
-                    "early_stopping")
-            
-            unlablled_directory = os.path.join(unlablled_directory,
-                "unlabelled_examples")
-            
-            ## Evaluation
-            
-            transformed_data_set, reconstructed_data_set, latent_data_sets \
-                = model.evaluate(data_set, batch_size, model.stopped_early)
-            
-            print()
-            
-            ## Selection
-            
-            if "No class" in data_set.class_names:
-                labels = data_set.labels
-            elif data_set.label_superset \
-                and "No class" in data_set.superset_class_names:
-                labels = data_set.superset_labels
-            
-            unlablled_indices = labels == "No class"
-            
-            transformed_data_set.applyIndices(unlablled_indices)
-            reconstructed_data_set.applyIndices(unlablled_indices)
-            
-            for i in range(len(latent_data_sets)):
-                latent_data_sets[i].applyIndices(unlablled_indices)
-            
-            ## Analysis
-            
-            analysis.analyseDecompositions(
-                latent_data_sets,
-                colouring_data_set =
-                    reconstructed_data_set,
-                decomposition_methods = decomposition_methods,
-                highlight_feature_indices = highlight_feature_indices,
-                symbol = "z",
-                title = "latent space with predicted labels",
-                specifier = lambda data_set: data_set.version,
-                results_directory = unlablled_directory
-            )
-            
-            analysis.analyseDecompositions(
-                transformed_data_set,
-                colouring_data_set =
-                    reconstructed_data_set,
-                decomposition_methods = decomposition_methods,
-                highlight_feature_indices = highlight_feature_indices,
-                symbol = "x",
-                title = "original space with predicted labels",
-                results_directory = unlablled_directory
             )
 
 def parseSampleLists(list_with_number_of_samples):
@@ -783,7 +720,7 @@ parser.add_argument(
     help = "perform analysis"
 )
 parser.add_argument(
-    "--skip-analysis",
+    "--skip-analyses",
     dest = "analyse",
     action = "store_false",
     help = "skip analysis"
@@ -802,36 +739,25 @@ parser.add_argument(
     help = "perform data analysis"
 )
 parser.add_argument(
-    "--skip-data-analysis",
+    "--skip-data-analyses",
     dest = "analyse_data",
     action = "store_false",
     help = "skip data analysis"
 )
 parser.set_defaults(analyse_data = False)
 parser.add_argument(
-    "--extended-analysis",
-    action = "store_true",
-    help = "if analysing, do so extensively"
+    "--analyses",
+    type = str,
+    nargs = "+",
+    default = ["default"],
+    help = "analyses to perform, which can be specified individually or as groups: simple, default, complete"
 )
 parser.add_argument(
-    "--no-extended-analysis",
-    dest = "extended_analysis",
-    action = "store_false",
-    help = "if analysing, do so quickly"
+    "--analysis-level",
+    type = str,
+    default = "normal",
+    help = "level to which analyses are performed: limited, normal (default), extensive"
 )
-parser.set_defaults(extended_analysis = False)
-parser.add_argument(
-    "--plot-heat-maps-for-large-data-sets",
-    action = "store_true",
-    help = "plot heat maps for large data sets"
-)
-parser.add_argument(
-    "--skip-plotting-heat-maps-for-large-data-sets",
-    dest = "plot_heat_maps_for_large_data_sets",
-    action = "store_false",
-    help = "skip plotting heat maps for large data sets"
-)
-parser.set_defaults(plot_heat_maps_for_large_data_sets = False)
 parser.add_argument(
     "--video", "-v",
     action = "store_true",
