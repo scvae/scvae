@@ -54,6 +54,17 @@ def main(data_set_name, data_directory = "data",
     
     title("Loading and splitting data")
     
+    binarise_values = False
+    
+    if reconstruction_distribution == "bernoulli":
+        if noisy_preprocessing_methods:
+            if noisy_preprocessing_methods[-1] != "binarise":
+                noisy_preprocessing_methods.append("binarise")
+                print("Appended binarisation method to noisy preprocessing,",
+                    "because of the Bernoulli distribution.\n")
+        else:
+            binarise_values = True
+    
     data_set = data.DataSet(
         data_set_name,
         directory = data_directory,
@@ -61,6 +72,7 @@ def main(data_set_name, data_directory = "data",
         feature_parameter = feature_parameter,
         example_filter = example_filter,
         preprocessing_methods = preprocessing_methods,
+        binarise_values = binarise_values,
         noisy_preprocessing_methods = noisy_preprocessing_methods
     )
     

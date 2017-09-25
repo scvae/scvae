@@ -2020,7 +2020,7 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
                     example_filter = evaluation_set.example_filter,
                     preprocessing_methods = evaluation_set.preprocessing_methods,
                     kind = evaluation_set.kind,
-                    version = "binarised"
+                    version = "transformed"
                 )
             else:
                 transformed_evaluation_set = evaluation_set

@@ -500,6 +500,7 @@ class DataSet(object):
         example_names = None, feature_names = None,
         feature_selection = [], feature_parameter = None, example_filter = [],
         preprocessing_methods = [], preprocessed = None,
+        binarise_values = False,
         noisy_preprocessing_methods = [],
         kind = "full", version = "original",
         directory = "data"):
@@ -702,10 +703,7 @@ class DataSet(object):
             
             if self.preprocessed_values is None:
                 self.preprocess()
-                if self.noisy_preprocessing_methods and \
-                    self.noisy_preprocessing_methods[-1] != "binarise":
-                    pass
-                else:
+                if binarise_values:
                     self.binarise()
     
     @property
@@ -857,6 +855,8 @@ class DataSet(object):
                 
                 print("Saving data set in sparse representation.")
                 saveAsSparseData(data_dictionary, sparse_path)
+                
+                print()
         
         self.update(
             values = data_dictionary["values"],
@@ -867,8 +867,6 @@ class DataSet(object):
         
         if "split indices" in data_dictionary:
             self.split_indices = data_dictionary["split indices"]
-        
-        print()
     
     def defaultFeatureParameter(self, feature_selection):
         
@@ -1013,8 +1011,6 @@ class DataSet(object):
             example_names = example_names,
             labels = labels
         )
-        
-        print()
     
     def binarise(self):
         
@@ -1070,8 +1066,6 @@ class DataSet(object):
         self.update(
             binarised_values = data_dictionary["preprocessed values"],
         )
-        
-        print()
     
     def defaultSplittingMethod(self):
         if self.split_indices:
