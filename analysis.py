@@ -460,26 +460,6 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
 
             print()
 
-def analyseAllModels(models_summaries, results_directory = "results"):
-    
-    # Learning curves
-    
-    print("Plotting learning curves for all run models.")
-    
-    figure, figure_name = plotLearningCurvesForModels(models_summaries)
-    saveFigure(figure, figure_name, results_directory)
-    
-    print()
-    
-    # Learning curves
-    
-    print("Plotting evaluation for all run models.")
-    
-    figure, figure_name = plotEvaluationsForModels(models_summaries)
-    saveFigure(figure, figure_name, results_directory)
-    
-    print()
-
 def analyseIntermediateResults(learning_curves = None, epoch_start = None,
     epoch = None, latent_values = None, data_set = None, centroids = None,
     model_name = None, model_type = None, results_directory = "results"):
@@ -2969,63 +2949,6 @@ def plotEvolutionOfCentroidCovarianceMatrices(covariance_matrices, distribution,
     axis.set_yscale(y_scale)
     
     axis.legend(loc = "best")
-    
-    seaborn.despine()
-    
-    return figure, figure_name
-
-def plotLearningCurvesForModels(models_summaries, name = None):
-    
-    figure_name = figureName("learning_curves", name)
-    
-    figure = pyplot.figure()
-    axis = figure.add_subplot(1, 1, 1)
-    
-    for model_name, model_summary in models_summaries.items():
-        if model_summary["type"] == "SNN":
-            curve = model_summary["learning curves"]["validation"]["log_likelihood"]
-        elif "AE" in model_summary["type"]:
-            curve = model_summary["learning curves"]["validation"]["lower_bound"]
-        epochs = numpy.arange(len(curve)) + 1
-        label = model_summary["description"]
-        axis.plot(epochs, curve, label = label)
-    
-    axis.legend(loc = "best")
-    
-    axis.set_xlabel("Epoch")
-    axis.set_ylabel("Lower bound for validation set")
-    
-    seaborn.despine()
-    
-    return figure, figure_name
-
-def plotEvaluationsForModels(models_summaries, name = None):
-    
-    figure_name = figureName("evaluation", name)
-    
-    figure = pyplot.figure()
-    axis = figure.add_subplot(1, 1, 1)
-    
-    log_likelihoods = []
-    model_descriptions = []
-    
-    for model_description, model_summary in models_summaries.items():
-        if model_summary["type"] == "SNN":
-            log_likelihood = model_summary["test evaluation"]["log-likelihood"]
-        elif "AE" in model_summary["type"]:
-            log_likelihood = model_summary["test evaluation"]["ELBO"]
-        log_likelihoods.append(log_likelihood)
-        model_description = model_summary["description"]
-        model_descriptions.append(model_description)
-    
-    model_indices = numpy.arange(len(models_summaries)) + 1
-    axis.bar(model_indices, log_likelihoods)
-    
-    axis.set_xticks(model_indices)
-    axis.set_xticklabels(model_descriptions, rotation = 45, ha = "right")
-    
-    axis.set_xlabel("Models")
-    axis.set_ylabel("log-likelhood for validation set")
     
     seaborn.despine()
     
