@@ -255,9 +255,9 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
     else:
         model_name = model.name
     
-    model_name += "_e_" + str(number_of_epochs_trained)
+    epochs_string = "e_" + str(number_of_epochs_trained)
     
-    results_directory = os.path.join(results_directory, model_name)
+    results_directory = os.path.join(results_directory, model_name, epochs_string)
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
@@ -622,17 +622,17 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     else:
         model_name = model.name
     
-    model_name += "_e_" + str(number_of_epochs_trained)
+    epochs_string = "e_" + str(number_of_epochs_trained)
     
-    results_directory = os.path.join(results_directory, model_name)
+    results_directory = os.path.join(results_directory, model_name, epochs_string)
     
     if evaluation_set.kind != "test":
         results_directory = os.path.join(results_directory, evaluation_set.kind)
     
     if early_stopping:
-        results_directory = os.path.join(results_directory, "early_stopping")
+        results_directory += "_early_stopping"
     elif best_model:
-        results_directory = os.path.join(results_directory, "best_model")
+        results_directory += "_best_model"
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
