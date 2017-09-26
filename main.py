@@ -40,10 +40,17 @@ def main(data_set_name, data_directory = "data",
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
     analyse = True, evaluation_set_name = "test", analyse_data = False,
-    analyses = ["default"], analysis_level = "normal",
+    analyses = ["default"], analysis_level = "normal", fast_analysis = False,
     video = False):
     
     print()
+    
+    # Setup
+    
+    if fast_analysis:
+        analyse = True
+        analyses = ["simple"]
+        analysis_level = "limited"
     
     # Load and split data
     
@@ -729,6 +736,12 @@ parser.add_argument(
     default = "normal",
     help = "level to which analyses are performed: limited, normal (default), extensive"
 )
+parser.add_argument(
+    "--fast-analysis", "-f",
+    action = "store_true",
+    help = "perform fast analysis (equivalent to: `--analyses simple --analysis-level limited`)"
+)
+parser.set_defaults(fast_analysis = False)
 parser.add_argument(
     "--video", "-v",
     action = "store_true",
