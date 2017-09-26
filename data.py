@@ -1405,26 +1405,35 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
             filename_parts.append(normaliseString(base_name))
         
         if feature_selection:
-            filename_parts.append(normaliseString(feature_selection))
+            feature_selection_part = normaliseString(feature_selection)
             if feature_parameter:
-                filename_parts.append(str(feature_parameter))
+                feature_selection_part += "_{}".format(feature_parameter)
+            filename_parts.append(feature_selection_part)
         
         if example_filter:
-            filename_parts.append(normaliseString(example_filter))
+            example_filter_part = normaliseString(example_filter)
             if example_filter_parameters:
-                filename_parts.extend(map(normaliseString,
+                example_filter_part += "_" + "_".join(map(normaliseString,
                     example_filter_parameters))
+            filename_parts.append(example_filter_part)
         
         if preprocessing_methods:
             filename_parts.extend(map(normaliseString, preprocessing_methods))
         
+        
         if splitting_method:
             filename_parts.append("split")
-            filename_parts.append(normaliseString(splitting_method))
             
-            if splitting_fraction:
-                filename_parts.append(str(splitting_fraction))
-            
+            if splitting_method == "indices" and \
+                len(split_indices) == 3 or not splitting_fraction:
+                
+                filename_parts.append(splitting_method)
+            else:
+                filename_parts.append("{}_{}".format(
+                    splitting_method,
+                    splitting_fraction
+                ))
+        
         path = "-".join(filename_parts) + preprocessed_extension
         
         return path
@@ -2425,27 +2434,39 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction,
     
     data_set_directory = os.path.join(base_directory, data_set.name)
     
+    # Splitting directory
+    
+    splitting_directory_parts = ["split"]
+    
     if splitting_method == "default":
         splitting_method = data_set.defaultSplittingMethod()
     
-    splitting_directory = "split-{}-{}".format(splitting_method,
-        splitting_fraction)
+    if splitting_method == "indices" and len(data_set.split_indices) == 3 \
+        or not splitting_fraction:
+        
+        splitting_directory_parts.append(splitting_method)
+    else:
+        splitting_directory_parts.append("{}_{}".format(splitting_method,
+        splitting_fraction))
+    
+    splitting_directory = "-".join(splitting_directory_parts)
+    
+    # Preprocessing directory
     
     preprocessing_directory_parts = []
     
     if data_set.feature_selection:
-        preprocessing_directory_parts.append(normaliseString(
-            data_set.feature_selection))
+        feature_selection_part = normaliseString(data_set.feature_selection)
         if data_set.feature_parameter:
-            preprocessing_directory_parts.append(str(
-                data_set.feature_parameter))
+            feature_selection_part += "_{}".format(data_set.feature_parameter)
+        preprocessing_directory_parts.append(feature_selection_part)
     
     if data_set.example_filter:
-        preprocessing_directory_parts.append(normaliseString(
-            data_set.example_filter))
+        example_filter_part = normaliseString(data_set.example_filter)
         if data_set.example_filter_parameters:
-            preprocessing_directory_parts.extend(map(normaliseString,
+            example_filter_part += "_" + "_".join(map(normaliseString,
                 data_set.example_filter_parameters))
+        preprocessing_directory_parts.append(example_filter_part)
     
     if preprocessing and data_set.preprocessing_methods:
         preprocessing_directory_parts.extend(map(normaliseString,
@@ -2460,6 +2481,8 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction,
         preprocessing_directory = "-".join(preprocessing_directory_parts)
     else:
         preprocessing_directory = "none"
+    
+    # Complete path
     
     directory = os.path.join(data_set_directory, splitting_directory,
         preprocessing_directory)
