@@ -250,14 +250,9 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
     
     number_of_epochs_trained = loadNumberOfEpochsTrained(model)
     
-    if model.type in ["VAE", "GMVAE"]:
-        model_name = model.testing_name
-    else:
-        model_name = model.name
-    
     epochs_string = "e_" + str(number_of_epochs_trained)
     
-    results_directory = os.path.join(results_directory, model_name, epochs_string)
+    results_directory = os.path.join(results_directory, model.name, epochs_string)
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
@@ -462,8 +457,8 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
     epoch = None, latent_values = None, data_set = None, centroids = None,
     model_name = None, model_type = None, results_directory = "results"):
     
-    results_directory = os.path.join(results_directory, model_name)
-    intermediate_directory = os.path.join(results_directory, "intermediate")
+    results_directory = os.path.join(results_directory, model_name,
+        "intermediate")
     
     # Learning curves
     
@@ -482,7 +477,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
     )
     
     if epoch is not None:
-        saveFigure(figure, figure_name, results_directory, for_video=False)
+        saveFigure(figure, figure_name, results_directory, for_video = False)
     else:
         saveFigure(figure, figure_name, results_directory)
 
@@ -560,7 +555,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
             figure.axes[0].set_ybound([-5, 12])
             figure.axes[0].set_xlim([-8, 13])
             figure.axes[0].set_ylim([-5, 12])
-            saveFigure(figure, figure_name, intermediate_directory,
+            saveFigure(figure, figure_name, results_directory,
                 for_video = True)
             if data_set.label_superset is not None:
                 figure, figure_name = plotValues(
@@ -575,7 +570,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                 figure.axes[0].set_ybound([-5, 12])
                 figure.axes[0].set_xlim([-8, 13])
                 figure.axes[0].set_ylim([-5, 12])
-                saveFigure(figure, figure_name, intermediate_directory,
+                saveFigure(figure, figure_name, results_directory,
                     for_video = True)
         else:
             figure, figure_name = plotValues(
@@ -588,14 +583,14 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
             figure.axes[0].set_ybound([-5, 12])
             figure.axes[0].set_xlim([-8, 13])
             figure.axes[0].set_ylim([-5, 12])
-            saveFigure(figure, figure_name, intermediate_directory,
+            saveFigure(figure, figure_name, results_directory,
                 for_video = True)
     
         if centroids:
             analyseCentroidProbabilities(
                 centroids, epoch_name,
                 for_video = True,
-                results_directory = intermediate_directory)
+                results_directory = results_directory)
     
         plot_duration = time() - plot_time_start
         print("{} plotted and saved ({}).".format(
@@ -617,29 +612,34 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     number_of_epochs_trained = loadNumberOfEpochsTrained(model,
         early_stopping = early_stopping, best_model = best_model)
     
-    if model.type in ["VAE", "GMVAE"]:
-        model_name = model.testing_name
-    else:
-        model_name = model.name
+    M = evaluation_set.number_of_examples
     
-    epochs_string = "e_" + str(number_of_epochs_trained)
+    analyses = parseAnalyses(analyses)
     
-    results_directory = os.path.join(results_directory, model_name, epochs_string)
+    ## Directory path
+    
+    evaluation_directory_parts = ["e_" + str(number_of_epochs_trained)]
+    
+    if early_stopping:
+        evaluation_directory_parts.append("early_stopping")
+    elif best_model:
+        evaluation_directory_parts.append("best_model")
+    
+    evaluation_directory_parts.append("mc_{}".format(
+        model.number_of_monte_carlo_samples["evaluation"]))
+    evaluation_directory_parts.append("iw_{}".format(
+        model.number_of_importance_samples["evaluation"]))
+    
+    evaluation_directory = "-".join(evaluation_directory_parts)
+    
+    results_directory = os.path.join(results_directory, model.name,
+        evaluation_directory)
     
     if evaluation_set.kind != "test":
         results_directory = os.path.join(results_directory, evaluation_set.kind)
     
-    if early_stopping:
-        results_directory += "_early_stopping"
-    elif best_model:
-        results_directory += "_best_model"
-    
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
-    
-    M = evaluation_set.number_of_examples
-    
-    analyses = parseAnalyses(analyses)
     
     # Metrics
     

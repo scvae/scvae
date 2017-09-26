@@ -162,61 +162,56 @@ class VariationalAutoencoder(object):
             self.saver = tf.train.Saver(max_to_keep = 1)
     
     @property
-    def training_name(self):
-        return self.name("training")
-    
-    @property
-    def testing_name(self):
-        return self.name("testing")
-    
-    def name(self, process):
+    def name(self):
         
-        latent_part = normaliseString(self.latent_distribution_name)
+        # Latent parts
+        
+        latent_parts = [normaliseString(self.latent_distribution_name)]
         
         if self.parameterise_latent_posterior:
-            latent_part += "_p"
+            latent_parts.append("parameterised")
         
         if "mixture" in self.latent_distribution_name:
-            latent_part += "_c_" + str(self.number_of_latent_clusters)
+            latent_parts.append("c_{}".format(self.number_of_latent_clusters))
         
-        reconstruction_part = normaliseString(
-            self.reconstruction_distribution_name)
+        # Reconstruction parts
+        
+        reconstruction_parts = [normaliseString(
+            self.reconstruction_distribution_name)]
         
         if self.k_max:
-            reconstruction_part += "_c_" + str(self.k_max)
+            reconstruction_parts.append("k_{}".format(self.k_max))
         
         if self.count_sum_feature:
-            reconstruction_part += "_sum"
+            reconstruction_parts.append("sum")
         
-        reconstruction_part += "_l_" + str(self.latent_size) \
-            + "_h_" + "_".join(map(str, self.hidden_sizes))
+        reconstruction_parts.append("l_{}".format(self.latent_size))
+        reconstruction_parts.append(
+            "h_" + "_".join(map(str, self.hidden_sizes)))
         
-        mc_train = self.number_of_monte_carlo_samples["training"]
-        mc_eval = self.number_of_monte_carlo_samples["evaluation"]
-        
-        reconstruction_part += "_mc_" + str(mc_train)
-        if process == "testing":
-            reconstruction_part += "_" + str(mc_eval)
-        
-        iw_train = self.number_of_importance_samples["training"]
-        iw_eval = self.number_of_importance_samples["evaluation"]
-        
-        if self.type == "IWVAE":
-            reconstruction_part += "_iw_" + str(iw_train)
-            if process == "testing":
-                reconstruction_part += "_" + str(iw_eval)
+        reconstruction_parts.append("mc_{}".format(
+            self.number_of_monte_carlo_samples["training"]))
+        reconstruction_parts.append("mc_{}".format(
+            self.number_of_importance_samples["training"]))
         
         if self.analytical_kl_term:
-            reconstruction_part += "_kl"
+            reconstruction_parts.append("kl")
         
         if self.batch_normalisation:
-            reconstruction_part += "_bn"
+            reconstruction_parts.append("bn")
 
         if len(self.dropout_parts) > 0:
-            reconstruction_part += "_do_" + "_".join(self.dropout_parts)
+            reconstruction_parts.append(
+                "dropout_" + "_".join(self.dropout_parts))
         
         if self.number_of_warm_up_epochs:
-            reconstruction_part += "_wu_" + str(self.number_of_warm_up_epochs)
+            reconstruction_parts.append("wu_{}".format(
+                self.number_of_warm_up_epochs))
+        
+        # Complete name
+        
+        latent_part = "-".join(latent_parts)
+        reconstruction_part = "-".join(reconstruction_parts)
         
         model_name = os.path.join(self.type, latent_part, reconstruction_part)
         
@@ -224,7 +219,7 @@ class VariationalAutoencoder(object):
     
     @property
     def log_directory(self):
-        return os.path.join(self.main_log_directory, self.training_name)
+        return os.path.join(self.main_log_directory, self.name)
     
     @property
     def early_stopping_log_directory(self):
@@ -300,11 +295,10 @@ class VariationalAutoencoder(object):
         iw_train = self.number_of_importance_samples["training"]
         iw_eval = self.number_of_importance_samples["evaluation"]
         
-        if self.type == "IWVAE":
-            iw = "importance samples: {}".format(iw_train)
-            if iw_eval != iw_train:
-                iw += " (training), {} (evaluation)".format(iw_eval)
-            description_parts.append(iw)
+        iw = "importance samples: {}".format(iw_train)
+        if iw_eval != iw_train:
+            iw += " (training), {} (evaluation)".format(iw_eval)
+        description_parts.append(iw)
         
         if self.analytical_kl_term:
             description_parts.append("using analytical KL term")
@@ -1433,14 +1427,14 @@ class VariationalAutoencoder(object):
                     analyseIntermediateResults(
                         learning_curves, epoch_start, epoch,
                         q_z_mean_valid, validation_set, centroids,
-                        self.training_name, self.type,
+                        self.name, self.type,
                         self.main_results_directory
                     )
                     print()
                 else:
                     analyseIntermediateResults(
                         learning_curves, epoch_start,
-                        model_name = self.training_name,
+                        model_name = self.name,
                         model_type = self.type,
                         results_directory = self.main_results_directory
                     )
