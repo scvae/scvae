@@ -28,12 +28,11 @@ from data import DataSet
 from analysis import analyseIntermediateResults
 from auxiliary import loadLearningCurves
 
-class GaussianMixtureVariationalAutoEncoder_alternative(object):
+class GaussianMixtureVariationalAutoencoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         number_of_monte_carlo_samples,
         number_of_importance_samples,
         analytical_kl_term = False,
-        latent_distribution = "gaussian mixture",
         prior_probabilities = None,
         number_of_latent_clusters = 1,
         proportion_of_free_KL_nats = 0.8,
@@ -47,14 +46,15 @@ class GaussianMixtureVariationalAutoEncoder_alternative(object):
         results_directory = "results"):
         
         # Class setup
-        super(GaussianMixtureVariationalAutoEncoder_alternative, self).__init__()
+        super(GaussianMixtureVariationalAutoencoder, self).__init__()
         
-        self.type = "GMVAE_alt"
+        self.type = "GMVAE"
         
         self.feature_size = feature_size
         self.latent_size = latent_size
         self.hidden_sizes = hidden_sizes
         
+        latent_distribution = "gaussian mixture"
         self.latent_distribution_name = latent_distribution
         self.latent_distribution = copy.deepcopy(
             latent_distributions[latent_distribution]

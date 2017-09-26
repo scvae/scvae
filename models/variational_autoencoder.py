@@ -25,7 +25,7 @@ from data import DataSet
 from analysis import analyseIntermediateResults
 from auxiliary import loadLearningCurves
 
-class ImportanceWeightedVariationalAutoEncoder(object):
+class VariationalAutoencoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         number_of_monte_carlo_samples, number_of_importance_samples,
         analytical_kl_term = False,
@@ -41,9 +41,9 @@ class ImportanceWeightedVariationalAutoEncoder(object):
         log_directory = "log", results_directory = "results"):
         
         # Class setup
-        super(ImportanceWeightedVariationalAutoEncoder, self).__init__()
+        super(VariationalAutoencoder, self).__init__()
         
-        self.type = "IWVAE"
+        self.type = "VAE"
         
         self.feature_size = feature_size
         self.latent_size = latent_size

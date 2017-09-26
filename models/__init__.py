@@ -1,3 +1,3 @@
-from models.vae import VariationalAutoEncoder
-from models.iw_vae import ImportanceWeightedVariationalAutoEncoder
-from models.gmm_vae import GaussianMixtureVariationalAutoEncoder_alternative
+from models.variational_autoencoder import VariationalAutoencoder
+from models.gaussian_mixture_variational_autoencoder import \
+    GaussianMixtureVariationalAutoencoder

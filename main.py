@@ -4,9 +4,8 @@ import data
 import analysis
 
 from models import (
-    VariationalAutoEncoder,
-    ImportanceWeightedVariationalAutoEncoder,
-    GaussianMixtureVariationalAutoEncoder_alternative
+    VariationalAutoencoder,
+    GaussianMixtureVariationalAutoencoder
 )
 
 from auxiliary import title, subtitle
@@ -135,27 +134,7 @@ def main(data_set_name, data_directory = "data",
     subtitle("Setting up model")
     
     if model_type == "VAE":
-        model = VariationalAutoEncoder(
-            feature_size = feature_size,
-            latent_size = latent_size,
-            hidden_sizes = hidden_sizes,
-            number_of_monte_carlo_samples =number_of_monte_carlo_samples,
-            analytical_kl_term = analytical_kl_term,
-            latent_distribution = latent_distribution,
-            number_of_latent_clusters = number_of_latent_clusters,
-            parameterise_latent_posterior = parameterise_latent_posterior,
-            reconstruction_distribution = reconstruction_distribution,
-            number_of_reconstruction_classes = number_of_reconstruction_classes,
-            batch_normalisation = batch_normalisation,
-            dropout_keep_probabilities = dropout_keep_probabilities,
-            count_sum = count_sum,
-            number_of_warm_up_epochs = number_of_warm_up_epochs,
-            log_directory = log_directory,
-            results_directory = results_directory
-        )
-    
-    elif model_type == "IWVAE":
-        model = ImportanceWeightedVariationalAutoEncoder(
+        model = VariationalAutoencoder(
             feature_size = feature_size,
             latent_size = latent_size,
             hidden_sizes = hidden_sizes,
@@ -175,7 +154,13 @@ def main(data_set_name, data_directory = "data",
             results_directory = results_directory
         )
 
-    elif model_type == "GMVAE_alt":
+    elif model_type == "GMVAE":
+        
+        if latent_distribution != "gaussian mixture":
+            latent_distribution = "gaussian mixture"
+            print("The latent distribution was changed to",
+                "a Gaussian-mixture model, because of the model chosen.\n")
+        
         if prior_probabilities_method == "uniform":
             prior_probabilities = None
         elif prior_probabilities_method == "infer":
@@ -196,7 +181,7 @@ def main(data_set_name, data_directory = "data",
             "values": prior_probabilities_values
         }
         
-        model = GaussianMixtureVariationalAutoEncoder_alternative(
+        model = GaussianMixtureVariationalAutoencoder(
             feature_size = feature_size,
             latent_size = latent_size,
             hidden_sizes = hidden_sizes,
@@ -217,7 +202,7 @@ def main(data_set_name, data_directory = "data",
         )
     
     else:
-        return ValueError("Model type not found.")
+        raise ValueError("Model type not found: `{}`.".format(model_type))
     
     print(model.description)
     print()
@@ -401,10 +386,6 @@ def validateModelParameters(model_type, latent_distribution,
             likelihood_error_list.append("zero-inflated distributions")
             likelihood_validity = False
         
-        # if "negative binomial" in reconstruction_distribution:
-        #     likelihood_error_list.append("any negative binomial distribution")
-        #     likelihood_validity = False
-        
         if "constrained" in reconstruction_distribution:
             likelihood_error_list.append("the multinomial distribution")
             likelihood_validity = False
@@ -433,33 +414,15 @@ def validateModelParameters(model_type, latent_distribution,
     validity = validity and likelihood_validity
     errors.append(likelihood_error)
     
-    # Latent distribution
-    
-    if "VAE" in model_type:
-        
-        latent_distribution_validity = True
-        latent_distribution_error = ""
-    
-        if model_type == "OVAE" and "mixture" in latent_distribution:
-            latent_distribution_error = "Mixture latent distribution with " + \
-                "original variational auto-encoder."
-            latent_distribution_validity = False
-        elif model_type in ["CVAE", "GMVAE", "GMVAE_alt"] and "mixture" not in latent_distribution:
-            latent_distribution_error = "No mixture latent distribution with " + \
-                "cluster variational auto-encoder."
-            latent_distribution_validity = False
-    
-        validity = validity and latent_distribution_validity
-        errors.append(latent_distribution_error)
-    
-    # Parameterisation of latent posterior for IWVAE
+    # Parameterisation of latent posterior for VAE
     if "VAE" in model_type:
         parameterise_validity = True
         parameterise_error = ""
         
-        if not (model_type in ["VAE", "IWVAE"]
+        if not (model_type in ["VAE"]
             and latent_distribution == "gaussian mixture") \
             and parameterise_latent_posterior:
+            
             parameterise_error = "Cannot parameterise latent posterior parameters" \
                 + " for " + model_type + " or " + latent_distribution \
                 + " distribution."

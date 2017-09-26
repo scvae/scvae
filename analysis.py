@@ -250,7 +250,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
     
     number_of_epochs_trained = loadNumberOfEpochsTrained(model)
     
-    if model.type in ["VAE", "IWVAE", "CVAE", "GMVAE", "GMVAE_alt"]:
+    if model.type in ["VAE", "GMVAE"]:
         model_name = model.testing_name
     else:
         model_name = model.name
@@ -298,7 +298,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
             figure, figure_name = plotSeparateLearningCurves(learning_curves,
                 loss = ["lower_bound", "reconstruction_error"])
             saveFigure(figure, figure_name, results_directory)
-            if model.type in ["GMVAE_alt"]:
+            if model.type in ["GMVAE"]:
                 figure, figure_name = plotSeparateLearningCurves(learning_curves,
                     loss = "kl_divergence_z")
                 saveFigure(figure, figure_name, results_directory)
@@ -350,8 +350,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
     
     # Heat map of KL for all latent neurons
     
-    if "kl_heat_maps" in analyses and \
-        "VAE" in model.type and "GM" not in model.type:
+    if "kl_heat_maps" in analyses and model.type == "VAE":
         
         heading("KL divergence")
     
@@ -374,8 +373,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
     
     # Latent distributions
     
-    if "latent_distributions" in analyses and \
-        "VAE" in model.type and "mixture" in model.latent_distribution_name:
+    if "latent_distributions" in analyses and model.type == "GMVAE":
         
         heading("Latent distributions")
         
@@ -619,7 +617,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     number_of_epochs_trained = loadNumberOfEpochsTrained(model,
         early_stopping = early_stopping, best_model = best_model)
     
-    if model.type in ["VAE", "IWVAE", "CVAE", "GMVAE", "GMVAE_alt"]:
+    if model.type in ["VAE", "GMVAE"]:
         model_name = model.testing_name
     else:
         model_name = model.name
@@ -724,28 +722,20 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 metrics_string += \
                     "    log-likelihood: {:.5g}.\n".format(
                         evaluation_eval["log_likelihood"][-1])
-            elif "AE" in model.type:
+            elif "VAE" in model.type:
                 metrics_string += \
                     "    ELBO: {:.5g}.\n".format(
                         evaluation_eval["lower_bound"][-1]) + \
                     "    ENRE: {:.5g}.\n".format(
                         evaluation_eval["reconstruction_error"][-1])
-                if model.type not in ["CVAE", "GMVAE", "GMVAE_alt"]:
+                if model.type == "VAE":
                     metrics_string += \
                         "    KL: {:.5g}.\n".format(
                             evaluation_eval["kl_divergence"][-1])
-                elif model.type in ["GMVAE", "GMVAE_alt"]:
+                elif model.type in ["GMVAE"]:
                     metrics_string += \
                         "    KL_z: {:.5g}.\n".format(
                             evaluation_eval["kl_divergence_z"][-1]) + \
-                        "    KL_y: {:.5g}.\n".format(
-                            evaluation_eval["kl_divergence_y"][-1])
-                elif model.type == "CVAE":
-                    metrics_string += \
-                        "    KL_z1: {:.5g}.\n".format(
-                            evaluation_eval["kl_divergence_z1"][-1]) + \
-                        "    KL_z2: {:.5g}.\n".format(
-                            evaluation_eval["kl_divergence_z2"][-1]) + \
                         "    KL_y: {:.5g}.\n".format(
                             evaluation_eval["kl_divergence_y"][-1])
             if accuracy_eval is not None:
@@ -1002,7 +992,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             results_directory = results_directory
         )
         
-        if model.type == "GMVAE_alt":
+        if model.type == "GMVAE":
             analyseDistributions(
                 reconstructed_evaluation_set,
                 preprocessed = evaluation_set.preprocessing_methods,
@@ -1052,7 +1042,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             results_directory = results_directory
         )
         
-        if model.type == "GMVAE_alt":
+        if model.type == "GMVAE":
             
             ## Originals decomposed with predicted labels
             
@@ -1205,7 +1195,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             results_directory = results_directory
         )
         
-        if model.type == "GMVAE_alt":
+        if model.type == "GMVAE":
             analyseDecompositions(
                 latent_evaluation_sets,
                 centroids = centroids,
@@ -2484,16 +2474,16 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, epoch_slice = slice
     x_label = "Epoch"
     y_label = "Nat"
     
-    if model_type == "SNN":
+    if model_type == "AE":
         figure = pyplot.figure()
         axis_1 = figure.add_subplot(1, 1, 1)
-    elif model_type in ["CVAE", "GMVAE", "GMVAE_alt"]:
-        figure, (axis_1, axis_2, axis_3) = pyplot.subplots(3, sharex = True,
-            figsize = (6.4, 14.4))
-        figure.subplots_adjust(hspace = 0.1)
-    elif "AE" in model_type:
+    elif model_type == "VAE":
         figure, (axis_1, axis_2) = pyplot.subplots(2, sharex = True,
             figsize = (6.4, 9.6))
+        figure.subplots_adjust(hspace = 0.1)
+    elif model_type == "GMVAE":
+        figure, (axis_1, axis_2, axis_3) = pyplot.subplots(3, sharex = True,
+            figsize = (6.4, 14.4))
         figure.subplots_adjust(hspace = 0.1)
     
     axis_1_lim = []
@@ -2587,12 +2577,12 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, epoch_slice = slice
     
     axis_1.legend(handles, labels, loc = "best")
     
-    if model_type == "SNN":
+    if model_type == "AE":
         axis_1.set_xlabel(x_label)
         axis_1.set_ylabel(y_label)
         if global_y_lim:
             axis_1.set_ylim(axis_1_lim)
-    elif "AE" in model_type:
+    elif model_type == "VAE":
         handles, labels = axis_2.get_legend_handles_labels()
         labels, handles = zip(*sorted(zip(labels, handles),
             key = lambda t: t[0]))
@@ -2603,7 +2593,7 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, epoch_slice = slice
             axis_1.set_ylim(axis_1_lim)
             axis_2.set_ylim(axis_2_lim)
 
-        if model_type in ["CVAE", "GMVAE", "GMVAE_alt"]:
+        if model_type == "GMVAE":
             axis_3.legend(loc = "best")
             handles, labels = axis_3.get_legend_handles_labels()
             labels, handles = zip(*sorted(zip(labels, handles),
