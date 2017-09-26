@@ -5,11 +5,7 @@ import analysis
 
 from models import (
     VariationalAutoEncoder,
-    OriginalVariationalAutoEncoder,
     ImportanceWeightedVariationalAutoEncoder,
-    SimpleNeuralNetwork,
-    ClusterVariationalAutoEncoder,
-    GaussianMixtureVariationalAutoEncoder,
     GaussianMixtureVariationalAutoEncoder_alternative
 )
 
