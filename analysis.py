@@ -1489,6 +1489,9 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     if not isinstance(data_sets, (list, tuple)):
         data_sets = [data_sets]
     
+    if isinstance(data_sets, dict):
+        data_sets = list(data_sets.values())
+    
     if not isinstance(other_data_sets, (list, tuple)):
         other_data_sets = [other_data_sets]
     elif other_data_sets == []:

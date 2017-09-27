@@ -1708,7 +1708,7 @@ class VariationalAutoencoder(object):
                 version = "likelihood"
             )
             
-            latent_evaluation_set = DataSet(
+            z_evaluation_set = DataSet(
                 name = evaluation_set.name,
                 values = q_z_mean_eval,
                 preprocessed_values = None,
@@ -1723,5 +1723,9 @@ class VariationalAutoencoder(object):
                 version = "z"
             )
             
+            latent_evaluation_sets = {
+                "z": z_evaluation_set
+            }
+            
             return transformed_evaluation_set, reconstructed_evaluation_set,\
-                likelihood_evaluation_set, latent_evaluation_set
+                likelihood_evaluation_set, latent_evaluation_sets

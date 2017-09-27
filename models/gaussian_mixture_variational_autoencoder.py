@@ -2091,7 +2091,11 @@ class GaussianMixtureVariationalAutoencoder(object):
                 kind = evaluation_set.kind,
                 version = "y"
             )
-            latent_evaluation_sets = (z_evaluation_set, y_evaluation_set)
+            
+            latent_evaluation_sets = {
+                "z": z_evaluation_set,
+                "y": y_evaluation_set
+            }
 
             return transformed_evaluation_set, reconstructed_evaluation_set, \
                 likelihood_evaluation_set, latent_evaluation_sets
