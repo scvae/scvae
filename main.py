@@ -8,6 +8,8 @@ from models import (
     GaussianMixtureVariationalAutoencoder
 )
 
+from models.clustering import clusterDataSet
+
 from auxiliary import title, subtitle
 
 import os
@@ -301,17 +303,17 @@ def main(data_set_name, data_directory = "data",
     
     if clustering_method and not transformed_evaluation_set.has_predicted_labels:
         
-        if clustering_method == "copy":
-            predicted_labels = transformed_evaluation_set.labels
-        else:
-            raise ValueError("Clustering method not found: `{}`.".format(
-                clustering_method)) 
+        predicted_labels = clusterDataSet(
+            latent_evaluation_sets["z"],
+            clustering_method
+        )
         
         transformed_evaluation_set.updatePredictedLabels(predicted_labels)
         reconstructed_evaluation_set.updatePredictedLabels(predicted_labels)
         
         for variable in latent_evaluation_sets:
-            latent_evaluation_sets[variable].updatePredictedLabels(predicted_labels)
+            latent_evaluation_sets[variable].updatePredictedLabels(
+                predicted_labels)
     
     # Analysis
     
