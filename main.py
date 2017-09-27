@@ -37,6 +37,7 @@ def main(data_set_name, data_directory = "data",
     count_sum = True,
     number_of_epochs = 200, plot_for_every_n_epochs = None, 
     batch_size = 100, learning_rate = 1e-4,
+    clustering_method = None,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
     analyse = True, evaluation_set_name = "test", analyse_data = False,
@@ -296,11 +297,27 @@ def main(data_set_name, data_directory = "data",
     
     print()
     
+    # Clustering
+    
+    if clustering_method and not transformed_evaluation_set.has_predicted_labels:
+        
+        if clustering_method == "copy":
+            predicted_labels = transformed_evaluation_set.labels
+        else:
+            raise ValueError("Clustering method not found: `{}`.".format(
+                clustering_method)) 
+        
+        transformed_evaluation_set.predicted_labels = predicted_labels
+        reconstructed_evaluation_set.predicted_labels = predicted_labels
+        
+        for variable in latent_evaluation_sets:
+            latent_evaluation_sets[variable].predicted_labels = predicted_labels
+    
     # Analysis
     
-    title("Analyses")
-    
     if analyse:
+        
+        title("Analyses")
         
         subtitle("Analysing model")
         analysis.analyseModel(model, analyses, analysis_level,
@@ -490,7 +507,7 @@ parser.add_argument(
     type = str,
     nargs = "*",
     default = None,
-    help = "method for filtering examples"
+    help = "method for filtering examples, optionally followed by parameters"
 )
 parser.add_argument(
     "--preprocessing-methods", "-p",
@@ -507,7 +524,7 @@ parser.add_argument(
     help = "methods for noisily preprocessing data at every epoch (applied in order)"
 )
 parser.add_argument(
-    "--splitting-method", "-s",
+    "--splitting-method",
     type = str,
     default = "random",
     help = "method for splitting data into training, validation, and test sets"
@@ -606,13 +623,13 @@ parser.add_argument(
     help = "number of training epochs between each intermediate plot starting at the first"
 )
 parser.add_argument(
-    "--batch-size", "-i",
+    "--batch-size", "-M",
     type = int,
     default = 100,
     help = "batch size used when training"
 )
 parser.add_argument(
-    "--learning-rate", "-S",
+    "--learning-rate",
     type = float,
     default = 1e-4,
     help = "learning rate when training"
@@ -650,17 +667,24 @@ parser.add_argument(
 )
 parser.set_defaults(batch_normalisation = True)
 parser.add_argument(
-    "--count-sum", "-c",
+    "--count-sum", "-s",
     action = "store_true",
     help = "use count sum"
 )
 parser.add_argument(
-    "--no-count-sum", "-C",
+    "--no-count-sum", "-S",
     dest = "count_sum",
     action = "store_false",
     help = "do not use count sum"
 )
 parser.set_defaults(count_sum = False)
+parser.add_argument(
+    "--clustering-method", "-C",
+    type = str,
+    nargs = "?",
+    default = None,
+    help = "method for clustering examples, optionally followed by parameters"
+)
 parser.add_argument(
     "--decomposition-methods",
     type = str,
