@@ -1041,51 +1041,6 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             analysis_level = analysis_level,
             results_directory = results_directory
         )
-        
-        if model.type == "GMVAE":
-            
-            ## Originals decomposed with predicted labels
-            
-            analyseDecompositions(
-                evaluation_set,
-                colouring_data_set = reconstructed_evaluation_set,
-                decomposition_methods = decomposition_methods,
-                highlight_feature_indices = highlight_feature_indices,
-                symbol = "x",
-                title = "original space with predicted labels",
-                analysis_level = analysis_level,
-                results_directory = results_directory
-            )
-            
-            ## Reconstructions decomposed with predicted labels
-            
-            analyseDecompositions(
-                reconstructed_evaluation_set,
-                colouring_data_set = reconstructed_evaluation_set,
-                decomposition_methods = decomposition_methods,
-                highlight_feature_indices = highlight_feature_indices,
-                symbol = "\\tilde{{x}}",
-                pca_limits = evaluation_set.pca_limits,
-                title = "reconstruction space with predicted labels",
-                analysis_level = analysis_level,
-                results_directory = results_directory
-            )
-            
-            ## Reconstructions plotted in original decomposed space
-            ## with predicted labels
-            
-            analyseDecompositions(
-                evaluation_set,
-                reconstructed_evaluation_set,
-                colouring_data_set = reconstructed_evaluation_set,
-                decomposition_methods = decomposition_methods,
-                highlight_feature_indices = highlight_feature_indices,
-                symbol = "x",
-                pca_limits = evaluation_set.pca_limits,
-                title = "original space with predicted labels",
-                analysis_level = analysis_level,
-                results_directory = results_directory
-            )
     
     # Heat maps
     
@@ -1194,19 +1149,6 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             analysis_level = analysis_level,
             results_directory = results_directory
         )
-        
-        if model.type == "GMVAE":
-            analyseDecompositions(
-                latent_evaluation_sets,
-                centroids = centroids,
-                colouring_data_set = reconstructed_evaluation_set,
-                decomposition_methods = decomposition_methods,
-                highlight_feature_indices = highlight_feature_indices,
-                title = "latent space with predicted labels",
-                specifier = lambda data_set: data_set.version,
-                analysis_level = analysis_level,
-                results_directory = results_directory
-            )
         
         if centroids:
             analyseCentroidProbabilities(
@@ -1807,6 +1749,30 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         plot_duration = time() - plot_time_start
                         print("    " +
                             "{} (with superset labels) plotted and saved ({})."\
+                                .format(
+                                    title_with_ID.capitalize(),
+                                    formatDuration(plot_duration)
+                            )
+                        )
+                    
+                    if colouring_data_set.has_predicted_labels:
+                        plot_time_start = time()
+                    
+                        figure, figure_name = plotValues(
+                            plot_values_decomposed,
+                            colour_coding = "predicted labels",
+                            colouring_data_set = colouring_data_set,
+                            centroids = centroids_decomposed,
+                            figure_labels = figure_labels,
+                            axis_limits = axis_limits,
+                            example_tag = data_set.tags["example"],
+                            name = plot_name
+                        )
+                        saveFigure(figure, figure_name, decompositions_directory)
+                    
+                        plot_duration = time() - plot_time_start
+                        print("    " +
+                            "{} (with predicted labels) plotted and saved ({})."\
                                 .format(
                                     title_with_ID.capitalize(),
                                     formatDuration(plot_duration)
@@ -3327,6 +3293,12 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             class_palette = colouring_data_set.superset_class_palette
             number_of_classes = colouring_data_set.number_of_superset_classes
             label_sorter = colouring_data_set.superset_label_sorter
+        elif "predicted" in colour_coding:
+            labels = colouring_data_set.predicted_labels
+            class_names = colouring_data_set.predicted_class_names
+            class_palette = colouring_data_set.predicted_class_palette
+            number_of_classes = colouring_data_set.number_of_predicted_classes
+            label_sorter = colouring_data_set.predicted_label_sorter
         else:
             labels = colouring_data_set.labels
             class_names = colouring_data_set.class_names
@@ -3338,6 +3310,9 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             index_palette = lighter_palette(number_of_classes)
             class_palette = {class_name: index_palette[i] for i, class_name in
                              enumerate(sorted(class_names))}
+        
+        if not label_sorter:
+            label_sorter = createLabelSorter()
         
         # Examples are shuffled, so should their labels be
         labels = labels[shuffled_indices]
