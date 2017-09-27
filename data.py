@@ -618,6 +618,9 @@ class DataSet(object):
             class_names = class_names
         )
         
+        # Predicted labels
+        self.predicted_labels = None
+        
         # Sorted class names for data set
         sorted_class_names = dataSetSortedClassNames(self.title)
         self.label_sorter = createLabelSorter(sorted_class_names)
@@ -626,7 +629,7 @@ class DataSet(object):
         self.superset_label_sorter = createLabelSorter(
             sorted_superset_class_names)
         
-        # Feature selction
+        # Feature selection
         self.feature_selection = feature_selection
         self.feature_parameter = feature_parameter
         
@@ -785,6 +788,10 @@ class DataSet(object):
             class_probabilities.pop(name)
         
         return class_probabilities
+    
+    @property
+    def has_predicted_labels(self):
+        return self.predicted_labels is not None
     
     def update(self, values = None,
         total_standard_deviations = None,
