@@ -307,11 +307,11 @@ def main(data_set_name, data_directory = "data",
             raise ValueError("Clustering method not found: `{}`.".format(
                 clustering_method)) 
         
-        transformed_evaluation_set.predicted_labels = predicted_labels
-        reconstructed_evaluation_set.predicted_labels = predicted_labels
+        transformed_evaluation_set.updatePredictedLabels(predicted_labels)
+        reconstructed_evaluation_set.updatePredictedLabels(predicted_labels)
         
         for variable in latent_evaluation_sets:
-            latent_evaluation_sets[variable].predicted_labels = predicted_labels
+            latent_evaluation_sets[variable].updatePredictedLabels(predicted_labels)
     
     # Analysis
     

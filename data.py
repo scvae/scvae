@@ -620,6 +620,10 @@ class DataSet(object):
         
         # Predicted labels
         self.predicted_labels = None
+        self.predicted_class_names = None
+        self.predicted_class_palette = None
+        self.number_of_predicted_classes = None
+        self.predicted_label_sorter = None
         
         # Sorted class names for data set
         sorted_class_names = dataSetSortedClassNames(self.title)
@@ -881,6 +885,21 @@ class DataSet(object):
         
         if binarised_values is not None:
             self.binarised_values = binarised_values
+    
+    def updatePredictedLabels(self, predicted_labels = None,
+        predicted_class_names = None):
+        
+        if predicted_labels is not None:
+            
+            self.predicted_labels = predicted_labels
+            
+            if predicted_class_names is not None:
+                self.predicted_class_names = predicted_class_names
+            else:
+                self.predicted_class_names = \
+                    numpy.unique(self.predicted_labels).tolist()
+            
+            self.number_of_predicted_classes = len(self.predicted_class_names)
     
     def load(self):
         
