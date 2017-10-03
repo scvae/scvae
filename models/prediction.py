@@ -27,6 +27,11 @@ def predictLabels(training_set, evaluation_set, prediction_method = "copy",
         model.fit(evaluation_set.values)
         predicted_labels = model.labels_
     
+    elif prediction_method == "k-means":
+        model = KMeans(n_clusters = number_of_classes, random_state = 0)
+        model.fit(training_set.values)
+        predicted_labels = model.predict(evaluation_set.values)
+    
     else:
         raise ValueError("Prediction method not found: `{}`.".format(
             prediction_method)) 

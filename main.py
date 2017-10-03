@@ -306,8 +306,14 @@ def main(data_set_name, data_directory = "data",
         
         title("Prediction")
         
+        transformed_training_set, reconstructed_training_set,\
+            likelihood_training_set, latent_training_sets = \
+            model.evaluate(training_set, batch_size)
+        
+        print()
+        
         predicted_labels = predictLabels(
-            training_set,
+            latent_training_sets["z"],
             latent_evaluation_sets["z"],
             prediction_method,
             number_of_classes
