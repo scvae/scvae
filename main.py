@@ -346,6 +346,8 @@ def main(data_set_name, data_directory = "data",
             latent_evaluation_sets,
             model,
             decomposition_methods, highlight_feature_indices,
+            prediction_method = prediction_method,
+            number_of_classes = number_of_classes,
             analyses = analyses, analysis_level = analysis_level,
             results_directory = results_directory
         )

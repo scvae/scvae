@@ -601,7 +601,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     early_stopping = False, best_model = False,
     analyses = ["default"], analysis_level = "normal",
-    results_directory = "results"):
+    results_directory = "results", **remaining_arguments):
     
     if early_stopping and best_model:
         raise ValueError("Early-stopping model and best model cannot be"
@@ -991,16 +991,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             analysis_level = analysis_level,
             results_directory = results_directory
         )
-        
-        if model.type == "GMVAE":
-            analyseDistributions(
-                reconstructed_evaluation_set,
-                preprocessed = evaluation_set.preprocessing_methods,
-                original_maximum_count = evaluation_set_maximum_value,
-                analysis_level = analysis_level,
-                results_directory = results_directory
-            )
-
+    
     # Likelihood histograms
     # analyseDistributions(
     #     likelihood_evaluation_set,
@@ -1024,7 +1015,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             pca_limits = evaluation_set.pca_limits,
             title = "reconstruction space",
             analysis_level = analysis_level,
-            results_directory = results_directory
+            results_directory = results_directory,
+            **remaining_arguments
         )
         
         ## Reconstructions plotted in original decomposed space
@@ -1039,7 +1031,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             pca_limits = evaluation_set.pca_limits,
             title = "original space",
             analysis_level = analysis_level,
-            results_directory = results_directory
+            results_directory = results_directory,
+            **remaining_arguments
         )
     
     # Heat maps
@@ -1147,7 +1140,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             title = "latent space",
             specifier = lambda data_set: data_set.version,
             analysis_level = analysis_level,
-            results_directory = results_directory
+            results_directory = results_directory,
+            **remaining_arguments
         )
         
         if centroids:
@@ -1178,12 +1172,6 @@ def analyseDistributions(data_set, colouring_data_set = None,
     if data_set.version != "original":
         data_set_title = data_set.version + " " + data_set_title
         data_set_name = None
-    
-    if data_set == colouring_data_set \
-        and colouring_data_set.version != "original":
-        
-        data_set_title += " with predicted labels"
-        distribution_directory += "-predicted_labels"
     
     ## Discreteness
     
@@ -1424,7 +1412,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
     highlight_feature_indices = [], symbol = None, pca_limits = None,
     title = "data set", specifier = None,
-    analysis_level = "normal", results_directory = "results"):
+    analysis_level = "normal", results_directory = "results",
+    **remaining_arguments):
     
     centroids_original = centroids
     
@@ -1757,7 +1746,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     
                     if colouring_data_set.has_predicted_labels:
                         plot_time_start = time()
-                    
+                        
                         figure, figure_name = plotValues(
                             plot_values_decomposed,
                             colour_coding = "predicted labels",
@@ -1766,7 +1755,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             figure_labels = figure_labels,
                             axis_limits = axis_limits,
                             example_tag = data_set.tags["example"],
-                            name = plot_name
+                            name = plot_name,
+                            **remaining_arguments
                         )
                         saveFigure(figure, figure_name, decompositions_directory)
                     
@@ -3191,7 +3181,7 @@ def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
 def plotValues(values, colour_coding = None, colouring_data_set = None,
     centroids = None, class_name = None, feature_index = None,
     figure_labels = None, axis_limits = None, example_tag = None,
-    name = "scatter"):
+    name = "scatter", **remaining_arguments):
     
     # Setup
     
@@ -3214,6 +3204,11 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     if colour_coding:
         colour_coding = normaliseString(colour_coding)
         figure_name += "-" + colour_coding
+        if colour_coding == "predicted_labels":
+            if "prediction_method" in remaining_arguments:
+                figure_name += "-" + remaining_arguments["prediction_method"]
+            if "number_of_classes" in remaining_arguments:
+                figure_name += "_" + str(remaining_arguments["number_of_classes"])
         if colouring_data_set is None:
             raise ValueError("Colouring data set not given.")
     
