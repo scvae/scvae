@@ -27,7 +27,7 @@ def main(data_set_name, data_directory = "data",
     number_of_importance_samples = [5],
     number_of_monte_carlo_samples = [10],
     latent_distribution = "gaussian",
-    number_of_latent_clusters = 1,
+    number_of_clusters = 1,
     parameterise_latent_posterior = False,
     reconstruction_distribution = "poisson",
     number_of_reconstruction_classes = 0,
@@ -152,7 +152,7 @@ def main(data_set_name, data_directory = "data",
             number_of_importance_samples = number_of_importance_samples,
             analytical_kl_term = analytical_kl_term,
             latent_distribution = latent_distribution,
-            number_of_latent_clusters = number_of_latent_clusters,
+            number_of_latent_clusters = number_of_clusters,
             parameterise_latent_posterior = parameterise_latent_posterior,
             reconstruction_distribution = reconstruction_distribution,
             number_of_reconstruction_classes = number_of_reconstruction_classes,
@@ -199,7 +199,7 @@ def main(data_set_name, data_directory = "data",
             number_of_importance_samples = number_of_importance_samples, 
             analytical_kl_term = analytical_kl_term,
             prior_probabilities = prior_probabilities,
-            number_of_latent_clusters = number_of_latent_clusters,
+            number_of_latent_clusters = number_of_clusters,
             proportion_of_free_KL_nats = proportion_of_free_KL_nats,
             reconstruction_distribution = reconstruction_distribution,
             number_of_reconstruction_classes = number_of_reconstruction_classes,
@@ -303,9 +303,14 @@ def main(data_set_name, data_directory = "data",
     
     if clustering_method and not transformed_evaluation_set.has_predicted_labels:
         
+        title("Clustering")
+        
+        
+        
         predicted_labels = clusterDataSet(
             latent_evaluation_sets["z"],
-            clustering_method
+            clustering_method,
+            number_of_clusters
         )
         
         transformed_evaluation_set.updatePredictedLabels(predicted_labels)
@@ -314,6 +319,8 @@ def main(data_set_name, data_directory = "data",
         for variable in latent_evaluation_sets:
             latent_evaluation_sets[variable].updatePredictedLabels(
                 predicted_labels)
+        
+        print()
     
     # Analysis
     
@@ -577,9 +584,10 @@ parser.add_argument(
     help = "distribution for the latent variables"
 )
 parser.add_argument(
-    "--number-of-latent-clusters",
+    "--number-of-clusters", "-K",
     type = int,
-    help = "the number of modes in the gaussian mixture"
+    default = 1,
+    help = "number of proposed clusters in data set"
 )
 parser.add_argument(
     "--parameterise-latent-posterior",
@@ -735,7 +743,7 @@ parser.add_argument(
     type = str,
     nargs = "?",
     default = "test",
-    help = "parameter for feature selection"
+    help = "name of the subset to evaluate and analyse: training, validation, or test (default)"
 )
 parser.add_argument(
     "--analyse-data",
