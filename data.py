@@ -225,6 +225,27 @@ data_sets = {
         "example type": "counts"
     },
     
+    "10x": {
+        "tags": {
+            "example": "cell",
+            "feature": "gene",
+            "type": "count",
+            "item": "transcript"
+        },
+        "split": False,
+        "preprocessing methods": None,
+        "URLs": {
+            "values": {
+                "full": "http://cf.10xgenomics.com/samples/cell-exp/1.3.0/1M_neurons/1M_neurons_filtered_gene_bc_matrices_h5.h5"
+            },
+            "labels": {
+                "full": None
+            }
+        },
+        "load function": lambda x: load10xDataSet(x),
+        "example type": "counts"
+    },
+    
     "MNIST (original)": {
         "tags": {
             "example": "digit",
