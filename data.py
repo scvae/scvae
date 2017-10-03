@@ -246,6 +246,27 @@ data_sets = {
         "example type": "counts"
     },
     
+    "TCGA (Kallisto)": {
+        "tags": {
+            "example": "sample",
+            "feature": "gene",
+            "type": "count",
+            "item": "transcript"
+        },
+        "split": False,
+        "preprocessing methods": None,
+        "URLs": {
+            "values": {
+                "full": "https://toil.xenahubs.net/download/tcga_Kallisto_est_counts.gz"
+            },
+            "labels": {
+                "full": None
+            }
+        },
+        "load function": lambda x: loadTCGAKallistoDataSet(x),
+        "example type": "counts"
+    },
+    
     "MNIST (original)": {
         "tags": {
             "example": "digit",
@@ -1877,15 +1898,7 @@ def saveAsSparseData(data_dictionary, path):
 
 def loadMouseRetinaDataSet(paths):
     
-    values_data = pandas.read_csv(paths["values"]["full"], sep='\s+',
-        index_col = 0, compression = "gzip", engine = "python"
-    )
-    
-    values = values_data.values.T
-    example_names = numpy.array(values_data.columns.tolist())
-    feature_names = numpy.array(values_data.index.tolist())
-    
-    values = values.astype(float)
+    data_dictionary = loadZippedTabSeparatedValues(paths)
     
     labels = numpy.zeros(example_names.shape, int)
     
@@ -1899,12 +1912,7 @@ def loadMouseRetinaDataSet(paths):
             
             labels[example_names == example_name] = int(label)
     
-    data_dictionary = {
-        "values": values,
-        "labels": labels,
-        "example names": example_names,
-        "feature names": feature_names
-    }
+    data_dictionary["labels"] = labels
     
     return data_dictionary
 
@@ -1922,8 +1930,6 @@ def load10xDataSet(paths):
         )
 
     values = matrix.T.todense().A
-    
-    M, N = values.shape
     
     example_names = table["barcodes"].astype("U")
     feature_names = table["gene_names"].astype("U")
@@ -1949,6 +1955,34 @@ def load10xDataSet(paths):
     data_dictionary = {
         "values": values,
         "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names
+    }
+    
+    return data_dictionary
+
+def loadTCGAKallistoDataSet(paths):
+    
+    data_dictionary = loadZippedTabSeparatedValues(paths)
+    
+    data_dictionary["values"] = numpy.power(2, data_dictionary["values"]) - 1
+    
+    return data_dictionary
+
+def loadZippedTabSeparatedValues(paths):
+    
+    data_frame = pandas.read_csv(paths["values"]["full"], sep = "\s+",
+        index_col = 0, compression = "gzip", engine = "python")
+    
+    values = data_frame.values.T
+    example_names = numpy.array(data_frame.columns.tolist())
+    feature_names = numpy.array(data_frame.index.tolist())
+    
+    values = values.astype(float)
+    
+    data_dictionary = {
+        "values": values,
+        "labels": None,
         "example names": example_names,
         "feature names": feature_names
     }
