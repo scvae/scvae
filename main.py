@@ -8,7 +8,7 @@ from models import (
     GaussianMixtureVariationalAutoencoder
 )
 
-from models.clustering import clusterDataSet
+from models.prediction import predictLabels
 
 from auxiliary import title, subtitle
 
@@ -27,7 +27,7 @@ def main(data_set_name, data_directory = "data",
     number_of_importance_samples = [5],
     number_of_monte_carlo_samples = [10],
     latent_distribution = "gaussian",
-    number_of_clusters = 1,
+    number_of_classes = 1,
     parameterise_latent_posterior = False,
     reconstruction_distribution = "poisson",
     number_of_reconstruction_classes = 0,
@@ -39,7 +39,7 @@ def main(data_set_name, data_directory = "data",
     count_sum = True,
     number_of_epochs = 200, plot_for_every_n_epochs = None, 
     batch_size = 100, learning_rate = 1e-4,
-    clustering_method = None,
+    prediction_method = None,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
     analyse = True, evaluation_set_name = "test", analyse_data = False,
@@ -152,7 +152,7 @@ def main(data_set_name, data_directory = "data",
             number_of_importance_samples = number_of_importance_samples,
             analytical_kl_term = analytical_kl_term,
             latent_distribution = latent_distribution,
-            number_of_latent_clusters = number_of_clusters,
+            number_of_latent_clusters = number_of_classes,
             parameterise_latent_posterior = parameterise_latent_posterior,
             reconstruction_distribution = reconstruction_distribution,
             number_of_reconstruction_classes = number_of_reconstruction_classes,
@@ -199,7 +199,7 @@ def main(data_set_name, data_directory = "data",
             number_of_importance_samples = number_of_importance_samples, 
             analytical_kl_term = analytical_kl_term,
             prior_probabilities = prior_probabilities,
-            number_of_latent_clusters = number_of_clusters,
+            number_of_latent_clusters = number_of_classes,
             proportion_of_free_KL_nats = proportion_of_free_KL_nats,
             reconstruction_distribution = reconstruction_distribution,
             number_of_reconstruction_classes = number_of_reconstruction_classes,
@@ -299,18 +299,18 @@ def main(data_set_name, data_directory = "data",
     
     print()
     
-    # Clustering
+    # Prediction
     
-    if clustering_method and not transformed_evaluation_set.has_predicted_labels:
+    if prediction_method and \
+        not transformed_evaluation_set.has_predicted_labels:
         
-        title("Clustering")
+        title("Prediction")
         
-        
-        
-        predicted_labels = clusterDataSet(
+        predicted_labels = predictLabels(
+            training_set,
             latent_evaluation_sets["z"],
-            clustering_method,
-            number_of_clusters
+            prediction_method,
+            number_of_classes
         )
         
         transformed_evaluation_set.updatePredictedLabels(predicted_labels)
@@ -584,7 +584,7 @@ parser.add_argument(
     help = "distribution for the latent variables"
 )
 parser.add_argument(
-    "--number-of-clusters", "-K",
+    "--number-of-classes", "-K",
     type = int,
     default = 1,
     help = "number of proposed clusters in data set"
@@ -689,11 +689,11 @@ parser.add_argument(
 )
 parser.set_defaults(count_sum = False)
 parser.add_argument(
-    "--clustering-method", "-C",
+    "--prediction-method", "-P",
     type = str,
     nargs = "?",
     default = None,
-    help = "method for clustering examples, optionally followed by parameters"
+    help = "method for predicting labels"
 )
 parser.add_argument(
     "--decomposition-methods",
