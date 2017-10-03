@@ -73,7 +73,7 @@ default_cutoffs = range(1, 10)
 analysis_groups = {
     "simple": ["metrics", "images", "learning_curves", "accuracies"],
     "default": ["kl_heat_maps", "profile_comparisons", "distributions",
-        "decompositions"],
+        "decompositions", "latent_space"],
     "complete": ["heat_maps", "latent_distributions"]
 }
 analysis_groups["default"] += analysis_groups["simple"]
@@ -1118,7 +1118,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     # Latent space
     
-    if "latent_space" in analyses and "VAE" in model_type:
+    if "latent_space" in analyses and "VAE" in model.type:
         
         heading("Latent space")
         
@@ -1428,11 +1428,11 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     
     centroids_original = centroids
     
-    if not isinstance(data_sets, (list, tuple)):
-        data_sets = [data_sets]
-    
     if isinstance(data_sets, dict):
         data_sets = list(data_sets.values())
+    
+    if not isinstance(data_sets, (list, tuple)):
+        data_sets = [data_sets]
     
     if not isinstance(other_data_sets, (list, tuple)):
         other_data_sets = [other_data_sets]
@@ -1451,7 +1451,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     decomposition_methods.insert(0, None)
     
     for data_set, other_data_set in zip(data_sets, other_data_sets):
-
+        
         if data_set.values.shape[1] <= 1:
             continue
         
