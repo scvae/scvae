@@ -900,6 +900,11 @@ class DataSet(object):
                     numpy.unique(self.predicted_labels).tolist()
             
             self.number_of_predicted_classes = len(self.predicted_class_names)
+            
+            if set(self.predicted_class_names) < set(self.class_names):
+                print("Predicted labels are a subset of labels.")
+                self.predicted_class_palette = self.class_palette
+                self.predicted_label_sorter = self.label_sorter
     
     def load(self):
         

@@ -22,6 +22,22 @@ def predictLabels(training_set, evaluation_set, prediction_method = "copy",
         prediction_method, training_set.version))
     prediction_time_start = time()
     
+    if evaluation_set.has_labels:
+        
+        class_names_to_class_ids = numpy.vectorize(lambda class_name:
+            evaluation_set.class_name_to_class_id[class_name])
+        class_ids_to_class_names = numpy.vectorize(lambda class_id:
+            evaluation_set.class_id_to_class_name[class_id])
+            
+        evaluation_label_ids = class_names_to_class_ids(
+            evaluation_set.labels)
+        
+        if evaluation_set.excluded_classes:
+            excluded_class_ids = class_names_to_class_ids(
+                evaluation_set.excluded_classes)
+        else:
+            excluded_class_ids = []
+    
     if prediction_method == "copy":
         predicted_labels = evaluation_set.labels
     
@@ -33,7 +49,16 @@ def predictLabels(training_set, evaluation_set, prediction_method = "copy",
     elif prediction_method == "k-means":
         model = KMeans(n_clusters = number_of_classes, random_state = 0)
         model.fit(training_set.values)
-        predicted_labels = model.predict(evaluation_set.values)
+        cluster_ids = model.predict(evaluation_set.values)
+        if evaluation_set.has_labels:
+            predicted_label_ids = mapClusterIDsToLabelIDs(
+                evaluation_label_ids,
+                cluster_ids,
+                excluded_class_ids
+            )
+            predicted_labels = class_ids_to_class_names(predicted_label_ids)
+        else:
+            predicted_labels = cluster_ids
     
     else:
         raise ValueError("Prediction method not found: `{}`.".format(
