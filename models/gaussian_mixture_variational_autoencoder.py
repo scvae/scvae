@@ -17,8 +17,6 @@ from distributions import distributions, latent_distributions, Categorized
 import numpy
 from numpy import inf
 
-import scipy.stats
-
 import copy
 import os, shutil
 from time import time
@@ -26,6 +24,7 @@ from auxiliary import formatDuration, normaliseString
 
 from data import DataSet
 from analysis import analyseIntermediateResults
+from models.prediction import mapClusterIDsToLabelIDs, accuracy
 from auxiliary import loadLearningCurves
 
 class GaussianMixtureVariationalAutoencoder(object):
@@ -1046,8 +1045,8 @@ class GaussianMixtureVariationalAutoencoder(object):
             class_names_to_class_ids = numpy.vectorize(lambda class_name:
                 training_set.class_name_to_class_id[class_name])
         
-            training_set_label_ids = class_names_to_class_ids(training_set.labels)
-            validation_set_label_ids = class_names_to_class_ids(validation_set.labels)
+            training_label_ids = class_names_to_class_ids(training_set.labels)
+            validation_label_ids = class_names_to_class_ids(validation_set.labels)
         
             if training_set.excluded_classes:
                 excluded_class_ids = \
@@ -1065,10 +1064,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                         [superset_class_name]
             )
         
-            training_set_superset_label_ids = \
+            training_superset_label_ids = \
                 superset_class_names_to_superset_class_ids(
                     training_set.superset_labels)
-            validation_set_superset_label_ids =  \
+            validation_superset_label_ids =  \
                 superset_class_names_to_superset_class_ids(
                     validation_set.superset_labels)
             
@@ -1328,29 +1327,32 @@ class GaussianMixtureVariationalAutoencoder(object):
                 learning_curves["training"]["kl_divergence_z"].append(KL_z_train)
                 learning_curves["training"]["kl_divergence_y"].append(KL_y_train)
                 
+                training_cluster_ids = q_y_logits_train.argmax(axis = 1)
+                
                 if training_set.has_labels:
-                    predicted_label_ids_train = predict_label_ids(
-                        training_set_label_ids,
-                        q_y_logits_train,
+                    predicted_training_label_ids = mapClusterIDsToLabelIDs(
+                        training_label_ids,
+                        training_cluster_ids,
                         excluded_class_ids
                     )
                     accuracy_train = accuracy(
-                        training_set_label_ids,
-                        predicted_label_ids_train,
+                        training_label_ids,
+                        predicted_training_label_ids,
                         excluded_class_ids
                     )
                 else:
                     accuracy_train = None
                 
                 if training_set.label_superset:
-                    predicted_superset_label_ids_train = predict_label_ids(
-                        training_set_superset_label_ids, 
-                        q_y_logits_train,
+                    predicted_training_superset_label_ids = \
+                        mapClusterIDsToLabelIDs(
+                        training_superset_label_ids,
+                        training_cluster_ids,
                         excluded_superset_class_ids
                     )
                     accuracy_superset_train = accuracy(
-                        training_set_superset_label_ids,
-                        predicted_superset_label_ids_train,
+                        training_superset_label_ids,
+                        predicted_training_superset_label_ids,
                         excluded_superset_class_ids
                     )
                     accuracy_display = accuracy_superset_train
@@ -1473,33 +1475,36 @@ class GaussianMixtureVariationalAutoencoder(object):
                 learning_curves["validation"]["kl_divergence_z"].append(KL_z_valid)
                 learning_curves["validation"]["kl_divergence_y"].append(KL_y_valid)
                 
+                validation_cluster_ids = q_y_logits_valid.argmax(axis = 1)
+                
                 if validation_set.has_labels:
-                    predicted_label_ids_valid = predict_label_ids(
-                        validation_set_label_ids,
-                        q_y_logits_valid,
+                    predicted_validation_label_ids = mapClusterIDsToLabelIDs(
+                        validation_label_ids,
+                        validation_cluster_ids,
                         excluded_class_ids
                     )
                     accuracy_valid = accuracy(
-                        validation_set_label_ids,
-                        predicted_label_ids_valid,
+                        validation_label_ids,
+                        predicted_validation_label_ids,
                         excluded_class_ids
                     )
                 else:
                     accuracy_valid = None
                 
                 if validation_set.label_superset:
-                    predicted_superset_label_ids_valid = predict_label_ids(
-                        validation_set_superset_label_ids, 
-                        q_y_logits_valid,
+                    predicted_validation_superset_label_ids = \
+                        mapClusterIDsToLabelIDs(
+                        validation_superset_label_ids,
+                        validation_cluster_ids,
                         excluded_superset_class_ids
                     )
                     accuracy_superset_valid = accuracy(
-                        validation_set_superset_label_ids,
-                        predicted_superset_label_ids_valid,
+                        validation_superset_label_ids,
+                        predicted_validation_superset_label_ids,
                         excluded_superset_class_ids
                     )
                     accuracy_display = accuracy_superset_valid
-                else: 
+                else:
                     accuracy_superset_valid = None
                     accuracy_display = accuracy_valid
 
@@ -1759,7 +1764,8 @@ class GaussianMixtureVariationalAutoencoder(object):
             class_ids_to_class_names = numpy.vectorize(lambda class_id:
                 evaluation_set.class_id_to_class_name[class_id])
                 
-            evaluation_set_label_ids = class_names_to_class_ids(evaluation_set.labels)
+            evaluation_label_ids = class_names_to_class_ids(
+                evaluation_set.labels)
             
             if evaluation_set.excluded_classes:
                 excluded_class_ids = class_names_to_class_ids(
@@ -1777,7 +1783,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                         [superset_class_name]
             )
         
-            evaluation_set_superset_label_ids = \
+            evaluation_superset_label_ids = \
                 superset_class_names_to_superset_class_ids(
                     evaluation_set.superset_labels)
             
@@ -1910,36 +1916,39 @@ class GaussianMixtureVariationalAutoencoder(object):
             p_z_means /= M_eval / batch_size
             p_z_variances /= M_eval / batch_size
             
+            evaluation_cluster_ids = q_y_logits.argmax(axis = 1)
+            
             if evaluation_set.has_labels:
-                predicted_label_ids_eval = predict_label_ids(
-                    evaluation_set_label_ids, 
-                    q_y_logits,
+                predicted_evaluation_label_ids = mapClusterIDsToLabelIDs(
+                    evaluation_label_ids,
+                    evaluation_cluster_ids,
                     excluded_class_ids
                 )
                 accuracy_eval = accuracy(
-                    evaluation_set_label_ids,
-                    predicted_label_ids_eval,
+                    evaluation_label_ids,
+                    predicted_evaluation_label_ids,
                     excluded_class_ids
                 )
             else:
                 accuracy_eval = None
             
-            if evaluation_set.label_superset is not None:
-                predicted_superset_label_ids_eval = predict_label_ids(
-                    evaluation_set_superset_label_ids, 
-                    q_y_logits,
+            if evaluation_set.label_superset:
+                predicted_evaluation_superset_label_ids = \
+                    mapClusterIDsToLabelIDs(
+                    evaluation_superset_label_ids,
+                    evaluation_cluster_ids,
                     excluded_superset_class_ids
                 )
                 accuracy_superset_eval = accuracy(
-                    evaluation_set_superset_label_ids,
-                    predicted_superset_label_ids_eval,
+                    evaluation_superset_label_ids,
+                    predicted_evaluation_superset_label_ids,
                     excluded_superset_class_ids
                 )
                 accuracy_display = accuracy_superset_eval
             else:
                 accuracy_superset_eval = None
                 accuracy_display = accuracy_eval
-
+            
             summary = tf.Summary()
             summary.value.add(tag="losses/lower_bound",
                 simple_value = ELBO_eval)
@@ -2007,6 +2016,12 @@ class GaussianMixtureVariationalAutoencoder(object):
             
             print(evaluation_string)
             
+            if evaluation_set.has_labels:
+                evaluation_labels = class_ids_to_class_names(
+                    predicted_evaluation_label_ids)
+            else:
+                evaluation_labels = evaluation_cluster_ids
+            
             if noisy_preprocess or \
                 self.reconstruction_distribution_name == "bernoulli":
                 
@@ -2026,19 +2041,13 @@ class GaussianMixtureVariationalAutoencoder(object):
             else:
                 transformed_evaluation_set = evaluation_set
             
-            if evaluation_set.has_labels:
-                evaluation_labels = class_ids_to_class_names(
-                    predicted_label_ids_eval)
-            else:
-                evaluation_labels = None
-            
             reconstructed_evaluation_set = DataSet(
                 name = evaluation_set.name,
                 values = p_x_mean_eval,
                 total_standard_deviations = p_x_stddev_eval,
                 explained_standard_deviations = stddev_of_p_x_given_z_mean_eval,
                 preprocessed_values = None,
-                labels = evaluation_labels,
+                labels = evaluation_set.labels,
                 example_names = evaluation_set.example_names,
                 feature_names = evaluation_set.feature_names,
                 feature_selection = evaluation_set.feature_selection,
@@ -2099,23 +2108,3 @@ class GaussianMixtureVariationalAutoencoder(object):
 
             return transformed_evaluation_set, reconstructed_evaluation_set, \
                 likelihood_evaluation_set, latent_evaluation_sets
-
-def predict_label_ids(label_ids, logits, excluded_class_ids = []):
-    cat_pred = logits.argmax(1)
-    predicted_label_ids = numpy.zeros_like(cat_pred)
-    for cat in range(logits.shape[1]):
-        idx = cat_pred == cat
-        lab = label_ids[idx]
-        for excluded_class_id in excluded_class_ids:
-            lab = lab[lab != excluded_class_id]
-        if len(lab) == 0:
-            continue
-        predicted_label_ids[idx] = scipy.stats.mode(lab)[0]
-    return predicted_label_ids
-
-def accuracy(labels, predicted_labels, excluded_classes = []):
-    for excluded_class in excluded_classes:
-        included_indices = labels != excluded_class
-        labels = labels[included_indices]
-        predicted_labels = predicted_labels[included_indices]
-    return numpy.mean(predicted_labels == labels)

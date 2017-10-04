@@ -1,7 +1,10 @@
-from auxiliary import properString, formatDuration
+import numpy
+import scipy.stats
 from sklearn.cluster import KMeans
 
 from time import time
+
+from auxiliary import properString, formatDuration
 
 prediction_method_names = {
     "k-means": ["k_means", "kmeans"],
@@ -41,3 +44,23 @@ def predictLabels(training_set, evaluation_set, prediction_method = "copy",
         formatDuration(prediction_duration)))
     
     return predicted_labels
+
+def mapClusterIDsToLabelIDs(label_ids, cluster_ids, excluded_class_ids = []):
+    unique_cluster_ids = numpy.unique(cluster_ids).tolist()
+    predicted_label_ids = numpy.zeros_like(cluster_ids)
+    for unique_cluster_id in unique_cluster_ids:
+        idx = cluster_ids == unique_cluster_id
+        lab = label_ids[idx]
+        for excluded_class_id in excluded_class_ids:
+            lab = lab[lab != excluded_class_id]
+        if len(lab) == 0:
+            continue
+        predicted_label_ids[idx] = scipy.stats.mode(lab)[0]
+    return predicted_label_ids
+
+def accuracy(labels, predicted_labels, excluded_classes = []):
+    for excluded_class in excluded_classes:
+        included_indices = labels != excluded_class
+        labels = labels[included_indices]
+        predicted_labels = predicted_labels[included_indices]
+    return numpy.mean(predicted_labels == labels)
