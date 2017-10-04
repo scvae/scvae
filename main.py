@@ -318,9 +318,8 @@ def main(data_set_name, data_directory = "data",
         
         title("Prediction")
         
-        transformed_training_set, reconstructed_training_set,\
-            likelihood_training_set, latent_training_sets = \
-            model.evaluate(training_set, batch_size)
+        _, _, _, latent_training_sets = model.evaluate(
+            training_set, batch_size, log_results = False)
         
         print()
         

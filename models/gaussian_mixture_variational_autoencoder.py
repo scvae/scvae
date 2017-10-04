@@ -1721,7 +1721,8 @@ class GaussianMixtureVariationalAutoencoder(object):
             return status
     
     def evaluate(self, evaluation_set, batch_size = 100, predict_labels = True,
-        use_early_stopping_model = False, use_best_model = False):
+        use_early_stopping_model = False, use_best_model = False,
+        log_results = True):
         
         # Examples
         
@@ -1805,14 +1806,16 @@ class GaussianMixtureVariationalAutoencoder(object):
             
         checkpoint = tf.train.get_checkpoint_state(log_directory)
         
-        eval_summary_directory = os.path.join(log_directory, "evaluation")
-        if os.path.exists(eval_summary_directory):
-            shutil.rmtree(eval_summary_directory)
+        if log_results:
+            eval_summary_directory = os.path.join(log_directory, "evaluation")
+            if os.path.exists(eval_summary_directory):
+                shutil.rmtree(eval_summary_directory)
         
         with tf.Session(graph = self.graph) as session:
             
-            eval_summary_writer = tf.summary.FileWriter(
-                eval_summary_directory)
+            if log_results:
+                eval_summary_writer = tf.summary.FileWriter(
+                    eval_summary_directory)
             
             if checkpoint:
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
@@ -1949,52 +1952,56 @@ class GaussianMixtureVariationalAutoencoder(object):
                 accuracy_superset_eval = None
                 accuracy_display = accuracy_eval
             
-            summary = tf.Summary()
-            summary.value.add(tag="losses/lower_bound",
-                simple_value = ELBO_eval)
-            summary.value.add(tag="losses/reconstruction_error",
-                simple_value = ENRE_eval)
-            summary.value.add(tag="losses/kl_divergence_z",
-                simple_value = KL_z_eval)
-            summary.value.add(tag="losses/kl_divergence_y",
-                simple_value = KL_y_eval)
-            summary.value.add(tag="accuracy", simple_value = accuracy_eval)
-            if accuracy_superset_eval:
-                summary.value.add(tag="superset_accuracy",
-                    simple_value = accuracy_superset_eval)
-
-            for k in range(self.K):
-                summary.value.add(
-                    tag="prior/cluster_{}/probability".format(k),
-                    simple_value = p_y_probabilities[k]
-                )
-                summary.value.add(
-                    tag="posterior/cluster_{}/probability".format(k),
-                    simple_value = q_y_probabilities[k]
-                )
-                for l in range(self.latent_size):
+            if log_results:
+                
+                summary = tf.Summary()
+                summary.value.add(tag="losses/lower_bound",
+                    simple_value = ELBO_eval)
+                summary.value.add(tag="losses/reconstruction_error",
+                    simple_value = ENRE_eval)
+                summary.value.add(tag="losses/kl_divergence_z",
+                    simple_value = KL_z_eval)
+                summary.value.add(tag="losses/kl_divergence_y",
+                    simple_value = KL_y_eval)
+                summary.value.add(tag="accuracy", simple_value = accuracy_eval)
+                if accuracy_superset_eval:
+                    summary.value.add(tag="superset_accuracy",
+                        simple_value = accuracy_superset_eval)
+    
+                for k in range(self.K):
                     summary.value.add(
-                        tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
-                        simple_value = p_z_means[k][l]
+                        tag="prior/cluster_{}/probability".format(k),
+                        simple_value = p_y_probabilities[k]
                     )
                     summary.value.add(
-                        tag="posterior/cluster_{}/mean/dimension_{}".format(k, l),
-                        simple_value = q_z_means[k, l]
+                        tag="posterior/cluster_{}/probability".format(k),
+                        simple_value = q_y_probabilities[k]
                     )
-                    summary.value.add(
-                        tag="prior/cluster_{}/variance/dimension_{}"\
-                            .format(k, l),
-                        simple_value = p_z_variances[k][l]
-                    )
-                    summary.value.add(
-                        tag="posterior/cluster_{}/variance/dimension_{}"\
-                            .format(k, l),
-                        simple_value = q_z_variances[k, l]
-                    )
-
-            eval_summary_writer.add_summary(summary,
-                global_step = epoch + 1)
-            eval_summary_writer.flush()
+                    for l in range(self.latent_size):
+                        summary.value.add(
+                            tag="prior/cluster_{}/mean/dimension_{}".format(
+                                k, l),
+                            simple_value = p_z_means[k][l]
+                        )
+                        summary.value.add(
+                            tag="posterior/cluster_{}/mean/dimension_{}".format(
+                                k, l),
+                            simple_value = q_z_means[k, l]
+                        )
+                        summary.value.add(
+                            tag="prior/cluster_{}/variance/dimension_{}"\
+                                .format(k, l),
+                            simple_value = p_z_variances[k][l]
+                        )
+                        summary.value.add(
+                            tag="posterior/cluster_{}/variance/dimension_{}"\
+                                .format(k, l),
+                            simple_value = q_z_variances[k, l]
+                        )
+    
+                eval_summary_writer.add_summary(summary,
+                    global_step = epoch + 1)
+                eval_summary_writer.flush()
             
             evaluating_duration = time() - evaluating_time_start
             

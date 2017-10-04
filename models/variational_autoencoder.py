@@ -1463,7 +1463,7 @@ class VariationalAutoencoder(object):
     
     def evaluate(self, evaluation_set, batch_size = 100, predict_labels = False,
         use_early_stopping_model = False, use_best_model = False,
-        use_deterministic_z = False):
+        use_deterministic_z = False, log_results = True):
         
         batch_size /= self.number_of_importance_samples["evaluation"] \
             * self.number_of_monte_carlo_samples["evaluation"]
@@ -1510,14 +1510,16 @@ class VariationalAutoencoder(object):
             
         checkpoint = tf.train.get_checkpoint_state(log_directory)
         
-        eval_summary_directory = os.path.join(log_directory, "evaluation")
-        if os.path.exists(eval_summary_directory):
-            shutil.rmtree(eval_summary_directory)
+        if log_results:
+            eval_summary_directory = os.path.join(log_directory, "evaluation")
+            if os.path.exists(eval_summary_directory):
+                shutil.rmtree(eval_summary_directory)
         
         with tf.Session(graph = self.graph) as session:
             
-            eval_summary_writer = tf.summary.FileWriter(
-                eval_summary_directory)
+            if log_results:
+                eval_summary_writer = tf.summary.FileWriter(
+                    eval_summary_directory)
             
             if checkpoint:
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
@@ -1615,40 +1617,42 @@ class VariationalAutoencoder(object):
 
             ## Summaries
             
-            summary = tf.Summary()
-            summary.value.add(tag="losses/lower_bound",
-                simple_value = ELBO_eval)
-            summary.value.add(tag="losses/reconstruction_error",
-                simple_value = ENRE_eval)
-            summary.value.add(tag="losses/kl_divergence",
-                simple_value = KL_eval)
+            if log_results:
             
-            for k in range(len(p_z_probabilities)):
-                summary.value.add(
-                    tag="prior/cluster_{}/probability".format(k),
-                    simple_value = p_z_probabilities[k]
-                )
-                for l in range(self.latent_size):
-                    # The same Gaussian for all
-                    if not p_z_means[k].shape:
-                        p_z_mean_k_l = p_z_means[k]
-                        p_z_variances_k_l = p_z_variances[k]
-                    # Different Gaussians for all
-                    else:
-                        p_z_mean_k_l = p_z_means[k][l]
-                        p_z_variances_k_l = p_z_variances[k][l]
-                    summary.value.add(
-                        tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
-                        simple_value = p_z_mean_k_l
-                    )
-                    summary.value.add(
-                        tag="prior/cluster_{}/variance/dimension_{}"\
-                            .format(k, l),
-                        simple_value = p_z_variances_k_l
-                    )
+                summary = tf.Summary()
+                summary.value.add(tag="losses/lower_bound",
+                    simple_value = ELBO_eval)
+                summary.value.add(tag="losses/reconstruction_error",
+                    simple_value = ENRE_eval)
+                summary.value.add(tag="losses/kl_divergence",
+                    simple_value = KL_eval)
             
-            eval_summary_writer.add_summary(summary, global_step = epoch)
-            eval_summary_writer.flush()
+                for k in range(len(p_z_probabilities)):
+                    summary.value.add(
+                        tag="prior/cluster_{}/probability".format(k),
+                        simple_value = p_z_probabilities[k]
+                    )
+                    for l in range(self.latent_size):
+                        # The same Gaussian for all
+                        if not p_z_means[k].shape:
+                            p_z_mean_k_l = p_z_means[k]
+                            p_z_variances_k_l = p_z_variances[k]
+                        # Different Gaussians for all
+                        else:
+                            p_z_mean_k_l = p_z_means[k][l]
+                            p_z_variances_k_l = p_z_variances[k][l]
+                        summary.value.add(
+                            tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
+                            simple_value = p_z_mean_k_l
+                        )
+                        summary.value.add(
+                            tag="prior/cluster_{}/variance/dimension_{}"\
+                                .format(k, l),
+                            simple_value = p_z_variances_k_l
+                        )
+            
+                eval_summary_writer.add_summary(summary, global_step = epoch)
+                eval_summary_writer.flush()
             
             evaluating_duration = time() - evaluating_time_start
             print("    {} set ({}): ".format(
