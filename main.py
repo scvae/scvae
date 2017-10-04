@@ -256,12 +256,21 @@ def main(data_set_name, data_directory = "data",
         if data_subset.kind == evaluation_set_name:
             evaluation_set = data_subset
     
+    if prediction_method:
+        predict_labels_using_model = False
+    elif "GM" in model.type:
+        predict_labels_using_model = True
+        prediction_method = "model"
+    else:
+        predict_labels_using_model = False
+    
     subtitle("Evaluating on {} set".format(evaluation_set.kind))
     
     if "VAE" in model.type:
         transformed_evaluation_set, reconstructed_evaluation_set,\
             likelihood_evaluation_set, latent_evaluation_sets = \
-            model.evaluate(evaluation_set, batch_size)
+            model.evaluate(evaluation_set, batch_size,
+                predict_labels_using_model)
         
         if analysis.betterModelExists(model):
             better_model_exist = True
@@ -275,7 +284,7 @@ def main(data_set_name, data_directory = "data",
                 best_model_likelihood_evaluation_set, \
                 best_model_latent_evaluation_sets = \
                 model.evaluate(evaluation_set, batch_size,
-                    use_best_model = True)
+                    predict_labels_using_model, use_best_model = True)
         else:
             better_model_exist = False
         
@@ -288,8 +297,12 @@ def main(data_set_name, data_directory = "data",
                 early_stopped_reconstructed_evaluation_set, \
                 early_stopped_likelihood_evaluation_set, \
                 early_stopped_latent_evaluation_sets = \
-                model.evaluate(evaluation_set, batch_size,
-                    use_early_stopping_model = True)
+                model.evaluate(
+                    evaluation_set,
+                    batch_size,
+                    predict_labels_using_model,
+                    use_early_stopping_model = True
+                )
     else:
         transformed_evaluation_set, reconstructed_evaluation_set, \
             likelihood_evaluation_set = \

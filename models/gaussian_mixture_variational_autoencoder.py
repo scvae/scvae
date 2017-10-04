@@ -1720,7 +1720,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             
             return status
     
-    def evaluate(self, evaluation_set, batch_size = 100,
+    def evaluate(self, evaluation_set, batch_size = 100, predict_labels = True,
         use_early_stopping_model = False, use_best_model = False):
         
         # Examples
@@ -2016,12 +2016,6 @@ class GaussianMixtureVariationalAutoencoder(object):
             
             print(evaluation_string)
             
-            if evaluation_set.has_labels:
-                evaluation_labels = class_ids_to_class_names(
-                    predicted_evaluation_label_ids)
-            else:
-                evaluation_labels = evaluation_cluster_ids
-            
             if noisy_preprocess or \
                 self.reconstruction_distribution_name == "bernoulli":
                 
@@ -2105,6 +2099,22 @@ class GaussianMixtureVariationalAutoencoder(object):
                 "z": z_evaluation_set,
                 "y": y_evaluation_set
             }
-
+            
+            if predict_labels:
+                if evaluation_set.has_labels:
+                    predicted_evaluation_labels = class_ids_to_class_names(
+                        predicted_evaluation_label_ids)
+                else:
+                    predicted_evaluation_labels = evaluation_cluster_ids
+                
+                transformed_evaluation_set.updatePredictedLabels(
+                    predicted_evaluation_labels)
+                reconstructed_evaluation_set.updatePredictedLabels(
+                    predicted_evaluation_labels)
+                
+                for variable in latent_evaluation_sets:
+                    latent_evaluation_sets[variable].updatePredictedLabels(
+                        predicted_evaluation_labels)
+            
             return transformed_evaluation_set, reconstructed_evaluation_set, \
                 likelihood_evaluation_set, latent_evaluation_sets
