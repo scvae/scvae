@@ -8,7 +8,7 @@ from models import (
     GaussianMixtureVariationalAutoencoder
 )
 
-from models.prediction import predictLabels
+from models.prediction import predict
 
 from auxiliary import title, subtitle
 
@@ -314,8 +314,7 @@ def main(data_set_name, data_directory = "data",
     
     # Prediction
     
-    if prediction_method and \
-        not transformed_evaluation_set.has_predicted_labels:
+    if prediction_method and not transformed_evaluation_set.has_predictions:
         
         title("Prediction")
         
@@ -325,19 +324,21 @@ def main(data_set_name, data_directory = "data",
         
         print()
         
-        predicted_labels = predictLabels(
+        cluster_ids, predicted_labels = predict(
             latent_training_sets["z"],
             latent_evaluation_sets["z"],
             prediction_method,
             number_of_classes
         )
         
-        transformed_evaluation_set.updatePredictedLabels(predicted_labels)
-        reconstructed_evaluation_set.updatePredictedLabels(predicted_labels)
+        transformed_evaluation_set.updatePredictions(cluster_ids,
+            predicted_labels)
+        reconstructed_evaluation_set.updatePredictions(cluster_ids,
+            predicted_labels)
         
         for variable in latent_evaluation_sets:
-            latent_evaluation_sets[variable].updatePredictedLabels(
-                predicted_labels)
+            latent_evaluation_sets[variable].updatePredictions(
+                cluster_ids, predicted_labels)
         
         print()
     

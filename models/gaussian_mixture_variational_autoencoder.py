@@ -2105,16 +2105,18 @@ class GaussianMixtureVariationalAutoencoder(object):
                     predicted_evaluation_labels = class_ids_to_class_names(
                         predicted_evaluation_label_ids)
                 else:
-                    predicted_evaluation_labels = evaluation_cluster_ids
+                    predicted_evaluation_labels = None
                 
-                transformed_evaluation_set.updatePredictedLabels(
-                    predicted_evaluation_labels)
-                reconstructed_evaluation_set.updatePredictedLabels(
-                    predicted_evaluation_labels)
+                transformed_evaluation_set.updatePredictions(
+                    evaluation_cluster_ids, predicted_evaluation_labels)
+                reconstructed_evaluation_set.updatePredictions(
+                    evaluation_cluster_ids, predicted_evaluation_labels)
                 
                 for variable in latent_evaluation_sets:
-                    latent_evaluation_sets[variable].updatePredictedLabels(
-                        predicted_evaluation_labels)
+                    latent_evaluation_sets[variable].updatePredictions(
+                        evaluation_cluster_ids,
+                        predicted_evaluation_labels
+                    )
             
             return transformed_evaluation_set, reconstructed_evaluation_set, \
                 likelihood_evaluation_set, latent_evaluation_sets

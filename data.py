@@ -619,10 +619,11 @@ class DataSet(object):
         )
         
         # Predicted labels
+        self.predicted_cluster_ids = None
         self.predicted_labels = None
         self.predicted_class_names = None
-        self.predicted_class_palette = None
         self.number_of_predicted_classes = None
+        self.predicted_class_palette = None
         self.predicted_label_sorter = None
         
         # Sorted class names for data set
@@ -794,8 +795,16 @@ class DataSet(object):
         return class_probabilities
     
     @property
+    def has_predictions(self):
+        return self.has_predicted_labels or self.has_predicted_cluster_ids
+    
+    @property
     def has_predicted_labels(self):
         return self.predicted_labels is not None
+    
+    @property
+    def has_predicted_cluster_ids(self):
+        return self.predicted_cluster_ids is not None
     
     def update(self, values = None,
         total_standard_deviations = None,
@@ -886,8 +895,11 @@ class DataSet(object):
         if binarised_values is not None:
             self.binarised_values = binarised_values
     
-    def updatePredictedLabels(self, predicted_labels = None,
-        predicted_class_names = None):
+    def updatePredictions(self, predicted_cluster_ids = None,
+        predicted_labels = None, predicted_class_names = None):
+        
+        if predicted_cluster_ids is not None:
+            self.predicted_cluster_ids = predicted_cluster_ids
         
         if predicted_labels is not None:
             
@@ -902,7 +914,6 @@ class DataSet(object):
             self.number_of_predicted_classes = len(self.predicted_class_names)
             
             if set(self.predicted_class_names) < set(self.class_names):
-                print("Predicted labels are a subset of labels.")
                 self.predicted_class_palette = self.class_palette
                 self.predicted_label_sorter = self.label_sorter
     

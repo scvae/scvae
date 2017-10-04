@@ -1744,6 +1744,31 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             )
                         )
                     
+                    if colouring_data_set.has_predicted_cluster_ids:
+                        plot_time_start = time()
+                        
+                        figure, figure_name = plotValues(
+                            plot_values_decomposed,
+                            colour_coding = "predicted cluster IDs",
+                            colouring_data_set = colouring_data_set,
+                            centroids = centroids_decomposed,
+                            figure_labels = figure_labels,
+                            axis_limits = axis_limits,
+                            example_tag = data_set.tags["example"],
+                            name = plot_name,
+                            **remaining_arguments
+                        )
+                        saveFigure(figure, figure_name, decompositions_directory)
+                    
+                        plot_duration = time() - plot_time_start
+                        print("    " +
+                            "{} (with predicted cluster IDs) plotted and saved ({})."\
+                                .format(
+                                    title_with_ID.capitalize(),
+                                    formatDuration(plot_duration)
+                            )
+                        )
+                    
                     if colouring_data_set.has_predicted_labels:
                         plot_time_start = time()
                         
@@ -3204,7 +3229,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     if colour_coding:
         colour_coding = normaliseString(colour_coding)
         figure_name += "-" + colour_coding
-        if colour_coding == "predicted_labels":
+        if "predicted" in colour_coding:
             if "prediction_method" in remaining_arguments:
                 figure_name += "-" + remaining_arguments["prediction_method"]
             if "number_of_classes" in remaining_arguments:
@@ -3280,39 +3305,51 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     
     colour_map = seaborn.dark_palette(standard_palette[0], as_cmap = True)
     
-    if colour_coding and ("labels" in colour_coding or "class" in colour_coding):
+    if colour_coding and (
+            "labels" in colour_coding or
+            "ids" in colour_coding or
+            "class" in colour_coding
+        ):
         
         if "superset" in colour_coding:
             labels = colouring_data_set.superset_labels
             class_names = colouring_data_set.superset_class_names
-            class_palette = colouring_data_set.superset_class_palette
             number_of_classes = colouring_data_set.number_of_superset_classes
+            class_palette = colouring_data_set.superset_class_palette
             label_sorter = colouring_data_set.superset_label_sorter
-        elif "predicted" in colour_coding:
+        elif colour_coding == "predicted_cluster_ids":
+            labels = colouring_data_set.predicted_cluster_ids
+            class_names = numpy.unique(labels).tolist()
+            number_of_classes = len(class_names)
+            class_palette = None
+            label_sorter = None
+        elif colour_coding == "predicted_labels":
             labels = colouring_data_set.predicted_labels
             class_names = colouring_data_set.predicted_class_names
-            class_palette = colouring_data_set.predicted_class_palette
             number_of_classes = colouring_data_set.number_of_predicted_classes
+            class_palette = colouring_data_set.predicted_class_palette
             label_sorter = colouring_data_set.predicted_label_sorter
         else:
             labels = colouring_data_set.labels
             class_names = colouring_data_set.class_names
-            class_palette = colouring_data_set.class_palette
             number_of_classes = colouring_data_set.number_of_classes
+            class_palette = colouring_data_set.class_palette
             label_sorter = colouring_data_set.label_sorter
-        
-        if not class_palette:
-            index_palette = lighter_palette(number_of_classes)
-            class_palette = {class_name: index_palette[i] for i, class_name in
-                             enumerate(sorted(class_names))}
         
         if not label_sorter:
             label_sorter = createLabelSorter()
         
+        if not class_palette:
+            index_palette = lighter_palette(number_of_classes)
+            class_palette = {
+                class_name: index_palette[i] for i, class_name in
+                enumerate(sorted(class_names, key = label_sorter))
+            }
+        
         # Examples are shuffled, so should their labels be
         labels = labels[shuffled_indices]
         
-        if "labels" in colour_coding:
+        if "labels" in colour_coding or "ids" in colour_coding:
             colours = []
             classes = set()
         
@@ -3333,7 +3370,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 if labels:
                     labels, handles = zip(*sorted(zip(labels, handles),
                         key = lambda t: label_sorter(t[0])))
-                    legend = axis.legend(handles, labels, loc = "upper left")
+                    legend = axis.legend(handles, labels, loc = "best")
         
         elif "class" in colour_coding:
             colours = []

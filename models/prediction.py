@@ -12,7 +12,7 @@ prediction_method_names = {
     "copy": ["copy"]
 }
 
-def predictLabels(training_set, evaluation_set, prediction_method = "copy",
+def predict(training_set, evaluation_set, prediction_method = "copy",
     number_of_classes = 1):
     
     prediction_method = properString(prediction_method,
@@ -39,12 +39,14 @@ def predictLabels(training_set, evaluation_set, prediction_method = "copy",
             excluded_class_ids = []
     
     if prediction_method == "copy":
+        cluster_ids = None
         predicted_labels = evaluation_set.labels
     
     elif prediction_method == "test":
         model = KMeans(n_clusters = number_of_classes, random_state = 0)
         model.fit(evaluation_set.values)
-        predicted_labels = model.labels_
+        cluster_ids = model.labels_
+        predicted_labels = None
     
     elif prediction_method == "k-means":
         model = KMeans(n_clusters = number_of_classes, random_state = 0)
@@ -58,7 +60,7 @@ def predictLabels(training_set, evaluation_set, prediction_method = "copy",
             )
             predicted_labels = class_ids_to_class_names(predicted_label_ids)
         else:
-            predicted_labels = cluster_ids
+            predicted_labels = None
     
     else:
         raise ValueError("Prediction method not found: `{}`.".format(
@@ -68,7 +70,7 @@ def predictLabels(training_set, evaluation_set, prediction_method = "copy",
     print("Labels predicted ({}).".format(
         formatDuration(prediction_duration)))
     
-    return predicted_labels
+    return cluster_ids, predicted_labels
 
 def mapClusterIDsToLabelIDs(label_ids, cluster_ids, excluded_class_ids = []):
     unique_cluster_ids = numpy.unique(cluster_ids).tolist()
