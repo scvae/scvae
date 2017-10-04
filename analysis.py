@@ -5,6 +5,7 @@ from numpy import nan
 
 from sklearn.decomposition import PCA, IncrementalPCA, FastICA
 from sklearn.manifold import TSNE
+from sklearn.metrics.cluster import adjusted_rand_score
 
 from matplotlib import pyplot
 import matplotlib.patches
@@ -156,13 +157,9 @@ def analyseData(data_sets,
         
         ## Displaying
         
-        print(formatStatistics(data_set_statistics), end = "")
+        print(formatStatistics(data_set_statistics))
         
-        print()
-        
-        print(formatStatistics(histogram_statistics, name = "Series"), end = "")
-        
-        print()
+        print(formatStatistics(histogram_statistics, name = "Series"))
     
     # Loop over data sets
     
@@ -695,6 +692,24 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             method = count_accuracy_method
         )
         
+        if evaluation_set.has_labels:
+            
+            if evaluation_set.has_predicted_cluster_ids:
+                ARI_clusters = adjusted_rand_score(
+                    evaluation_set.labels,
+                    evaluation_set.predicted_cluster_ids
+                )
+            else:
+                ARI_clusters = None
+            
+            if evaluation_set.has_predicted_labels:
+                ARI_labels = adjusted_rand_score(
+                    evaluation_set.labels,
+                    evaluation_set.predicted_labels
+                )
+            else:
+                ARI_labels = None
+        
         metrics_duration = time() - metrics_time_start
         print("Metrics calculated ({}).".format(
             formatDuration(metrics_duration)))
@@ -744,6 +759,12 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             if superset_accuracy_eval is not None:
                 metrics_string += "    Accuracy (superset): {:6.2f} %.\n".format(
                     100 * superset_accuracy_eval[-1])
+            if ARI_clusters:
+                metrics_string += "    ARI (clusters): {:.5g}.\n".format(
+                    ARI_clusters)
+            if ARI_labels:
+                metrics_string += "    ARI (labels): {:.5g}.\n".format(
+                    ARI_labels)
             metrics_string += "\n" + formatStatistics(evaluation_set_statistics)
             metrics_string += "\n" + formatCountAccuracies(count_accuracies)
             metrics_file.write(metrics_string)
@@ -755,6 +776,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 "evaluation": evaluation_eval,
                 "accuracy": accuracy_eval,
                 "superset_accuracy": superset_accuracy_eval,
+                "ARI (clusters)": ARI_clusters,
+                "ARI (labels)": ARI_labels,
                 "statistics": evaluation_set_statistics,
                 "count accuracies": count_accuracies,
                 # "count likelihoods": count_likelihoods,
@@ -771,6 +794,15 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         ## Displaying
         
         print(formatStatistics(evaluation_set_statistics))
+        
+        if ARI_clusters or ARI_labels:
+            print("Adjusted rand index:")
+            if ARI_clusters:
+                print("    clusters: {:.5g}".format(ARI_clusters))
+            if ARI_labels:
+                print("    labels: {:.5g}".format(ARI_labels))
+            print()
+        
         print(formatCountAccuracies(count_accuracies))
     
     # # Compute model likelihoods for each count in bins.
