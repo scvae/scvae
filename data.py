@@ -12,6 +12,8 @@ from bs4 import BeautifulSoup
 
 import pandas
 import tables
+import csv
+
 import numpy
 import scipy.sparse
 import sklearn.preprocessing
@@ -1890,7 +1892,7 @@ def loadFromSparseData(path):
     
     def converter(data):
         if type(data) == scipy.sparse.csr.csr_matrix:
-            return data.todense().A
+            return data.toarray()
         else:
             return data
     
@@ -1940,7 +1942,12 @@ def saveAsSparseData(data_dictionary, path):
 
 def loadMouseRetinaDataSet(paths):
     
-    data_dictionary = loadZippedTabSeparatedValues(paths)
+    values, column_headers, row_indices = \
+        loadZippedTabSeparatedValues(paths["values"]["full"])
+    
+    values = values.T
+    example_names = numpy.array(column_headers)
+    feature_names = numpy.array(row_indices)
     
     labels = numpy.zeros(example_names.shape, int)
     
@@ -1954,7 +1961,12 @@ def loadMouseRetinaDataSet(paths):
             
             labels[example_names == example_name] = int(label)
     
-    data_dictionary["labels"] = labels
+    data_dictionary = {
+        "values": values,
+        "labels": None,
+        "example names": example_names,
+        "feature names": feature_names
+    }
     
     return data_dictionary
 
@@ -2005,22 +2017,14 @@ def load10xDataSet(paths):
 
 def loadTCGAKallistoDataSet(paths):
     
-    data_dictionary = loadZippedTabSeparatedValues(paths)
+    values, column_headers, row_indices = \
+        loadZippedTabSeparatedValues(paths["values"]["full"])
     
-    data_dictionary["values"] = numpy.power(2, data_dictionary["values"]) - 1
+    values = values.T
+    values = numpy.power(2, values) - 1
     
-    return data_dictionary
-
-def loadZippedTabSeparatedValues(paths):
-    
-    data_frame = pandas.read_csv(paths["values"]["full"], sep = "\s+",
-        index_col = 0, compression = "gzip", engine = "python")
-    
-    values = data_frame.values.T
-    example_names = numpy.array(data_frame.columns.tolist())
-    feature_names = numpy.array(data_frame.index.tolist())
-    
-    values = values.astype(float)
+    example_names = numpy.array(column_headers)
+    feature_names = numpy.array(row_indices)
     
     data_dictionary = {
         "values": values,
@@ -2030,6 +2034,27 @@ def loadZippedTabSeparatedValues(paths):
     }
     
     return data_dictionary
+
+def loadZippedTabSeparatedValues(tsv_path):
+    
+    values = []
+    row_indices = []
+    
+    with gzip.open(tsv_path, "rt") as tsv_file:
+        
+        tsv_reader = csv.reader(tsv_file, dialect = "unix", delimiter = "\t")
+        column_headers = next(tsv_reader)[1:]
+        
+        for row in tsv_reader:
+            row_index = row[0]
+            row_indices.append(row_index)
+            
+            row_values = list(map(float, row[1:]))
+            values.append(row_values)
+    
+    values = numpy.array(values)
+    
+    return values, column_headers, row_indices
 
 def loadMNISTDataSet(paths):
     
