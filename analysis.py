@@ -710,6 +710,10 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             else:
                 ARI_labels = None
         
+        else:
+            ARI_clusters = None
+            ARI_labels = None
+        
         metrics_duration = time() - metrics_time_start
         print("Metrics calculated ({}).".format(
             formatDuration(metrics_duration)))
