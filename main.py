@@ -410,6 +410,7 @@ def main(data_set_name, data_directory = "data",
             )
 
 def parseDistribution(distribution):
+    distribution = normaliseString(distribution)
     distribution_names = list(distributions.keys())
     distribution_names += list(latent_distributions.keys())
     for distribution_name in distribution_names:
