@@ -61,6 +61,26 @@ def main(data_set_name, data_directory = "data",
         reconstruction_distribution)
     latent_distribution = parseDistribution(latent_distribution)
     
+    if not skip_modelling:
+        model_valid, model_errors = validateModelParameters(
+            model_type, latent_distribution,
+            reconstruction_distribution, number_of_reconstruction_classes,
+            parameterise_latent_posterior
+        )
+        
+        if not model_valid:
+            print("Model configuration is invalid:")
+            for model_error in model_errors:
+                print("    ", model_error)
+            print()
+            if analyse_data:
+                print("Skipping modelling.")
+                print("")
+                skip_modelling = True
+            else:
+                print("Modelling cancelled.")
+                return
+    
     # Load and split data
     
     title("Loading and splitting data")
@@ -128,18 +148,6 @@ def main(data_set_name, data_directory = "data",
             analytical_kl_term = True
         else:
             analytical_kl_term = False
-    
-    model_valid, model_errors = validateModelParameters(
-        model_type, latent_distribution,
-        reconstruction_distribution, number_of_reconstruction_classes,
-        parameterise_latent_posterior
-    )
-    
-    if not model_valid:
-        for model_error in model_errors:
-            print(model_error)
-        print("")
-        print("Modelling cancelled.")
     
     feature_size = data_set.number_of_features
     number_of_monte_carlo_samples = parseSampleLists(
@@ -407,6 +415,7 @@ def parseDistribution(distribution):
     for distribution_name in distribution_names:
         if normaliseString(distribution_name) == distribution:
             return distribution_name
+    raise ValueError("Distribution `{}` not found.".format(distribution))
 
 def parseSampleLists(list_with_number_of_samples):
     
@@ -479,7 +488,9 @@ def validateModelParameters(model_type, latent_distribution,
             likelihood_error += " " + likelihood_error_distribution + "."
     
     validity = validity and likelihood_validity
-    errors.append(likelihood_error)
+    
+    if not likelihood_validity:
+        errors.append(likelihood_error)
     
     # Parameterisation of latent posterior for VAE
     if "VAE" in model_type:
@@ -490,13 +501,15 @@ def validateModelParameters(model_type, latent_distribution,
             and latent_distribution == "gaussian mixture") \
             and parameterise_latent_posterior:
             
-            parameterise_error = "Cannot parameterise latent posterior parameters" \
-                + " for " + model_type + " or " + latent_distribution \
-                + " distribution."
+            parameterise_error = "Cannot parameterise latent posterior " \
+                + "parameters for " + model_type + " or " \
+                + latent_distribution + " distribution."
             parameterise_validity = False
         
         validity = validity and parameterise_validity
-        errors.append(parameterise_error)
+        
+        if not parameterise_validity:
+            errors.append(parameterise_error)
     
     # Return
     
