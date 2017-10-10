@@ -8,9 +8,11 @@ from models import (
     GaussianMixtureVariationalAutoencoder
 )
 
+from distributions import distributions, latent_distributions
+
 from models.prediction import predict
 
-from auxiliary import title, subtitle
+from auxiliary import title, subtitle, normaliseString
 
 import os
 import argparse
@@ -54,6 +56,10 @@ def main(data_set_name, data_directory = "data",
         analyse = True
         analyses = ["simple"]
         analysis_level = "limited"
+    
+    reconstruction_distribution = parseDistribution(
+        reconstruction_distribution)
+    latent_distribution = parseDistribution(latent_distribution)
     
     # Load and split data
     
@@ -394,6 +400,13 @@ def main(data_set_name, data_directory = "data",
                 analyses = analyses, analysis_level = analysis_level,
                 results_directory = results_directory
             )
+
+def parseDistribution(distribution):
+    distribution_names = list(distributions.keys())
+    distribution_names += list(latent_distributions.keys())
+    for distribution_name in distribution_names:
+        if normaliseString(distribution_name) == distribution:
+            return distribution_name
 
 def parseSampleLists(list_with_number_of_samples):
     
