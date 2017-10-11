@@ -1171,7 +1171,8 @@ class DataSet(object):
             example_filter = self.example_filter,
             example_filter_parameters = self.example_filter_parameters,
             splitting_method = method,
-            splitting_fraction = fraction
+            splitting_fraction = fraction,
+            split_indices = self.split_indices
         )
         
         print("Splitting:")
@@ -1481,7 +1482,8 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
     def preprocessedPath(base_name = None, preprocessing_methods = None,
         feature_selection = None, feature_parameter = None,
         example_filter = None, example_filter_parameters = None,
-        splitting_method = None, splitting_fraction = None):
+        splitting_method = None, splitting_fraction = None,
+        split_indices = None):
         
         base_path = os.path.join(preprocess_directory, name)
         
