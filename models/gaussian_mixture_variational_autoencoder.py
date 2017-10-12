@@ -1275,7 +1275,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                 KL_z_train = 0
                 KL_y_train = 0
                 ENRE_train = 0
-                q_y_logits_train = numpy.zeros((M_train, self.K))
+                q_y_logits_train = numpy.zeros((M_train, self.K),
+                    numpy.float32)
                 
                 if "mixture" in self.latent_distribution_name: 
                     z_KL = numpy.zeros(1)                
@@ -1415,8 +1416,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                 p_y_probabilities = numpy.zeros(self.K)
                 p_z_means = numpy.zeros((self.K, self.latent_size))
                 p_z_variances = numpy.zeros((self.K, self.latent_size))
-                q_y_logits_valid = numpy.zeros((M_valid, self.K))
-                z_mean_valid = numpy.zeros((M_valid, self.latent_size))
+                q_y_logits_valid = numpy.zeros((M_valid, self.K),
+                    numpy.float32)
+                z_mean_valid = numpy.zeros((M_valid, self.latent_size),
+                    numpy.float32)
 
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
@@ -1667,8 +1670,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                         p_z_covariance_matrices = numpy.empty([K, L, L])
                         q_z_covariance_matrices = numpy.empty([K, L, L])
                         for k in range(K):
-                            p_z_covariance_matrices[k] = numpy.diag(p_z_variances[k])
-                            q_z_covariance_matrices[k] = numpy.diag(q_z_variances[k])
+                            p_z_covariance_matrices[k] = numpy.diag(
+                                p_z_variances[k])
+                            q_z_covariance_matrices[k] = numpy.diag(
+                                q_z_variances[k])
                         centroids = {
                             "prior": {
                                 "probabilities": p_y_probabilities,
@@ -1841,12 +1846,14 @@ class GaussianMixtureVariationalAutoencoder(object):
             p_z_means = numpy.zeros((self.K, self.latent_size))
             p_z_variances = numpy.zeros((self.K, self.latent_size))
             q_y_logits = numpy.zeros((M_eval, self.K))
-            z_mean_eval = numpy.zeros((M_eval, self.latent_size))
-            p_x_mean_eval = numpy.zeros((M_eval, F_eval))
-            p_x_stddev_eval = numpy.zeros((M_eval, F_eval))
-            stddev_of_p_x_given_z_mean_eval = numpy.zeros((M_eval, F_eval))
-            p_x_loglik = numpy.empty([M_eval, F_eval])
-            y_mean_eval = numpy.zeros((M_eval, self.K))
+            z_mean_eval = numpy.zeros((M_eval, self.latent_size),
+                numpy.float32)
+            p_x_mean_eval = numpy.zeros((M_eval, F_eval), numpy.float32)
+            p_x_stddev_eval = numpy.zeros((M_eval, F_eval), numpy.float32)
+            stddev_of_p_x_given_z_mean_eval = numpy.zeros((M_eval, F_eval),
+                numpy.float32)
+            p_x_loglik = numpy.empty([M_eval, F_eval], numpy.float32)
+            y_mean_eval = numpy.zeros((M_eval, self.K), numpy.float32)
 
             for i in range(0, M_eval, batch_size):
                 subset = slice(i, (i + batch_size))

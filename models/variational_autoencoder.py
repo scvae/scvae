@@ -1225,7 +1225,8 @@ class VariationalAutoencoder(object):
                 KL_valid = 0
                 ENRE_valid = 0
                 
-                q_z_mean_valid = numpy.empty([M_valid, self.latent_size])
+                q_z_mean_valid = numpy.empty([M_valid, self.latent_size],
+                    numpy.float32)
                 
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
@@ -1414,7 +1415,8 @@ class VariationalAutoencoder(object):
                         L = self.latent_size
                         p_z_covariance_matrices = numpy.empty([K, L, L])
                         for k in range(K):
-                            p_z_covariance_matrices[k] = numpy.diag(p_z_variances[k])
+                            p_z_covariance_matrices[k] = numpy.diag(
+                                p_z_variances[k])
                         centroids = {
                             "prior": {
                                 "probabilities": numpy.array(p_z_probabilities),
@@ -1538,13 +1540,15 @@ class VariationalAutoencoder(object):
             KL_eval = 0
             ENRE_eval = 0
             
-            p_x_mean_eval = numpy.empty([M_eval, F_eval])
-            p_x_stddev_eval = numpy.empty([M_eval, F_eval])
-            stddev_of_p_x_mean_eval = numpy.empty([M_eval, F_eval])
-            p_x_loglik = numpy.empty([M_eval, F_eval])
+            p_x_mean_eval = numpy.empty([M_eval, F_eval], numpy.float32)
+            p_x_stddev_eval = numpy.empty([M_eval, F_eval], numpy.float32)
+            stddev_of_p_x_mean_eval = numpy.empty([M_eval, F_eval],
+                numpy.float32)
+            p_x_loglik = numpy.empty([M_eval, F_eval], numpy.float32)
             # p_x_count_loglik_means = numpy.zeros(max_count)
 
-            q_z_mean_eval = numpy.empty([M_eval, self.latent_size])
+            q_z_mean_eval = numpy.empty([M_eval, self.latent_size],
+                numpy.float32)
             
             if use_deterministic_z:
                 number_of_iw_samples = 1
@@ -1614,7 +1618,6 @@ class VariationalAutoencoder(object):
                 [self.p_z_probabilities, self.p_z_means, self.p_z_variances]
             )
             
-
             ## Summaries
             
             if log_results:
