@@ -1845,9 +1845,9 @@ class GaussianMixtureVariationalAutoencoder(object):
             z_mean_eval = numpy.zeros((M_eval, self.latent_size),
                 numpy.float32)
             p_x_mean_eval = numpy.zeros((M_eval, F_eval), numpy.float32)
-            p_x_stddev_eval = numpy.zeros((M_eval, F_eval), numpy.float32)
-            stddev_of_p_x_given_z_mean_eval = numpy.zeros((M_eval, F_eval),
-                numpy.float32)
+            # p_x_stddev_eval = numpy.zeros((M_eval, F_eval), numpy.float32)
+            # stddev_of_p_x_given_z_mean_eval = numpy.zeros((M_eval, F_eval),
+            #     numpy.float32)
             y_mean_eval = numpy.zeros((M_eval, self.K), numpy.float32)
 
             for i in range(0, M_eval, batch_size):
@@ -1870,19 +1870,19 @@ class GaussianMixtureVariationalAutoencoder(object):
                 if self.count_sum_feature:
                     feed_dict_batch[self.n_feature] = n_feature_eval[subset]
 
-                ELBO_i, ENRE_i, KL_z_i, KL_y_i, \
-                    q_y_probabilities_i, q_z_means_i, q_z_variances_i, \
-                    p_y_probabilities_i, p_z_means_i, p_z_variances_i, \
-                    q_y_logits_i, p_x_mean_i, p_x_stddev_i, \
-                    stddev_of_p_x_given_z_mean_i, y_mean_i, z_mean_i = \
-                    session.run(
+                (ELBO_i, ENRE_i, KL_z_i, KL_y_i,
+                    q_y_probabilities_i, q_z_means_i, q_z_variances_i,
+                    p_y_probabilities_i, p_z_means_i, p_z_variances_i,
+                    q_y_logits_i, p_x_mean_i,
+                    # p_x_stddev_i, stddev_of_p_x_given_z_mean_i,
+                    y_mean_i, z_mean_i) = session.run(
                         [
                             self.ELBO, self.ENRE, self.KL_z, self.KL_y,
                             self.q_y_probabilities, self.q_z_means, 
                             self.q_z_variances, self.p_y_probabilities, 
-                            self.p_z_means, self.p_z_variances, self.q_y_logits,
-                            self.p_x_mean, self.p_x_stddev, 
-                            self.stddev_of_p_x_given_z_mean,
+                            self.p_z_means, self.p_z_variances,
+                            self.q_y_logits, self.p_x_mean,
+                            # self.p_x_stddev, self.stddev_of_p_x_given_z_mean,
                             self.y_mean, self.z_mean
                         ],
                         feed_dict = feed_dict_batch
@@ -1905,9 +1905,9 @@ class GaussianMixtureVariationalAutoencoder(object):
                 y_mean_eval[subset] = y_mean_i 
                 z_mean_eval[subset] = z_mean_i 
 
-                p_x_stddev_eval[subset] = p_x_stddev_i
-                stddev_of_p_x_given_z_mean_eval[subset] =\
-                    stddev_of_p_x_given_z_mean_i
+                # p_x_stddev_eval[subset] = p_x_stddev_i
+                # stddev_of_p_x_given_z_mean_eval[subset] =\
+                #     stddev_of_p_x_given_z_mean_i
             
             ELBO_eval /= M_eval / batch_size
             KL_z_eval /= M_eval / batch_size
@@ -2046,8 +2046,8 @@ class GaussianMixtureVariationalAutoencoder(object):
             reconstructed_evaluation_set = DataSet(
                 name = evaluation_set.name,
                 values = p_x_mean_eval,
-                total_standard_deviations = p_x_stddev_eval,
-                explained_standard_deviations = stddev_of_p_x_given_z_mean_eval,
+                # total_standard_deviations = p_x_stddev_eval,
+                # explained_standard_deviations = stddev_of_p_x_given_z_mean_eval,
                 preprocessed_values = None,
                 labels = evaluation_set.labels,
                 example_names = evaluation_set.example_names,
