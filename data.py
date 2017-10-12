@@ -1945,13 +1945,13 @@ def saveAsSparseData(data_dictionary, path):
 def loadMouseRetinaDataSet(paths):
     
     values, column_headers, row_indices = \
-        loadZippedTabSeparatedValues(paths["values"]["full"])
+        loadZippedTabSeparatedValues(paths["values"]["full"], numpy.float32)
     
     values = values.T
     example_names = numpy.array(column_headers)
     feature_names = numpy.array(row_indices)
     
-    labels = numpy.zeros(example_names.shape, int)
+    labels = numpy.zeros(example_names.shape, numpy.int32)
     
     with open(paths["labels"]["full"], "r") as labels_data:
         for line in labels_data.read().split("\n"):
@@ -1980,12 +1980,12 @@ def load10xDataSet(paths):
         table = {}
         for node in f.walk_nodes('/' + genome, 'Array'):
             table[node.name] = node.read()
-        matrix = scipy.sparse.csc_matrix(
+        values = scipy.sparse.csc_matrix(
             (table['data'], table['indices'], table['indptr']),
             shape=table['shape']
         )
 
-    values = matrix.T.todense().A
+    values = values.T.toarray()
     
     example_names = table["barcodes"].astype("U")
     feature_names = table["gene_names"].astype("U")
@@ -2020,10 +2020,11 @@ def load10xDataSet(paths):
 def loadTCGAKallistoDataSet(paths):
     
     values, column_headers, row_indices = \
-        loadZippedTabSeparatedValues(paths["values"]["full"])
+        loadZippedTabSeparatedValues(paths["values"]["full"], numpy.float32)
     
     values = values.T
-    values = numpy.power(2, values) - 1
+    values = numpy.round(numpy.power(2, values) - 1)
+    values = numpy.round(values)
     
     example_names = numpy.array(column_headers)
     feature_names = numpy.array(row_indices)
@@ -2037,7 +2038,7 @@ def loadTCGAKallistoDataSet(paths):
     
     return data_dictionary
 
-def loadZippedTabSeparatedValues(tsv_path):
+def loadZippedTabSeparatedValues(tsv_path, data_type = None):
     
     values = []
     row_indices = []
@@ -2054,7 +2055,7 @@ def loadZippedTabSeparatedValues(tsv_path):
             row_values = list(map(float, row[1:]))
             values.append(row_values)
     
-    values = numpy.array(values)
+    values = numpy.array(values, data_type)
     
     return values, column_headers, row_indices
 
@@ -2091,7 +2092,7 @@ def loadMNISTDataSet(paths):
     values = numpy.concatenate((values["training"], values["test"]))
     labels = numpy.concatenate((labels["training"], labels["test"]))
     
-    values = values.astype(float)
+    values = values.astype(numpy.float32)
     
     example_names = numpy.array(["image {}".format(i + 1) for i in range(M)])
     feature_names = numpy.array(["pixel {}".format(j + 1) for j in range(N)])
@@ -2153,7 +2154,7 @@ def loadBinarisedMNISTDataSet(paths):
     values = {}
     
     for kind in paths["values"]:
-        values[kind] = numpy.loadtxt(paths["values"][kind])
+        values[kind] = numpy.loadtxt(paths["values"][kind], numpy.float32)
     
     M_training = values["training"].shape[0]
     M_validation = values["validation"].shape[0]
@@ -2325,8 +2326,8 @@ def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
     M = number_of_examples
     N = number_of_features
     
-    values = numpy.empty((M, N))
-    labels = numpy.empty(M, int)
+    values = numpy.empty((M, N), numpy.float32)
+    labels = numpy.empty(M, numpy.int32)
     
     r = numpy.empty((M, N))
     p = numpy.empty((M, N))
