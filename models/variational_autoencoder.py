@@ -668,45 +668,7 @@ class VariationalAutoencoder(object):
             ),
             [self.number_of_iw_samples, self.number_of_mc_samples, -1]
         )
-        # (B, D_x)
-        self.p_x_loglik = log_reduce_exp(
-            tf.reshape(
-                p_x_given_z_log_prob,
-                [self.number_of_iw_samples*self.number_of_mc_samples,
-                -1, self.feature_size]
-            ),
-            reduction_function=tf.reduce_mean,
-            axis = 0
-        )
-
-        # self.p_x_count_loglik = tf.zeros(self.max_count)
-        # loglik_condition = lambda i, loglik, count_loglik, t, max_count: i < 100
-        # loglik_body = lambda i, loglik, count_loglik, t, max_count: (
-        #     tf.add(i, 1),
-        #     count_loglik[i].assign(
-        #         tf.divide(
-        #             tf.reduce_sum(
-        #                 tf.where(
-        #                     tf.equal(t, tf.cast(i, tf.float32)),
-        #                     loglik,
-        #                     tf.zeros_like(loglik)
-        #                 )
-        #             ),
-        #             tf.cast(tf.reduce_sum(tf.cast(tf.equal(t, tf.cast(i, tf.float32)), tf.int32)), tf.float32)
-        #         )
-        #     )
-        # )
-
-        # i = tf.constant(0)
-
-        # loglik_loop = tf.while_loop(
-        #     loglik_condition,
-        #     loglik_body,
-        #     [i, self.p_x_loglik, self.p_x_count_loglik, self.t, self.max_count]
-        # )
-
-        # self.p_x_count_loglik_means = loglik_loop[2]
-
+        
         # Average over all samples and examples and add to losses in summary
         self.ENRE = tf.reduce_mean(log_p_x_given_z)
         tf.add_to_collection('losses', self.ENRE)
@@ -1548,9 +1510,7 @@ class VariationalAutoencoder(object):
             p_x_stddev_eval = numpy.empty([M_eval, F_eval], numpy.float32)
             stddev_of_p_x_mean_eval = numpy.empty([M_eval, F_eval],
                 numpy.float32)
-            p_x_loglik = numpy.empty([M_eval, F_eval], numpy.float32)
-            # p_x_count_loglik_means = numpy.zeros(max_count)
-
+            
             q_z_mean_eval = numpy.empty([M_eval, self.latent_size],
                 numpy.float32)
             
@@ -1580,10 +1540,10 @@ class VariationalAutoencoder(object):
                 if self.count_sum_feature:
                     feed_dict_batch[self.n_feature] = n_feature_eval[subset]
                 
-                ELBO_i, KL_i, ENRE_i, p_x_mean_i, p_x_stddev_i, stddev_of_p_x_mean_i, p_x_loglik_i, q_z_mean_i = session.run(
+                ELBO_i, KL_i, ENRE_i, p_x_mean_i, p_x_stddev_i, stddev_of_p_x_mean_i, q_z_mean_i = session.run(
                     [self.ELBO, self.KL, self.ENRE,
                         self.p_x_mean, self.p_x_stddev,
-                        self.stddev_of_p_x_given_z_mean, self.p_x_loglik,
+                        self.stddev_of_p_x_given_z_mean,
                         self.q_z_mean],
                     feed_dict = feed_dict_batch
                 )
@@ -1606,9 +1566,6 @@ class VariationalAutoencoder(object):
 
                 # Estimated standard deviation of Monte Carlo estimate E[x].
                 stddev_of_p_x_mean_eval[subset] = stddev_of_p_x_mean_i
-
-                p_x_loglik[subset] = p_x_loglik_i
-                # p_x_count_loglik_means += p_x_count_loglik_means_i
 
                 q_z_mean_eval[subset] = q_z_mean_i
             
@@ -1705,20 +1662,6 @@ class VariationalAutoencoder(object):
                 version = "reconstructed"
             )
 
-            likelihood_evaluation_set = DataSet(
-                name = evaluation_set.name,
-                values = numpy.exp(p_x_loglik),
-                preprocessed_values = None,
-                labels = evaluation_set.labels,
-                example_names = evaluation_set.example_names,
-                feature_names = evaluation_set.feature_names,
-                feature_selection = evaluation_set.feature_selection,
-                example_filter = evaluation_set.example_filter,
-                preprocessing_methods = evaluation_set.preprocessing_methods,
-                kind = evaluation_set.kind,
-                version = "likelihood"
-            )
-            
             z_evaluation_set = DataSet(
                 name = evaluation_set.name,
                 values = q_z_mean_eval,
@@ -1739,4 +1682,4 @@ class VariationalAutoencoder(object):
             }
             
             return transformed_evaluation_set, reconstructed_evaluation_set,\
-                likelihood_evaluation_set, latent_evaluation_sets
+                latent_evaluation_sets

@@ -282,9 +282,11 @@ def main(data_set_name, data_directory = "data",
     
     if "VAE" in model.type:
         transformed_evaluation_set, reconstructed_evaluation_set,\
-            likelihood_evaluation_set, latent_evaluation_sets = \
-            model.evaluate(evaluation_set, batch_size,
-                predict_labels_using_model)
+            latent_evaluation_sets = model.evaluate(
+                evaluation_set,
+                batch_size,
+                predict_labels_using_model
+            )
         
         if analysis.betterModelExists(model):
             better_model_exist = True
@@ -295,7 +297,6 @@ def main(data_set_name, data_directory = "data",
             
             best_model_transformed_evaluation_set, \
                 best_model_reconstructed_evaluation_set, \
-                best_model_likelihood_evaluation_set, \
                 best_model_latent_evaluation_sets = \
                 model.evaluate(evaluation_set, batch_size,
                     predict_labels_using_model, use_best_model = True)
@@ -309,7 +310,6 @@ def main(data_set_name, data_directory = "data",
             
             early_stopped_transformed_evaluation_set, \
                 early_stopped_reconstructed_evaluation_set, \
-                early_stopped_likelihood_evaluation_set, \
                 early_stopped_latent_evaluation_sets = \
                 model.evaluate(
                     evaluation_set,
@@ -318,8 +318,7 @@ def main(data_set_name, data_directory = "data",
                     use_early_stopping_model = True
                 )
     else:
-        transformed_evaluation_set, reconstructed_evaluation_set, \
-            likelihood_evaluation_set = \
+        transformed_evaluation_set, reconstructed_evaluation_set = \
             model.evaluate(evaluation_set, batch_size)
         latent_evaluation_sets = None
         better_model_exist = False
@@ -369,7 +368,6 @@ def main(data_set_name, data_directory = "data",
         analysis.analyseResults(
             transformed_evaluation_set,
             reconstructed_evaluation_set,
-            likelihood_evaluation_set,
             latent_evaluation_sets,
             model,
             decomposition_methods, highlight_feature_indices,
@@ -385,7 +383,6 @@ def main(data_set_name, data_directory = "data",
             analysis.analyseResults(
                 best_model_transformed_evaluation_set,
                 best_model_reconstructed_evaluation_set,
-                best_model_likelihood_evaluation_set,
                 best_model_latent_evaluation_sets,
                 model,
                 decomposition_methods, highlight_feature_indices,
@@ -400,7 +397,6 @@ def main(data_set_name, data_directory = "data",
             analysis.analyseResults(
                 early_stopped_transformed_evaluation_set,
                 early_stopped_reconstructed_evaluation_set,
-                early_stopped_likelihood_evaluation_set,
                 early_stopped_latent_evaluation_sets,
                 model,
                 decomposition_methods, highlight_feature_indices,

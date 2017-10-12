@@ -594,7 +594,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
             latent_set_name.capitalize(), formatDuration(plot_duration)))
 
 def analyseResults(evaluation_set, reconstructed_evaluation_set,
-    likelihood_evaluation_set, latent_evaluation_sets, model,
+    latent_evaluation_sets, model,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     early_stopping = False, best_model = False,
     analyses = ["default"], analysis_level = "normal",
@@ -784,8 +784,6 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 "ARI (labels)": ARI_labels,
                 "statistics": evaluation_set_statistics,
                 "count accuracies": count_accuracies,
-                # "count likelihoods": count_likelihoods,
-                # "count distribution name": count_distribution_name
             }
             pickle.dump(metrics_dictionary, metrics_file)
         
@@ -809,27 +807,6 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         print(formatCountAccuracies(count_accuracies))
     
-    # # Compute model likelihoods for each count in bins.
-    # count_likelihoods = computeCountLikelihoods(evaluation_set.values, likelihood_evaluation_set.values)
-    #
-    # count_distribution_name = model.reconstruction_distribution_name
-    # if model.k_max:
-    #     count_distribution_name = count_distribution_name + " ({} count classes)".format(model.k_max)
-    #
-    # # Plot likelihoods in bar plots
-    # figure, figure_name = plotCountLikelihoods(
-    #     count_likelihoods,
-    #     count_distribution_name,
-    #     bar_plot=True)
-    # saveFigure(figure, figure_name, results_directory)
-    #
-    # # Plot likelihoods in line plot
-    # figure, figure_name = plotCountLikelihoods(
-    #     count_likelihoods,
-    #     count_distribution_name
-    # )
-    # saveFigure(figure, figure_name, results_directory)
-
     # Reconstructions
     
     if "images" in analyses or "profile_comparisons" in analyses:
@@ -2175,7 +2152,7 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
     elif method == "t_sne":
         model = TSNE(n_components = components, random_state = random_state)
     else:
-        raise ValueError("method method not found.")
+        raise ValueError("Method `{}` not found.".format(method))
     
     values_decomposed = model.fit_transform(values)
     
@@ -3562,74 +3539,6 @@ def plotProbabilities(posterior_probabilities, prior_probabilities,
     seaborn.despine()
     
     return figure, figure_name
-
-def plotCountLikelihoods(count_likelihoods, count_distribution_names, x_scale = 'linear', y_scale = 'log', bar_plot = False, name = None, count_limit = slice(None)):
-    
-    figure = pyplot.figure(figsize=(8, 6), dpi=120)
-    axis = figure.add_subplot(1, 1, 1)
-
-    distribution_colour = {
-        "poisson": standard_palette[0],
-        "constrained poisson": standard_palette[1],
-        "negative binomial": standard_palette[2],
-        "zero-inflated poisson": standard_palette[3],
-        "zero-inflated negative binomial": standard_palette[4],
-        "poisson (5 count classes)": standard_palette[5],
-        "negative binomial (5 count classes)": standard_palette[6],
-        "bernoulli": standard_palette[7]
-    }
-
-    if not isinstance(count_likelihoods, list):
-        count_likelihoods = [count_likelihoods]
-    if not isinstance(count_distribution_names, list):
-        count_distribution_names = [count_distribution_names]
-
-    count_range = numpy.arange(count_likelihoods[0].shape[0])
-
-    if bar_plot:
-        for i in range(len(count_likelihoods)):
-            axis.bar(
-                count_range[count_limit],
-                count_likelihoods[i][count_limit],
-                color = distribution_colour[count_distribution_names[i]],
-                label=count_distribution_names[i].capitalize()
-            )
-        figure_name = figureName("likelihood_bar_plot", name)
-    else:
-        for i in range(len(count_likelihoods)):
-            axis.plot(count_range[count_limit],
-                count_likelihoods[i][count_limit],
-                color = distribution_colour[count_distribution_names[i]],
-                linestyle = "dashed",
-                label=count_distribution_names[i].capitalize()
-            )
-        figure_name = figureName("likelihood_line_plot", name)
-
-    axis.set_xscale(x_scale)
-    axis.set_xlabel("Counts")
-
-    axis.set_yscale(y_scale)
-    axis.set_ylabel("Average likelihood")
-
-    if len(count_likelihoods) > 1:
-        handles, labels = axis.get_legend_handles_labels()
-        axis.legend(handles, labels)
-
-    seaborn.despine()
-
-    return figure, figure_name
-
-def computeCountLikelihoods(values, likelihoods, max_value = None):
-    if max_value is None:
-        max_value = int(numpy.amax(values))
-
-    count_likelihoods = numpy.zeros(max_value+1)
-
-    for i in range(max_value + 1):
-        count_likelihoods[i] = numpy.mean(likelihoods[values == i])
-
-    return count_likelihoods
-
 
 def covarianceMatrixAsEllipse(covariance_matrix, mean, colour,
     linestyle = "solid", radius_stddev = 1, label = None):
