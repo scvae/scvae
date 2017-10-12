@@ -35,6 +35,8 @@ preprocess_suffix = "preprocessed"
 original_suffix = "original"
 preprocessed_extension = ".sparse.pkl.gz"
 
+maximum_duration_before_saving = 30 # seconds
+
 data_sets = {
     "mouse retina": {
         "tags": {
@@ -924,23 +926,26 @@ class DataSet(object):
         sparse_path = self.preprocessedPath()
         
         if os.path.isfile(sparse_path):
-            print("Loading data set from sparse representation.")
-            data_dictionary = loadFromSparseData(sparse_path)
+            print("Loading data set.")
+            data_dictionary = loadData(sparse_path)
         else:
             original_paths = downloadDataSet(self.title, self.original_directory)
             
             print()
             
-            data_dictionary, duration = loadOriginalDataSet(self.title, original_paths)
+            loading_time_start = time()
+            data_dictionary = loadOriginalDataSet(self.title,
+                original_paths)
+            loading_duration = time() - loading_time_start
             
             print()
             
-            if duration > 30:
+            if loading_duration > maximum_duration_before_saving:
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
                 
-                print("Saving data set in sparse representation.")
-                saveAsSparseData(data_dictionary, sparse_path)
+                print("Saving data set.")
+                saveData(data_dictionary, sparse_path)
                 
                 print()
         
@@ -997,17 +1002,23 @@ class DataSet(object):
         )
         
         if os.path.isfile(sparse_path):
-            print("Loading preprocessed data from sparse representation.")
-            data_dictionary = loadFromSparseData(sparse_path)
+            print("Loading preprocessed data.")
+            data_dictionary = loadData(sparse_path)
             data_dictionary["preprocessed values"] = self.values
         else:
+            
+            preprocessing_time_start = time()
+            
             if not self.preprocessed and self.preprocessing_methods:
                     
                 print("Preprocessing values.")
                 start_time = time()
                 
                 preprocessing_function = preprocessingFunctionForDataSet(
-                    self.title, self.preprocessing_methods, self.preprocessedPath)
+                    self.title,
+                    self.preprocessing_methods,
+                    self.preprocessedPath
+                )
                 preprocessed_values = preprocessing_function(self.values)
                 
                 duration = time() - start_time
@@ -1068,12 +1079,14 @@ class DataSet(object):
                 data_dictionary["example names"] = example_names
                 data_dictionary["labels"] = labels
             
-            if self.number_of_features > 1000:
+            preprocessing_duration = time() - preprocessing_time_start
+            
+            if preprocessing_duration > maximum_duration_before_saving:
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
             
-                print("Saving preprocessed data set in sparse representation.")
-                saveAsSparseData(data_dictionary, sparse_path)
+                print("Saving preprocessed data set.")
+                saveData(data_dictionary, sparse_path)
         
         values = data_dictionary["values"]
         preprocessed_values = data_dictionary["preprocessed values"]
@@ -1115,10 +1128,13 @@ class DataSet(object):
         )
         
         if os.path.isfile(sparse_path):
-            print("Loading binarised data from sparse representation.")
-            data_dictionary = loadFromSparseData(sparse_path)
+            print("Loading binarised data.")
+            data_dictionary = loadData(sparse_path)
         
         else:
+            
+            binarising_time_start = time()
+            
             if self.preprocessing_methods != binarise_preprocessing:
                 
                 print("Binarising values.")
@@ -1142,12 +1158,14 @@ class DataSet(object):
                 "feature names": self.feature_names
             }
             
-            if self.number_of_features > 1000:
+            binarising_duration = time() - binarising_time_start
+            
+            if binarising_duration > maximum_duration_before_saving:
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
                 
-                print("Saving binarised data set in sparse representation.")
-                saveAsSparseData(data_dictionary, sparse_path)
+                print("Saving binarised data set.")
+                saveData(data_dictionary, sparse_path)
         
         self.update(
             binarised_values = data_dictionary["preprocessed values"],
@@ -1182,8 +1200,8 @@ class DataSet(object):
         print()
         
         if os.path.isfile(sparse_path):
-            print("Loading split data sets from sparse representation.")
-            split_data_dictionary = loadFromSparseData(sparse_path)
+            print("Loading split data sets.")
+            split_data_dictionary = loadData(sparse_path)
         
         else:
             
@@ -1196,17 +1214,19 @@ class DataSet(object):
                 "split indices": self.split_indices
             }
             
+            splitting_time_start = time()
             split_data_dictionary = splitDataSet(data_dictionary, method,
                 fraction)
+            splitting_duration = time() - splitting_time_start
             
             print()
             
-            if self.number_of_features > 1000:
+            if splitting_duration > maximum_duration_before_saving:
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
                 
-                print("Saving split data sets in sparse representation.")
-                saveAsSparseData(split_data_dictionary, sparse_path)
+                print("Saving split data sets.")
+                saveData(split_data_dictionary, sparse_path)
         
         training_set = DataSet(
             name = self.name,
@@ -1467,15 +1487,31 @@ def downloadDataSet(title, directory):
     return paths
 
 def loadOriginalDataSet(title, paths):
+    
     print("Loading original data set.")
-    start_time = time()
+    loading_time_start = time()
     
     data_dictionary = data_sets[title]["load function"](paths)
     
-    duration = time() - start_time
-    print("Original data set loaded ({}).".format(formatDuration(duration)))
+    loading_duration = time() - loading_time_start
+    print("Original data set loaded ({}).".format(formatDuration(
+        loading_duration)))
     
-    return data_dictionary, duration
+    if not isinstance(data_dictionary["values"], scipy.sparse.csr_matrix):
+        
+        print()
+    
+        print("Converting data set value array to sparse matrix.")
+        sparse_time_start = time()
+        
+        data_dictionary["values"] = scipy.sparse.csr_matrix(
+            data_dictionary["values"])
+        
+        sparse_duration = time() - sparse_time_start
+        print("Data set value array converted ({}).".format(formatDuration(
+            sparse_duration)))
+    
+    return data_dictionary
 
 def preprocessedPathFunction(preprocess_directory = "", name = ""):
     
@@ -1610,9 +1646,11 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
     if superset_labels is not None:
         filter_labels = superset_labels.copy()
         filter_excluded_classes = excluded_superset_classes
-    else:
+    elif labels is not None:
         filter_labels = labels.copy()
         filter_excluded_classes = excluded_classes
+    else:
+        filter_labels = None
     
     filter_class_names = numpy.unique(filter_labels)
     
@@ -1638,6 +1676,10 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
         )[0]
     
     elif example_filter in ["keep", "remove", "excluded_classes"]:
+        
+        if filter_labels is None:
+            raise ValueError("Cannot filter examples based on labels, "
+                "since data set is unlabelled.")
         
         if example_filter == "excluded_classes":
             example_filter = "remove"
@@ -1679,7 +1721,11 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
         example_filtered_values[version] = values[filter_indices, :]
     
     example_filtered_example_names = example_names[filter_indices]
-    example_filtered_labels = labels[filter_indices]
+    
+    if labels is not None:
+        example_filtered_labels = labels[filter_indices]
+    else:
+        example_filtered_labels = None
     
     duration = time() - start_time
     print("{} examples filtered out, {} remaining ({}).".format(
@@ -1888,59 +1934,27 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
     
     return split_data_dictionary
 
-def loadFromSparseData(path):
+def loadData(path):
     
     start_time = time()
-    
-    def converter(data):
-        if type(data) == scipy.sparse.csr.csr_matrix:
-            return data.toarray()
-        else:
-            return data
     
     with gzip.open(path, "rb") as data_file:
         data_dictionary = pickle.load(data_file)
     
-    for key in data_dictionary:
-        if "set" in key:
-            for key2 in data_dictionary[key]:
-                data_dictionary[key][key2] = converter(data_dictionary[key][key2])
-        else:
-            data_dictionary[key] = converter(data_dictionary[key])
-    
     duration = time() - start_time
-    print("Data loaded from sparse representation" +
-        " ({}).".format(formatDuration(duration)))
+    print("Data loaded ({}).".format(formatDuration(duration)))
     
     return data_dictionary
 
-def saveAsSparseData(data_dictionary, path):
+def saveData(data_dictionary, path):
     
     start_time = time()
     
-    sparse_data_dictionary = {}
-    
-    def converter(data):
-        if type(data) == numpy.ndarray and data.ndim == 2:
-            return scipy.sparse.csr_matrix(data)
-        else:
-            return data
-    
-    for key in data_dictionary:
-        if "set" in key:
-            sparse_data_dictionary[key] = {}
-            for key2 in data_dictionary[key]:
-                sparse_data_dictionary[key][key2] = \
-                    converter(data_dictionary[key][key2])
-        else:
-            sparse_data_dictionary[key] = converter(data_dictionary[key])
-    
     with gzip.open(path, "wb") as data_file:
-        pickle.dump(sparse_data_dictionary, data_file)
+        pickle.dump(data_dictionary, data_file)
     
     duration = time() - start_time
-    print("Data saved in sparse representation" +
-        " ({}).".format(formatDuration(duration)))
+    print("Data saved ({}).".format(formatDuration(duration)))
 
 def loadMouseRetinaDataSet(paths):
     
@@ -1985,7 +1999,7 @@ def load10xDataSet(paths):
             shape=table['shape']
         )
 
-    values = values.T.toarray()
+    values = values.T
     
     example_names = table["barcodes"].astype("U")
     feature_names = table["gene_names"].astype("U")
@@ -2445,8 +2459,8 @@ def loadWeights(data, method, preprocessPath):
         weights_path = None
     
     if weights_path and os.path.isfile(weights_path):
-        print("Loading weights from sparse representation.")
-        weights_dictionary = loadFromSparseData(weights_path)
+        print("Loading weights from.")
+        weights_dictionary = loadData(weights_path)
     else:
         if method == "gini":
             weights = computeGiniIndices(data)
@@ -2456,8 +2470,8 @@ def loadWeights(data, method, preprocessPath):
         weights_dictionary = {"weights": weights}
         
         if weights_path:
-            print("Saving weights in sparse representation.")
-            saveAsSparseData(weights_dictionary, weights_path)
+            print("Saving weights.")
+            saveData(weights_dictionary, weights_path)
     
     return weights_dictionary["weights"]
 
