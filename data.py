@@ -949,6 +949,8 @@ class DataSet(object):
                 
                 print()
         
+        data_dictionary["values"] = SparseRowMatrix(data_dictionary["values"])
+    
         self.update(
             values = data_dictionary["values"],
             labels = data_dictionary["labels"],
@@ -1103,6 +1105,9 @@ class DataSet(object):
             example_names = self.example_names
             labels = self.labels
         
+        values = SparseRowMatrix(values)
+        preprocessed_values = SparseRowMatrix(preprocessed_values)
+        
         self.update(
             values = values,
             preprocessed_values = preprocessed_values,
@@ -1167,6 +1172,8 @@ class DataSet(object):
                 print("Saving binarised data set.")
                 saveData(data_dictionary, sparse_path)
         
+        binarised_values = SparseRowMatrix(binarised_values)
+        
         self.update(
             binarised_values = data_dictionary["preprocessed values"],
         )
@@ -1227,6 +1234,14 @@ class DataSet(object):
                 
                 print("Saving split data sets.")
                 saveData(split_data_dictionary, sparse_path)
+        
+        for data_subset in split_data_dictionary:
+            for data_subset_key in split_data_dictionary[data_subset]:
+                if "values" in data_subset_key:
+                    split_data_dictionary[data_subset][data_subset_key] \
+                        = SparseRowMatrix(
+                            split_data_dictionary[data_subset][data_subset_key]
+                        )
         
         training_set = DataSet(
             name = self.name,
@@ -1325,6 +1340,24 @@ class DataSet(object):
         if self.binarised_values is not None:
             self.update(
                 binarised_values = self.binarised_values[filter_indices])
+
+class SparseRowMatrix(scipy.sparse.csr_matrix):
+    def __init__(self, arg1, shape = None, dtype = None, copy = False):
+        super(SparseRowMatrix, self).__init__(arg1, shape = shape,
+            dtype = dtype, copy = copy)
+    
+    def std(self, axis = None, ddof = 0):
+        return numpy.sqrt(self.var(axis))
+    
+    def var(self, axis = None, ddof = 0):
+        self_squared = self.power(2)
+        var = self_squared.mean(axis) - numpy.square(self.mean(axis))
+        
+        if ddof == 0:
+            return var
+        elif ddof > 0:
+            N = numpy.prod(self.shape)
+            return var * N / (N - ddof)
 
 def dataSetTitle(name):
     
