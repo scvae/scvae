@@ -1070,9 +1070,12 @@ class VariationalAutoencoder(object):
                     
                     batch_indices = shuffled_indices[i:(i + batch_size)]
                     
+                    x_batch = x_train[batch_indices].toarray()
+                    t_batch = t_train[batch_indices].toarray()
+                    
                     feed_dict_batch = {
-                        self.x: x_train[batch_indices],
-                        self.t: t_train[batch_indices],
+                        self.x: x_batch,
+                        self.t: t_batch,
                         self.is_training: True,
                         self.use_deterministic_z: False,
                         self.learning_rate: learning_rate, 
@@ -1150,8 +1153,8 @@ class VariationalAutoencoder(object):
                 
                 for i in range(0, M_train, batch_size):
                     subset = slice(i, (i + batch_size))
-                    x_batch = x_train[subset]
-                    t_batch = t_train[subset]
+                    x_batch = x_train[subset].toarray()
+                    t_batch = t_train[subset].toarray()
                     feed_dict_batch = {
                         self.x: x_batch,
                         self.t: t_batch,
@@ -1165,7 +1168,8 @@ class VariationalAutoencoder(object):
                         feed_dict_batch[self.n] = n_train[subset]
 
                     if self.count_sum_feature:
-                        feed_dict_batch[self.n_feature] = n_feature_train[subset]
+                        feed_dict_batch[self.n_feature] = \
+                            n_feature_train[subset]
 
                     ELBO_i, KL_i, ENRE_i, z_KL_i = session.run(
                         [self.ELBO, self.KL, self.ENRE, self.KL_all],
@@ -1230,8 +1234,8 @@ class VariationalAutoencoder(object):
                 
                 for i in range(0, M_valid, batch_size):
                     subset = slice(i, (i + batch_size))
-                    x_batch = x_valid[subset]
-                    t_batch = t_valid[subset]
+                    x_batch = x_valid[subset].toarray()
+                    t_batch = t_valid[subset].toarray()
                     feed_dict_batch = {
                         self.x: x_batch,
                         self.t: t_batch,
@@ -1559,8 +1563,8 @@ class VariationalAutoencoder(object):
 
             for i in range(0, M_eval, batch_size):
                 subset = slice(i, (i + batch_size))
-                x_batch = x_eval[subset]
-                t_batch = t_eval[subset]
+                x_batch = x_eval[subset].toarray()
+                t_batch = t_eval[subset].toarray()
                 feed_dict_batch = {
                     self.x: x_batch,
                     self.t: t_batch,
