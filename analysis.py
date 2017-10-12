@@ -3,6 +3,8 @@
 import numpy
 from numpy import nan
 
+import scipy.sparse
+
 from sklearn.decomposition import PCA, IncrementalPCA, FastICA
 from sklearn.manifold import TSNE
 from sklearn.metrics.cluster import adjusted_rand_score
@@ -1985,10 +1987,14 @@ def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
     x_dispersion = x_std**2 / x_mean
     
-    if skip_sparsity:
+    if not skip_sparsity:
         x_sparsity = nan
     else:
-        x_sparsity = (data_set < tolerance).sum() / data_set.size
+        if isinstance(data_set, scipy.sparse.csr_matrix):
+            x_sparsity = 1 - (data_set >= tolerance).sum() \
+                / numpy.prod(data_set.shape)
+        else:
+            x_sparsity = (data_set < tolerance).sum() / data_set.size
     
     statistics = {
         "name": name,
