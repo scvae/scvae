@@ -678,8 +678,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         evaluation_set_statistics.append(statistics(numpy.abs(x_diff),
             "differences", skip_sparsity = True))
         
-        x_log_ratio = numpy.log((reconstructed_evaluation_set.values + 1) \
-            / (evaluation_set.values + 1))
+        x_log_ratio = numpy.log1p(reconstructed_evaluation_set.values) \
+            - numpy.log1p(evaluation_set.values)
         evaluation_set_statistics.append(statistics(numpy.abs(x_log_ratio),
             "log-ratios", skip_sparsity = True))
         
