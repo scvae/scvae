@@ -5,7 +5,7 @@ from numpy import nan
 
 import scipy.sparse
 
-from sklearn.decomposition import PCA, IncrementalPCA, FastICA
+from sklearn.decomposition import PCA, IncrementalPCA, FastICA, TruncatedSVD
 from sklearn.manifold import TSNE
 from sklearn.metrics.cluster import adjusted_rand_score
 
@@ -2135,6 +2135,7 @@ def formatCountAccuracies(count_accuracies):
 
 decomposition_method_names = {
     "PCA": ["pca"],
+    "SVD": ["svd"],
     "ICA": ["ica"],
     "t-SNE": ["t_sne", "tsne"], 
 }
@@ -2158,6 +2159,8 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
             model = PCA(n_components = components)
         else:
             model = IncrementalPCA(n_components = components, batch_size = 100)
+    elif method == "svd":
+        model = TruncatedSVD(n_components = components)
     elif method == "ica":
         model = FastICA(n_components = components)
     elif method == "t_sne":
