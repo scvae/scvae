@@ -703,11 +703,14 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         else:
             count_accuracy_method = None
         
-        count_accuracies = computeCountAccuracies(
-            evaluation_set.values,
-            reconstructed_evaluation_set.values,
-            method = count_accuracy_method
-        )
+        if analysis_level == "extensive":
+            count_accuracies = computeCountAccuracies(
+                evaluation_set.values,
+                reconstructed_evaluation_set.values,
+                method = count_accuracy_method
+            )
+        else:
+            count_accuracies = None
         
         if evaluation_set.has_labels:
             
@@ -787,7 +790,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 metrics_string += "    ARI (labels): {:.5g}.\n".format(
                     ARI_labels)
             metrics_string += "\n" + formatStatistics(evaluation_set_statistics)
-            metrics_string += "\n" + formatCountAccuracies(count_accuracies)
+            if count_accuracies:
+                metrics_string += "\n" + formatCountAccuracies(count_accuracies)
             metrics_file.write(metrics_string)
         
         with gzip.open(metrics_dictionary_path, "w") as metrics_file:
@@ -822,7 +826,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 print("    labels: {:.5g}".format(ARI_labels))
             print()
         
-        print(formatCountAccuracies(count_accuracies))
+        if count_accuracies:
+            print(formatCountAccuracies(count_accuracies))
     
     # Reconstructions
     
