@@ -821,7 +821,9 @@ class DataSet(object):
             
             self.values = values
             
-            self.count_sum = self.values.sum(axis = 1).A.reshape(-1, 1)
+            self.count_sum = self.values.sum(axis = 1).reshape(-1, 1)
+            if isinstance(self.count_sum, numpy.matrix):
+                self.count_sum = self.count_sum.A
             self.normalised_count_sum = self.count_sum / self.count_sum.max()
             
             M_values, N_values = values.shape
