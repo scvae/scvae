@@ -1272,8 +1272,13 @@ def analyseDistributions(data_set, colouring_data_set = None,
         else:
             count_histogram_name = ["counts", data_set_name]
         
+        if isinstance(data_set.values, scipy.sparse.csr_matrix):
+            values_series = data_set.values.data
+        else:
+            values_series = data_set.values.reshape(-1)
+        
         figure, figure_name = plotHistogram(
-            series = data_set.values.reshape(-1),
+            series = values_series,
             label = data_set.tags["value"].capitalize() + "s",
             discrete = data_set_discreteness,
             normed = True,
@@ -1284,7 +1289,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
         saveFigure(figure, figure_name, distribution_directory)
         
         figure, figure_name = plotHistogram(
-            series = data_set.values.reshape(-1),
+            series = values_series,
             label = data_set.tags["value"].capitalize() + "s",
             discrete = data_set_discreteness,
             normed = True,
@@ -1987,7 +1992,7 @@ def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
     x_dispersion = x_std**2 / x_mean
     
-    if not skip_sparsity:
+    if skip_sparsity:
         x_sparsity = nan
     else:
         if isinstance(data_set, scipy.sparse.csr_matrix):
@@ -2316,6 +2321,7 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     
     return figure, figure_name
 
+# TODO Extend function to also work with separate zero count for sparse matrices
 def plotHistogram(series, label = None, maximum_count = None,
     normed = False, discrete = False, x_scale = "linear", y_scale = "linear",
     colour = None, name = None):
