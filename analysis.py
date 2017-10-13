@@ -2975,6 +2975,9 @@ def plotProfileComparison(observed_series, expected_series,
     
     figure_name = figureName("profile_comparison", name)
     
+    if isinstance(observed_series, scipy.sparse.csr_matrix):
+        observed_series = observed_series.A[0]
+    
     N = observed_series.shape[0]
     
     observed_colour = standard_palette[0]
