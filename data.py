@@ -1238,10 +1238,10 @@ class DataSet(object):
         for data_subset in split_data_dictionary:
             for data_subset_key in split_data_dictionary[data_subset]:
                 if "values" in data_subset_key:
-                    split_data_dictionary[data_subset][data_subset_key] \
-                        = SparseRowMatrix(
-                            split_data_dictionary[data_subset][data_subset_key]
-                        )
+                    values = split_data_dictionary[data_subset][data_subset_key]
+                    if values is not None:
+                        split_data_dictionary[data_subset][data_subset_key] \
+                            = SparseRowMatrix(values)
         
         training_set = DataSet(
             name = self.name,
