@@ -36,6 +36,7 @@ from auxiliary import (
     formatTime, formatDuration,
     normaliseString, properString, heading
 )
+import warnings
 
 standard_palette = seaborn.color_palette('Set2', 8)
 standard_colour_map = seaborn.cubehelix_palette(light = .95, as_cmap = True)
@@ -2055,12 +2056,13 @@ def computeCountAccuracies(x, x_tilde, method = None):
     # Setting up
     
     count_accuracies = {}
+    M, N = x.shape
     
-    # Round data sets to be able to compare
-    x = x.round()
-    x_tilde = x_tilde.round()
+    ## Round data sets to be able to compare
+    x = numpy.round(x)
+    x_tilde = numpy.round(x_tilde)
     
-    # Compute the max count value
+    ## Compute the max count value
     k_max = x.max().astype(int)
     
     if method == "orders of magnitude":
@@ -2068,47 +2070,67 @@ def computeCountAccuracies(x, x_tilde, method = None):
         log_k_max_floored = numpy.floor(numpy.log10(k_max)).astype(int)
         
         for l in range(log_k_max_floored + 1):
-        
+            
             x_scaled_floored = numpy.floor(x / pow(10, l))
             x_tilde_scaled_floored = numpy.floor(x_tilde / pow(10, l))
-        
+            
             k_max_scaled_floored = x_scaled_floored.max().astype(int)
-        
+            
             k_start = 1
-        
+            
             if l == 0:
                 k_start = 0
-        
+            
             for k in range(k_start, min(10, k_max_scaled_floored + 1)):
-            
-                k_indices = x_scaled_floored == k
-            
-                k_sum = (x_tilde_scaled_floored[k_indices] == k).sum()
+                
+                with warnings.catch_warnings():
+                    warnings.simplefilter(
+                        "ignore",
+                        category = scipy.sparse.SparseEfficiencyWarning
+                    )
+                    k_indices = x_scaled_floored == k
+                
                 k_size = k_indices.sum()
-            
+                
+                if isinstance(x, scipy.sparse.csr_matrix):
+                    k_indices = k_indices.tocoo()
+                    k_indices = (k_indices.row, k_indices.col)
+                
+                k_sum = (x_tilde_scaled_floored[k_indices] == k).sum()
+                
                 if k_size != 0:
                     f = k_sum / k_size
                 else:
                     f = numpy.nan
-            
+                
                 k_real = k * pow(10, l)
-            
+                
                 if l == 0:
                     k_string = str(k_real)
                 else:
                     k_real_end = min(k_max, k_real + pow(10, l) - 1)
                     k_string = "{}-{}".format(k_real, k_real_end)
-            
+                
                 count_accuracies[k_string] = f
     
     else:
         
         for k in range(k_max + 1):
             
-            k_indices = x == k
+            with warnings.catch_warnings():
+                warnings.simplefilter(
+                    "ignore",
+                    category = scipy.sparse.SparseEfficiencyWarning
+                )
+                k_indices = x == k
+            
+            k_size = k_indices.sum()
+            
+            if isinstance(x, scipy.sparse.csr_matrix):
+                k_indices = k_indices.tocoo()
+                k_indices = (k_indices.row, k_indices.col)
             
             k_sum = (x_tilde[k_indices] == k).sum()
-            k_size = k_indices.sum()
             
             if k_size != 0:
                 f = k_sum / k_size
