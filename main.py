@@ -743,7 +743,7 @@ parser.add_argument(
     "--decomposition-methods",
     type = str,
     nargs = "*",
-    default = ["SVD"],
+    default = ["PCA"],
     help = "methods use to decompose values"
 )
 parser.add_argument(

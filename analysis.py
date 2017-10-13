@@ -59,6 +59,7 @@ maximum_feature_size_for_analyses = 2000
 
 maximum_number_of_values_for_heat_maps = 5000 * 25000
 
+maximum_number_of_values_for_dense_matrix = 4e9
 maximum_number_of_features_for_t_sne = 100
 maximum_number_of_examples_for_t_sne = 50000
 number_of_pca_components_before_tsne = 32
@@ -1524,6 +1525,40 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 other_values_decomposed = other_values
                 centroids_decomposed = centroids
                 
+                if decomposition_method != "SVD" \
+                    and isinstance(values_decomposed, scipy.sparse.csr_matrix):
+                    
+                    if data_set.number_of_values > \
+                        maximum_number_of_values_for_dense_matrix:
+                        
+                        print(
+                            "The number of values for {}".format(
+                                title_with_ID),
+                            "is too large to convert from sparse matrix",
+                            "to dense array to decompose using {}.".format(
+                                decomposition_method),
+                            "Skipping."
+                        )
+                        print()
+                        continue
+                    
+                    else:
+                        print(
+                            "Converting {} from sparse matrix".format(
+                                title_with_ID),
+                            "to dense array to decompose using {}".format(
+                                decomposition_method)
+                        )
+                        conversion_time_start = time()
+                        
+                        values_decomposed = values_decomposed.A
+                        
+                        conversion_duration = time() - conversion_time_start
+                        print("{} converted ({})".format(
+                            title_with_ID.capitalize(),
+                            formatDuration(conversion_duration)
+                        ))
+                
                 if decomposition_method == "t-SNE":
                     if data_set.number_of_examples \
                         > maximum_number_of_examples_for_t_sne:
@@ -1535,7 +1570,6 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             "using {}. Skipping.".format(decomposition_method)
                         )
                         print()
-                        
                         continue
                         
                     if data_set.number_of_features > \
