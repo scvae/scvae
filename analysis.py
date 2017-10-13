@@ -612,12 +612,22 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     # Setup
     
+    print("Setting up results analyses.")
+    setup_time_start = time()
+    
     number_of_epochs_trained = loadNumberOfEpochsTrained(model,
         early_stopping = early_stopping, best_model = best_model)
     
     M = evaluation_set.number_of_examples
     
     analyses = parseAnalyses(analyses)
+    
+    ## Comparison arrays
+    
+    if "metrics" in analyses or "heat_maps" in analyses:
+        x_diff = reconstructed_evaluation_set.values - evaluation_set.values
+        x_log_ratio = numpy.log1p(reconstructed_evaluation_set.values) \
+            - numpy.log1p(evaluation_set.values)
     
     ## Directory path
     
@@ -643,6 +653,10 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
+    
+    setup_duration = time() - setup_time_start
+    print("Finished setting up ({}).".format(formatDuration(setup_duration)))
+    print()
     
     # Metrics
     
@@ -678,12 +692,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 for data_set in [evaluation_set, reconstructed_evaluation_set]
         ]
         
-        x_diff = reconstructed_evaluation_set.values - evaluation_set.values
         evaluation_set_statistics.append(statistics(numpy.abs(x_diff),
             "differences", skip_sparsity = True))
-        
-        x_log_ratio = numpy.log1p(reconstructed_evaluation_set.values) \
-            - numpy.log1p(evaluation_set.values)
         evaluation_set_statistics.append(statistics(numpy.abs(x_log_ratio),
             "log-ratios", skip_sparsity = True))
         
@@ -1010,16 +1020,6 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             analysis_level = analysis_level,
             results_directory = results_directory
         )
-    
-    # Likelihood histograms
-    # analyseDistributions(
-    #     likelihood_evaluation_set,
-    #     colouring_data_set = evaluation_set,
-    #     preprocessed = evaluation_set.preprocessing_methods,
-    #     original_maximum_count = evaluation_set_maximum_value,
-    #     analysis_level = analysis_level,
-    #     results_directory = os.path.join(results_directory, "likelihoods")
-    # )
     
     ## Reconstructions decomposed
     
