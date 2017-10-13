@@ -187,12 +187,14 @@ def analyseData(data_sets,
         
         # Distributions
         
-        analyseDistributions(
-            data_set,
-            cutoffs = default_cutoffs,
-            analysis_level = analysis_level,
-            results_directory = results_directory
-        )
+        if "distributions" in analyses:
+            
+            analyseDistributions(
+                data_set,
+                cutoffs = default_cutoffs,
+                analysis_level = analysis_level,
+                results_directory = results_directory
+            )
         
         # Heat map for data set
         
@@ -231,16 +233,18 @@ def analyseData(data_sets,
         
         # Decompositions
         
-        analyseDecompositions(
-            data_set,
-            decomposition_methods = decomposition_methods,
-            highlight_feature_indices = highlight_feature_indices,
-            symbol = "x",
-            title = "original space",
-            specifier = lambda data_set: data_set.kind,
-            analysis_level = analysis_level,
-            results_directory = results_directory
-        )
+        if "decompositions" in analyses:
+            
+            analyseDecompositions(
+                data_set,
+                decomposition_methods = decomposition_methods,
+                highlight_feature_indices = highlight_feature_indices,
+                symbol = "x",
+                title = "original space",
+                specifier = lambda data_set: data_set.kind,
+                analysis_level = analysis_level,
+                results_directory = results_directory
+            )
 
 def analyseModel(model, analyses = ["default"], analysis_level = "normal",
     for_video = False, results_directory = "results"):
