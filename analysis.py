@@ -3615,7 +3615,11 @@ def combineImagesFromDataSet(data_set, number_of_random_examples = 100, indices 
     numpy.random.seed()
     
     W, H = data_set.feature_dimensions
-    examples = data_set.values[indices].reshape(M, W, H)
+    
+    examples = data_set.values[indices]
+    if isinstance(examples, scipy.sparse.csr_matrix):
+        examples = examples.A
+    examples = examples.reshape(M, W, H)
     
     C = int(numpy.ceil(numpy.sqrt(M)))
     R = int(numpy.ceil(M / C))
