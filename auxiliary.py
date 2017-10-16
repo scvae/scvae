@@ -67,6 +67,18 @@ def properString(s, translation):
         if s in normalised_strings:
             return proper_string
 
+def enumerateListOfStrings(list_of_strings):
+    if len(list_of_strings) == 1:
+        enumerated_string = list_of_strings[0]
+    elif len(list_of_strings) == 2:
+        enumerated_string = " and ".join(list_of_strings)
+    elif len(list_of_strings) >= 3:
+        enumerated_string = "{}, and {}".format(
+            ", ".join(list_of_strings[:-1]),
+            list_of_strings[-1]
+        )
+    return enumerated_string
+
 # Loading function for TensorBoard summaries
 
 def loadNumberOfEpochsTrained(model, early_stopping = False, best_model = False):
