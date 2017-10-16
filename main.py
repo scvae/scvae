@@ -12,7 +12,10 @@ from distributions import distributions, latent_distributions
 
 from models.prediction import predict
 
-from auxiliary import title, subtitle, normaliseString
+from auxiliary import (
+    title, subtitle, chapter,
+    normaliseString, enumerateListOfStrings
+)
 
 import os
 import argparse
@@ -81,9 +84,9 @@ def main(data_set_name, data_directory = "data",
                 print("Modelling cancelled.")
                 return
     
-    # Load and split data
+    # Data
     
-    title("Loading and splitting data")
+    title("Data")
     
     binarise_values = False
     
@@ -114,7 +117,7 @@ def main(data_set_name, data_directory = "data",
     
     print()
     
-    # Set up log and results directories
+    ## Setup of log and results directories
     
     log_directory = data.directory(log_directory, data_set,
         splitting_method, splitting_fraction)
@@ -123,7 +126,7 @@ def main(data_set_name, data_directory = "data",
     results_directory = data.directory(results_directory, data_set,
         splitting_method, splitting_fraction)
     
-    # Analyse data
+    ## Data analysis
     
     if analyse and analyse_data:
         subtitle("Analysing data")
@@ -155,7 +158,7 @@ def main(data_set_name, data_directory = "data",
     number_of_importance_samples = parseSampleLists(
         number_of_importance_samples)
     
-    subtitle("Setting up model")
+    subtitle("Model setup")
     
     if model_type == "VAE":
         model = VariationalAutoencoder(
@@ -234,9 +237,9 @@ def main(data_set_name, data_directory = "data",
     print(model.parameters)
     print()
     
-    # Training
+    ## Training
     
-    subtitle("Training model")
+    subtitle("Model training")
     
     status = model.train(
         training_set, validation_set,
@@ -264,143 +267,162 @@ def main(data_set_name, data_directory = "data",
     
     print()
     
-    # Evaluating
+    # Evaluation, prediction, and analysis
+    
+    ## Setup
+    
+    if analyse:
+        if prediction_method:
+            predict_labels_using_model = False
+        elif "GM" in model.type:
+            predict_labels_using_model = True
+            prediction_method = "model"
+        else:
+            predict_labels_using_model = False
+    
+    evaluation_title_parts = ["evaluation"]
+    
+    if analyse:
+        if prediction_method:
+            evaluation_title_parts.append("prediction")
+        evaluation_title_parts.append("analysis")
+    
+    evaluation_title = enumerateListOfStrings(evaluation_title_parts)
+    
+    title(evaluation_title.capitalize())
+    
+    ### Evaluation set
     
     for data_subset in all_data_sets:
         if data_subset.kind == evaluation_set_name:
             evaluation_set = data_subset
     
+    print("Evaluation set: {} set.".format(evaluation_set.kind))
+    
+    ### Prediction method
+    
     if prediction_method:
-        predict_labels_using_model = False
-    elif "GM" in model.type:
-        predict_labels_using_model = True
-        prediction_method = "model"
-    else:
-        predict_labels_using_model = False
+        print("Prediction method: {} with {} clusters.".format(
+            prediction_method, number_of_classes))
     
-    subtitle("Evaluating on {} set".format(evaluation_set.kind))
+    ### Model parameter sets
     
-    if "VAE" in model.type:
-        transformed_evaluation_set, reconstructed_evaluation_set,\
-            latent_evaluation_sets = model.evaluate(
-                evaluation_set,
-                batch_size,
-                predict_labels_using_model
-            )
-        
-        if analysis.betterModelExists(model):
-            better_model_exist = True
-            
-            print()
-            subtitle("Evaluating on {} set with best model parameters"\
-                .format(evaluation_set.kind))
-            
-            best_model_transformed_evaluation_set, \
-                best_model_reconstructed_evaluation_set, \
-                best_model_latent_evaluation_sets = \
-                model.evaluate(evaluation_set, batch_size,
-                    predict_labels_using_model, use_best_model = True)
-        else:
-            better_model_exist = False
-        
-        if model.stopped_early:
-            print()
-            subtitle("Evaluating on {} set with earlier stopped model"\
-                .format(evaluation_set.kind))
-            
-            early_stopped_transformed_evaluation_set, \
-                early_stopped_reconstructed_evaluation_set, \
-                early_stopped_latent_evaluation_sets = \
-                model.evaluate(
-                    evaluation_set,
-                    batch_size,
-                    predict_labels_using_model,
-                    use_early_stopping_model = True
-                )
-    else:
-        transformed_evaluation_set, reconstructed_evaluation_set = \
-            model.evaluate(evaluation_set, batch_size)
-        latent_evaluation_sets = None
-        better_model_exist = False
+    model_parameter_set_names = ["end of epoch"]
+    
+    if analysis.betterModelExists(model):
+        model_parameter_set_names.append("best model")
+    
+    if model.stopped_early:
+        model_parameter_set_names.append("early stopping")
+    
+    print("Model parameter sets: {}.".format(enumerateListOfStrings(
+        model_parameter_set_names)))
     
     print()
     
-    # Prediction
-    
-    if prediction_method and not transformed_evaluation_set.has_predictions:
-        
-        title("Prediction")
-        
-        _, _, _, latent_training_sets = model.evaluate(
-            training_set, batch_size, log_results = False)
-        
-        print()
-        
-        cluster_ids, predicted_labels = predict(
-            latent_training_sets["z"],
-            latent_evaluation_sets["z"],
-            prediction_method,
-            number_of_classes
-        )
-        
-        transformed_evaluation_set.updatePredictions(cluster_ids,
-            predicted_labels)
-        reconstructed_evaluation_set.updatePredictions(cluster_ids,
-            predicted_labels)
-        
-        for variable in latent_evaluation_sets:
-            latent_evaluation_sets[variable].updatePredictions(
-                cluster_ids, predicted_labels)
-        
-        print()
-    
-    # Analysis
+    ## Model analysis
     
     if analyse:
         
-        title("Analyses")
-        
-        subtitle("Analysing model")
+        subtitle("Model analysis")
         analysis.analyseModel(model, analyses, analysis_level,
             video, results_directory)
-
-        subtitle("Analysing results for {} set".format(evaluation_set.kind))
-        analysis.analyseResults(
-            transformed_evaluation_set,
-            reconstructed_evaluation_set,
-            latent_evaluation_sets,
-            model,
-            decomposition_methods, highlight_feature_indices,
-            prediction_method = prediction_method,
-            number_of_classes = number_of_classes,
-            analyses = analyses, analysis_level = analysis_level,
-            results_directory = results_directory
-        )
+    
+    ## Results evaluation, prediction, and analysis
+    
+    for model_parameter_set_name in model_parameter_set_names:
         
-        if better_model_exist:
-            subtitle("Analysing results for {} set".format(
-                evaluation_set.kind) + " with best model parameters")
-            analysis.analyseResults(
-                best_model_transformed_evaluation_set,
-                best_model_reconstructed_evaluation_set,
-                best_model_latent_evaluation_sets,
-                model,
-                decomposition_methods, highlight_feature_indices,
-                best_model = True,
-                analyses = analyses, analysis_level = analysis_level,
-                results_directory = results_directory
+        if model_parameter_set_name == "best model":
+            use_best_model = True
+        else:
+            use_best_model = False
+        
+        if model_parameter_set_name == "early stopping":
+            use_early_stopping_model = True
+        else:
+            use_early_stopping_model = False
+        
+        model_parameter_set_name = model_parameter_set_name.capitalize()
+        subtitle(model_parameter_set_name)
+        
+        # Evaluation
+        
+        model_parameter_set_name = model_parameter_set_name.replace(" ", "-")
+        
+        chapter("{} evaluation".format(model_parameter_set_name))
+        
+        if "VAE" in model.type:
+            transformed_evaluation_set, reconstructed_evaluation_set,\
+                latent_evaluation_sets = model.evaluate(
+                    evaluation_set = evaluation_set,
+                    batch_size = batch_size,
+                    predict_labels = predict_labels_using_model,
+                    use_best_model = use_best_model,
+                    use_early_stopping_model = use_early_stopping_model
+                )
+        else:
+            transformed_evaluation_set, reconstructed_evaluation_set = \
+                model.evaluate(
+                    evaluation_set = evaluation_set,
+                    batch_size = batch_size,
+                    use_best_model = use_best_model,
+                    use_early_stopping_model = use_early_stopping_model
+                )
+            latent_evaluation_sets = None
+        
+        print()
+        
+        # Prediction
+        
+        if analyse and prediction_method \
+            and not transformed_evaluation_set.has_predictions:
+            
+            chapter("{} prediction".format(model_parameter_set_name))
+            
+            _, _, _, latent_training_sets = model.evaluate(
+                evaluation_set = training_set,
+                batch_size = batch_size,
+                use_best_model = use_best_model,
+                use_early_stopping_model = use_early_stopping_model,
+                log_results = False
             )
+            
+            print()
+            
+            cluster_ids, predicted_labels = predict(
+                latent_training_sets["z"],
+                latent_evaluation_sets["z"],
+                prediction_method,
+                number_of_classes
+            )
+            
+            transformed_evaluation_set.updatePredictions(cluster_ids,
+                predicted_labels)
+            reconstructed_evaluation_set.updatePredictions(cluster_ids,
+                predicted_labels)
+            
+            for variable in latent_evaluation_sets:
+                latent_evaluation_sets[variable].updatePredictions(
+                    cluster_ids, predicted_labels)
+            
+            print()
         
-        if model.stopped_early:
-            subtitle("Analysing results for {} set".format(
-                evaluation_set.kind) + " with earlier stopped model")
+        # Analysis
+        
+        if analyse:
+            
+            chapter("{} results analysis".format(model_parameter_set_name))
+            
             analysis.analyseResults(
-                early_stopped_transformed_evaluation_set,
-                early_stopped_reconstructed_evaluation_set,
-                early_stopped_latent_evaluation_sets,
+                transformed_evaluation_set,
+                reconstructed_evaluation_set,
+                latent_evaluation_sets,
                 model,
                 decomposition_methods, highlight_feature_indices,
-                early_stopping = True,
+                prediction_method = prediction_method,
+                number_of_classes = number_of_classes,
+                best_model = use_best_model,
+                early_stopping = use_early_stopping_model,
                 analyses = analyses, analysis_level = analysis_level,
                 results_directory = results_directory
             )
