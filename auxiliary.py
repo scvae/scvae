@@ -431,10 +431,14 @@ def underline(string, character="="):
 
 def title(string):
     """Display a bold title."""
-    print("{}\n{}\n".format(bold(string), underline(string, "≡")))
+    print("{}\n{}\n".format(bold(string), underline(string, "◼︎")))
 
 def subtitle(string):
     """Display a bold subtitle."""
+    print("{}\n{}\n".format(bold(string), underline(string, "≡")))
+
+def chapter(string):
+    """Display a bold chapter."""
     print("{}\n{}\n".format(bold(string), underline(string, "=")))
 
 def heading(string):
