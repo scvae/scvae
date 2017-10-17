@@ -1202,6 +1202,7 @@ class DataSet(object):
             split_indices = self.split_indices
         )
         
+        print()
         print("Splitting:")
         print("    method:", method)
         if method != "indices":
@@ -1971,13 +1972,88 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
 
 def loadDataDictionary(path):
     
-    with gzip.open(path, "rb") as data_file:
-        data_dictionary = pickle.load(data_file)
+    def load(tables_file, group = None):
+        
+        if not group:
+            group = tables_file.root
+        
+        data_dictionary = {}
+        
+        for node in tables_file.iter_nodes(group):
+            node_title = node._v_title
+            if node == group:
+                pass
+            elif isinstance(node, tables.Group):
+                if node_title.endswith("set"):
+                    data_dictionary[node_title] = load(
+                        tables_file, group = node)
+                elif node_title.endswith("values"):
+                    data_dictionary[node_title] = loadSparseMatrix(
+                        tables_file, group = node)
+                elif node_title == "split indices":
+                    data_dictionary[node_title] = loadSplitIndices(
+                        tables_file, group = node)
+                else:
+                    raise NotImplementedError(
+                        "Loading group `{}` not implemented.".format(node_path)
+                    )
+            elif isinstance(node, tables.Array):
+                data_dictionary[node_title] = loadArrayAsOtherType(node)
+            else:
+                raise NotImplementedError(
+                    "Loading node `{}` not implemented.".format(node_path)
+                )
+        
+        return data_dictionary
+    
+    start_time = time()
+    
+    with tables.open_file(path, "r") as tables_file:
+        data_dictionary = load(tables_file)
     
     duration = time() - start_time
     print("Data loaded ({}).".format(formatDuration(duration)))
     
     return data_dictionary
+
+def loadArrayAsOtherType(node):
+    
+    value = node.read()
+    
+    if value.dtype.char == "S":
+        value = value.astype("unicode")
+    
+    elif value.dtype == numpy.uint8:
+        value = value.tostring().decode("UTF-8")
+        
+        if value == "None":
+            value = None
+    
+    return value
+
+def loadSparseMatrix(tables_file, group):
+    
+    arrays = {}
+    
+    for array in tables_file.iter_nodes(group, "Array"):
+        arrays[array.title] = array.read()
+    
+    sparse_matrix = scipy.sparse.csr_matrix(
+        (arrays["data"], arrays["indices"], arrays["indptr"]),
+        shape = arrays["shape"]
+    )
+    
+    return sparse_matrix
+
+def loadSplitIndices(tables_file, group):
+    
+    split_indices = {}
+    
+    for array in tables_file.iter_nodes(group, "Array"):
+        start, stop = array.read()
+        split_indices[array.title] = slice(start, stop)
+    
+    return split_indices
 
 def saveDataDictionary(data_dictionary, path):
     
