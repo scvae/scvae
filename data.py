@@ -33,7 +33,7 @@ from analysis import lighter_palette, createLabelSorter
 
 preprocess_suffix = "preprocessed"
 original_suffix = "original"
-preprocessed_extension = ".sparse.pkl.gz"
+preprocessed_extension = ".sparse.h5"
 
 maximum_duration_before_saving = 30 # seconds
 
@@ -929,7 +929,7 @@ class DataSet(object):
         
         if os.path.isfile(sparse_path):
             print("Loading data set.")
-            data_dictionary = loadData(sparse_path)
+            data_dictionary = loadDataDictionary(sparse_path)
         else:
             original_paths = downloadDataSet(self.title, self.original_directory)
             
@@ -947,7 +947,7 @@ class DataSet(object):
                     os.makedirs(self.preprocess_directory)
                 
                 print("Saving data set.")
-                saveData(data_dictionary, sparse_path)
+                saveDataDictionary(data_dictionary, sparse_path)
                 
                 print()
         
@@ -1007,7 +1007,7 @@ class DataSet(object):
         
         if os.path.isfile(sparse_path):
             print("Loading preprocessed data.")
-            data_dictionary = loadData(sparse_path)
+            data_dictionary = loadDataDictionary(sparse_path)
             data_dictionary["preprocessed values"] = self.values
         else:
             
@@ -1090,7 +1090,7 @@ class DataSet(object):
                     os.makedirs(self.preprocess_directory)
             
                 print("Saving preprocessed data set.")
-                saveData(data_dictionary, sparse_path)
+                saveDataDictionary(data_dictionary, sparse_path)
         
         values = data_dictionary["values"]
         preprocessed_values = data_dictionary["preprocessed values"]
@@ -1136,7 +1136,7 @@ class DataSet(object):
         
         if os.path.isfile(sparse_path):
             print("Loading binarised data.")
-            data_dictionary = loadData(sparse_path)
+            data_dictionary = loadDataDictionary(sparse_path)
         
         else:
             
@@ -1172,7 +1172,7 @@ class DataSet(object):
                     os.makedirs(self.preprocess_directory)
                 
                 print("Saving binarised data set.")
-                saveData(data_dictionary, sparse_path)
+                saveDataDictionary(data_dictionary, sparse_path)
         
         binarised_values = SparseRowMatrix(binarised_values)
         
@@ -1210,7 +1210,7 @@ class DataSet(object):
         
         if os.path.isfile(sparse_path):
             print("Loading split data sets.")
-            split_data_dictionary = loadData(sparse_path)
+            split_data_dictionary = loadDataDictionary(sparse_path)
         
         else:
             
@@ -1235,7 +1235,7 @@ class DataSet(object):
                     os.makedirs(self.preprocess_directory)
                 
                 print("Saving split data sets.")
-                saveData(split_data_dictionary, sparse_path)
+                saveDataDictionary(split_data_dictionary, sparse_path)
         
         for data_subset in split_data_dictionary:
             for data_subset_key in split_data_dictionary[data_subset]:
@@ -1969,9 +1969,7 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
     
     return split_data_dictionary
 
-def loadData(path):
-    
-    start_time = time()
+def loadDataDictionary(path):
     
     with gzip.open(path, "rb") as data_file:
         data_dictionary = pickle.load(data_file)
@@ -1981,15 +1979,80 @@ def loadData(path):
     
     return data_dictionary
 
-def saveData(data_dictionary, path):
+def saveDataDictionary(data_dictionary, path):
+    
+    def save(data_dictionary, tables_file, group_title = None):
+        
+        if group_title:
+            group = tables_file.create_group("/",
+                normaliseString(group_title), group_title)
+        else:
+            group = tables_file.root
+        
+        for title, value in data_dictionary.items():
+            
+            if isinstance(value, scipy.sparse.csr_matrix):
+                saveSparseMatrix(value, title, group, tables_file)
+            elif isinstance(value, numpy.ndarray):
+                saveArray(value, title, group, tables_file)
+            elif title == "split indices":
+                saveSplitIndices(value, title, group, tables_file)
+            elif value is None:
+                saveString(str(value), title, group, tables_file)
+            elif title.endswith("set"):
+                save(value, tables_file, group_title = title)
+            else:
+                raise NotImplementedError(
+                    "Saving type {} for title \"{}\" not implemented.".format(
+                        type(value), title)
+                )
     
     start_time = time()
     
-    with gzip.open(path, "wb") as data_file:
-        pickle.dump(data_dictionary, data_file)
+    filters = tables.Filters(complib = "zlib", complevel = 5)
+    
+    with tables.open_file(path, "w", filters = filters) as tables_file:
+        save(data_dictionary, tables_file)
     
     duration = time() - start_time
     print("Data saved ({}).".format(formatDuration(duration)))
+
+def saveArray(array, title, group, tables_file):
+    name = normaliseString(title)
+    if array.dtype.char == "U":
+        array = numpy.array([s.encode("UTF-8") for s in array.tolist()])
+    atom = tables.Atom.from_dtype(array.dtype)
+    data_store = tables_file.create_carray(
+        group,
+        name,
+        atom,
+        array.shape,
+        title
+    )
+    data_store[:] = array
+
+def saveString(string, title, group, tables_file):
+    encoded_string = numpy.fromstring(string.encode('UTF-8'), numpy.uint8)
+    saveArray(encoded_string, title, group, tables_file)
+
+def saveSparseMatrix(sparse_matrix, title, group, tables_file):
+    
+    name = normaliseString(title)
+    group = tables_file.create_group(group, name, title)
+    
+    for attribute in ("data", "indices", "indptr", "shape"):
+        array = numpy.array(getattr(sparse_matrix, attribute))
+        saveArray(array, attribute, group, tables_file)
+
+def saveSplitIndices(split_indices, title, group, tables_file):
+    
+    name = normaliseString(title)
+    group = tables_file.create_group(group, name, title)
+    
+    for subset_name, subset_slice in split_indices.items():
+        subset_slice_array = numpy.array(
+            [subset_slice.start, subset_slice.stop])
+        saveArray(subset_slice_array, subset_name, group, tables_file)
 
 def loadMouseRetinaDataSet(paths):
     
@@ -2495,7 +2558,7 @@ def loadWeights(data, method, preprocessPath):
     
     if weights_path and os.path.isfile(weights_path):
         print("Loading weights from.")
-        weights_dictionary = loadData(weights_path)
+        weights_dictionary = loadDataDictionary(weights_path)
     else:
         if method == "gini":
             weights = computeGiniIndices(data)
@@ -2506,7 +2569,7 @@ def loadWeights(data, method, preprocessPath):
         
         if weights_path:
             print("Saving weights.")
-            saveData(weights_dictionary, weights_path)
+            saveDataDictionary(weights_dictionary, weights_path)
     
     return weights_dictionary["weights"]
 
