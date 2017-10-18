@@ -1348,6 +1348,12 @@ def dataSetFromJSONFile(json_path):
     
     title = data_set["title"]
     
+    data_set["URLs"] = {
+        "values": {
+            "full": data_set["values"]
+        }
+    }
+    
     if "loading function" in data_set:
         loading_function_string = data_set["loading function"]
     else:
