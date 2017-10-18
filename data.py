@@ -799,6 +799,22 @@ class DataSet(object):
         return class_probabilities
     
     @property
+    def has_values(self):
+        return self.values is not None
+    
+    @property
+    def has_preprocessed_values(self):
+        return self.preprocessed_values is not None
+    
+    @property
+    def has_binarised_values(self):
+        return self.binarised_values is not None
+    
+    @property
+    def has_labels(self):
+        return self.labels is not None
+    
+    @property
     def has_predictions(self):
         return self.has_predicted_labels or self.has_predicted_cluster_ids
     
@@ -850,8 +866,6 @@ class DataSet(object):
         
         if labels is not None:
             
-            self.has_labels = True
-            
             self.labels = labels
             
             if class_names is not None:
@@ -885,9 +899,6 @@ class DataSet(object):
                     self.superset_class_id_to_superset_class_name[i] = class_name
                 
                 self.number_of_superset_classes = len(self.superset_class_names)
-        
-        else:
-            self.has_labels = False
         
         if total_standard_deviations is not None:
             self.total_standard_deviations = total_standard_deviations
@@ -994,7 +1005,7 @@ class DataSet(object):
         
         if not self.preprocessing_methods and not self.feature_selection \
             and not self.example_filter:
-            self.update(preprocessed_values = self.values)
+            self.update(preprocessed_values = None)
             return
         
         sparse_path = self.preprocessedPath(

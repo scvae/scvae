@@ -1019,9 +1019,13 @@ class GaussianMixtureVariationalAutoencoder(object):
         
         if not noisy_preprocess:
             
-            x_train = training_set.preprocessed_values
-            x_valid = validation_set.preprocessed_values
-        
+            if training_set.has_preprocessed_values:
+                x_train = training_set.preprocessed_values
+                x_valid = validation_set.preprocessed_values
+            else:
+                x_train = training_set.values
+                x_valid = validation_set.values
+            
             if self.reconstruction_distribution_name == "bernoulli":
                 t_train = training_set.binarised_values
                 t_valid = validation_set.binarised_values
@@ -1162,10 +1166,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                     print("Noisily preprocess values.")
                     noisy_time_start = time()
                     x_train = noisy_preprocess(
-                        training_set.preprocessed_values)
+                        training_set.values)
                     t_train = x_train
                     x_valid = noisy_preprocess(
-                        validation_set.preprocessed_values)
+                        validation_set.values)
                     t_valid = x_valid
                     noisy_duration = time() - noisy_time_start
                     print("Values noisily preprocessed ({}).".format(
@@ -1740,8 +1744,11 @@ class GaussianMixtureVariationalAutoencoder(object):
         
         if not noisy_preprocess:
             
-            x_eval = evaluation_set.preprocessed_values
-        
+            if evaluation_set.has_preprocessed_values:
+                x_eval = evaluation_set.preprocessed_values
+            else:
+                x_eval = evaluation_set.values
+            
             if self.reconstruction_distribution_name == "bernoulli":
                 t_eval = evaluation_set.binarised_values
             else:
@@ -1750,7 +1757,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         else:
             print("Noisily preprocess values.")
             noisy_time_start = time()
-            x_eval = noisy_preprocess(evaluation_set.preprocessed_values)
+            x_eval = noisy_preprocess(evaluation_set.values)
             t_eval = x_eval
             noisy_duration = time() - noisy_time_start
             print("Values noisily preprocessed ({}).".format(
