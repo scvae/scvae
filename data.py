@@ -12,7 +12,6 @@ from bs4 import BeautifulSoup
 
 import pandas
 import tables
-import csv
 import json
 
 import numpy
@@ -2140,7 +2139,7 @@ def saveSplitIndices(split_indices, title, group, tables_file):
 def loadMouseRetinaDataSet(paths):
     
     values, column_headers, row_indices = \
-        loadZippedTabSeparatedValues(paths["values"]["full"], numpy.float32)
+        loadTabSeparatedValues(paths["values"]["full"], numpy.float32)
     
     values = values.T
     example_names = numpy.array(column_headers)
@@ -2215,7 +2214,7 @@ def load10xDataSet(paths):
 def loadTCGAKallistoDataSet(paths):
     
     values, column_headers, row_indices = \
-        loadZippedTabSeparatedValues(paths["values"]["full"], numpy.float32)
+        loadTabSeparatedValues(paths["values"]["full"], numpy.float32)
     
     values = values.T
     values = numpy.round(numpy.power(2, values) - 1)
@@ -2236,7 +2235,7 @@ def loadTCGAKallistoDataSet(paths):
 def loadMatrixAsDataSet(paths, transpose = True):
     
     values, column_headers, row_indices = \
-        loadZippedTabSeparatedValues(paths["values"]["full"], numpy.float32)
+        loadTabSeparatedValues(paths["values"]["full"], numpy.float32)
     
     if transpose:
         values = values.T
@@ -2255,17 +2254,30 @@ def loadMatrixAsDataSet(paths, transpose = True):
     
     return data_dictionary
 
-def loadZippedTabSeparatedValues(tsv_path, data_type = None):
+def loadTabSeparatedValues(tsv_path, data_type = None):
+    
+    tsv_extension = tsv_path.split(os.extsep, 1)[-1]
+    
+    if tsv_extension == "tsv":
+        openFile = lambda path: open(path, "rt")
+    elif tsv_extension.endswith("gz"):
+        openFile = lambda path: gzip(path, "rt")
+    else:
+        raise NotImplementedError(
+            "Loading from file with extension `{}` not implemented.".format(
+                tsv_extension)
+        )
     
     values = []
     row_indices = []
     
-    with gzip.open(tsv_path, "rt") as tsv_file:
+    with openFile(tsv_path) as tsv_file:
         
-        tsv_reader = csv.reader(tsv_file, dialect = "unix", delimiter = "\t")
-        column_headers = next(tsv_reader)[1:]
+        column_headers = next(tsv_file).split()[1:]
         
-        for row in tsv_reader:
+        for row in tsv_file:
+            row = row.split()
+            
             row_index = row[0]
             row_indices.append(row_index)
             
