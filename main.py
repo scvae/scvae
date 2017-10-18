@@ -84,10 +84,6 @@ def main(data_set_name, data_directory = "data",
                 print("Modelling cancelled.")
                 return
     
-    # Data
-    
-    title("Data")
-    
     binarise_values = False
     
     if reconstruction_distribution == "bernoulli":
@@ -98,6 +94,10 @@ def main(data_set_name, data_directory = "data",
                     "because of the Bernoulli distribution.\n")
         else:
             binarise_values = True
+    
+    # Data
+    
+    title("Data")
     
     data_set = data.DataSet(
         data_set_name,
@@ -191,9 +191,9 @@ def main(data_set_name, data_directory = "data",
         if prior_probabilities_method == "uniform":
             prior_probabilities = None
         elif prior_probabilities_method == "infer":
-            prior_probabilities = data_set.class_probabilities
+            prior_probabilities = training_set.class_probabilities
         elif prior_probabilities_method == "literature":
-            prior_probabilities = data_set.literature_probabilities
+            prior_probabilities = training_set.literature_probabilities
         else:
             prior_probabilities = None
         
@@ -279,6 +279,8 @@ def main(data_set_name, data_directory = "data",
             prediction_method = "model"
         else:
             predict_labels_using_model = False
+    else:
+        predict_labels_using_model = False
     
     evaluation_title_parts = ["evaluation"]
     
