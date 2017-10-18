@@ -45,8 +45,6 @@ data_sets = {
             "type": "count",
             "item": "transcript"
         },
-        "split": False,
-        "preprocessing methods": None,
         "URLs": {
             "values": {
                 "full": "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE63nnn/GSE63472/suppl/GSE63472_P14Retina_merged_digital_expression.txt.gz"
@@ -186,28 +184,6 @@ data_sets = {
         }
     },
     
-    "10x ARC LIRA": {
-        "tags": {
-            "example": "cell",
-            "feature": "gene",
-            "type": "count",
-            "item": "transcript"
-        },
-        "split": False,
-        "preprocessing methods": None,
-        "URLs": {
-            "values": {
-                "full": ".h5"
-            },
-            "labels": {
-                "full": ".csv"
-            }
-        },
-        "load function": lambda x: load10xDataSet(x),
-        "example type": "counts",
-        "label superset": "infer"
-    },
-    
     "10x 20k": {
         "tags": {
             "example": "cell",
@@ -215,8 +191,6 @@ data_sets = {
             "type": "count",
             "item": "transcript"
         },
-        "split": False,
-        "preprocessing methods": None,
         "URLs": {
             "values": {
                 "full": "http://cf.10xgenomics.com/samples/cell-exp/1.3.0/1M_neurons/1M_neurons_neuron20k.h5"
@@ -236,8 +210,6 @@ data_sets = {
             "type": "count",
             "item": "transcript"
         },
-        "split": False,
-        "preprocessing methods": None,
         "URLs": {
             "values": {
                 "full": "http://cf.10xgenomics.com/samples/cell-exp/1.3.0/1M_neurons/1M_neurons_filtered_gene_bc_matrices_h5.h5"
@@ -257,8 +229,6 @@ data_sets = {
             "type": "count",
             "item": "transcript"
         },
-        "split": False,
-        "preprocessing methods": None,
         "URLs": {
             "values": {
                 "full": "https://toil.xenahubs.net/download/tcga_Kallisto_est_counts.gz"
@@ -278,8 +248,6 @@ data_sets = {
             "type": "count",
             "item": "intensity"
         },
-        "split": ["training", "test"],
-        "preprocessing methods": None,
         "URLs": {
             "values": {
                     "training":
@@ -307,8 +275,6 @@ data_sets = {
             "type": "value",
             "item": "intensity"
         },
-        "split": ["training", "validation", "test"],
-        "preprocessing methods": None,
         "URLs": {
             "all": {
                     "full": "http://deeplearning.net/data/mnist/mnist.pkl.gz"
@@ -327,7 +293,6 @@ data_sets = {
             "type": "value",
             "item": "intensity"
         },
-        "split": ["training", "validation", "test"],
         "preprocessing methods": ["binarise"],
         "URLs": {
             "values": {
@@ -357,8 +322,6 @@ data_sets = {
             "type": "count",
             "item": "word"
         },
-        "split": False,
-        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full": "http://www.daviddlewis.com/resources/testcollections/reuters21578/reuters21578.tar.gz"
@@ -374,8 +337,6 @@ data_sets = {
             "type": "count",
             "item": "word"
         },
-        "split": ["training", "test"],
-        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full":
@@ -387,8 +348,6 @@ data_sets = {
     },
     
     "blobs": {
-        "split": False,
-        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full": "http://people.compute.dtu.dk/maxvo/datasets/blobs.pkl.gz"
@@ -399,8 +358,6 @@ data_sets = {
     },
     
     "circles": {
-        "split": False,
-        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full": "http://people.compute.dtu.dk/maxvo/datasets/circles.pkl.gz"
@@ -411,8 +368,6 @@ data_sets = {
     },
     
     "moons": {
-        "split": False,
-        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full": "http://people.compute.dtu.dk/maxvo/datasets/moons.pkl.gz"
@@ -423,8 +378,6 @@ data_sets = {
     },
     
     "sample": {
-        "split": False,
-        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full": "http://people.compute.dtu.dk/chegr/data-sets/count_samples.pkl.gz"
@@ -435,8 +388,6 @@ data_sets = {
     },
     
     "sample (sparse)": {
-        "split": False,
-        "preprocessing methods": None,
         "URLs": {
             "all": {
                 "full": "http://people.compute.dtu.dk/chegr/data-sets/count_samples_sparse.pkl.gz"
@@ -447,8 +398,6 @@ data_sets = {
     },
     
     "development": {
-        "split": False,
-        "preprocessing methods": None,
         "URLs": {},
         "load function": lambda x: loadDevelopmentDataSet(
             number_of_examples = 10000,
@@ -1480,7 +1429,10 @@ def dataSetExcludedSupersetClasses(title):
         return []
 
 def dataSetPreprocessingMethods(title):
-    return data_sets[title]["preprocessing methods"]
+    if "preprocessing methods" in data_sets[title]:
+        return data_sets[title]["preprocessing methods"]
+    else:
+        return None
 
 def downloadDataSet(title, directory):
     
