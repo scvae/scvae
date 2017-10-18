@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 import pandas
 import tables
 import csv
+import json
 
 import numpy
 import scipy.sparse
@@ -53,7 +54,7 @@ data_sets = {
                 "full": "http://mccarrolllab.com/wp-content/uploads/2015/05/retina_clusteridentities.txt"
             }
         },
-        "load function": lambda x: loadMouseRetinaDataSet(x),
+        "loading function": lambda x: loadMouseRetinaDataSet(x),
         "example type": "counts",
         "class palette": {
              0: (0., 0., 0.),
@@ -199,7 +200,7 @@ data_sets = {
                 "full": None
             }
         },
-        "load function": lambda x: load10xDataSet(x),
+        "loading function": lambda x: load10xDataSet(x),
         "example type": "counts"
     },
     
@@ -218,7 +219,7 @@ data_sets = {
                 "full": None
             }
         },
-        "load function": lambda x: load10xDataSet(x),
+        "loading function": lambda x: load10xDataSet(x),
         "example type": "counts"
     },
     
@@ -237,7 +238,7 @@ data_sets = {
                 "full": None
             }
         },
-        "load function": lambda x: loadTCGAKallistoDataSet(x),
+        "loading function": lambda x: loadTCGAKallistoDataSet(x),
         "example type": "counts"
     },
     
@@ -262,7 +263,7 @@ data_sets = {
                         "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz"
             },
         },
-        "load function": lambda x: loadMNISTDataSet(x),
+        "loading function": lambda x: loadMNISTDataSet(x),
         "maximum value": 255,
         "example type": "images",
         "feature dimensions": (28, 28)
@@ -280,7 +281,7 @@ data_sets = {
                     "full": "http://deeplearning.net/data/mnist/mnist.pkl.gz"
             }
         },
-        "load function": lambda x: loadNormalisedMNISTDataSet(x),
+        "loading function": lambda x: loadNormalisedMNISTDataSet(x),
         "maximum value": 1,
         "example type": "images",
         "feature dimensions": (28, 28)
@@ -309,7 +310,7 @@ data_sets = {
                     "test": None
             },
         },
-        "load function": lambda x: loadBinarisedMNISTDataSet(x),
+        "loading function": lambda x: loadBinarisedMNISTDataSet(x),
         "maximum value": 1,
         "example type": "images",
         "feature dimensions": (28, 28)
@@ -327,7 +328,7 @@ data_sets = {
                 "full": "http://www.daviddlewis.com/resources/testcollections/reuters21578/reuters21578.tar.gz"
             }
         },
-        "load function": lambda x: loadReutersDataSet(x)
+        "loading function": lambda x: loadReutersDataSet(x)
     },
     
     "20 Newsgroups": {
@@ -343,7 +344,7 @@ data_sets = {
                     "http://qwone.com/~jason/20Newsgroups/20news-bydate.tar.gz"
             }
         },
-        "load function": lambda x: load20NewsgroupsDataSet(x),
+        "loading function": lambda x: load20NewsgroupsDataSet(x),
         "example type": "counts"
     },
     
@@ -353,7 +354,7 @@ data_sets = {
                 "full": "http://people.compute.dtu.dk/maxvo/datasets/blobs.pkl.gz"
             }
         },
-        "load function": lambda x: loadSampleDataSet(x),
+        "loading function": lambda x: loadSampleDataSet(x),
         "example type": "dummy"
     },
     
@@ -363,7 +364,7 @@ data_sets = {
                 "full": "http://people.compute.dtu.dk/maxvo/datasets/circles.pkl.gz"
             }
         },
-        "load function": lambda x: loadSampleDataSet(x),
+        "loading function": lambda x: loadSampleDataSet(x),
         "example type": "dummy"
     },
     
@@ -373,7 +374,7 @@ data_sets = {
                 "full": "http://people.compute.dtu.dk/maxvo/datasets/moons.pkl.gz"
             }
         },
-        "load function": lambda x: loadSampleDataSet(x),
+        "loading function": lambda x: loadSampleDataSet(x),
         "example type": "dummy"
     },
     
@@ -383,7 +384,7 @@ data_sets = {
                 "full": "http://people.compute.dtu.dk/chegr/data-sets/count_samples.pkl.gz"
             }
         },
-        "load function": lambda x: loadSampleDataSet(x),
+        "loading function": lambda x: loadSampleDataSet(x),
         "example type": "counts"
     },
     
@@ -393,13 +394,13 @@ data_sets = {
                 "full": "http://people.compute.dtu.dk/chegr/data-sets/count_samples_sparse.pkl.gz"
             }
         },
-        "load function": lambda x: loadSampleDataSet(x),
+        "loading function": lambda x: loadSampleDataSet(x),
         "example type": "counts"
     },
     
     "development": {
         "URLs": {},
-        "load function": lambda x: loadDevelopmentDataSet(
+        "loading function": lambda x: loadDevelopmentDataSet(
             number_of_examples = 10000,
             number_of_features = 5 * 5,
             scale = 10,
@@ -505,8 +506,8 @@ class DataSet(object):
         # Name of data set
         self.name = normaliseString(name)
         
-        # Title (proper name) of data set
-        self.title = dataSetTitle(self.name)
+        # Find data set
+        self.title = findDataSet(self.name, directory)
         
         # Tags (with names for examples, feature, and values) of data set
         self.tags = dataSetTags(self.title)
@@ -1322,18 +1323,61 @@ class SparseRowMatrix(scipy.sparse.csr_matrix):
             N = numpy.prod(self.shape)
             return var * N / (N - ddof)
 
-def dataSetTitle(name):
+def findDataSet(name, directory):
     
     title = None
         
-    for data_set in data_sets:
-        if normaliseString(data_set) == name:
-            title = data_set
+    for data_set_title in data_sets:
+        if normaliseString(data_set_title) == name:
+            title = data_set_title
+    
+    if not title:
+        json_path = os.path.join(directory, name, name + ".json")
+        if os.path.exists(json_path):
+            title, data_set = dataSetFromJSONFile(json_path)
+            data_sets[title] = data_set
     
     if not title:
         raise KeyError("Data set not found.")
     
     return title
+
+def dataSetFromJSONFile(json_path):
+    
+    with open(json_path, "r") as json_file:
+        data_set = json.load(json_file)
+    
+    title = data_set["title"]
+    
+    if "loading function" in data_set:
+        loading_function_string = data_set["loading function"]
+    else:
+        loading_function_string = title
+    
+    data_set["loading function"] = loadingFunction(loading_function_string)
+    
+    return title, data_set
+
+loading_functions = {
+    "default": lambda x: loadMatrixAsDataSet(x, transpose = False),
+    "transpose": lambda x: loadMatrixAsDataSet(x, transpose = True),
+    "10x": lambda x: load10xDataSet(x)
+}
+
+def loadingFunction(search_string):
+    
+    search_string = normaliseString(search_string)
+    
+    data_set_loading_function = None
+    
+    for loading_function_name, loading_function in loading_functions.items():
+        if loading_function_name in search_string:
+            data_set_loading_function = loading_function
+    
+    if not data_set_loading_function:
+        data_set_loading_function = loading_functions["default"]
+    
+    return data_set_loading_function
 
 def dataSetTags(title):
     if "tags" in data_sets[title]:
@@ -1357,7 +1401,7 @@ def dataSetExampleType(title):
     if "example type" in data_sets[title]:
         return data_sets[title]["example type"]
     else:
-        return None
+        return "unknown"
 
 def dataSetMaximumValue(title):
     if "maximum value" in data_sets[title]:
@@ -1490,7 +1534,7 @@ def loadOriginalDataSet(title, paths):
     print("Loading original data set.")
     loading_time_start = time()
     
-    data_dictionary = data_sets[title]["load function"](paths)
+    data_dictionary = data_sets[title]["loading function"](paths)
     
     loading_duration = time() - loading_time_start
     print("Original data set loaded ({}).".format(formatDuration(
@@ -2179,6 +2223,28 @@ def loadTCGAKallistoDataSet(paths):
     
     example_names = numpy.array(column_headers)
     feature_names = numpy.array(row_indices)
+    
+    data_dictionary = {
+        "values": values,
+        "labels": None,
+        "example names": example_names,
+        "feature names": feature_names
+    }
+    
+    return data_dictionary
+
+def loadMatrixAsDataSet(paths, transpose = True):
+    
+    values, column_headers, row_indices = \
+        loadZippedTabSeparatedValues(paths["values"]["full"], numpy.float32)
+    
+    if transpose:
+        values = values.T
+        example_names = numpy.array(column_headers)
+        feature_names = numpy.array(row_indices)
+    else:
+        example_names = numpy.array(row_indices)
+        feature_names = numpy.array(column_headers)
     
     data_dictionary = {
         "values": values,
