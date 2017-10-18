@@ -1282,7 +1282,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     z_KL = numpy.zeros(self.latent_size)
                 
                 for i in range(0, M_train, batch_size):
-                    subset = slice(i, (i + batch_size))
+                    subset = slice(i, min(i + batch_size, M_train))
                     x_batch = x_train[subset].toarray()
                     t_batch = t_train[subset].toarray()
                     feed_dict_batch = {
@@ -1421,7 +1421,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     numpy.float32)
 
                 for i in range(0, M_valid, batch_size):
-                    subset = slice(i, (i + batch_size))
+                    subset = slice(i, min(i + batch_size, M_valid))
                     x_batch = x_valid[subset].toarray()
                     t_batch = t_valid[subset].toarray()
                     feed_dict_batch = {
@@ -1858,7 +1858,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             y_mean_eval = numpy.zeros((M_eval, self.K), numpy.float32)
 
             for i in range(0, M_eval, batch_size):
-                subset = slice(i, (i + batch_size))
+                subset = slice(i, min(i + batch_size, M_eval))
                 x_batch = x_eval[subset].toarray()
                 t_batch = t_eval[subset].toarray()
                 feed_dict_batch = {
