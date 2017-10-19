@@ -19,7 +19,6 @@ from auxiliary import (
 
 import os
 import argparse
-import json
 import itertools
 import random
 
@@ -376,12 +375,12 @@ def main(data_set_name, data_directory = "data",
         
         # Prediction
         
-        if analyse and prediction_method \
+        if analyse and "VAE" in model.type and prediction_method \
             and not transformed_evaluation_set.has_predictions:
             
             chapter("{} prediction".format(model_parameter_set_name))
             
-            _, _, _, latent_training_sets = model.evaluate(
+            _, _, latent_training_sets = model.evaluate(
                 evaluation_set = training_set,
                 batch_size = batch_size,
                 use_best_model = use_best_model,
