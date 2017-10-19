@@ -1810,47 +1810,6 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             )
                         )
                     
-                    if colouring_data_set.has_predicted_cluster_ids:
-                        plot_time_start = time()
-                        
-                        figure, figure_name = plotValues(
-                            plot_values_decomposed,
-                            colour_coding = "predicted cluster IDs",
-                            colouring_data_set = colouring_data_set,
-                            centroids = centroids_decomposed,
-                            figure_labels = figure_labels,
-                            axis_limits = axis_limits,
-                            example_tag = data_set.tags["example"],
-                            name = plot_name,
-                            **remaining_arguments
-                        )
-                        saveFigure(figure, figure_name, decompositions_directory)
-                    
-                        plot_duration = time() - plot_time_start
-                        print("    " +
-                            "{} (with predicted cluster IDs) plotted and saved ({})."\
-                                .format(
-                                    title_with_ID.capitalize(),
-                                    formatDuration(plot_duration)
-                            )
-                        )
-                    
-                    if colouring_data_set.has_predicted_labels:
-                        plot_time_start = time()
-                        
-                        figure, figure_name = plotValues(
-                            plot_values_decomposed,
-                            colour_coding = "predicted labels",
-                            colouring_data_set = colouring_data_set,
-                            centroids = centroids_decomposed,
-                            figure_labels = figure_labels,
-                            axis_limits = axis_limits,
-                            example_tag = data_set.tags["example"],
-                            name = plot_name,
-                            **remaining_arguments
-                        )
-                        saveFigure(figure, figure_name, decompositions_directory)
-                    
                         plot_duration = time() - plot_time_start
                         print("    " +
                             "{} (with predicted labels) plotted and saved ({})."\
@@ -1915,9 +1874,52 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                                         title_with_ID.capitalize(),
                                         formatDuration(plot_duration)
                             ))
-        
+                
+                ## Predictions
+                
+                if colouring_data_set.has_predicted_cluster_ids:
+                    plot_time_start = time()
+                    
+                    figure, figure_name = plotValues(
+                        plot_values_decomposed,
+                        colour_coding = "predicted cluster IDs",
+                        colouring_data_set = colouring_data_set,
+                        centroids = centroids_decomposed,
+                        figure_labels = figure_labels,
+                        axis_limits = axis_limits,
+                        example_tag = data_set.tags["example"],
+                        name = plot_name,
+                        **remaining_arguments
+                    )
+                    saveFigure(figure, figure_name, decompositions_directory)
+                
+                    plot_duration = time() - plot_time_start
+                    print("    " +
+                        "{} (with predicted cluster IDs) plotted and saved ({})."\
+                            .format(
+                                title_with_ID.capitalize(),
+                                formatDuration(plot_duration)
+                        )
+                    )
+                
+                if colouring_data_set.has_predicted_labels:
+                    plot_time_start = time()
+                    
+                    figure, figure_name = plotValues(
+                        plot_values_decomposed,
+                        colour_coding = "predicted labels",
+                        colouring_data_set = colouring_data_set,
+                        centroids = centroids_decomposed,
+                        figure_labels = figure_labels,
+                        axis_limits = axis_limits,
+                        example_tag = data_set.tags["example"],
+                        name = plot_name,
+                        **remaining_arguments
+                    )
+                    saveFigure(figure, figure_name, decompositions_directory)
+                
                 # Count sum
-        
+                
                 plot_time_start = time()
         
                 figure, figure_name = plotValues(
