@@ -626,7 +626,9 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     ## Comparison arrays
     
-    if "metrics" in analyses or "heat_maps" in analyses:
+    if "metrics" in analyses or "heat_maps" in analyses \
+        and analysis_level == "extensive":
+        
         x_diff = reconstructed_evaluation_set.values - evaluation_set.values
         x_log_ratio = numpy.log1p(reconstructed_evaluation_set.values) \
             - numpy.log1p(evaluation_set.values)
@@ -694,10 +696,11 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 for data_set in [evaluation_set, reconstructed_evaluation_set]
         ]
         
-        evaluation_set_statistics.append(statistics(numpy.abs(x_diff),
-            "differences", skip_sparsity = True))
-        evaluation_set_statistics.append(statistics(numpy.abs(x_log_ratio),
-            "log-ratios", skip_sparsity = True))
+        if analysis_level == "extensive":
+            evaluation_set_statistics.append(statistics(numpy.abs(x_diff),
+                "differences", skip_sparsity = True))
+            evaluation_set_statistics.append(statistics(numpy.abs(x_log_ratio),
+                "log-ratios", skip_sparsity = True))
         
         if evaluation_set.values.max() > 20:
             count_accuracy_method = "orders of magnitude"
@@ -1097,43 +1100,45 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         ## Differences
         
-        heat_maps_time_start = time()
-        
-        figure, figure_name = plotHeatMap(
-            x_diff,
-            labels = reconstructed_evaluation_set.labels,
-            x_name = evaluation_set.tags["feature"].capitalize() + "s",
-            y_name = evaluation_set.tags["example"].capitalize() + "s",
-            z_name = "Differences",
-            z_symbol = "\\tilde{{x}} - x",
-            name = "difference",
-            center = 0
-        )
-        saveFigure(figure, figure_name, heat_maps_directory)
-        
-        heat_maps_duration = time() - heat_maps_time_start
-        print("    Difference heat map plotted and saved ({})." \
-            .format(formatDuration(heat_maps_duration)))
+        if analysis_level == "extensive":
+            heat_maps_time_start = time()
+            
+            figure, figure_name = plotHeatMap(
+                x_diff,
+                labels = reconstructed_evaluation_set.labels,
+                x_name = evaluation_set.tags["feature"].capitalize() + "s",
+                y_name = evaluation_set.tags["example"].capitalize() + "s",
+                z_name = "Differences",
+                z_symbol = "\\tilde{{x}} - x",
+                name = "difference",
+                center = 0
+            )
+            saveFigure(figure, figure_name, heat_maps_directory)
+            
+            heat_maps_duration = time() - heat_maps_time_start
+            print("    Difference heat map plotted and saved ({})." \
+                .format(formatDuration(heat_maps_duration)))
     
         ## log-ratios
         
-        heat_maps_time_start = time()
-        
-        figure, figure_name = plotHeatMap(
-            x_log_ratio,
-            labels = reconstructed_evaluation_set.labels,
-            x_name = evaluation_set.tags["feature"].capitalize() + "s",
-            y_name = evaluation_set.tags["example"].capitalize() + "s",
-            z_name = "log-ratios",
-            z_symbol = "\\log \\frac{{\\tilde{{x}} + 1}}{{x + 1}}",
-            name = "log_ratio",
-            center = 0
-        )
-        saveFigure(figure, figure_name, heat_maps_directory)
-        
-        heat_maps_duration = time() - heat_maps_time_start
-        print("    log-ratio heat map plotted and saved ({})." \
-            .format(formatDuration(heat_maps_duration)))
+        if analysis_level == "extensive":
+            heat_maps_time_start = time()
+            
+            figure, figure_name = plotHeatMap(
+                x_log_ratio,
+                labels = reconstructed_evaluation_set.labels,
+                x_name = evaluation_set.tags["feature"].capitalize() + "s",
+                y_name = evaluation_set.tags["example"].capitalize() + "s",
+                z_name = "log-ratios",
+                z_symbol = "\\log \\frac{{\\tilde{{x}} + 1}}{{x + 1}}",
+                name = "log_ratio",
+                center = 0
+            )
+            saveFigure(figure, figure_name, heat_maps_directory)
+            
+            heat_maps_duration = time() - heat_maps_time_start
+            print("    log-ratio heat map plotted and saved ({})." \
+                .format(formatDuration(heat_maps_duration)))
     
     print()
     
