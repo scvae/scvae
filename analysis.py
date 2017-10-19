@@ -1956,7 +1956,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     saveFigure(figure, figure_name, decompositions_directory)
             
                     plot_duration = time() - plot_time_start
-                    print("   {} (with {}) plotted and saved ({}).".format(
+                    print("    {} (with {}) plotted and saved ({}).".format(
                         title_with_ID.capitalize(),
                         data_set.feature_names[feature_index],
                         formatDuration(plot_duration)
@@ -3510,8 +3510,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     
     elif colour_coding == "count_sum":
         
-        index_method = "shuffled"
-        n = colouring_data_set.count_sum[shuffled_indices]
+        n = colouring_data_set.count_sum[shuffled_indices].flatten()
         scatter_plot = axis.scatter(values[:, 0], values[:, 1], c = n,
             cmap = colour_map)
         colour_bar = figure.colorbar(scatter_plot)
@@ -3533,7 +3532,10 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         figure_name += "-{}".format(normaliseString(feature_name))
         
         f = colouring_data_set.values[shuffled_indices,
-            feature_index].reshape(-1, 1)
+            feature_index]
+        if isinstance(f, scipy.sparse.csr_matrix):
+            f = f.A
+        f = f.flatten()
         
         scatter_plot = axis.scatter(values[:, 0], values[:, 1], c = f,
             cmap = colour_map)
