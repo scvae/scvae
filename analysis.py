@@ -942,8 +942,11 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 for y_scale in ["linear"]:
                     example_name_parts = example_name_base_parts.copy()
                     example_name_parts.append(y_scale)
-                    if not sort_profile_comparison:
-                        example_name_parts.append("unsorted")
+                    if sort_profile_comparison:
+                        sort_name_part = "sorted"
+                    else:
+                        sort_name_part = "unsorted"
+                    example_name_parts.append(sort_name_part)
                     figure, figure_name = plotProfileComparison(
                         observed_series,
                         expected_series,
@@ -960,30 +963,29 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                     )
                     saveFigure(figure, figure_name,
                         profile_comparisons_directory)
-                
-                if maximum_count > 3 * y_cutoff:
-                    for y_scale in ["linear", "log", "both"]:
-                        example_name_parts = example_name_base_parts.copy()
-                        example_name_parts.append(y_scale)
-                        if not sort_profile_comparison:
-                            example_name_parts.append("unsorted")
-                        figure, figure_name = plotProfileComparison(
-                            observed_series,
-                            expected_series,
-                            expected_series_total_standard_deviations,
-                            expected_series_explained_standard_deviations,
-                            x_name = evaluation_set.tags["feature"],
-                            y_name = evaluation_set.tags["value"],
-                            sort = sort_profile_comparison,
-                            sort_by = "expected",
-                            sort_direction = "descending",
-                            x_scale = "log",
-                            y_scale = y_scale,
-                            y_cutoff = y_cutoff,
-                            name = example_name_parts
-                        )
-                        saveFigure(figure, figure_name,
-                            profile_comparisons_directory)
+            
+            if maximum_count > 3 * y_cutoff:
+                for y_scale in ["linear", "log", "both"]:
+                    example_name_parts = example_name_base_parts.copy()
+                    example_name_parts.append("cutoff")
+                    example_name_parts.append(y_scale)
+                    figure, figure_name = plotProfileComparison(
+                        observed_series,
+                        expected_series,
+                        expected_series_total_standard_deviations,
+                        expected_series_explained_standard_deviations,
+                        x_name = evaluation_set.tags["feature"],
+                        y_name = evaluation_set.tags["value"],
+                        sort = True,
+                        sort_by = "expected",
+                        sort_direction = "descending",
+                        x_scale = "log",
+                        y_scale = y_scale,
+                        y_cutoff = y_cutoff,
+                        name = example_name_parts
+                    )
+                    saveFigure(figure, figure_name,
+                        profile_comparisons_directory)
             
             # Plot image examples for subset
             if evaluation_set.example_type == "images":
