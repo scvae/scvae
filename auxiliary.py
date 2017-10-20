@@ -1,5 +1,7 @@
 import os
 import sys
+import shutil
+
 import time
 
 import re
@@ -415,7 +417,10 @@ def loadKLDivergences(model, early_stopping = False, best_model = False):
 
 # IO
 
-def download(URL, path):
+def copyFile(URL, path):
+    shutil.copyfile(URL, path)
+
+def downloadFile(URL, path):
     urllib.request.urlretrieve(URL, path, download_report_hook)
 
 def download_report_hook(block_num, block_size, total_size):

@@ -1639,7 +1639,7 @@ class VariationalAutoencoder(object):
                 self.reconstruction_distribution_name == "bernoulli":
                 
                 transformed_evaluation_set = DataSet(
-                    name = evaluation_set.name,
+                    evaluation_set.name,
                     values = t_eval,
                     preprocessed_values = None,
                     labels = evaluation_set.labels,
@@ -1655,7 +1655,7 @@ class VariationalAutoencoder(object):
                 transformed_evaluation_set = evaluation_set
             
             reconstructed_evaluation_set = DataSet(
-                name = evaluation_set.name,
+                evaluation_set.name,
                 values = p_x_mean_eval,
                 # total_standard_deviations = p_x_stddev_eval,
                 # explained_standard_deviations = stddev_of_p_x_mean_eval,
@@ -1671,7 +1671,7 @@ class VariationalAutoencoder(object):
             )
 
             z_evaluation_set = DataSet(
-                name = evaluation_set.name,
+                evaluation_set.name,
                 values = q_z_mean_eval,
                 preprocessed_values = None,
                 labels = evaluation_set.labels,

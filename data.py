@@ -26,7 +26,7 @@ from time import time
 from auxiliary import (
     formatDuration,
     normaliseString,
-    download
+    downloadFile, copyFile
 )
 
 from analysis import lighter_palette, createLabelSorter
@@ -486,7 +486,7 @@ data_sets = {
 }
 
 class DataSet(object):
-    def __init__(self, name,
+    def __init__(self, input_file_or_name,
         values = None,
         total_standard_deviations = None,
         explained_standard_deviations = None,
@@ -502,8 +502,22 @@ class DataSet(object):
         
         super(DataSet, self).__init__()
         
-        # Name of data set
-        self.name = normaliseString(name)
+        # Name of data set and optional entry for data sets dictionary
+        self.name, data_set_dictionary = parseInput(input_file_or_name)
+        
+        # Directories and paths for data set
+        self.directory = os.path.join(directory, self.name)
+        self.preprocess_directory = os.path.join(self.directory,
+            preprocess_suffix)
+        self.original_directory = os.path.join(self.directory,
+            original_suffix)
+        self.preprocessedPath = preprocessedPathFunction(
+            self.preprocess_directory, self.name)
+        
+        # Save data set dictionary if necessary
+        if data_set_dictionary:
+            saveDataSetDictionaryAsJSONFile(data_set_dictionary,
+                self. directory)
         
         # Find data set
         self.title = findDataSet(self.name, directory)
@@ -634,16 +648,6 @@ class DataSet(object):
         
         # PCA limits for data set
         self.pca_limits = dataSetPCALimits(self.title, self.kind)
-        
-        # Directories for data set
-        self.directory = os.path.join(directory, self.name)
-        self.preprocess_directory = os.path.join(self.directory,
-            preprocess_suffix)
-        self.original_directory = os.path.join(self.directory,
-            original_suffix)
-        
-        self.preprocessedPath = preprocessedPathFunction(
-            self.preprocess_directory, self.name)
         
         # Noisy preprocessing
         self.noisy_preprocessing_methods = noisy_preprocessing_methods
@@ -891,7 +895,8 @@ class DataSet(object):
             print("Loading data set.")
             data_dictionary = loadDataDictionary(sparse_path)
         else:
-            original_paths = downloadDataSet(self.title, self.original_directory)
+            original_paths = acquireDataSet(self.title,
+                self.original_directory)
             
             print()
             
@@ -1207,7 +1212,7 @@ class DataSet(object):
                             = SparseRowMatrix(values)
         
         training_set = DataSet(
-            name = self.name,
+            self.name,
             values = split_data_dictionary["training set"]["values"],
             preprocessed_values = \
                 split_data_dictionary["training set"]["preprocessed values"],
@@ -1225,7 +1230,7 @@ class DataSet(object):
         )
         
         validation_set = DataSet(
-            name = self.name,
+            self.name,
             values = split_data_dictionary["validation set"]["values"],
             preprocessed_values = \
                 split_data_dictionary["validation set"]["preprocessed values"],
@@ -1243,7 +1248,7 @@ class DataSet(object):
         )
         
         test_set = DataSet(
-            name = self.name,
+            self.name,
             values = split_data_dictionary["test set"]["values"],
             preprocessed_values = \
                 split_data_dictionary["test set"]["preprocessed values"],
@@ -1321,6 +1326,53 @@ class SparseRowMatrix(scipy.sparse.csr_matrix):
         elif ddof > 0:
             N = numpy.prod(self.shape)
             return var * N / (N - ddof)
+
+def parseInput(input_file_or_name):
+    
+    if input_file_or_name.endswith(".json"):
+        
+        json_path = input_file_or_name
+        
+        with open(json_path, "r") as json_file:
+            data_set_dictionary = json.load(json_file)
+        
+        if "title" in data_set_dictionary:
+            name = data_set_dictionary["title"]
+        else:
+            name = baseName(json_path)
+            data_set_dictionary["title"] = name
+        
+        if "values" in data_set_dictionary:
+            json_directory = os.path.dirname(json_path)
+            data_set_dictionary["values"] = os.path.join(
+                json_directory, data_set_dictionary["values"])
+        elif "URLs" in data_set_dictionary:
+            pass
+        else:
+            raise KeyError("Missing path or URL to values.")
+        
+    elif os.path.isfile(input_file_or_name):
+        file_path = input_file_or_name
+        raise NotImplementedError(
+            "Reading count values from file not implemented.")
+    else:
+        name = input_file_or_name
+        data_set_dictionary = None
+    
+    name = normaliseString(name)
+    
+    return name, data_set_dictionary
+
+def baseName(path):
+    base_name = os.path.basename(path)
+    base_name = base_name.split(os.extsep, 1)[0]
+    return base_name
+
+def saveDataSetDictionaryAsJSONFile(data_set_dictionary, directory):
+    name = normaliseString(data_set_dictionary["title"])
+    json_path = os.path.join(directory, name + ".json")
+    with open(json_path, "w") as json_file:
+        json.dump(data_set_dictionary, json_file, indent = "\t")
 
 def findDataSet(name, directory):
     
@@ -1483,7 +1535,7 @@ def dataSetPreprocessingMethods(title):
     else:
         return None
 
-def downloadDataSet(title, directory):
+def acquireDataSet(title, directory):
     
     URLs = data_sets[title]["URLs"]
     
@@ -1520,17 +1572,31 @@ def downloadDataSet(title, directory):
                 if URL.startswith("."):
                     raise Exception("Data set file have to be manually placed "
                         + "in correct folder.")
+                if os.path.isfile(URL):
+                    
+                    print("Copying {} for {} set.".format(
+                        values_or_labels, kind, title))
+                    start_time = time()
                 
-                print("Downloading {} for {} set.".format(
-                    values_or_labels, kind, title))
-                start_time = time()
+                    copyFile(URL, path)
                 
-                download(URL, path)
+                    duration = time() - start_time
+                    print("Data set copied ({}).".format(
+                        formatDuration(duration)))
+                    print()
+                    
+                else:
                 
-                duration = time() - start_time
-                print("Data set downloaded ({}).".format(formatDuration(duration)))
+                    print("Downloading {} for {} set.".format(
+                        values_or_labels, kind, title))
+                    start_time = time()
                 
-                print()
+                    downloadFile(URL, path)
+                
+                    duration = time() - start_time
+                    print("Data set downloaded ({}).".format(
+                        formatDuration(duration)))
+                    print()
     
     return paths
 

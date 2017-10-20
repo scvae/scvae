@@ -22,7 +22,7 @@ import argparse
 import itertools
 import random
 
-def main(data_set_name, data_directory = "data",
+def main(input_file_or_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     feature_selection = [], feature_parameter = None, example_filter = [],
     preprocessing_methods = [], noisy_preprocessing_methods = [],
@@ -99,7 +99,7 @@ def main(data_set_name, data_directory = "data",
     title("Data")
     
     data_set = data.DataSet(
-        data_set_name,
+        input_file_or_name,
         directory = data_directory,
         feature_selection = feature_selection,
         feature_parameter = feature_parameter,
@@ -541,10 +541,10 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument(
-    "--data-set-name", "-n",
+    "--input", "-i",
     type = str,
-    default = "mouse retina",
-    help = "name of data set"
+    dest = "input_file_or_name",
+    help = "input: data set name or path to input file"
 )
 parser.add_argument(
     "--data-directory", "-D",
