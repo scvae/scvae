@@ -1340,7 +1340,6 @@ def parseInput(input_file_or_name):
             name = data_set_dictionary["title"]
         else:
             name = baseName(json_path)
-            data_set_dictionary["title"] = name
         
         if "values" in data_set_dictionary:
             json_directory = os.path.dirname(json_path)
@@ -1353,8 +1352,10 @@ def parseInput(input_file_or_name):
         
     elif os.path.isfile(input_file_or_name):
         file_path = input_file_or_name
-        raise NotImplementedError(
-            "Reading count values from file not implemented.")
+        name = baseName(file_path)
+        data_set_dictionary = {
+            "values": file_path
+        }
     else:
         name = input_file_or_name
         data_set_dictionary = None
@@ -1369,8 +1370,31 @@ def baseName(path):
     return base_name
 
 def saveDataSetDictionaryAsJSONFile(data_set_dictionary, directory):
-    name = normaliseString(data_set_dictionary["title"])
+    
+    if "title" in data_set_dictionary:
+        name = data_set_dictionary["title"]
+    elif "values" in data_set_dictionary:
+        name = baseName(data_set_dictionary["values"])
+    elif "URLs" in data_set_dictionary:
+        name = None
+        for key in ["all", "values"]:
+            if key in data_set_dictionary["URLs"]:
+                if "full" in data_set_dictionary["URLs"]:
+                    name = data_set_dictionary["URLs"]["key"]["full"]
+                elif "training" in data_set_dictionary["URLs"]:
+                    name = data_set_dictionary["URLs"]["key"]["training"]
+        if name:
+            name = baseName(name)
+        else:
+            raise Exception("No values found in data set.")
+        
+    
+    name = normaliseString(name)
     json_path = os.path.join(directory, name + ".json")
+    
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
     with open(json_path, "w") as json_file:
         json.dump(data_set_dictionary, json_file, indent = "\t")
 
@@ -1398,7 +1422,10 @@ def dataSetFromJSONFile(json_path):
     with open(json_path, "r") as json_file:
         data_set = json.load(json_file)
     
-    title = data_set["title"]
+    if "title" in data_set:
+        title = data_set["title"]
+    else:
+        title = baseName(json_path)
     
     data_set["URLs"] = {
         "values": {
