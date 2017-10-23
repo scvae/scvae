@@ -54,14 +54,20 @@ def main(input_file_or_name, data_directory = "data",
     
     # Setup
     
+    ## Analyses
+    
     if fast_analysis:
         analyse = True
         analyses = ["simple"]
         analysis_level = "limited"
     
+    ## Distributions
+    
     reconstruction_distribution = parseDistribution(
         reconstruction_distribution)
     latent_distribution = parseDistribution(latent_distribution)
+    
+    ## Model configuration validation
     
     if not skip_modelling:
         model_valid, model_errors = validateModelParameters(
@@ -83,6 +89,8 @@ def main(input_file_or_name, data_directory = "data",
                 print("Modelling cancelled.")
                 return
     
+    ## Binarisation
+    
     binarise_values = False
     
     if reconstruction_distribution == "bernoulli":
@@ -93,6 +101,13 @@ def main(input_file_or_name, data_directory = "data",
                     "because of the Bernoulli distribution.\n")
         else:
             binarise_values = True
+    
+    ## Data sets
+    
+    if evaluation_set_name == "full" or analyse_data:
+        full_data_set_needed = True
+    else:
+        full_data_set_needed = False
     
     # Data
     
@@ -108,6 +123,9 @@ def main(input_file_or_name, data_directory = "data",
         binarise_values = binarise_values,
         noisy_preprocessing_methods = noisy_preprocessing_methods
     )
+    
+    if full_data_set_needed:
+        data_set.load()
     
     training_set, validation_set, test_set = data_set.split(
         splitting_method, splitting_fraction)
@@ -137,6 +155,11 @@ def main(input_file_or_name, data_directory = "data",
         )
         print()
     
+    ## Full data set clean up
+    
+    if not full_data_set_needed:
+        data_set.clear()
+    
     # Modelling
     
     if skip_modelling:
@@ -151,7 +174,7 @@ def main(input_file_or_name, data_directory = "data",
         else:
             analytical_kl_term = False
     
-    feature_size = data_set.number_of_features
+    feature_size = training_set.number_of_features
     number_of_monte_carlo_samples = parseSampleLists(
         number_of_monte_carlo_samples)
     number_of_importance_samples = parseSampleLists(
@@ -297,6 +320,8 @@ def main(input_file_or_name, data_directory = "data",
     for data_subset in all_data_sets:
         if data_subset.kind == evaluation_set_name:
             evaluation_set = data_subset
+        else:
+            data_subset.clear()
     
     print("Evaluation set: {} set.".format(evaluation_set.kind))
     

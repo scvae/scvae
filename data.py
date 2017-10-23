@@ -620,6 +620,7 @@ class DataSet(object):
         
         # Preprocessing methods
         self.preprocessing_methods = preprocessing_methods
+        self.binarise_values = binarise_values
         
         if preprocessed is None:
             data_set_preprocessing_methods = \
@@ -700,18 +701,6 @@ class DataSet(object):
                 for preprocessing_method in self.noisy_preprocessing_methods:
                     print("        ", preprocessing_method)
             print()
-            
-            if self.values is None:
-                self.load()
-            
-            if not self.feature_parameter:
-                self.feature_parameter = self.defaultFeatureParameter(
-                    self.feature_selection)
-            
-            if self.preprocessed_values is None:
-                self.preprocess()
-                if binarise_values:
-                    self.binarise()
     
     @property
     def number_of_values(self):
@@ -927,34 +916,16 @@ class DataSet(object):
         
         if "split indices" in data_dictionary:
             self.split_indices = data_dictionary["split indices"]
+        
+        if not self.feature_parameter:
+            self.feature_parameter = defaultFeatureParameter(
+                self.feature_selection, self.number_of_features)
+        
+        self.preprocess()
+        
+        if self.binarise_values:
+            self.binarise()
     
-    def defaultFeatureParameter(self, feature_selection):
-        
-        M = self.number_of_features
-        
-        if feature_selection:
-            feature_selection = normaliseString(feature_selection)
-        
-        if feature_selection == "remove_zeros":
-            feature_parameter = None
-        
-        elif feature_selection == "keep_gini_indices_above":
-            feature_parameter = 0.1
-        
-        elif feature_selection == "keep_highest_gini_indices":
-            feature_parameter = int(M/2)
-        
-        elif feature_selection == "keep_variances_above":
-            feature_parameter = 0.5
-        
-        elif feature_selection == "keep_highest_variances":
-            feature_parameter = int(M/2)
-        
-        else:
-            feature_parameter = None
-    
-        return feature_parameter
-        
     def preprocess(self):
         
         if not self.preprocessing_methods and not self.feature_selection \
@@ -1180,6 +1151,9 @@ class DataSet(object):
         
         else:
             
+            if self.values is None:
+                self.load()
+            
             data_dictionary = {
                 "values": self.values,
                 "preprocessed values": self.preprocessed_values,
@@ -1308,6 +1282,22 @@ class DataSet(object):
         if self.binarised_values is not None:
             self.update(
                 binarised_values = self.binarised_values[filter_indices])
+    
+    def clear(self):
+        self.values = None
+        self.total_standard_deviations = None
+        self.explained_standard_deviations = None
+        self.count_sum = None
+        self.normalised_count_sum = None
+        self.preprocessed_values = None
+        self.binarised_values = None
+        self.labels = None
+        self.example_names = None
+        self.feature_names = None
+        self.class_names = None
+        self.number_of_examples = None
+        self.number_of_features = None
+        self.number_of_classes = None
 
 class SparseRowMatrix(scipy.sparse.csr_matrix):
     def __init__(self, arg1, shape = None, dtype = None, copy = False):
@@ -1773,6 +1763,33 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
     ))
     
     return feature_selected_values, feature_selected_feature_names
+
+def defaultFeatureParameter(feature_selection, number_of_features):
+    
+    M = number_of_features
+    
+    if feature_selection:
+        feature_selection = normaliseString(feature_selection)
+    
+    if feature_selection == "remove_zeros":
+        feature_parameter = None
+    
+    elif feature_selection == "keep_gini_indices_above":
+        feature_parameter = 0.1
+    
+    elif feature_selection == "keep_highest_gini_indices":
+        feature_parameter = int(M/2)
+    
+    elif feature_selection == "keep_variances_above":
+        feature_parameter = 0.5
+    
+    elif feature_selection == "keep_highest_variances":
+        feature_parameter = int(M/2)
+    
+    else:
+        feature_parameter = None
+    
+    return feature_parameter
 
 def filterExamples(values_dictionary, example_names, example_filter = None,
     example_filter_parameters = None, labels = None, excluded_classes = None,
