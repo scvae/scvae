@@ -626,7 +626,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     ## Comparison arrays
     
-    if "metrics" in analyses or "heat_maps" in analyses \
+    if ("metrics" in analyses or "heat_maps" in analyses) \
         and analysis_level == "extensive":
         
         x_diff = reconstructed_evaluation_set.values - evaluation_set.values
