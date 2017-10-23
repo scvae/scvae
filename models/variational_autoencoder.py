@@ -10,7 +10,10 @@ from models.auxiliary import (
 from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
 
-from tensorflow.contrib.distributions import Normal, Bernoulli,kl_divergence, Categorical
+from tensorflow.contrib.distributions import (
+    Normal, Bernoulli, Categorical,
+    kl_divergence
+)
 from distributions import distributions, latent_distributions, Categorized
 
 import numpy
@@ -58,7 +61,7 @@ class VariationalAutoencoder(object):
         self.parameterise_latent_posterior = parameterise_latent_posterior
         
         # Dictionary holding number of samples needed for the "monte carlo" 
-        # estimator and "importance weighting" during both "train" and "test" time.  
+        # estimator and "importance weighting" during both train and test time.
         self.number_of_importance_samples = number_of_importance_samples
         self.number_of_monte_carlo_samples = number_of_monte_carlo_samples
 
@@ -67,7 +70,8 @@ class VariationalAutoencoder(object):
             [reconstruction_distribution]
         
         # Number of categorical elements needed for reconstruction, e.g. K+1
-        self.number_of_reconstruction_classes = number_of_reconstruction_classes + 1
+        self.number_of_reconstruction_classes = \
+            number_of_reconstruction_classes + 1
         # K: For the sum over K-1 Categorical probabilities and the last K
         #   count distribution pdf.
         self.k_max = number_of_reconstruction_classes
@@ -128,22 +132,26 @@ class VariationalAutoencoder(object):
             self.t = tf.placeholder(tf.float32, [None, self.feature_size], 'T')
             
             if self.count_sum_feature:
-                self.n_feature = tf.placeholder(tf.float32, [None, 1], 'count_sum_feature')
+                self.n_feature = tf.placeholder(tf.float32, [None, 1],
+                    'count_sum_feature')
 
             if self.count_sum:
                 self.n = tf.placeholder(tf.float32, [None, 1], 'count_sum')
             
             # self.max_count = tf.placeholder(tf.int32, [1], 'max_count')
 
-            self.learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')
+            self.learning_rate = tf.placeholder(tf.float32, [],
+                'learning_rate')
             
-            self.warm_up_weight = tf.placeholder(tf.float32, [], 'warm_up_weight')
+            self.warm_up_weight = tf.placeholder(tf.float32, [],
+                'warm_up_weight')
             warm_up_weight_summary = tf.summary.scalar('warm_up_weight',
                 self.warm_up_weight)
             self.parameter_summary_list.append(warm_up_weight_summary)
             
             self.is_training = tf.placeholder(tf.bool, [], 'is_training')
-            self.use_deterministic_z = tf.placeholder(tf.bool, [], 'use_deterministic_z')
+            self.use_deterministic_z = tf.placeholder(tf.bool, [],
+                'use_deterministic_z')
             self.number_of_iw_samples = tf.placeholder(
                 tf.int32,
                 [],
@@ -241,7 +249,8 @@ class VariationalAutoencoder(object):
         ]
         
         if self.k_max:
-            configuration.append("$k_{{\\mathrm{{max}}}} = {}$".format(self.k_max))
+            configuration.append("$k_{{\\mathrm{{max}}}} = {}$".format(
+                self.k_max))
         
         if self.count_sum_feature:
             configuration.append("CS")
@@ -274,7 +283,8 @@ class VariationalAutoencoder(object):
             description_parts.append("latent clusters: {}".format(
                 self.number_of_latent_clusters))
         if self.parameterise_latent_posterior:
-            description_parts.append("using parameterisation of latent posterior parameters")
+            description_parts.append(
+                "using parameterisation of latent posterior parameters")
         
         description_parts.append("reconstruction distribution: " +
             self.reconstruction_distribution_name)
@@ -307,7 +317,8 @@ class VariationalAutoencoder(object):
             description_parts.append("using batch normalisation")
 
         if len(self.dropout_parts) > 0:
-            description_parts.append("dropout keep probability: {}".format(", ".join(self.dropout_parts)))
+            description_parts.append("dropout keep probability: {}".format(
+                ", ".join(self.dropout_parts)))
 
         if self.count_sum_feature:
             description_parts.append("using count sums")
@@ -364,7 +375,8 @@ class VariationalAutoencoder(object):
         ## on first, importance weight, and second, monte carlo, sample dim.
         
         for part_name in self.latent_distribution:
-            part_distribution_name = self.latent_distribution[part_name]["name"]
+            part_distribution_name = \
+                self.latent_distribution[part_name]["name"]
             part_distribution = distributions[part_distribution_name]
             part_parameters = self.latent_distribution[part_name]["parameters"]
             
@@ -404,7 +416,8 @@ class VariationalAutoencoder(object):
                                 num_outputs = num_outputs,
                                 activation_fn = activation_fn,
                                 is_training = self.is_training,
-                                dropout_keep_probability = self.dropout_keep_probability_h,
+                                dropout_keep_probability =
+                                    self.dropout_keep_probability_h,
                                 scope = name
                             )
                         elif part_name == "prior":
@@ -442,23 +455,21 @@ class VariationalAutoencoder(object):
                                     num_outputs = self.latent_size,
                                     name = parameter_name.upper()
                                 ), 0), 0)
-
+        
         ## Latent posterior distribution
         ### Parameterise:
         if self.parameterise_latent_posterior:
-            for parameter in self.latent_distribution["posterior"]["parameters"]:
-                if isinstance(self.latent_distribution["posterior"]["parameters"]
-                    [parameter], list):
+            posterior_parameters = self.latent_distribution["posterior"]\
+                ["parameters"]
+            prior_parameters = self.latent_distribution["prior"]["parameters"]
+            for parameter in posterior_parameters:
+                if isinstance(posterior_parameters[parameter], list):
                     for k in range(self.number_of_latent_clusters):
-                        self.latent_distribution["posterior"]["parameters"]\
-                            [parameter][k] += \
-                            self.latent_distribution["prior"]["parameters"]\
-                            [parameter][k]
+                        posterior_parameters[parameter][k] += \
+                            prior_parameters[parameter][k]
                 else:
-                    self.latent_distribution["posterior"]["parameters"]\
-                        [parameter] += \
-                        self.latent_distribution["prior"]["parameters"]\
-                        [parameter]
+                    posterior_parameters[parameter] += \
+                        prior_parameters[parameter]
         
         self.q_z_given_x = \
             distributions[self.latent_distribution["posterior"]["name"]]\
@@ -503,8 +514,8 @@ class VariationalAutoencoder(object):
                     tf.squeeze(self.p_z.cat.probs)[k])
                 self.p_z_means.append(
                     tf.squeeze(self.p_z.components[k].mean()))
-                self.p_z_variances.append(
-                    tf.diag_part(tf.squeeze(self.p_z.components[k].covariance())))
+                self.p_z_variances.append(tf.diag_part(tf.squeeze(
+                    self.p_z.components[k].covariance())))
         else:
             self.p_z_probabilities.append(tf.constant(1.))
             self.p_z_means.append(tf.squeeze(self.p_z.mean()))
@@ -592,7 +603,8 @@ class VariationalAutoencoder(object):
             if self.k_max:
                 x_logits = dense_layer(
                     inputs = decoder,
-                    num_outputs = self.feature_size * self.number_of_reconstruction_classes,
+                    num_outputs = self.feature_size *
+                        self.number_of_reconstruction_classes,
                     activation_fn = None,
                     is_training = self.is_training,
                     dropout_keep_probability = self.dropout_keep_probability_h,
@@ -600,7 +612,8 @@ class VariationalAutoencoder(object):
                 )
                 
                 x_logits = tf.reshape(x_logits,
-                    [-1, self.feature_size, self.number_of_reconstruction_classes])
+                    [-1, self.feature_size,
+                        self.number_of_reconstruction_classes])
                 
                 self.p_x_given_z = Categorized(
                     dist = self.p_x_given_z,
@@ -617,7 +630,7 @@ class VariationalAutoencoder(object):
                 ]
             )
 
-            self.p_x_given_z_variance = tf.reshape(self.p_x_given_z.variance(), 
+            self.p_x_given_z_variance = tf.reshape(self.p_x_given_z.variance(),
                 [
                     self.number_of_iw_samples,
                     self.number_of_mc_samples,
@@ -650,16 +663,19 @@ class VariationalAutoencoder(object):
         # Prepare replicated and reshaped arrays
         ## Replicate out batches in tiles pr. sample into: 
         ### shape = (R * L * batchsize, D_x)
-        t_tiled = tf.tile(self.t, [self.number_of_iw_samples*self.number_of_mc_samples, 1])
+        t_tiled = tf.tile(self.t,
+            [self.number_of_iw_samples*self.number_of_mc_samples, 1])
         ## Reshape samples back to: 
         ### shape = (R, L, batchsize, D_z)
-        z_reshaped = tf.reshape(self.z, [self.number_of_iw_samples, self.number_of_mc_samples, -1, self.latent_size])
+        z_reshaped = tf.reshape(self.z, [self.number_of_iw_samples,
+            self.number_of_mc_samples, -1, self.latent_size])
 
         # Loss
         ## Reconstruction error
-        ### 1. Evaluate all log(p(x|z)) (R * L * batchsize, D_x) target values in the (R * L * batchsize, D_x) probability distributions learned
-        ### 2. Sum over all N_x features
-        ### 3. and reshape it back to (R, L, batchsize) 
+        ## 1. Evaluate all log(p(x|z)) (R * L * batchsize, D_x) target values
+        ##    in the (R * L * batchsize, D_x) probability distributions learned
+        ## 2. Sum over all N_x features
+        ## 3. and reshape it back to (R, L, batchsize) 
         p_x_given_z_log_prob = self.p_x_given_z.log_prob(t_tiled)
         log_p_x_given_z = tf.reshape(
             tf.reduce_sum(
@@ -676,10 +692,11 @@ class VariationalAutoencoder(object):
         # Recognition error
         if "mixture" in self.latent_distribution_name:
             ## Evaluate Kullback-Leibler divergence numerically with sampling
-            ### Evaluate all log(q(z|x)) and log(p(z)) on (R, L, batchsize, D_z) latent sample values.
-            ### shape =  (R, L, batchsize, D_z)
+            ## Evaluate all log(q(z|x)) and log(p(z)) on (R, L, batchsize, D_z)
+            ## latent sample values.
+            ## shape = (R, L, batchsize, D_z)
             log_q_z_given_x = self.q_z_given_x.log_prob(z_reshaped)
-            ### shape =  (R, L, batchsize, D_z)
+            ## shape =  (R, L, batchsize, D_z)
             log_p_z = self.p_z.log_prob(z_reshaped)
 
             if "mixture" not in self.latent_distribution["posterior"]["name"]:
@@ -692,10 +709,11 @@ class VariationalAutoencoder(object):
             KL = log_q_z_given_x - log_p_z
 
             # Compute importance weighted estimate of 
-            # E_x[p(x)] = E_{z_mc}[1/K_{iw} * sum(E_x[p(x|z_iw)]) p(z)/q(z|x) ] 
+            # E_x[p(x)] = E_{z_mc}[1/K_{iw} * sum(E_x[p(x|z_iw)]) p(z)/q(z|x)]
             # p(z)/q(z|x) = exp(-KL)
             # (batch_size, feature_size)
-            # self.p_x_mean = tf.reduce_mean(self.p_x_given_z_mean*tf.exp(-KL), (0, 1))
+            # self.p_x_mean = tf.reduce_mean(self.p_x_given_z_mean*tf.exp(-KL),
+            #   (0, 1))
 
             ## KL Regularisation term: 
             KL_qp = tf.reduce_mean(KL, name = "kl_divergence")
@@ -705,14 +723,15 @@ class VariationalAutoencoder(object):
             self.KL_all = tf.expand_dims(tf.reduce_mean(KL), -1)
         else:
             if self.analytical_kl_term:
-                ## Evaluate Kullback-Leibler divergence analytically without sampling
+                ## Evaluate KL divergence analytically without sampling
                 KL =kl_divergence(self.q_z_given_x, self.p_z)
             else:
-                ## Evaluate Kullback-Leibler divergence numerically with sampling
-                ### Evaluate all log(q(z|x)) and log(p(z)) on (R, L, batchsize, D_z) latent sample values.
-                ### shape =  (R, L, batchsize, D_z)
+                ## Evaluate KL divergence numerically with sampling
+                ## Evaluate all log(q(z|x)) and log(p(z)) on (R, L, batchsize,
+                ## D_z) latent sample values.
+                ## shape =  (R, L, batchsize, D_z)
                 log_q_z_given_x = self.q_z_given_x.log_prob(z_reshaped)
-                ### shape =  (R, L, batchsize, D_z)
+                ## shape =  (R, L, batchsize, D_z)
                 log_p_z = self.p_z.log_prob(z_reshaped)
 
                 # Kullback-Leibler Divergence:  KL[q(z|x)||p(z)] =
@@ -724,7 +743,8 @@ class VariationalAutoencoder(object):
                 tf.reshape(KL, [-1, self.latent_size]),
                 axis = 0
             )
-            ## KL Regularisation term: Sum up KL over all latent dim.: shape --> () 
+            ## KL Regularisation term: Sum up KL over all latent dim.:
+            ## shape --> () 
             KL_qp = tf.reduce_sum(self.KL_all, name = "kl_divergence")
             tf.add_to_collection('losses', KL_qp)
             self.KL = KL_qp
@@ -733,7 +753,7 @@ class VariationalAutoencoder(object):
             KL = tf.reduce_sum(KL, axis = -1)
 
             # From all z-samples compute importance weighted estimate of 
-            # E_x[p(x)] = E_{z_mc}[1/R * sum(E_x[p(x_r|z_r)]) p(z_r)/q(z_r|x) ] 
+            # E_x[p(x)] = E_{z_mc}[1/R * sum(E_x[p(x_r|z_r)]) p(z_r)/q(z_r|x)]
             #   where: w_r = p(z_r)/q(z_r|x) = exp(-KL[q(z_r|x) || p(z_r)])
             # (R, L, B) --> (R, B, 1)
             # iw_weight_given_z = tf.expand_dims(
@@ -782,7 +802,9 @@ class VariationalAutoencoder(object):
             ##              = 1/(R*L) * Ê_z[(p_x_given_z.mean - Ê[x])^2]
             ##              = 1/(R*L) * ^V[E[x|z]]
             # (R, L, B, D_x)
-            self.variance_of_p_x_mean = self.variance_of_p_x_given_z_mean / tf.cast(self.number_of_iw_samples * self.number_of_mc_samples, dtype=tf.float32)
+            self.variance_of_p_x_mean = self.variance_of_p_x_given_z_mean / \
+                tf.cast(self.number_of_iw_samples * self.number_of_mc_samples,
+                    dtype = tf.float32)
 
             self.stddev_of_p_x_mean = tf.sqrt(self.variance_of_p_x_mean)
 
@@ -801,14 +823,16 @@ class VariationalAutoencoder(object):
 
         # log-mean-exp (to avoid over- and underflow) over iw_samples dimension
         ## -> shape: (L, batch_size)
-        LL = log_reduce_exp(log_p_x_given_z - self.warm_up_weight * KL, reduction_function=tf.reduce_mean, axis = 0)
+        LL = log_reduce_exp(log_p_x_given_z - self.warm_up_weight * KL,
+            reduction_function = tf.reduce_mean, axis = 0)
 
         # average over eq_samples, batch_size dimensions    -> shape: ()
         self.lower_bound = tf.reduce_mean(LL) # scalar
 
         # # Averaging over samples.
         # self.lower_bound = tf.subtract(log_p_x_given_z, 
-        #     tf.where(self.is_training, self.warm_up_weight * KL_qp, KL_qp), name = 'lower_bound')
+        #   tf.where(self.is_training, self.warm_up_weight * KL_qp, KL_qp),
+        #   name = 'lower_bound')
         tf.add_to_collection('losses', self.lower_bound)
         self.ELBO = self.lower_bound
         
@@ -837,8 +861,10 @@ class VariationalAutoencoder(object):
             # )
         
             gradients = optimiser.compute_gradients(-self.lower_bound)
-            clipped_gradients = [(tf.clip_by_value(gradient, -1., 1.), variable) for gradient, variable in gradients]
-            self.train_op = optimiser.apply_gradients(clipped_gradients, global_step = self.global_step)
+            clipped_gradients = [(tf.clip_by_value(gradient, -1., 1.),
+                variable) for gradient, variable in gradients]
+            self.train_op = optimiser.apply_gradients(clipped_gradients,
+                global_step = self.global_step)
         # Make sure that the updates of the moving_averages in batch_norm
         # layers are performed before the train_step.
         
@@ -868,7 +894,8 @@ class VariationalAutoencoder(object):
         # parameter_values = "lr_{:.1g}".format(learning_rate)
         # parameter_values += "_b_" + str(batch_size)
         
-        # self.log_directory = os.path.join(self.log_directory, parameter_values)
+        # self.log_directory = os.path.join(self.log_directory,
+        #   parameter_values)
         
         if reset_training and os.path.exists(self.log_directory):
             shutil.rmtree(self.log_directory)
@@ -1046,15 +1073,18 @@ class VariationalAutoencoder(object):
                         self.use_deterministic_z: False,
                         self.learning_rate: learning_rate, 
                         self.warm_up_weight: warm_up_weight,
-                        self.number_of_iw_samples: self.number_of_importance_samples["training"],
-                        self.number_of_mc_samples: self.number_of_monte_carlo_samples["training"]
+                        self.number_of_iw_samples:
+                            self.number_of_importance_samples["training"],
+                        self.number_of_mc_samples:
+                            self.number_of_monte_carlo_samples["training"]
                     }
                     
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[batch_indices]
 
                     if self.count_sum_feature:
-                        feed_dict_batch[self.n_feature] = n_feature_train[batch_indices]
+                        feed_dict_batch[self.n_feature] = \
+                            n_feature_train[batch_indices]
 
                     # Run the stochastic batch training operation
                     _, batch_loss = session.run(
@@ -1127,16 +1157,18 @@ class VariationalAutoencoder(object):
                         self.is_training: False,
                         self.use_deterministic_z: False,
                         self.warm_up_weight: 1.0,
-                        self.number_of_iw_samples: self.number_of_importance_samples["training"],
-                        self.number_of_mc_samples: self.number_of_monte_carlo_samples["training"]
+                        self.number_of_iw_samples:
+                            self.number_of_importance_samples["training"],
+                        self.number_of_mc_samples:
+                            self.number_of_monte_carlo_samples["training"]
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_train[subset]
-
+                    
                     if self.count_sum_feature:
                         feed_dict_batch[self.n_feature] = \
                             n_feature_train[subset]
-
+                    
                     ELBO_i, KL_i, ENRE_i, z_KL_i = session.run(
                         [self.ELBO, self.KL, self.ENRE, self.KL_all],
                         feed_dict = feed_dict_batch
@@ -1215,10 +1247,11 @@ class VariationalAutoencoder(object):
                     }
                     if self.count_sum:
                         feed_dict_batch[self.n] = n_valid[subset]
-
+                    
                     if self.count_sum_feature:
-                        feed_dict_batch[self.n_feature] = n_feature_valid[subset]
-
+                        feed_dict_batch[self.n_feature] = \
+                            n_feature_valid[subset]
+                    
                     ELBO_i, KL_i, ENRE_i, q_z_mean_i = session.run(
                         [self.ELBO, self.KL, self.ENRE, self.q_z_mean],
                         feed_dict = feed_dict_batch
@@ -1274,7 +1307,8 @@ class VariationalAutoencoder(object):
                             p_z_mean_k_l = p_z_means[k][l]
                             p_z_variances_k_l = p_z_variances[k][l]
                         summary.value.add(
-                            tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
+                            tag="prior/cluster_{}/mean/dimension_{}".format(
+                                k, l),
                             simple_value = p_z_mean_k_l
                         )
                         summary.value.add(
@@ -1306,8 +1340,8 @@ class VariationalAutoencoder(object):
                                 "Saving model parameters for previous epoch.")
                             saving_time_start = time()
                             ELBO_valid_early_stopping = ELBO_valid
-                            current_checkpoint = \
-                                tf.train.get_checkpoint_state(self.log_directory)
+                            current_checkpoint = tf.train.get_checkpoint_state(
+                                    self.log_directory)
                             if current_checkpoint:
                                 copyModelDirectory(current_checkpoint,
                                     self.early_stopping_log_directory)
@@ -1330,7 +1364,9 @@ class VariationalAutoencoder(object):
                         if os.path.exists(self.early_stopping_log_directory):
                             shutil.rmtree(self.early_stopping_log_directory)
                     
-                    if epochs_with_no_improvement >= self.early_stopping_rounds:
+                    if epochs_with_no_improvement >= \
+                        self.early_stopping_rounds:
+                        
                         print("    Early stopping in effect:",
                             "Previously saved model parameters is available.")
                         self.stopped_early = True
@@ -1389,7 +1425,8 @@ class VariationalAutoencoder(object):
                                 p_z_variances[k])
                         centroids = {
                             "prior": {
-                                "probabilities": numpy.array(p_z_probabilities),
+                                "probabilities": numpy.array(
+                                    p_z_probabilities),
                                 "means": numpy.stack(p_z_means),
                                 "covariance_matrices": p_z_covariance_matrices
                             }
@@ -1433,7 +1470,8 @@ class VariationalAutoencoder(object):
             
             return status
     
-    def evaluate(self, evaluation_set, batch_size = 100, predict_labels = False,
+    def evaluate(self, evaluation_set, batch_size = 100,
+        predict_labels = False,
         use_early_stopping_model = False, use_best_model = False,
         use_deterministic_z = False,  log_results = True):
         
@@ -1525,8 +1563,10 @@ class VariationalAutoencoder(object):
                 number_of_iw_samples = 1
                 number_of_mc_samples = 1
             else:
-                number_of_iw_samples = self.number_of_importance_samples["evaluation"]
-                number_of_mc_samples = self.number_of_monte_carlo_samples["evaluation"]
+                number_of_iw_samples = \
+                    self.number_of_importance_samples["evaluation"]
+                number_of_mc_samples = \
+                    self.number_of_monte_carlo_samples["evaluation"]
 
             for i in range(0, M_eval, batch_size):
                 subset = slice(i, min(i + batch_size, M_eval))
@@ -1562,14 +1602,15 @@ class VariationalAutoencoder(object):
                 
                 # Save Importance weighted Monte Carlo estimates of: 
                 # Reconstruction mean (marginalised conditional mean): 
-                ##      E[x] = E[E[x|z]] = E_q(z|x)[E_p(x|z)[x]]
-                ##           = E_z[p_x_given_z.mean]
-                ##     \approx 1/(R*L) \sum^R_r w_r \sum^L_{l=1} p_x_given_z.mean 
+                #      E[x] = E[E[x|z]] = E_q(z|x)[E_p(x|z)[x]]
+                #           = E_z[p_x_given_z.mean]
+                #     \approx 1/(R*L) \sum^R_r w_r \sum^L_{l=1}
+                # p_x_given_z.mean
                 p_x_mean_eval[subset] = p_x_mean_i
 
                 # Reconstruction standard deviation: 
-                ##      sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
-                ##      = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
+                #     sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
+                #     = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
                 # p_x_stddev_eval[subset] = p_x_stddev_i
 
                 # Estimated standard deviation of Monte Carlo estimate E[x].
@@ -1614,7 +1655,8 @@ class VariationalAutoencoder(object):
                             p_z_mean_k_l = p_z_means[k][l]
                             p_z_variances_k_l = p_z_variances[k][l]
                         summary.value.add(
-                            tag="prior/cluster_{}/mean/dimension_{}".format(k, l),
+                            tag="prior/cluster_{}/mean/dimension_{}".format(
+                                k, l),
                             simple_value = p_z_mean_k_l
                         )
                         summary.value.add(
@@ -1647,7 +1689,8 @@ class VariationalAutoencoder(object):
                     feature_names = evaluation_set.feature_names,
                     feature_selection = evaluation_set.feature_selection,
                     example_filter = evaluation_set.example_filter,
-                    preprocessing_methods = evaluation_set.preprocessing_methods,
+                    preprocessing_methods =
+                        evaluation_set.preprocessing_methods,
                     kind = evaluation_set.kind,
                     version = "transformed"
                 )
