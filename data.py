@@ -1304,12 +1304,39 @@ class SparseRowMatrix(scipy.sparse.csr_matrix):
         super(SparseRowMatrix, self).__init__(arg1, shape = shape,
             dtype = dtype, copy = copy)
     
+    @property
+    def size(self):
+        return self.shape[0] * self.shape[1]
+    
+    def mean(self, axis = None):
+        
+        if axis is not None:
+            return super().mean(axis)
+        
+        dtype = self.dtype.type
+        
+        if numpy.issubdtype(dtype, numpy.integer):
+            dtype = numpy.float64
+        
+        self_sum = self.data.sum()
+        self_mean = self_sum / self.size
+        
+        self_mean = self_mean.astype(dtype)
+        
+        return self_mean
+    
     def std(self, axis = None, ddof = 0):
         return numpy.sqrt(self.var(axis))
     
     def var(self, axis = None, ddof = 0):
+        
         self_squared = self.power(2)
-        var = self_squared.mean(axis) - numpy.square(self.mean(axis))
+        self_squared_mean = self_squared.mean(axis)
+        self_squared = None
+        
+        self_mean_squared = numpy.square(self.mean(axis))
+        
+        var = self_squared_mean - self_mean_squared
         
         if ddof == 0:
             return var
