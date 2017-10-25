@@ -3,9 +3,10 @@ from numpy import nan
 
 import scipy.sparse
 
-from sklearn.decomposition import PCA, IncrementalPCA, FastICA, TruncatedSVD
+from sklearn.decomposition import PCA, FastICA, TruncatedSVD
 from sklearn.manifold import TSNE
 from sklearn.metrics.cluster import adjusted_rand_score
+from miscellaneous.incremental_pca import IncrementalPCA
 
 from matplotlib import pyplot
 import matplotlib.patches
@@ -1532,40 +1533,6 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 other_values_decomposed = other_values
                 centroids_decomposed = centroids
                 
-                if decomposition_method != "SVD" \
-                    and isinstance(values_decomposed, scipy.sparse.csr_matrix):
-                    
-                    if data_set.number_of_values > \
-                        maximum_number_of_values_for_dense_matrix:
-                        
-                        print(
-                            "The number of values for {}".format(
-                                title_with_ID),
-                            "is too large to convert from sparse matrix",
-                            "to dense array to decompose using {}.".format(
-                                decomposition_method),
-                            "Skipping."
-                        )
-                        print()
-                        continue
-                    
-                    else:
-                        print(
-                            "Converting {} from sparse matrix".format(
-                                title_with_ID),
-                            "to dense array to decompose using {}".format(
-                                decomposition_method)
-                        )
-                        conversion_time_start = time()
-                        
-                        values_decomposed = values_decomposed.A
-                        
-                        conversion_duration = time() - conversion_time_start
-                        print("{} converted ({})".format(
-                            title_with_ID.capitalize(),
-                            formatDuration(conversion_duration)
-                        ))
-                
                 if decomposition_method == "t-SNE":
                     if data_set.number_of_examples \
                         > maximum_number_of_examples_for_t_sne:
@@ -2229,7 +2196,8 @@ def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
         random_state = 42
     
     if method == "pca":
-        if values.shape[1] <= maximum_feature_size_for_analyses:
+        if values.shape[1] <= maximum_feature_size_for_analyses \
+            and not scipy.sparse.issparse(values):
             model = PCA(n_components = components)
         else:
             model = IncrementalPCA(n_components = components, batch_size = 100)
