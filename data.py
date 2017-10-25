@@ -2404,7 +2404,7 @@ def loadTabSeparatedValues(tsv_path, data_type = None):
     if tsv_extension == "tsv":
         openFile = lambda path: open(path, "rt")
     elif tsv_extension.endswith("gz"):
-        openFile = lambda path: gzip(path, "rt")
+        openFile = lambda path: gzip.open(path, "rt")
     else:
         raise NotImplementedError(
             "Loading from file with extension `{}` not implemented.".format(
