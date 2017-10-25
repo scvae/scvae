@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import os
 import gzip
 import tarfile
@@ -21,6 +19,8 @@ import stemming.porter2 as stemming
 
 from functools import reduce
 
+import seaborn
+
 from time import time
 
 from auxiliary import (
@@ -28,8 +28,6 @@ from auxiliary import (
     normaliseString,
     downloadFile, copyFile
 )
-
-from analysis import lighter_palette, createLabelSorter
 
 preprocess_suffix = "preprocessed"
 original_suffix = "original"
@@ -1538,7 +1536,7 @@ def dataSetClassPalette(title):
     if "class palette" in data_sets[title]:
         class_palette = data_sets[title]["class palette"]
     elif "MNIST" in title:
-        index_palette = lighter_palette(10)
+        index_palette = seaborn.hls_palette(10)
         class_palette = {i: index_palette[i] for i in range(10)}
     else:
         class_palette = None
@@ -2925,6 +2923,29 @@ def supersetClassPalette(class_palette, label_superset):
             numpy.array(superset_label_colours).mean(axis = 0).tolist()
     
     return superset_class_palette
+
+def createLabelSorter(sorted_class_names = []):
+    
+    def labelSorter(label):
+        label = str(label)
+        
+        K = len(sorted_class_names)
+        
+        if label in sorted_class_names:
+            index = sorted_class_names.index(label)
+            label = str(index) + "_" + label
+        elif label == "Others":
+            label = "ZZZ" + str(K) + "_" + label
+        elif label.startswith("Unknown"):
+            label = "ZZZ" + str(K + 1) + "_" + label
+        elif label == "No class":
+            label = "ZZZ" + str(K + 2) + "_" + label
+        elif label == "Remaining":
+            label = "ZZZ" +str(K + 3) + "_" + label
+        
+        return label
+    
+    return labelSorter
 
 def directory(base_directory, data_set, splitting_method, splitting_fraction,
     preprocessing = True):

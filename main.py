@@ -10,7 +10,7 @@ from models import (
 
 from distributions import distributions, latent_distributions
 
-from models.prediction import predict
+from miscellaneous.prediction import predict
 
 from auxiliary import (
     title, subtitle, chapter,

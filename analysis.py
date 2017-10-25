@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import numpy
 from numpy import nan
 
@@ -21,6 +19,8 @@ import seaborn
 from PIL import Image
 
 from pandas import DataFrame
+
+from data import createLabelSorter
 
 import os
 import gzip
@@ -3823,29 +3823,6 @@ def betterModelExists(model):
     E_current = loadNumberOfEpochsTrained(model, best_model = False)
     E_best = loadNumberOfEpochsTrained(model, best_model = True)
     return E_best < E_current
-
-def createLabelSorter(sorted_class_names = []):
-    
-    def labelSorter(label):
-        label = str(label)
-        
-        K = len(sorted_class_names)
-        
-        if label in sorted_class_names:
-            index = sorted_class_names.index(label)
-            label = str(index) + "_" + label
-        elif label == "Others":
-            label = "ZZZ" + str(K) + "_" + label
-        elif label.startswith("Unknown"):
-            label = "ZZZ" + str(K + 1) + "_" + label
-        elif label == "No class":
-            label = "ZZZ" + str(K + 2) + "_" + label
-        elif label == "Remaining":
-            label = "ZZZ" +str(K + 3) + "_" + label
-        
-        return label
-    
-    return labelSorter
 
 class CustomTicker(LogFormatterSciNotation):
     def __call__(self, x, pos = None):
