@@ -2300,7 +2300,7 @@ def loadMouseRetinaDataSet(paths):
     
     data_dictionary = {
         "values": values,
-        "labels": None,
+        "labels": labels,
         "example names": example_names,
         "feature names": feature_names
     }
