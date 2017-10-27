@@ -1276,7 +1276,14 @@ def analyseDistributions(data_set, colouring_data_set = None,
             .format(formatDuration(distribution_duration)))
     
     ## Count distribution
-
+    
+    if scipy.sparse.issparse(data_set.values):
+        series = data_set.values.data
+        excess_zero_count = data_set.values.size - series.size
+    else:
+        series = data_set.values.reshape(-1)
+        excess_zero_count = 0
+    
     for maximum_count_scale, maximum_count in maximum_counts.items():
         
         distribution_time_start = time()
@@ -1291,33 +1298,19 @@ def analyseDistributions(data_set, colouring_data_set = None,
         else:
             count_histogram_name = ["counts", data_set_name]
         
-        if isinstance(data_set.values, scipy.sparse.csr_matrix):
-            values_series = data_set.values.data
-        else:
-            values_series = data_set.values.reshape(-1)
-        
-        figure, figure_name = plotHistogram(
-            series = values_series,
-            label = data_set.tags["value"].capitalize() + "s",
-            discrete = data_set_discreteness,
-            normed = True,
-            y_scale = "log",
-            maximum_count = maximum_count,
-            name = count_histogram_name
-        )
-        saveFigure(figure, figure_name, distribution_directory)
-        
-        figure, figure_name = plotHistogram(
-            series = values_series,
-            label = data_set.tags["value"].capitalize() + "s",
-            discrete = data_set_discreteness,
-            normed = True,
-            x_scale = "log",
-            y_scale = "log",
-            maximum_count = maximum_count,
-            name = count_histogram_name
-        )
-        saveFigure(figure, figure_name, distribution_directory)
+        for x_scale in ["linear", "log"]:
+            figure, figure_name = plotHistogram(
+                series = series,
+                excess_zero_count = excess_zero_count,
+                label = data_set.tags["value"].capitalize() + "s",
+                discrete = data_set_discreteness,
+                normed = True,
+                x_scale = x_scale,
+                y_scale = "log",
+                maximum_count = maximum_count,
+                name = count_histogram_name
+            )
+            saveFigure(figure, figure_name, distribution_directory)
         
         if maximum_count:
             maximum_count_string = " (with a maximum count of {:d})".format(
@@ -1339,7 +1332,8 @@ def analyseDistributions(data_set, colouring_data_set = None,
 
         for cutoff in cutoffs:
             figure, figure_name = plotCutOffCountHistogram(
-                series = data_set.values.reshape(-1),
+                series = series,
+                excess_zero_count = excess_zero_count,
                 cutoff = cutoff,
                 normed = True,
                 scale = "log",
@@ -1402,11 +1396,24 @@ def analyseDistributions(data_set, colouring_data_set = None,
                              key = label_sorter))}
 
         for class_name in class_names:
+            
             class_indices = labels == class_name
+            
             if not class_indices.any():
                 continue
+            
+            values_label = data_set.values[class_indices]
+            
+            if scipy.sparse.issparse(values_label):
+                series = values_label.data
+                excess_zero_count = values_label.size - series.size
+            else:
+                series = data_set.values.reshape(-1)
+                excess_zero_count = 0
+            
             figure, figure_name = plotHistogram(
-                series = data_set.values[class_indices].reshape(-1),
+                series = series,
+                excess_zero_count = excess_zero_count,
                 label = data_set.tags["value"].capitalize() + "s",
                 discrete = data_set_discreteness,
                 normed = True,
@@ -2366,10 +2373,9 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     
     return figure, figure_name
 
-# TODO Extend function to also work with separate zero count for sparse matrices
-def plotHistogram(series, label = None, maximum_count = None,
-    normed = False, discrete = False, x_scale = "linear", y_scale = "linear",
-    colour = None, name = None):
+def plotHistogram(series, excess_zero_count = 0, label = None,
+    maximum_count = None, normed = False, discrete = False,
+    x_scale = "linear", y_scale = "linear", colour = None, name = None):
     
     series = series.copy()
     
@@ -2383,20 +2389,19 @@ def plotHistogram(series, label = None, maximum_count = None,
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
+    series_length = len(series) + excess_zero_count
+    
     if maximum_count:
         maximum_count_indcises = series <= maximum_count
         number_of_outliers = series.size - maximum_count_indcises.sum()
         series = series[maximum_count_indcises]
     
-    series_max = series.max()
-    
     if discrete:
-        if series_max < 1000:
-            number_of_bins = int(numpy.ceil(series_max)) + 1
-        else:
-            number_of_bins = 1000 + 1
+        number_of_bins = int(numpy.ceil(series.max())) + 1
+        histogram_range = (-0.5, number_of_bins + 0.5)
     else:
-        number_of_bins = None
+        number_of_bins = "fd"
+        histogram_range = (series.min(), series.max())
     
     if colour is None:
         colour = standard_palette[0]
@@ -2406,11 +2411,23 @@ def plotHistogram(series, label = None, maximum_count = None,
         label += " (shifted one)"
         figure_name += "-log_values"
     
-    seaborn.distplot(series, bins = number_of_bins, norm_hist = normed,
-        color = colour, kde = False, ax = axis)
+    y_log = y_scale == "log"
+    
+    histogram, bin_edges = numpy.histogram(series, bins = number_of_bins,
+        range = histogram_range)
+    
+    histogram[0] += excess_zero_count
+    
+    width = bin_edges[1] - bin_edges[0]
+    bin_centres = bin_edges[:-1] + width / 2
+    
+    if normed:
+        histogram = histogram / series_length
+    
+    axis.bar(bin_centres, histogram, width = width, log = y_log,
+        color = colour, alpha = 0.4)
     
     axis.set_xscale(x_scale)
-    axis.set_yscale(y_scale)
     
     axis.set_xlabel(label.capitalize())
     
@@ -2432,8 +2449,8 @@ def plotHistogram(series, label = None, maximum_count = None,
     
     return figure, figure_name
 
-def plotCutOffCountHistogram(series, cutoff = None, normed = False,
-    scale = "linear", colour = None, name = None):
+def plotCutOffCountHistogram(series, excess_zero_count = 0, cutoff = None,
+    normed = False, scale = "linear", colour = None, name = None):
     
     series = series.copy()
     
@@ -2449,6 +2466,8 @@ def plotCutOffCountHistogram(series, cutoff = None, normed = False,
     if not colour:
         colour = standard_palette[0]
     
+    y_log = scale == "log"
+    
     k = numpy.arange(cutoff + 1)
     C = numpy.empty(cutoff + 1)
     
@@ -2459,15 +2478,15 @@ def plotCutOffCountHistogram(series, cutoff = None, normed = False,
             c = (series >= cutoff).sum()
         C[i] = c
     
+    C[0] += excess_zero_count
+    
     if normed:
         C /= C.sum()
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
-    axis.bar(k, C, color = colour, alpha = 0.4)
-    
-    axis.set_yscale(scale)
+    axis.bar(k, C, log = y_log, color = colour, alpha = 0.4)
     
     axis.set_xlabel("Count bins")
     
