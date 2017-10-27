@@ -2396,12 +2396,14 @@ def plotHistogram(series, excess_zero_count = 0, label = None,
         number_of_outliers = series.size - maximum_count_indcises.sum()
         series = series[maximum_count_indcises]
     
-    if discrete:
+    series_max = series.max()
+    
+    if discrete and series_max < 2500:
         number_of_bins = int(numpy.ceil(series.max())) + 1
         histogram_range = (-0.5, number_of_bins + 0.5)
     else:
         number_of_bins = "fd"
-        histogram_range = (series.min(), series.max())
+        histogram_range = (series.min(), series_max)
     
     if colour is None:
         colour = standard_palette[0]
