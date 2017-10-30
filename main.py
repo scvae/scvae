@@ -383,6 +383,7 @@ def main(input_file_or_name, data_directory = "data",
             transformed_evaluation_set, reconstructed_evaluation_set,\
                 latent_evaluation_sets = model.evaluate(
                     evaluation_set = evaluation_set,
+                    evaluation_subset_indices = evaluation_subset_indices,
                     batch_size = batch_size,
                     predict_labels = predict_labels_using_model,
                     use_best_model = use_best_model,
@@ -392,6 +393,7 @@ def main(input_file_or_name, data_directory = "data",
             transformed_evaluation_set, reconstructed_evaluation_set = \
                 model.evaluate(
                     evaluation_set = evaluation_set,
+                    evaluation_subset_indices = evaluation_subset_indices,
                     batch_size = batch_size,
                     use_best_model = use_best_model,
                     use_early_stopping_model = use_early_stopping_model

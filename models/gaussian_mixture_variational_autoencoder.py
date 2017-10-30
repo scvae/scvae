@@ -19,6 +19,7 @@ from distributions import distributions, latent_distributions, Categorized
 
 import numpy
 from numpy import inf
+import scipy.sparse
 
 import copy
 import os, shutil
@@ -1800,7 +1801,8 @@ class GaussianMixtureVariationalAutoencoder(object):
             
             return status
     
-    def evaluate(self, evaluation_set, batch_size = 100, predict_labels = True,
+    def evaluate(self, evaluation_set, evaluation_subset_indices = set(),
+        batch_size = 100, predict_labels = True,
         use_early_stopping_model = False, use_best_model = False,
         log_results = True):
         
@@ -1927,18 +1929,22 @@ class GaussianMixtureVariationalAutoencoder(object):
             z_mean_eval = numpy.zeros((M_eval, self.latent_size),
                 numpy.float32)
             p_x_mean_eval = numpy.zeros((M_eval, F_eval), numpy.float32)
-            # p_x_stddev_eval = numpy.zeros((M_eval, F_eval), numpy.float32)
-            # stddev_of_p_x_given_z_mean_eval = numpy.zeros((M_eval, F_eval),
-            #     numpy.float32)
+            p_x_stddev_eval = scipy.sparse.lil_matrix((M_eval, F_eval),
+                dtype = numpy.float32)
+            stddev_of_p_x_given_z_mean_eval = scipy.sparse.lil_matrix(
+                (M_eval, F_eval), dtype = numpy.float32)
             y_mean_eval = numpy.zeros((M_eval, self.K), numpy.float32)
 
             for i in range(0, M_eval, batch_size):
-                subset = slice(i, min(i + batch_size, M_eval))
-                x_batch = x_eval[subset].toarray()
-                t_batch = t_eval[subset].toarray()
+                
+                indices = numpy.arange(i, min(i + batch_size, M_eval))
+                
+                subset_indices = numpy.array(list(
+                    evaluation_subset_indices.intersection(indices)))
+                
                 feed_dict_batch = {
-                    self.x: x_batch,
-                    self.t: t_batch,
+                    self.x: x_eval[indices].toarray(),
+                    self.t: t_eval[indices].toarray(),
                     self.is_training: False,
                     self.warm_up_weight: 1.0,
                     self.S_iw:
@@ -1947,16 +1953,16 @@ class GaussianMixtureVariationalAutoencoder(object):
                         self.number_of_monte_carlo_samples["evaluation"]
                 }
                 if self.count_sum:
-                    feed_dict_batch[self.n] = n_eval[subset]
+                    feed_dict_batch[self.n] = n_eval[indices]
 
                 if self.count_sum_feature:
-                    feed_dict_batch[self.n_feature] = n_feature_eval[subset]
+                    feed_dict_batch[self.n_feature] = n_feature_eval[indices]
 
                 (ELBO_i, ENRE_i, KL_z_i, KL_y_i,
                     q_y_probabilities_i, q_z_means_i, q_z_variances_i,
                     p_y_probabilities_i, p_z_means_i, p_z_variances_i,
                     q_y_logits_i, p_x_mean_i,
-                    # p_x_stddev_i, stddev_of_p_x_given_z_mean_i,
+                    p_x_stddev_i, stddev_of_p_x_given_z_mean_i,
                     y_mean_i, z_mean_i) = session.run(
                         [
                             self.ELBO, self.ENRE, self.KL_z, self.KL_y,
@@ -1964,7 +1970,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                             self.q_z_variances, self.p_y_probabilities, 
                             self.p_z_means, self.p_z_variances,
                             self.q_y_logits, self.p_x_mean,
-                            # self.p_x_stddev, self.stddev_of_p_x_given_z_mean,
+                            self.p_x_stddev, self.stddev_of_p_x_given_z_mean,
                             self.y_mean, self.z_mean
                         ],
                         feed_dict = feed_dict_batch
@@ -1980,16 +1986,18 @@ class GaussianMixtureVariationalAutoencoder(object):
                 p_y_probabilities += numpy.array(p_y_probabilities_i)
                 p_z_means += numpy.array(p_z_means_i)
                 p_z_variances += numpy.array(p_z_variances_i)
-
-                q_y_logits[subset] = q_y_logits_i
-
-                p_x_mean_eval[subset] = p_x_mean_i 
-                y_mean_eval[subset] = y_mean_i 
-                z_mean_eval[subset] = z_mean_i 
-
-                # p_x_stddev_eval[subset] = p_x_stddev_i
-                # stddev_of_p_x_given_z_mean_eval[subset] =\
-                #     stddev_of_p_x_given_z_mean_i
+                
+                q_y_logits[indices] = q_y_logits_i
+                
+                p_x_mean_eval[indices] = p_x_mean_i 
+                y_mean_eval[indices] = y_mean_i 
+                z_mean_eval[indices] = z_mean_i 
+                
+                if subset_indices.size > 0:
+                    p_x_stddev_eval[subset_indices] = \
+                        p_x_stddev_i[subset_indices - i]
+                    stddev_of_p_x_given_z_mean_eval[subset_indices] = \
+                        stddev_of_p_x_given_z_mean_i[subset_indices - i]
             
             ELBO_eval /= M_eval / batch_size
             KL_z_eval /= M_eval / batch_size
@@ -2129,9 +2137,9 @@ class GaussianMixtureVariationalAutoencoder(object):
             reconstructed_evaluation_set = DataSet(
                 evaluation_set.name,
                 values = p_x_mean_eval,
-                # total_standard_deviations = p_x_stddev_eval,
-                # explained_standard_deviations = \
-                #     stddev_of_p_x_given_z_mean_eval,
+                total_standard_deviations = p_x_stddev_eval,
+                explained_standard_deviations = \
+                    stddev_of_p_x_given_z_mean_eval,
                 preprocessed_values = None,
                 labels = evaluation_set.labels,
                 example_names = evaluation_set.example_names,

@@ -18,6 +18,7 @@ from distributions import distributions, latent_distributions, Categorized
 
 import numpy
 from numpy import inf
+import scipy.sparse
 
 import copy
 import os, shutil
@@ -1470,8 +1471,8 @@ class VariationalAutoencoder(object):
             
             return status
     
-    def evaluate(self, evaluation_set, batch_size = 100,
-        predict_labels = False,
+    def evaluate(self, evaluation_set, evaluation_subset_indices = set(),
+        batch_size = 100, predict_labels = False,
         use_early_stopping_model = False, use_best_model = False,
         use_deterministic_z = False,  log_results = True):
         
@@ -1551,10 +1552,11 @@ class VariationalAutoencoder(object):
             KL_eval = 0
             ENRE_eval = 0
             
-            p_x_mean_eval = numpy.empty([M_eval, F_eval], numpy.float32)
-            # p_x_stddev_eval = numpy.empty([M_eval, F_eval], numpy.float32)
-            # stddev_of_p_x_mean_eval = numpy.empty([M_eval, F_eval],
-            #     numpy.float32)
+            p_x_mean_eval = numpy.empty((M_eval, F_eval), numpy.float32)
+            p_x_stddev_eval = scipy.sparse.lil_matrix((M_eval, F_eval),
+                dtype = numpy.float32)
+            stddev_of_p_x_mean_eval = scipy.sparse.lil_matrix((M_eval, F_eval),
+                dtype = numpy.float32)
             
             q_z_mean_eval = numpy.empty([M_eval, self.latent_size],
                 numpy.float32)
@@ -1569,12 +1571,15 @@ class VariationalAutoencoder(object):
                     self.number_of_monte_carlo_samples["evaluation"]
 
             for i in range(0, M_eval, batch_size):
-                subset = slice(i, min(i + batch_size, M_eval))
-                x_batch = x_eval[subset].toarray()
-                t_batch = t_eval[subset].toarray()
+                
+                indices = numpy.arange(i, min(i + batch_size, M_eval))
+                
+                subset_indices = numpy.array(list(
+                    evaluation_subset_indices.intersection(indices)))
+                
                 feed_dict_batch = {
-                    self.x: x_batch,
-                    self.t: t_batch,
+                    self.x: x_eval[indices].toarray(),
+                    self.t: t_eval[indices].toarray(),
                     self.is_training: False,
                     self.use_deterministic_z: use_deterministic_z,
                     self.warm_up_weight: 1.0,
@@ -1582,16 +1587,16 @@ class VariationalAutoencoder(object):
                     self.number_of_mc_samples: number_of_mc_samples
                 }
                 if self.count_sum:
-                    feed_dict_batch[self.n] = n_eval[subset]
+                    feed_dict_batch[self.n] = n_eval[indices]
                 
                 if self.count_sum_feature:
-                    feed_dict_batch[self.n_feature] = n_feature_eval[subset]
+                    feed_dict_batch[self.n_feature] = n_feature_eval[indices]
                 
                 (ELBO_i, KL_i, ENRE_i, p_x_mean_i,
-                    # p_x_stddev_i, stddev_of_p_x_mean_i,
+                    p_x_stddev_i, stddev_of_p_x_mean_i,
                     q_z_mean_i) = session.run(
                     [self.ELBO, self.KL, self.ENRE, self.p_x_mean,
-                        # self.p_x_stddev, self.stddev_of_p_x_given_z_mean,
+                        self.p_x_stddev, self.stddev_of_p_x_given_z_mean,
                         self.q_z_mean],
                     feed_dict = feed_dict_batch
                 )
@@ -1606,17 +1611,22 @@ class VariationalAutoencoder(object):
                 #           = E_z[p_x_given_z.mean]
                 #     \approx 1/(R*L) \sum^R_r w_r \sum^L_{l=1}
                 # p_x_given_z.mean
-                p_x_mean_eval[subset] = p_x_mean_i
-
-                # Reconstruction standard deviation: 
-                #     sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
-                #     = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
-                # p_x_stddev_eval[subset] = p_x_stddev_i
-
-                # Estimated standard deviation of Monte Carlo estimate E[x].
-                # stddev_of_p_x_mean_eval[subset] = stddev_of_p_x_mean_i
-
-                q_z_mean_eval[subset] = q_z_mean_i
+                p_x_mean_eval[indices] = p_x_mean_i
+                
+                if subset_indices.size > 0:
+                
+                    # Reconstruction standard deviation: 
+                    #     sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
+                    #     = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
+                    p_x_stddev_eval[subset_indices] = \
+                        p_x_stddev_i[subset_indices - i]
+                    
+                    # Estimated standard deviation of Monte Carlo estimate E[x].
+                    stddev_of_p_x_mean_eval[subset_indices] = \
+                        stddev_of_p_x_mean_i[subset_indices - i]
+                
+                # Latent space
+                q_z_mean_eval[indices] = q_z_mean_i
             
             ELBO_eval /= M_eval / batch_size
             KL_eval /= M_eval / batch_size
@@ -1700,8 +1710,8 @@ class VariationalAutoencoder(object):
             reconstructed_evaluation_set = DataSet(
                 evaluation_set.name,
                 values = p_x_mean_eval,
-                # total_standard_deviations = p_x_stddev_eval,
-                # explained_standard_deviations = stddev_of_p_x_mean_eval,
+                total_standard_deviations = p_x_stddev_eval,
+                explained_standard_deviations = stddev_of_p_x_mean_eval,
                 preprocessed_values = None,
                 labels = evaluation_set.labels,
                 example_names = evaluation_set.example_names,

@@ -3052,6 +3052,11 @@ def plotProfileComparison(observed_series, expected_series,
     if isinstance(observed_series, scipy.sparse.csr_matrix):
         observed_series = observed_series.A[0]
     
+    expected_series_total_standard_deviations = \
+        expected_series_total_standard_deviations.A[0]
+    expected_series_explained_standard_deviations = \
+        expected_series_explained_standard_deviations.A[0]
+    
     N = observed_series.shape[0]
     
     observed_colour = standard_palette[0]
