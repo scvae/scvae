@@ -878,38 +878,11 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         y_cutoff = profile_comparison_count_cut_off
         
+        subset = evaluationSubset(evaluation_set,
+            profile_comparison_maximum_number_of_examples_per_class)
+        
         if analysis_level == "limited":
-            subset = [0]
-        else:
-            if evaluation_set.has_labels:
-                
-                subset = set()
-            
-                if evaluation_set.label_superset:
-                    class_names = evaluation_set.superset_class_names
-                    labels = evaluation_set.superset_labels
-                else:
-                    class_names = evaluation_set.class_names
-                    labels = evaluation_set.labels
-            
-                class_counter = {}
-            
-                for class_name in class_names:
-                    class_counter[class_name] = 0
-            
-                counter_max = profile_comparison_maximum_number_of_examples_per_class
-            
-                while any(map(lambda x: x < counter_max, class_counter.values())):
-                    i = numpy.random.randint(0, M)
-                    label = labels[i]
-                    if class_counter[label] >= counter_max or i in subset:
-                        continue
-                    else:
-                        class_counter[label] += 1
-                        subset.add(i)
-            else:
-                subset = numpy.random.permutation(M)\
-                    [:profile_comparison_maximum_number_of_examples]
+            subset = set([subset.pop()])
         
         for i in subset:
             
@@ -1001,6 +974,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                     name = example_name_parts
                 )
                 saveImage(image, image_name, image_comparisons_directory)
+            
             if reconstructed_evaluation_set.example_type == "images":
                 example_name_parts = ["reconstructed"] + example_name_base_parts
                 image, image_name = combineImagesFromDataSet(
@@ -2009,6 +1983,44 @@ def analyseCentroidProbabilities(centroids, name = None,
     plot_duration = time() - plot_time_start
     print("Centroid probabilities plotted and saved ({}).".format(
         formatDuration(plot_duration)))
+
+def evaluationSubset(evaluation_set, maximum_number_of_examples_per_class = 3):
+    
+    M = evaluation_set.number_of_examples
+    
+    if evaluation_set.has_labels:
+        
+        subset = set()
+        
+        counter_max = maximum_number_of_examples_per_class
+        
+        if evaluation_set.label_superset:
+            class_names = evaluation_set.superset_class_names
+            labels = evaluation_set.superset_labels
+        else:
+            class_names = evaluation_set.class_names
+            labels = evaluation_set.labels
+        
+        class_counter = {}
+        
+        for class_name in class_names:
+            class_counter[class_name] = 0
+        
+        while any(map(lambda x: x < counter_max, class_counter.values())):
+            i = numpy.random.randint(0, M)
+            label = labels[i]
+            if class_counter[label] >= counter_max or i in subset:
+                continue
+            else:
+                class_counter[label] += 1
+                subset.add(i)
+    
+    else:
+        subset = numpy.random.permutation(M)\
+            [:profile_comparison_maximum_number_of_examples]
+        subset = set(subset)
+    
+    return subset
 
 def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
