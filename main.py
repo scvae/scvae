@@ -323,6 +323,8 @@ def main(input_file_or_name, data_directory = "data",
         else:
             data_subset.clear()
     
+    evaluation_subset_indices = analysis.evaluationSubsetIndices(evaluation_set)
+    
     print("Evaluation set: {} set.".format(evaluation_set.kind))
     
     ### Prediction method
@@ -444,7 +446,9 @@ def main(input_file_or_name, data_directory = "data",
                 reconstructed_evaluation_set,
                 latent_evaluation_sets,
                 model,
-                decomposition_methods, highlight_feature_indices,
+                decomposition_methods = decomposition_methods,
+                evaluation_subset_indices = evaluation_subset_indices,
+                highlight_feature_indices = highlight_feature_indices,
                 prediction_method = prediction_method,
                 number_of_classes = number_of_classes,
                 best_model = use_best_model,

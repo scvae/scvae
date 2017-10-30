@@ -67,8 +67,9 @@ number_of_pca_components_before_tsne = 32
 
 number_of_random_examples = 100
 
-profile_comparison_maximum_number_of_examples = 25
-profile_comparison_maximum_number_of_examples_per_class = 3
+evaluation_subset_maximum_number_of_examples = 25
+evaluation_subset_maximum_number_of_examples_per_class = 3
+
 profile_comparison_count_cut_off = 10.5
 
 maximum_count_scales = [1, 5]
@@ -604,7 +605,8 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
 
 def analyseResults(evaluation_set, reconstructed_evaluation_set,
     latent_evaluation_sets, model,
-    decomposition_methods = ["PCA"], highlight_feature_indices = [],
+    decomposition_methods = ["PCA"], evaluation_subset_indices = set(),
+    highlight_feature_indices = [],
     early_stopping = False, best_model = False,
     analyses = ["default"], analysis_level = "normal",
     results_directory = "results", **remaining_arguments):
@@ -864,8 +866,6 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     if "profile_comparisons" in analyses:
         
-        numpy.random.seed(80)
-        
         print("Plotting profile comparisons.")
         
         image_comparisons_directory = os.path.join(
@@ -878,13 +878,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         y_cutoff = profile_comparison_count_cut_off
         
-        subset = evaluationSubset(evaluation_set,
-            profile_comparison_maximum_number_of_examples_per_class)
-        
-        if analysis_level == "limited":
-            subset = set([subset.pop()])
-        
-        for i in subset:
+        for i in evaluation_subset_indices:
             
             observed_series = evaluation_set.values[i]
             expected_series = reconstructed_evaluation_set.values[i]
@@ -984,14 +978,15 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                     name = example_name_parts
                 )
                 saveImage(image, image_name, image_comparisons_directory)
+            
+            if analysis_level == "limited":
+                break
         
         profile_comparisons_duration = time() - profile_comparisons_time_start
         print("Profile comparisons plotted and saved ({}).".format(
             formatDuration(profile_comparisons_duration)))
         
         print()
-        
-        numpy.random.seed()
     
     # Distributions
     
@@ -1984,7 +1979,13 @@ def analyseCentroidProbabilities(centroids, name = None,
     print("Centroid probabilities plotted and saved ({}).".format(
         formatDuration(plot_duration)))
 
-def evaluationSubset(evaluation_set, maximum_number_of_examples_per_class = 3):
+def evaluationSubsetIndices(evaluation_set,
+    maximum_number_of_examples_per_class =
+        evaluation_subset_maximum_number_of_examples_per_class,
+    total_maximum_number_of_examples =
+        evaluation_subset_maximum_number_of_examples):
+    
+    numpy.random.seed(80)
     
     M = evaluation_set.number_of_examples
     
@@ -2017,8 +2018,10 @@ def evaluationSubset(evaluation_set, maximum_number_of_examples_per_class = 3):
     
     else:
         subset = numpy.random.permutation(M)\
-            [:profile_comparison_maximum_number_of_examples]
+            [:total_maximum_number_of_examples]
         subset = set(subset)
+    
+    numpy.random.seed()
     
     return subset
 
