@@ -2037,7 +2037,7 @@ def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     if skip_sparsity:
         x_sparsity = nan
     else:
-        if isinstance(data_set, scipy.sparse.csr_matrix):
+        if scipy.sparse.issparse(data_set):
             x_sparsity = 1 - (data_set >= tolerance).sum() \
                 / numpy.prod(data_set.shape)
         else:
@@ -2129,7 +2129,7 @@ def computeCountAccuracies(x, x_tilde, method = None):
                 
                 k_size = k_indices.sum()
                 
-                if isinstance(x, scipy.sparse.csr_matrix):
+                if scipy.sparse.issparse(x):
                     k_indices = k_indices.tocoo()
                     k_indices = (k_indices.row, k_indices.col)
                 
@@ -2163,7 +2163,7 @@ def computeCountAccuracies(x, x_tilde, method = None):
             
             k_size = k_indices.sum()
             
-            if isinstance(x, scipy.sparse.csr_matrix):
+            if scipy.sparse.issparse(x):
                 k_indices = k_indices.tocoo()
                 k_indices = (k_indices.row, k_indices.col)
             
@@ -3049,13 +3049,16 @@ def plotProfileComparison(observed_series, expected_series,
     
     figure_name = figureName("profile_comparison", name)
     
-    if isinstance(observed_series, scipy.sparse.csr_matrix):
-        observed_series = observed_series.A[0]
+    if scipy.sparse.issparse(observed_series):
+        observed_series = observed_series.A.squeeze()
     
-    expected_series_total_standard_deviations = \
-        expected_series_total_standard_deviations.A[0]
-    expected_series_explained_standard_deviations = \
-        expected_series_explained_standard_deviations.A[0]
+    if scipy.sparse.issparse(expected_series_total_standard_deviations):
+        expected_series_total_standard_deviations = \
+            expected_series_total_standard_deviations.A.squeeze()
+    
+    if scipy.sparse.issparse(expected_series_explained_standard_deviations):
+        expected_series_explained_standard_deviations = \
+            expected_series_explained_standard_deviations.A.squeeze()
     
     N = observed_series.shape[0]
     
@@ -3549,9 +3552,9 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         
         f = colouring_data_set.values[shuffled_indices,
             feature_index]
-        if isinstance(f, scipy.sparse.csr_matrix):
+        if scipy.sparse.issparse(f):
             f = f.A
-        f = f.flatten()
+        f = f.squeeze()
         
         scatter_plot = axis.scatter(values[:, 0], values[:, 1], c = f,
             cmap = colour_map)
@@ -3705,7 +3708,7 @@ def combineImagesFromDataSet(data_set, number_of_random_examples = 100, indices 
     W, H = data_set.feature_dimensions
     
     examples = data_set.values[indices]
-    if isinstance(examples, scipy.sparse.csr_matrix):
+    if scipy.sparse.issparse(examples):
         examples = examples.A
     examples = examples.reshape(M, W, H)
     
