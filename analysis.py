@@ -3207,7 +3207,7 @@ def plotProfileComparison(observed_series, expected_series,
         seaborn.despine(ax = axis_upper)
         seaborn.despine(ax = axis_lower)
         
-        axis_upper.set_yscale("log")
+        axis_upper.set_yscale("log", nonposy = "clip")
         axis_lower.set_yscale("linear")
         figure.text(0.04, 0.5, y_label, va = "center", rotation = "vertical")
         
@@ -3232,7 +3232,7 @@ def plotProfileComparison(observed_series, expected_series,
         
         seaborn.despine()
         
-        axis.set_yscale(y_scale)
+        axis.set_yscale(y_scale, nonposy = "clip")
         axis.set_ylabel(y_label)
         
         axis.set_xscale(x_scale)
