@@ -2412,24 +2412,26 @@ def plotHistogram(series, excess_zero_count = 0, label = None,
         series = series[maximum_count_indcises]
     
     if discrete:
-        number_of_bins = int(numpy.ceil(series.max())) + 1
-        histogram_range = (-0.5, number_of_bins + 0.5)
+        series_max = series.max()
+        number_of_bins = int(numpy.ceil(series_max)) + 1
+        bin_range = numpy.array((-0.5, series_max + 0.5))
     else:
         number_of_bins = "fd"
-        histogram_range = (series.min(), series.max())
+        bin_range = numpy.array((series.min(), series.max()))
     
     if colour is None:
         colour = standard_palette[0]
     
     if x_scale == "log":
         series += 1
+        bin_range += 1
         label += " (shifted one)"
         figure_name += "-log_values"
     
     y_log = y_scale == "log"
     
     histogram, bin_edges = numpy.histogram(series, bins = number_of_bins,
-        range = histogram_range)
+        range = bin_range)
     
     histogram[0] += excess_zero_count
     
