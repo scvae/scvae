@@ -14,6 +14,7 @@ import json
 
 import numpy
 import scipy.sparse
+import scipy.io
 import sklearn.preprocessing
 import stemming.porter2 as stemming
 
@@ -217,6 +218,42 @@ data_sets = {
             }
         },
         "loading function": lambda x: load10xDataSet(x),
+        "example type": "counts"
+    },
+    
+    "DIMM-SC (10x, simple)": {
+        "tags": {
+            "example": "cell",
+            "feature": "gene",
+            "type": "count",
+            "item": "transcript"
+        },
+        "URLs": {
+            "all": {
+                "CD56+ NK cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd56_nk/cd56_nk_filtered_gene_bc_matrices.tar.gz",
+                "CD19+ B cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/b_cells/b_cells_filtered_gene_bc_matrices.tar.gz",
+                "CD4+/CD25+ regulatory T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/regulatory_t/regulatory_t_filtered_gene_bc_matrices.tar.gz"
+            },
+        },
+        "loading function": lambda x: loadDIMMSCsCombined10xDataSet(x),
+        "example type": "counts"
+    },
+    
+    "DIMM-SC (10x, challenging)": {
+        "tags": {
+            "example": "cell",
+            "feature": "gene",
+            "type": "count",
+            "item": "transcript"
+        },
+        "URLs": {
+            "all": {
+                "CD8+/CD45RA+ naive cytotoxic T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_cytotoxic/naive_cytotoxic_filtered_gene_bc_matrices.tar.gz",
+                "CD4+/CD25+ regulatory T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/regulatory_t/regulatory_t_filtered_gene_bc_matrices.tar.gz",
+                "CD4+/CD45RA+/CD25- naive T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_t/naive_t_filtered_gene_bc_matrices.tar.gz"
+            },
+        },
+        "loading function": lambda x: loadDIMMSCsCombined10xDataSet(x),
         "example type": "counts"
     },
     
@@ -1416,7 +1453,7 @@ def saveDataSetDictionaryAsJSONFile(data_set_dictionary, directory):
 def findDataSet(name, directory):
     
     title = None
-        
+    
     for data_set_title in data_sets:
         if normaliseString(data_set_title) == name:
             title = data_set_title
@@ -1603,8 +1640,8 @@ def acquireDataSet(title, directory):
             URL_filename = os.path.split(URL)[-1]
             extension = os.extsep + URL_filename.split(os.extsep, 1)[-1]
             
-            name = normaliseString(title)
-            filename = name + "-" + values_or_labels + "-" + kind
+            filename = "-".join(map(normaliseString,
+                [title, values_or_labels, kind]))
             path = os.path.join(directory, filename) + extension
             
             paths[values_or_labels][kind] = path
@@ -2348,6 +2385,64 @@ def load10xDataSet(paths):
         "labels": labels,
         "example names": example_names,
         "feature names": feature_names
+    }
+    
+    return data_dictionary
+
+def loadDIMMSCsCombined10xDataSet(paths):
+    
+    directories = set()
+    
+    value_sets = {}
+    example_name_sets = {}
+    feature_name_sets = {}
+    
+    for class_name, filename in paths["all"].items():
+        with tarfile.open(filename, "r:gz") as tarball:
+            for member in sorted(tarball, key = lambda member: member.name):
+                if member.isfile():
+                    directory, full_name = os.path.split(member.name)
+                    directories.add(directory)
+                    assert len(directories) == 1, \
+                        "Compressed file includes multiple directories, " \
+                        "expected only one."
+                    name, extension = os.path.splitext(full_name)
+                    with tarball.extractfile(member) as data_file:
+                        if full_name == "matrix.mtx":
+                            value_sets[class_name] = \
+                                scipy.io.mmread(data_file).T
+                        elif extension == ".tsv":
+                            names = numpy.array(data_file.read().splitlines())
+                            if name == "barcodes":
+                                example_name_sets[class_name] = names
+                            elif name == "genes":
+                                feature_name_sets[class_name] = names
+    
+    label_sets = {}
+    
+    for class_name in example_name_sets:
+        label_sets[class_name] = numpy.array([class_name] \
+            * example_name_sets[class_name].shape[0])
+    
+    sorted_values = lambda d: [v for k, v in sorted(d.items())]
+    
+    values = scipy.sparse.vstack(sorted_values(value_sets))
+    example_names = numpy.concatenate(sorted_values(example_name_sets))
+    labels = numpy.concatenate(sorted_values(label_sets))
+    
+    class_name, feature_names = feature_name_sets.popitem()
+    
+    for other_class_name, other_feature_names in feature_name_sets.items():
+        if not all(feature_names == other_feature_names):
+            raise ValueError(
+                "The feature names for \"{}\" and \"{}\" do not match.".format(
+                    class_name, other_class_name))
+    
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names,
     }
     
     return data_dictionary
