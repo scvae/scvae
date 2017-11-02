@@ -51,12 +51,12 @@ def normaliseString(s):
     s = s.lower()
     
     replacements = {
-        "_": [" ", "-"],
-        "": ["(", ")", "$"]
+        "_": [" ", "-", "/"],
+        "": ["(", ")", ",", "$"]
     }
     
     for replacement, characters in replacements.items():
-        pattern = r"[" + "".join(characters) + "]"
+        pattern = "[" + re.escape("".join(characters)) + "]"
         s = re.sub(pattern, replacement, s)
     
     return s
