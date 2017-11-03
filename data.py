@@ -1772,6 +1772,8 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
     
     if feature_selection == "remove_zeros":
         total_feature_sum = values.sum(axis = 0)
+        if isinstance(total_feature_sum, numpy.matrix):
+            total_feature_sum = total_feature_sum.A.squeeze()
         indices = total_feature_sum != 0
     
     elif feature_selection == "keep_gini_indices_above":
@@ -1791,12 +1793,16 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
         
     elif feature_selection == "keep_variances_above":
         variances = values.var(axis = 0)
+        if isinstance(variances, numpy.matrix):
+            variances = variances.A.squeeze()
         if not feature_parameter:
             feature_parameter = 0.5
         indices = variances > feature_parameter
 
     elif feature_selection == "keep_highest_variances":
         variances = values.var(axis = 0)
+        if isinstance(variances, numpy.matrix):
+            variances = variances.A.squeeze()
         variance_sorted_indices = numpy.argsort(variances)
         if feature_parameter:
             feature_parameter = int(feature_parameter)
@@ -1807,8 +1813,13 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
     else:
         indices = numpy.arange(N)
     
-    if feature_selection and len(indices) == N:
-        raise ValueError("No features excluded using feature selection. Exiting.")
+    if feature_selection:
+        error = ValueError(
+            "No features excluded using feature selection. Exiting.")
+        if indices.dtype == "bool" and all(indices):
+            raise error
+        elif indices.dtype != "bool" and len(indices) == N:
+            raise error
     
     feature_selected_values = {}
     
