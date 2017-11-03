@@ -320,7 +320,8 @@ def main(input_file_or_name, data_directory = "data",
     for data_subset in all_data_sets:
         if data_subset.kind == evaluation_set_name:
             evaluation_set = data_subset
-        else:
+        elif not (prediction_method != "model"
+                  and data_subset.kind == "training"):
             data_subset.clear()
     
     evaluation_subset_indices = analysis.evaluationSubsetIndices(evaluation_set)
