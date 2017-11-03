@@ -3362,7 +3362,8 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     
     # Randomise examples in values to remove any prior order
     M, N = values.shape
-    shuffled_indices = numpy.random.permutation(M)
+    random_state = numpy.random.RandomState(117)
+    shuffled_indices = random_state.permutation(M)
     values = values[shuffled_indices]
     
     if axis_limits:
