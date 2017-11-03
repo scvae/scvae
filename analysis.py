@@ -37,6 +37,7 @@ from auxiliary import (
     formatTime, formatDuration,
     normaliseString, properString, heading
 )
+from miscellaneous.prediction import prediction_method_names
 import warnings
 
 standard_palette = seaborn.color_palette('Set2', 8)
@@ -607,9 +608,11 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     latent_evaluation_sets, model,
     decomposition_methods = ["PCA"], evaluation_subset_indices = set(),
     highlight_feature_indices = [],
+    prediction_method = None,
+    number_of_classes = None,
     early_stopping = False, best_model = False,
     analyses = ["default"], analysis_level = "normal",
-    results_directory = "results", **remaining_arguments):
+    results_directory = "results"):
     
     if early_stopping and best_model:
         raise ValueError("Early-stopping model and best model cannot be"
@@ -736,7 +739,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 )
             else:
                 ARI_labels = None
-        
+            
         else:
             ARI_clusters = None
             ARI_labels = None
@@ -747,13 +750,13 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         ## Saving
         
-        metrics_log_filename = "{}_metrics".format(evaluation_set.kind)
+        metrics_saving_time_start = time()
+        
+        metrics_log_filename = "{}-metrics".format(evaluation_set.kind)
         metrics_log_path = os.path.join(results_directory,
             metrics_log_filename + ".log")
         metrics_dictionary_path = os.path.join(results_directory,
             metrics_log_filename + ".pkl.gz")
-        
-        metrics_saving_time_start = time()
         
         with open(metrics_log_path, "w") as metrics_file:
             metrics_string = "Timestamp: {}".format(
@@ -790,12 +793,6 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             if superset_accuracy_eval is not None:
                 metrics_string += "    Accuracy (superset): {:6.2f} %.\n".format(
                     100 * superset_accuracy_eval[-1])
-            if ARI_clusters:
-                metrics_string += "    ARI (clusters): {:.5g}.\n".format(
-                    ARI_clusters)
-            if ARI_labels:
-                metrics_string += "    ARI (labels): {:.5g}.\n".format(
-                    ARI_labels)
             metrics_string += "\n" + formatStatistics(evaluation_set_statistics)
             if count_accuracies:
                 metrics_string += "\n" + formatCountAccuracies(count_accuracies)
@@ -814,6 +811,58 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 "count accuracies": count_accuracies,
             }
             pickle.dump(metrics_dictionary, metrics_file)
+        
+        if prediction_method:
+            
+            prediction_log_filename = "{}-prediction-{}".format(
+                evaluation_set.kind, prediction_method)
+            if number_of_classes:
+                prediction_log_filename += "_{}".format(number_of_classes)
+            prediction_log_path = os.path.join(results_directory,
+                prediction_log_filename + ".log")
+            prediction_dictionary_path = os.path.join(results_directory,
+                prediction_log_filename + ".pkl.gz")
+            
+            prediction_string_parts = [
+                "Timestamp: {}".format(formatTime(
+                    metrics_saving_time_start)),
+                "Number of epochs trained: {}".format(
+                    number_of_epochs_trained),
+                "Prediction method: {}".format(properString(
+                    prediction_method, prediction_method_names))
+            ]
+            
+            if number_of_classes:
+                prediction_string_parts.append(
+                    "Number of classes: {}".format(number_of_classes))
+            
+            prediction_string_parts.append("\nEvaluation:")
+            
+            if ARI_clusters:
+                prediction_string_parts.append(
+                    "    ARI (clusters): {:.5g}.".format(ARI_clusters))
+            
+            if ARI_clusters:
+                prediction_string_parts.append(
+                    "    ARI (labels): {:.5g}.".format(ARI_labels))
+            
+            prediction_string = "\n".join(prediction_string_parts) + "\n"
+            
+            prediction_dictionary = {
+                "timestamp": metrics_saving_time_start,
+                "number of epochs trained": number_of_epochs_trained,
+                "prediction method": properString(
+                    prediction_method, prediction_method_names),
+                "number of classes": number_of_classes,
+                "ARI (clusters)": ARI_clusters,
+                "ARI (labels)": ARI_labels,
+            }
+            
+            with open(prediction_log_path, "w") as prediction_file:
+                prediction_file.write(prediction_string)
+            
+            with gzip.open(prediction_dictionary_path, "w") as prediction_file:
+                pickle.dump(prediction_dictionary, prediction_file)
         
         metrics_saving_duration = time() - metrics_saving_time_start
         print("Metrics saved ({}).".format(formatDuration(
@@ -1012,12 +1061,13 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             colouring_data_set = evaluation_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
+            prediction_method = prediction_method,
+            number_of_classes = number_of_classes,
             symbol = "\\tilde{{x}}",
             pca_limits = evaluation_set.pca_limits,
             title = "reconstruction space",
             analysis_level = analysis_level,
             results_directory = results_directory,
-            **remaining_arguments
         )
         
         ## Reconstructions plotted in original decomposed space
@@ -1028,12 +1078,13 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             colouring_data_set = evaluation_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
+            prediction_method = prediction_method,
+            number_of_classes = number_of_classes,
             symbol = "x",
             pca_limits = evaluation_set.pca_limits,
             title = "original space",
             analysis_level = analysis_level,
             results_directory = results_directory,
-            **remaining_arguments
         )
     
     # Heat maps
@@ -1140,11 +1191,12 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             colouring_data_set = evaluation_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
+            prediction_method = prediction_method,
+            number_of_classes = number_of_classes,
             title = "latent space",
             specifier = lambda data_set: data_set.version,
             analysis_level = analysis_level,
             results_directory = results_directory,
-            **remaining_arguments
         )
         
         if centroids:
@@ -1425,10 +1477,11 @@ def analyseDistributions(data_set, colouring_data_set = None,
     
 def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
-    highlight_feature_indices = [], symbol = None, pca_limits = None,
+    highlight_feature_indices = [],
+    prediction_method = None, number_of_classes = None,
+    symbol = None, pca_limits = None,
     title = "data set", specifier = None,
-    analysis_level = "normal", results_directory = "results",
-    **remaining_arguments):
+    analysis_level = "normal", results_directory = "results"):
     
     centroids_original = centroids
     
@@ -1834,10 +1887,11 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         colouring_data_set = colouring_data_set,
                         centroids = centroids_decomposed,
                         figure_labels = figure_labels,
+                        prediction_method = prediction_method,
+                        number_of_classes = number_of_classes,
                         axis_limits = axis_limits,
                         example_tag = data_set.tags["example"],
                         name = plot_name,
-                        **remaining_arguments
                     )
                     saveFigure(figure, figure_name, decompositions_directory)
                 
@@ -1859,10 +1913,11 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         colouring_data_set = colouring_data_set,
                         centroids = centroids_decomposed,
                         figure_labels = figure_labels,
+                        prediction_method = prediction_method,
+                        number_of_classes = number_of_classes,
                         axis_limits = axis_limits,
                         example_tag = data_set.tags["example"],
                         name = plot_name,
-                        **remaining_arguments
                     )
                     saveFigure(figure, figure_name, decompositions_directory)
                 
@@ -3322,8 +3377,8 @@ def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
 
 def plotValues(values, colour_coding = None, colouring_data_set = None,
     centroids = None, class_name = None, feature_index = None,
-    figure_labels = None, axis_limits = None, example_tag = None,
-    name = "scatter", **remaining_arguments):
+    figure_labels = None, prediction_method = None, number_of_classes = None,
+    axis_limits = None, example_tag = None, name = "scatter"):
     
     # Setup
     
@@ -3347,10 +3402,10 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         colour_coding = normaliseString(colour_coding)
         figure_name += "-" + colour_coding
         if "predicted" in colour_coding:
-            if "prediction_method" in remaining_arguments:
-                figure_name += "-" + remaining_arguments["prediction_method"]
-            if "number_of_classes" in remaining_arguments:
-                figure_name += "_" + str(remaining_arguments["number_of_classes"])
+            if prediction_method:
+                figure_name += "-" + prediction_method
+            if number_of_classes:
+                figure_name += "_" + str(number_of_classes)
         if colouring_data_set is None:
             raise ValueError("Colouring data set not given.")
     
