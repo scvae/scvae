@@ -1671,7 +1671,16 @@ def acquireDataSet(title, directory):
                 continue
             
             URL_filename = os.path.split(URL)[-1]
-            extension = os.extsep + URL_filename.split(os.extsep, 1)[-1]
+            possible_extensions = URL_filename.split(os.extsep)
+            extensions = []
+            
+            for possible_extension in reversed(possible_extensions):
+                if len(possible_extension) < 8 and possible_extension.isalnum():
+                    extensions.insert(0, possible_extension)
+                else:
+                    break
+            
+            extension = os.extsep + ".".join(extensions)
             
             filename = "-".join(map(normaliseString,
                 [title, values_or_labels, kind]))
