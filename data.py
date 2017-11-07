@@ -257,6 +257,31 @@ data_sets = {
         "example type": "counts"
     },
     
+    "DIMM-SC (10x, all)": {
+        "tags": {
+            "example": "cell",
+            "feature": "gene",
+            "type": "count",
+            "item": "transcript"
+        },
+        "URLs": {
+            "all": {
+                "CD14+ Monocytes": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd14_monocytes/cd14_monocytes_filtered_gene_bc_matrices.tar.gz",
+                "CD19+ B Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/b_cells/b_cells_filtered_gene_bc_matrices.tar.gz",
+                "CD34+ Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd34/cd34_filtered_gene_bc_matrices.tar.gz",
+                "CD4+ Helper T Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd4_t_helper/cd4_t_helper_filtered_gene_bc_matrices.tar.gz",
+                "CD4+/CD25+ Regulatory T Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/regulatory_t/regulatory_t_filtered_gene_bc_matrices.tar.gz",
+                "CD4+/CD45RA+/CD25- Naive T Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_t/naive_t_filtered_gene_bc_matrices.tar.gz",
+                "CD4+/CD45RO+ Memory T Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/memory_t/memory_t_filtered_gene_bc_matrices.tar.gz",
+                "CD56+ Natural Killer Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd56_nk/cd56_nk_filtered_gene_bc_matrices.tar.gz",
+                "CD8+ Cytotoxic T Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cytotoxic_t/cytotoxic_t_filtered_gene_bc_matrices.tar.gz",
+                "CD8+/CD45RA+ Naive Cytotoxic T Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_cytotoxic/naive_cytotoxic_filtered_gene_bc_matrices.tar.gz"
+            },
+        },
+        "loading function": lambda x: loadDIMMSCsCombined10xDataSet(x),
+        "example type": "counts"
+    },
+    
     "TCGA (Kallisto)": {
         "tags": {
             "example": "sample",
