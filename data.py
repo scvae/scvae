@@ -849,12 +849,20 @@ class DataSet(object):
             if example_names is not None:
                 self.example_names = example_names
                 M_examples = example_names.shape[0]
-                assert M_values == M_examples
+                assert M_values == M_examples, \
+                    "The number of examples in the value matrix ({}) "\
+                        .format(M_values) + \
+                    "is not the same as the number of example names ({})."\
+                        .format(M_examples)
             
             if feature_names is not None:
                 self.feature_names = feature_names
                 N_features = feature_names.shape[0]
-                assert N_values == N_features
+                assert N_values == N_features, \
+                    "The number of features in the value matrix ({}) "\
+                        .format(N_values) + \
+                    "is not the same as the number of feature names ({})."\
+                        .format(N_features)
             
             self.number_of_examples = M_values
             self.number_of_features = N_values
@@ -2353,7 +2361,7 @@ def saveSplitIndices(split_indices, title, group, tables_file):
 def loadMouseRetinaDataSet(paths):
     
     values, column_headers, row_indices = \
-        loadTabSeparatedValues(paths["values"]["full"], numpy.float32)
+        loadTabSeparatedMatrix(paths["values"]["full"], numpy.float32)
     
     values = values.T
     example_names = numpy.array(column_headers)
@@ -2486,7 +2494,7 @@ def loadDIMMSCsCombined10xDataSet(paths):
 def loadTCGAKallistoDataSet(paths):
     
     values, column_headers, row_indices = \
-        loadTabSeparatedValues(paths["values"]["full"], numpy.float32)
+        loadTabSeparatedMatrix(paths["values"]["full"], numpy.float32)
     
     values = values.T
     values = numpy.round(numpy.power(2, values) - 1)
@@ -2507,7 +2515,7 @@ def loadTCGAKallistoDataSet(paths):
 def loadMatrixAsDataSet(paths, transpose = True):
     
     values, column_headers, row_indices = \
-        loadTabSeparatedValues(paths["values"]["full"], numpy.float32)
+        loadTabSeparatedMatrix(paths["values"]["full"], numpy.float32)
     
     if transpose:
         values = values.T
@@ -2526,7 +2534,7 @@ def loadMatrixAsDataSet(paths, transpose = True):
     
     return data_dictionary
 
-def loadTabSeparatedValues(tsv_path, data_type = None):
+def loadTabSeparatedMatrix(tsv_path, data_type = None):
     
     tsv_extension = tsv_path.split(os.extsep, 1)[-1]
     
@@ -2545,16 +2553,43 @@ def loadTabSeparatedValues(tsv_path, data_type = None):
     
     with openFile(tsv_path) as tsv_file:
         
-        column_headers = next(tsv_file).split()[1:]
+        column_headers = None
+        
+        while not column_headers:
+            
+            row_elements = next(tsv_file).split()
+            
+            # Skip, if row could not be split into elements
+            if len(row_elements) <= 1:
+                continue
+            
+            # Skip, if row only contains two integers before header
+            # (assumed to be the shape of the matrix)
+            elif len(row_elements) == 2 \
+                and all([element.isdigit() for element in row_elements]):
+                continue
+            
+            column_headers = row_elements
+        
+        row_elements = next(tsv_file).split()
+        
+        for i, element in enumerate(row_elements):
+            if element.isdecimal():
+                column_offset = i
+                break
+        
+        column_headers = column_headers[column_offset:]
+        
+        def parseRowElements(row_elements):
+            row_index = row_elements[0]
+            row_indices.append(row_index)
+            row_values = list(map(float, row_elements[column_offset:]))
+            values.append(row_values)
+        
+        parseRowElements(row_elements)
         
         for row in tsv_file:
-            row = row.split()
-            
-            row_index = row[0]
-            row_indices.append(row_index)
-            
-            row_values = list(map(float, row[1:]))
-            values.append(row_values)
+            parseRowElements(row.split())
     
     values = numpy.array(values, data_type)
     
