@@ -59,6 +59,8 @@ image_extension = ".png"
 
 maximum_feature_size_for_analyses = 2000
 
+maximum_number_of_bins_for_histograms = 20000
+
 maximum_number_of_values_for_heat_maps = 5000 * 25000
 
 maximum_number_of_values_for_dense_matrix = 4e9
@@ -2466,13 +2468,17 @@ def plotHistogram(series, excess_zero_count = 0, label = None,
         number_of_outliers = series.size - maximum_count_indcises.sum()
         series = series[maximum_count_indcises]
     
-    if discrete:
-        series_max = series.max()
+    series_max = series.max()
+    
+    if discrete and series_max < maximum_number_of_bins_for_histograms:
         number_of_bins = int(numpy.ceil(series_max)) + 1
         bin_range = numpy.array((-0.5, series_max + 0.5))
     else:
-        number_of_bins = "fd"
-        bin_range = numpy.array((series.min(), series.max()))
+        if series_max < maximum_number_of_bins_for_histograms:
+            number_of_bins = "auto"
+        else:
+            number_of_bins = maximum_number_of_bins_for_histograms
+        bin_range = numpy.array((series.min(), series_max))
     
     if colour is None:
         colour = standard_palette[0]
