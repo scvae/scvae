@@ -63,10 +63,9 @@ maximum_number_of_bins_for_histograms = 20000
 
 maximum_number_of_values_for_heat_maps = 5000 * 25000
 
-maximum_number_of_values_for_dense_matrix = 4e9
 maximum_number_of_features_for_t_sne = 100
-maximum_number_of_examples_for_t_sne = 50000
-number_of_pca_components_before_tsne = 32
+maximum_number_of_examples_for_t_sne = 200000
+number_of_pca_components_before_tsne = 50
 
 number_of_random_examples = 100
 
@@ -1577,7 +1576,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         print()
                         continue
                         
-                    if data_set.number_of_features > \
+                    elif data_set.number_of_features > \
                         maximum_number_of_features_for_t_sne:
                         
                         print(
@@ -1605,6 +1604,12 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             title_with_ID.capitalize(),
                             formatDuration(decompose_duration)
                         ))
+                    
+                    else:
+                        if scipy.sparse.issparse(values_decomposed):
+                            values_decomposed = values_decomposed.A
+                        if scipy.sparse.issparse(other_values_decomposed):
+                            other_values_decomposed = values_decomposed.A
                 
                 print("Decomposing {} using {}.".format(
                     title_with_ID, decomposition_method))
