@@ -1804,9 +1804,26 @@ class GaussianMixtureVariationalAutoencoder(object):
     def evaluate(self, evaluation_set, evaluation_subset_indices = set(),
         batch_size = 100, predict_labels = True,
         use_early_stopping_model = False, use_best_model = False,
-        log_results = True):
+        output_versions = "all", log_results = True):
         
-        # Examples
+        # Setup
+        
+        if output_versions == "all":
+            output_versions = ["transformed", "reconstructed", "latent"]
+        elif not isinstance(output_versions, list):
+            output_versions = [output_versions]
+        else:
+            number_of_output_versions = len(output_versions)
+            if number_of_output_versions > 3:
+                raise ValueError("Can only output at most 3 sets, "
+                    + "{} requested".format(number_of_output_versions))
+            elif number_of_output_versions != len(set(output_versions)):
+                raise ValueError("Cannot output duplicate sets, "
+                    + "{} requested.".format(output_versions))
+        
+        evaluation_set_transformed = False
+        
+        ## Examples
         
         if self.count_sum:
             n_eval = evaluation_set.count_sum
@@ -1828,6 +1845,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             
             if self.reconstruction_distribution_name == "bernoulli":
                 t_eval = evaluation_set.binarised_values
+                evaluation_set_transformed = True
             else:
                 t_eval = evaluation_set.values
             
@@ -1836,6 +1854,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             noisy_time_start = time()
             x_eval = noisy_preprocess(evaluation_set.values)
             t_eval = x_eval
+            evaluation_set_transformed = True
             noisy_duration = time() - noisy_time_start
             print("Values noisily preprocessed ({}).".format(
                 formatDuration(noisy_duration)))
@@ -1880,7 +1899,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             else:
                 excluded_superset_class_ids = []
         
-        # Other setup
+        ## Other
         
         if use_early_stopping_model:
             log_directory = self.early_stopping_log_directory
@@ -1896,6 +1915,8 @@ class GaussianMixtureVariationalAutoencoder(object):
             if os.path.exists(eval_summary_directory):
                 shutil.rmtree(eval_summary_directory)
         
+        # Evaluation
+        
         with tf.Session(graph = self.graph) as session:
             
             if log_results:
@@ -1907,8 +1928,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                 epoch = int(os.path.split(
                     checkpoint.model_checkpoint_path)[-1].split('-')[-1])
             else:
-                raise BaseError(
-                    "Cannot evaluate model when it has not been trained.")
+                print("Cannot evaluate model when it has not been trained.")
+                return [None] * len(output_versions)
             
             data_string = dataString(evaluation_set,
                 self.reconstruction_distribution_name)
@@ -1919,22 +1940,29 @@ class GaussianMixtureVariationalAutoencoder(object):
             KL_z_eval = 0
             KL_y_eval = 0
             ENRE_eval = 0
-            q_y_probabilities = numpy.zeros(self.K)
-            q_z_means = numpy.zeros((self.K, self.latent_size))
-            q_z_variances = numpy.zeros((self.K, self.latent_size))
-            p_y_probabilities = numpy.zeros(self.K)
-            p_z_means = numpy.zeros((self.K, self.latent_size))
-            p_z_variances = numpy.zeros((self.K, self.latent_size))
+            
+            if log_results:
+                q_y_probabilities = numpy.zeros(self.K)
+                q_z_means = numpy.zeros((self.K, self.latent_size))
+                q_z_variances = numpy.zeros((self.K, self.latent_size))
+                p_y_probabilities = numpy.zeros(self.K)
+                p_z_means = numpy.zeros((self.K, self.latent_size))
+                p_z_variances = numpy.zeros((self.K, self.latent_size))
+            
             q_y_logits = numpy.zeros((M_eval, self.K))
-            z_mean_eval = numpy.zeros((M_eval, self.latent_size),
-                numpy.float32)
-            p_x_mean_eval = numpy.zeros((M_eval, F_eval), numpy.float32)
-            p_x_stddev_eval = scipy.sparse.lil_matrix((M_eval, F_eval),
-                dtype = numpy.float32)
-            stddev_of_p_x_given_z_mean_eval = scipy.sparse.lil_matrix(
-                (M_eval, F_eval), dtype = numpy.float32)
-            y_mean_eval = numpy.zeros((M_eval, self.K), numpy.float32)
-
+            
+            if "reconstructed" in output_versions:
+                p_x_mean_eval = numpy.zeros((M_eval, F_eval), numpy.float32)
+                p_x_stddev_eval = scipy.sparse.lil_matrix((M_eval, F_eval),
+                    dtype = numpy.float32)
+                stddev_of_p_x_given_z_mean_eval = scipy.sparse.lil_matrix(
+                    (M_eval, F_eval), dtype = numpy.float32)
+            
+            if "latent" in output_versions:
+                z_mean_eval = numpy.zeros((M_eval, self.latent_size),
+                    numpy.float32)
+                y_mean_eval = numpy.zeros((M_eval, self.K), numpy.float32)
+            
             for i in range(0, M_eval, batch_size):
                 
                 indices = numpy.arange(i, min(i + batch_size, M_eval))
@@ -1980,35 +2008,42 @@ class GaussianMixtureVariationalAutoencoder(object):
                 KL_z_eval += KL_z_i
                 KL_y_eval += KL_y_i
                 ENRE_eval += ENRE_i
-                q_y_probabilities += numpy.array(q_y_probabilities_i)
-                q_z_means += numpy.array(q_z_means_i)
-                q_z_variances += numpy.array(q_z_variances_i)
-                p_y_probabilities += numpy.array(p_y_probabilities_i)
-                p_z_means += numpy.array(p_z_means_i)
-                p_z_variances += numpy.array(p_z_variances_i)
+                
+                if log_results:
+                    q_y_probabilities += numpy.array(q_y_probabilities_i)
+                    q_z_means += numpy.array(q_z_means_i)
+                    q_z_variances += numpy.array(q_z_variances_i)
+                    p_y_probabilities += numpy.array(p_y_probabilities_i)
+                    p_z_means += numpy.array(p_z_means_i)
+                    p_z_variances += numpy.array(p_z_variances_i)
                 
                 q_y_logits[indices] = q_y_logits_i
                 
-                p_x_mean_eval[indices] = p_x_mean_i 
-                y_mean_eval[indices] = y_mean_i 
-                z_mean_eval[indices] = z_mean_i 
+                if "reconstructed" in output_versions:
+                    p_x_mean_eval[indices] = p_x_mean_i 
                 
-                if subset_indices.size > 0:
-                    p_x_stddev_eval[subset_indices] = \
-                        p_x_stddev_i[subset_indices - i]
-                    stddev_of_p_x_given_z_mean_eval[subset_indices] = \
-                        stddev_of_p_x_given_z_mean_i[subset_indices - i]
+                    if subset_indices.size > 0:
+                        p_x_stddev_eval[subset_indices] = \
+                            p_x_stddev_i[subset_indices - i]
+                        stddev_of_p_x_given_z_mean_eval[subset_indices] = \
+                            stddev_of_p_x_given_z_mean_i[subset_indices - i]
+                
+                if "latent" in output_versions:
+                    y_mean_eval[indices] = y_mean_i 
+                    z_mean_eval[indices] = z_mean_i 
             
             ELBO_eval /= M_eval / batch_size
             KL_z_eval /= M_eval / batch_size
             KL_y_eval /= M_eval / batch_size
             ENRE_eval /= M_eval / batch_size
-            q_y_probabilities /= M_eval / batch_size
-            q_z_means /= M_eval / batch_size
-            q_z_variances /= M_eval / batch_size
-            p_y_probabilities /= M_eval / batch_size
-            p_z_means /= M_eval / batch_size
-            p_z_variances /= M_eval / batch_size
+            
+            if log_results:
+                q_y_probabilities /= M_eval / batch_size
+                q_z_means /= M_eval / batch_size
+                q_z_variances /= M_eval / batch_size
+                p_y_probabilities /= M_eval / batch_size
+                p_z_means /= M_eval / batch_size
+                p_z_variances /= M_eval / batch_size
             
             evaluation_cluster_ids = q_y_logits.argmax(axis = 1)
             
@@ -2114,77 +2149,90 @@ class GaussianMixtureVariationalAutoencoder(object):
             
             print(evaluation_string)
             
-            if noisy_preprocess or \
-                self.reconstruction_distribution_name == "bernoulli":
+            ## Data sets
+            
+            output_sets = [None] * len(output_versions)
+            
+            if "transformed" in output_versions:
+                if evaluation_set_transformed:
+                    transformed_evaluation_set = DataSet(
+                        evaluation_set.name,
+                        values = t_eval,
+                        preprocessed_values = None,
+                        labels = evaluation_set.labels,
+                        example_names = evaluation_set.example_names,
+                        feature_names = evaluation_set.feature_names,
+                        feature_selection = evaluation_set.feature_selection,
+                        example_filter = evaluation_set.example_filter,
+                        preprocessing_methods =
+                            evaluation_set.preprocessing_methods,
+                        kind = evaluation_set.kind,
+                        version = "transformed"
+                    )
+                else:
+                    transformed_evaluation_set = evaluation_set
                 
-                transformed_evaluation_set = DataSet(
+                index = output_versions.index("transformed")
+                output_sets[index] = transformed_evaluation_set
+            
+            if "reconstructed" in output_versions:
+                reconstructed_evaluation_set = DataSet(
                     evaluation_set.name,
-                    values = t_eval,
+                    values = p_x_mean_eval,
+                    total_standard_deviations = p_x_stddev_eval,
+                    explained_standard_deviations = \
+                        stddev_of_p_x_given_z_mean_eval,
                     preprocessed_values = None,
                     labels = evaluation_set.labels,
                     example_names = evaluation_set.example_names,
                     feature_names = evaluation_set.feature_names,
                     feature_selection = evaluation_set.feature_selection,
                     example_filter = evaluation_set.example_filter,
-                    preprocessing_methods =
-                        evaluation_set.preprocessing_methods,
+                    preprocessing_methods = evaluation_set.preprocessing_methods,
                     kind = evaluation_set.kind,
-                    version = "transformed"
+                    version = "reconstructed"
                 )
-            else:
-                transformed_evaluation_set = evaluation_set
+                index = output_versions.index("reconstructed")
+                output_sets[index] = reconstructed_evaluation_set
             
-            reconstructed_evaluation_set = DataSet(
-                evaluation_set.name,
-                values = p_x_mean_eval,
-                total_standard_deviations = p_x_stddev_eval,
-                explained_standard_deviations = \
-                    stddev_of_p_x_given_z_mean_eval,
-                preprocessed_values = None,
-                labels = evaluation_set.labels,
-                example_names = evaluation_set.example_names,
-                feature_names = evaluation_set.feature_names,
-                feature_selection = evaluation_set.feature_selection,
-                example_filter = evaluation_set.example_filter,
-                preprocessing_methods = evaluation_set.preprocessing_methods,
-                kind = evaluation_set.kind,
-                version = "reconstructed"
-            )
-
-            z_evaluation_set = DataSet(
-                evaluation_set.name,
-                values = z_mean_eval,
-                preprocessed_values = None,
-                labels = evaluation_set.labels,
-                example_names = evaluation_set.example_names,
-                feature_names = numpy.array(["z variable {}".format(
-                    i + 1) for i in range(self.latent_size)]),
-                feature_selection = evaluation_set.feature_selection,
-                example_filter = evaluation_set.example_filter,
-                preprocessing_methods = evaluation_set.preprocessing_methods,
-                kind = evaluation_set.kind,
-                version = "z"
-            )
-
-            y_evaluation_set = DataSet(
-                evaluation_set.name,
-                values = y_mean_eval,
-                preprocessed_values = None,
-                labels = evaluation_set.labels,
-                example_names = evaluation_set.example_names,
-                feature_names = numpy.array(["y variable {}".format(
-                    i + 1) for i in range(self.K)]),
-                feature_selection = evaluation_set.feature_selection,
-                example_filter = evaluation_set.example_filter,
-                preprocessing_methods = evaluation_set.preprocessing_methods,
-                kind = evaluation_set.kind,
-                version = "y"
-            )
+            if "latent" in output_versions:
+                z_evaluation_set = DataSet(
+                    evaluation_set.name,
+                    values = z_mean_eval,
+                    preprocessed_values = None,
+                    labels = evaluation_set.labels,
+                    example_names = evaluation_set.example_names,
+                    feature_names = numpy.array(["z variable {}".format(
+                        i + 1) for i in range(self.latent_size)]),
+                    feature_selection = evaluation_set.feature_selection,
+                    example_filter = evaluation_set.example_filter,
+                    preprocessing_methods = evaluation_set.preprocessing_methods,
+                    kind = evaluation_set.kind,
+                    version = "z"
+                )
             
-            latent_evaluation_sets = {
-                "z": z_evaluation_set,
-                "y": y_evaluation_set
-            }
+                y_evaluation_set = DataSet(
+                    evaluation_set.name,
+                    values = y_mean_eval,
+                    preprocessed_values = None,
+                    labels = evaluation_set.labels,
+                    example_names = evaluation_set.example_names,
+                    feature_names = numpy.array(["y variable {}".format(
+                        i + 1) for i in range(self.K)]),
+                    feature_selection = evaluation_set.feature_selection,
+                    example_filter = evaluation_set.example_filter,
+                    preprocessing_methods = evaluation_set.preprocessing_methods,
+                    kind = evaluation_set.kind,
+                    version = "y"
+                )
+            
+                latent_evaluation_sets = {
+                    "z": z_evaluation_set,
+                    "y": y_evaluation_set
+                }
+                
+                index = output_versions.index("latent")
+                output_sets[index] = latent_evaluation_sets
             
             if predict_labels:
                 if evaluation_set.has_labels:
@@ -2193,16 +2241,20 @@ class GaussianMixtureVariationalAutoencoder(object):
                 else:
                     predicted_evaluation_labels = None
                 
-                transformed_evaluation_set.updatePredictions(
-                    evaluation_cluster_ids, predicted_evaluation_labels)
-                reconstructed_evaluation_set.updatePredictions(
-                    evaluation_cluster_ids, predicted_evaluation_labels)
-                
-                for variable in latent_evaluation_sets:
-                    latent_evaluation_sets[variable].updatePredictions(
-                        evaluation_cluster_ids,
-                        predicted_evaluation_labels
-                    )
+                for output_set in output_sets:
+                    if isinstance(output_set, dict):
+                        for variable in output_set:
+                            output_set[variable].updatePredictions(
+                                evaluation_cluster_ids,
+                                predicted_evaluation_labels
+                            )
+                    else:
+                        output_set.updatePredictions(
+                            evaluation_cluster_ids,
+                            predicted_evaluation_labels
+                        )
             
-            return transformed_evaluation_set, reconstructed_evaluation_set, \
-                latent_evaluation_sets
+            if len(output_sets) == 1:
+                output_sets = output_sets[0]
+            
+            return output_sets

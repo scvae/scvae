@@ -410,11 +410,12 @@ def main(input_file_or_name, data_directory = "data",
             
             chapter("{} prediction".format(model_parameter_set_name))
             
-            _, _, latent_training_sets = model.evaluate(
+            latent_training_sets = model.evaluate(
                 evaluation_set = training_set,
                 batch_size = batch_size,
                 use_best_model = use_best_model,
                 use_early_stopping_model = use_early_stopping_model,
+                output_versions = "latent",
                 log_results = False
             )
             

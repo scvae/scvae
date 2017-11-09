@@ -1474,7 +1474,23 @@ class VariationalAutoencoder(object):
     def evaluate(self, evaluation_set, evaluation_subset_indices = set(),
         batch_size = 100, predict_labels = False,
         use_early_stopping_model = False, use_best_model = False,
-        use_deterministic_z = False,  log_results = True):
+        use_deterministic_z = False, output_versions = "all",
+        log_results = True):
+        
+        if output_versions == "all":
+            output_versions = ["transformed", "reconstructed", "latent"]
+        elif not isinstance(output_versions, list):
+            output_versions = [output_versions]
+        else:
+            number_of_output_versions = len(output_versions)
+            if number_of_output_versions > 3:
+                raise ValueError("Can only output at most 3 sets, "
+                    + "{} requested".format(number_of_output_versions))
+            elif number_of_output_versions != len(set(output_versions)):
+                raise ValueError("Cannot output duplicate sets, "
+                    + "{} requested.".format(output_versions))
+        
+        evaluation_set_transformed = False
         
         batch_size /= self.number_of_importance_samples["evaluation"] \
             * self.number_of_monte_carlo_samples["evaluation"]
@@ -1500,6 +1516,7 @@ class VariationalAutoencoder(object):
         
             if self.reconstruction_distribution_name == "bernoulli":
                 t_eval = evaluation_set.binarised_values
+                evaluation_set_transformed = True
             else:
                 t_eval = evaluation_set.values
             
@@ -1508,6 +1525,7 @@ class VariationalAutoencoder(object):
             noisy_time_start = time()
             x_eval = noisy_preprocess(evaluation_set.values)
             t_eval = x_eval
+            evaluation_set_transformed = True
             noisy_duration = time() - noisy_time_start
             print("Values noisily preprocessed ({}).".format(
                 formatDuration(noisy_duration)))
@@ -1541,7 +1559,7 @@ class VariationalAutoencoder(object):
                     checkpoint.model_checkpoint_path)[-1].split('-')[-1])
             else:
                 print("Cannot evaluate model when it has not been trained.")
-                return None, None, None
+                return [None] * len(output_versions)
             
             data_string = dataString(evaluation_set,
                 self.reconstruction_distribution_name)
@@ -1552,14 +1570,16 @@ class VariationalAutoencoder(object):
             KL_eval = 0
             ENRE_eval = 0
             
-            p_x_mean_eval = numpy.empty((M_eval, F_eval), numpy.float32)
-            p_x_stddev_eval = scipy.sparse.lil_matrix((M_eval, F_eval),
-                dtype = numpy.float32)
-            stddev_of_p_x_mean_eval = scipy.sparse.lil_matrix((M_eval, F_eval),
-                dtype = numpy.float32)
+            if "reconstructed" in output_versions:
+                p_x_mean_eval = numpy.empty((M_eval, F_eval), numpy.float32)
+                p_x_stddev_eval = scipy.sparse.lil_matrix((M_eval, F_eval),
+                    dtype = numpy.float32)
+                stddev_of_p_x_mean_eval = scipy.sparse.lil_matrix((M_eval, F_eval),
+                    dtype = numpy.float32)
             
-            q_z_mean_eval = numpy.empty([M_eval, self.latent_size],
-                numpy.float32)
+            if "latent" in output_versions:
+                q_z_mean_eval = numpy.empty([M_eval, self.latent_size],
+                    numpy.float32)
             
             if use_deterministic_z:
                 number_of_iw_samples = 1
@@ -1605,38 +1625,36 @@ class VariationalAutoencoder(object):
                 KL_eval += KL_i
                 ENRE_eval += ENRE_i
                 
-                # Save Importance weighted Monte Carlo estimates of: 
-                # Reconstruction mean (marginalised conditional mean): 
-                #      E[x] = E[E[x|z]] = E_q(z|x)[E_p(x|z)[x]]
-                #           = E_z[p_x_given_z.mean]
-                #     \approx 1/(R*L) \sum^R_r w_r \sum^L_{l=1}
-                # p_x_given_z.mean
-                p_x_mean_eval[indices] = p_x_mean_i
-                
-                if subset_indices.size > 0:
-                
-                    # Reconstruction standard deviation: 
-                    #     sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
-                    #     = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean - E[x])^2]
-                    p_x_stddev_eval[subset_indices] = \
-                        p_x_stddev_i[subset_indices - i]
+                if "reconstructed" in output_versions:
+                    # Save Importance weighted Monte Carlo estimates of: 
+                    # Reconstruction mean (marginalised conditional mean): 
+                    #      E[x] = E[E[x|z]] = E_q(z|x)[E_p(x|z)[x]]
+                    #           = E_z[p_x_given_z.mean]
+                    #     \approx 1/(R*L) \sum^R_r w_r \sum^L_{l=1}
+                    # p_x_given_z.mean
+                    p_x_mean_eval[indices] = p_x_mean_i
                     
-                    # Estimated standard deviation of Monte Carlo estimate E[x].
-                    stddev_of_p_x_mean_eval[subset_indices] = \
-                        stddev_of_p_x_mean_i[subset_indices - i]
+                    if subset_indices.size > 0:
+                        
+                        # Reconstruction standard deviation: 
+                        #     sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
+                        #     = E_z[p_x_given_z.var] + E_z[(p_x_given_z.mean
+                        #       - E[x])^2]
+                        p_x_stddev_eval[subset_indices] = \
+                            p_x_stddev_i[subset_indices - i]
+                    
+                        # Estimated standard deviation of Monte Carlo estimate
+                        # E[x].
+                        stddev_of_p_x_mean_eval[subset_indices] = \
+                            stddev_of_p_x_mean_i[subset_indices - i]
                 
-                # Latent space
-                q_z_mean_eval[indices] = q_z_mean_i
+                if "latent" in output_versions:
+                    # Latent space
+                    q_z_mean_eval[indices] = q_z_mean_i
             
             ELBO_eval /= M_eval / batch_size
             KL_eval /= M_eval / batch_size
             ENRE_eval /= M_eval / batch_size
-            
-            ## Centroids
-            
-            p_z_probabilities, p_z_means, p_z_variances = session.run(
-                [self.p_z_probabilities, self.p_z_means, self.p_z_variances]
-            )
             
             ## Summaries
             
@@ -1649,6 +1667,12 @@ class VariationalAutoencoder(object):
                     simple_value = ENRE_eval)
                 summary.value.add(tag="losses/kl_divergence",
                     simple_value = KL_eval)
+                
+                ### Centroids
+            
+                p_z_probabilities, p_z_means, p_z_variances = session.run(
+                    [self.p_z_probabilities, self.p_z_means, self.p_z_variances]
+                )
             
                 for k in range(len(p_z_probabilities)):
                     summary.value.add(
@@ -1674,7 +1698,8 @@ class VariationalAutoencoder(object):
                                 .format(k, l),
                             simple_value = p_z_variances_k_l
                         )
-            
+                
+                ### Write summaries
                 eval_summary_writer.add_summary(summary, global_step = epoch)
                 eval_summary_writer.flush()
             
@@ -1687,60 +1712,73 @@ class VariationalAutoencoder(object):
             
             # Data sets
             
-            if noisy_preprocess or \
-                self.reconstruction_distribution_name == "bernoulli":
+            output_sets = [None] * len(output_versions)
+            
+            if "transformed" in output_versions:
+                if evaluation_set_transformed:
+                    transformed_evaluation_set = DataSet(
+                        evaluation_set.name,
+                        values = t_eval,
+                        preprocessed_values = None,
+                        labels = evaluation_set.labels,
+                        example_names = evaluation_set.example_names,
+                        feature_names = evaluation_set.feature_names,
+                        feature_selection = evaluation_set.feature_selection,
+                        example_filter = evaluation_set.example_filter,
+                        preprocessing_methods =
+                            evaluation_set.preprocessing_methods,
+                        kind = evaluation_set.kind,
+                        version = "transformed"
+                    )
+                else:
+                    transformed_evaluation_set = evaluation_set
                 
-                transformed_evaluation_set = DataSet(
+                index = output_versions.index("transformed")
+                output_sets[index] = transformed_evaluation_set
+            
+            if "reconstructed" in output_versions:
+                reconstructed_evaluation_set = DataSet(
                     evaluation_set.name,
-                    values = t_eval,
+                    values = p_x_mean_eval,
+                    total_standard_deviations = p_x_stddev_eval,
+                    explained_standard_deviations = stddev_of_p_x_mean_eval,
                     preprocessed_values = None,
                     labels = evaluation_set.labels,
                     example_names = evaluation_set.example_names,
                     feature_names = evaluation_set.feature_names,
                     feature_selection = evaluation_set.feature_selection,
                     example_filter = evaluation_set.example_filter,
-                    preprocessing_methods =
-                        evaluation_set.preprocessing_methods,
+                    preprocessing_methods = evaluation_set.preprocessing_methods,
                     kind = evaluation_set.kind,
-                    version = "transformed"
+                    version = "reconstructed"
                 )
-            else:
-                transformed_evaluation_set = evaluation_set
+                index = output_versions.index("reconstructed")
+                output_sets[index] = reconstructed_evaluation_set
             
-            reconstructed_evaluation_set = DataSet(
-                evaluation_set.name,
-                values = p_x_mean_eval,
-                total_standard_deviations = p_x_stddev_eval,
-                explained_standard_deviations = stddev_of_p_x_mean_eval,
-                preprocessed_values = None,
-                labels = evaluation_set.labels,
-                example_names = evaluation_set.example_names,
-                feature_names = evaluation_set.feature_names,
-                feature_selection = evaluation_set.feature_selection,
-                example_filter = evaluation_set.example_filter,
-                preprocessing_methods = evaluation_set.preprocessing_methods,
-                kind = evaluation_set.kind,
-                version = "reconstructed"
-            )
-
-            z_evaluation_set = DataSet(
-                evaluation_set.name,
-                values = q_z_mean_eval,
-                preprocessed_values = None,
-                labels = evaluation_set.labels,
-                example_names = evaluation_set.example_names,
-                feature_names = numpy.array(["latent variable {}".format(
-                    i + 1) for i in range(self.latent_size)]),
-                feature_selection = evaluation_set.feature_selection,
-                example_filter = evaluation_set.example_filter,
-                preprocessing_methods = evaluation_set.preprocessing_methods,
-                kind = evaluation_set.kind,
-                version = "z"
-            )
+            if "latent" in output_versions:
+                z_evaluation_set = DataSet(
+                    evaluation_set.name,
+                    values = q_z_mean_eval,
+                    preprocessed_values = None,
+                    labels = evaluation_set.labels,
+                    example_names = evaluation_set.example_names,
+                    feature_names = numpy.array(["latent variable {}".format(
+                        i + 1) for i in range(self.latent_size)]),
+                    feature_selection = evaluation_set.feature_selection,
+                    example_filter = evaluation_set.example_filter,
+                    preprocessing_methods = evaluation_set.preprocessing_methods,
+                    kind = evaluation_set.kind,
+                    version = "z"
+                )
             
-            latent_evaluation_sets = {
-                "z": z_evaluation_set
-            }
+                latent_evaluation_sets = {
+                    "z": z_evaluation_set
+                }
+                
+                index = output_versions.index("latent")
+                output_sets[index] = latent_evaluation_sets
             
-            return transformed_evaluation_set, reconstructed_evaluation_set,\
-                latent_evaluation_sets
+            if len(output_sets) == 1:
+                output_sets = output_sets[0]
+            
+            return output_sets
