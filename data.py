@@ -285,7 +285,7 @@ data_sets = {
     "TCGA (Kallisto)": {
         "tags": {
             "example": "sample",
-            "feature": "gene",
+            "feature": "gene ID",
             "type": "count",
             "item": "transcript"
         },
@@ -1512,11 +1512,21 @@ def dataSetFromJSONFile(json_path):
     else:
         title = baseName(json_path)
     
-    data_set["URLs"] = {
-        "values": {
-            "full": data_set["values"]
+    if "URLs" not in data_set:
+        
+        if "values" not in data_set:
+            raise Exception(
+                "JSON dictionary have to contain either a values entry with "
+                "a URL or path to the file containing the value matrix or a "
+                "URLs entry containing a dictionary of URLs to files "
+                "containing values and optionally labels."
+            )
+        
+        data_set["URLs"] = {
+            "values": {
+                "full": data_set["values"]
+            }
         }
-    }
     
     if "loading function" in data_set:
         loading_function_string = data_set["loading function"]
