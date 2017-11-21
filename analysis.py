@@ -806,8 +806,6 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 "evaluation": evaluation_eval,
                 "accuracy": accuracy_eval,
                 "superset_accuracy": superset_accuracy_eval,
-                "ARI (clusters)": ARI_clusters,
-                "ARI (labels)": ARI_labels,
                 "statistics": evaluation_set_statistics,
                 "count accuracies": count_accuracies,
             }
@@ -837,13 +835,14 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 prediction_string_parts.append(
                     "Number of classes: {}".format(number_of_classes))
             
-            prediction_string_parts.append("\nEvaluation:")
+            if ARI_clusters is not None or ARI_labels is not None:
+                prediction_string_parts.append("\nEvaluation:")
             
-            if ARI_clusters:
+            if ARI_clusters is not None:
                 prediction_string_parts.append(
                     "    ARI (clusters): {:.5g}.".format(ARI_clusters))
             
-            if ARI_clusters:
+            if ARI_labels is not None:
                 prediction_string_parts.append(
                     "    ARI (labels): {:.5g}.".format(ARI_labels))
             
@@ -875,11 +874,11 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         print(formatStatistics(evaluation_set_statistics))
         
-        if ARI_clusters or ARI_labels:
+        if ARI_clusters is not None or ARI_labels is not None:
             print("Adjusted rand index:")
-            if ARI_clusters:
+            if ARI_clusters is not None:
                 print("    clusters: {:.5g}".format(ARI_clusters))
-            if ARI_labels:
+            if ARI_labels is not None:
                 print("    labels: {:.5g}".format(ARI_labels))
             print()
         
