@@ -1887,6 +1887,11 @@ class GaussianMixtureVariationalAutoencoder(object):
                     evaluation_set.superset_class_name_to_superset_class_id\
                         [superset_class_name]
             )
+            superset_class_ids_to_superset_class_names = numpy.vectorize(
+                lambda superset_class_id:
+                    evaluation_set.superset_class_id_to_superset_class_name\
+                        [superset_class_id]
+            )
         
             evaluation_superset_label_ids = \
                 superset_class_names_to_superset_class_ids(
@@ -2241,17 +2246,28 @@ class GaussianMixtureVariationalAutoencoder(object):
                 else:
                     predicted_evaluation_labels = None
                 
+                if evaluation_set.has_superset_labels:
+                    predicted_evaluation_superset_labels = \
+                        superset_class_ids_to_superset_class_names(
+                            predicted_evaluation_superset_label_ids)
+                else:
+                    predicted_evaluation_superset_labels = None
+                
                 for output_set in output_sets:
                     if isinstance(output_set, dict):
                         for variable in output_set:
                             output_set[variable].updatePredictions(
-                                evaluation_cluster_ids,
-                                predicted_evaluation_labels
+                                predicted_cluster_ids = evaluation_cluster_ids,
+                                predicted_labels = predicted_evaluation_labels,
+                                predicted_superset_labels = 
+                                    predicted_evaluation_superset_labels
                             )
                     else:
                         output_set.updatePredictions(
-                            evaluation_cluster_ids,
-                            predicted_evaluation_labels
+                            predicted_cluster_ids = evaluation_cluster_ids,
+                            predicted_labels = predicted_evaluation_labels,
+                            predicted_superset_labels = 
+                                predicted_evaluation_superset_labels
                         )
             
             if len(output_sets) == 1:

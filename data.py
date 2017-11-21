@@ -475,8 +475,8 @@ data_sets = {
             3: (0, 0, 1)
         },
         "label superset": {
-            "Rods": [1, 2],
-            "Cones": [3],
+            "Rods": [1],
+            "Cones": [2, 3],
             "No class": [0]
         },
         "sorted superset class names": [
@@ -646,12 +646,20 @@ class DataSet(object):
         )
         
         # Predicted labels
+        
         self.predicted_cluster_ids = None
+        
         self.predicted_labels = None
         self.predicted_class_names = None
         self.number_of_predicted_classes = None
         self.predicted_class_palette = None
         self.predicted_label_sorter = None
+        
+        self.predicted_superset_labels = None
+        self.predicted_superset_class_names = None
+        self.number_of_predicted_superset_classes = None
+        self.predicted_superset_class_palette = None
+        self.predicted_superset_label_sorter = None
         
         # Sorted class names for data set
         sorted_class_names = dataSetSortedClassNames(self.title)
@@ -817,12 +825,20 @@ class DataSet(object):
         return self.labels is not None
     
     @property
+    def has_superset_labels(self):
+        return self.superset_labels is not None
+    
+    @property
     def has_predictions(self):
         return self.has_predicted_labels or self.has_predicted_cluster_ids
     
     @property
     def has_predicted_labels(self):
         return self.predicted_labels is not None
+    
+    @property
+    def has_predicted_superset_labels(self):
+        return self.predicted_superset_labels is not None
     
     @property
     def has_predicted_cluster_ids(self):
@@ -923,7 +939,9 @@ class DataSet(object):
             self.binarised_values = binarised_values
     
     def updatePredictions(self, predicted_cluster_ids = None,
-        predicted_labels = None, predicted_class_names = None):
+        predicted_labels = None, predicted_class_names = None,
+        predicted_superset_labels = None,
+        predicted_superset_class_names = None):
         
         if predicted_cluster_ids is not None:
             self.predicted_cluster_ids = predicted_cluster_ids
@@ -943,6 +961,28 @@ class DataSet(object):
             if set(self.predicted_class_names) < set(self.class_names):
                 self.predicted_class_palette = self.class_palette
                 self.predicted_label_sorter = self.label_sorter
+        
+        if predicted_superset_labels is not None:
+            
+            self.predicted_superset_labels = predicted_superset_labels
+            
+            if predicted_superset_class_names is not None:
+                self.predicted_superset_class_names = \
+                    predicted_superset_class_names
+            else:
+                self.predicted_superset_class_names = \
+                    numpy.unique(self.predicted_superset_labels).tolist()
+            
+            self.number_of_predicted_superset_classes = \
+                len(self.predicted_superset_class_names)
+            
+            if set(self.predicted_superset_class_names) < \
+                set(self.superset_class_names):
+                
+                self.predicted_superset_class_palette = \
+                    self.superset_class_palette
+                self.predicted_superset_label_sorter = \
+                    self.superset_label_sorter
     
     def load(self):
         

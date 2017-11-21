@@ -421,21 +421,30 @@ def main(input_file_or_name, data_directory = "data",
             
             print()
             
-            cluster_ids, predicted_labels = predict(
+            cluster_ids, predicted_labels, predicted_superset_labels = predict(
                 latent_training_sets["z"],
                 latent_evaluation_sets["z"],
                 prediction_method,
                 number_of_classes
             )
             
-            transformed_evaluation_set.updatePredictions(cluster_ids,
-                predicted_labels)
-            reconstructed_evaluation_set.updatePredictions(cluster_ids,
-                predicted_labels)
+            transformed_evaluation_set.updatePredictions(
+                predicted_cluster_ids = cluster_ids,
+                predicted_labels = predicted_labels,
+                predicted_superset_labels = predicted_superset_labels
+            )
+            reconstructed_evaluation_set.updatePredictions(
+                predicted_cluster_ids = cluster_ids,
+                predicted_labels = predicted_labels,
+                predicted_superset_labels = predicted_superset_labels
+            )
             
             for variable in latent_evaluation_sets:
                 latent_evaluation_sets[variable].updatePredictions(
-                    cluster_ids, predicted_labels)
+                    predicted_cluster_ids = cluster_ids,
+                    predicted_labels = predicted_labels,
+                    predicted_superset_labels = predicted_superset_labels
+            )
             
             print()
         
