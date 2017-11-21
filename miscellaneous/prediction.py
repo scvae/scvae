@@ -84,10 +84,3 @@ def mapClusterIDsToLabelIDs(label_ids, cluster_ids, excluded_class_ids = []):
             continue
         predicted_label_ids[idx] = scipy.stats.mode(lab)[0]
     return predicted_label_ids
-
-def accuracy(labels, predicted_labels, excluded_classes = []):
-    for excluded_class in excluded_classes:
-        included_indices = labels != excluded_class
-        labels = labels[included_indices]
-        predicted_labels = predicted_labels[included_indices]
-    return numpy.mean(predicted_labels == labels)

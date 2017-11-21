@@ -2116,6 +2116,13 @@ def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
     return statistics
 
+def accuracy(labels, predicted_labels, excluded_classes = []):
+    for excluded_class in excluded_classes:
+        included_indices = labels != excluded_class
+        labels = labels[included_indices]
+        predicted_labels = predicted_labels[included_indices]
+    return numpy.mean(predicted_labels == labels)
+
 def formatStatistics(statistics_sets, name = "Data set"):
     
     if type(statistics_sets) != list:

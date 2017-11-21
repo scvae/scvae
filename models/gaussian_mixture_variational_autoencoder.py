@@ -27,8 +27,8 @@ from time import time
 from auxiliary import formatDuration, normaliseString
 
 from data import DataSet
-from analysis import analyseIntermediateResults
-from miscellaneous.prediction import mapClusterIDsToLabelIDs, accuracy
+from analysis import analyseIntermediateResults, accuracy
+from miscellaneous.prediction import mapClusterIDsToLabelIDs
 from auxiliary import loadLearningCurves
 
 class GaussianMixtureVariationalAutoencoder(object):
