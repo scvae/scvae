@@ -747,6 +747,30 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             ARI_clusters = None
             ARI_labels = None
         
+        if evaluation_set.has_superset_labels:
+            
+            if evaluation_set.has_predicted_cluster_ids:
+                ARI_superset_clusters = adjusted_rand_score(
+                    evaluation_set.superset_labels,
+                    evaluation_set.predicted_cluster_ids,
+                    evaluation_set.excluded_superset_classes
+                )
+            else:
+                ARI_superset_clusters = None
+            
+            if evaluation_set.has_predicted_superset_labels:
+                ARI_superset_labels = adjusted_rand_score(
+                    evaluation_set.superset_labels,
+                    evaluation_set.predicted_superset_labels,
+                    evaluation_set.excluded_superset_classes
+                )
+            else:
+                ARI_superset_labels = None
+            
+        else:
+            ARI_superset_clusters = None
+            ARI_superset_labels = None
+        
         metrics_duration = time() - metrics_time_start
         print("Metrics calculated ({}).".format(
             formatDuration(metrics_duration)))
@@ -844,9 +868,19 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 prediction_string_parts.append(
                     "    ARI (clusters): {:.5g}.".format(ARI_clusters))
             
+            if ARI_superset_clusters is not None:
+                prediction_string_parts.append(
+                    "    ARI (clusters; superset): {:.5g}.".format(
+                        ARI_superset_clusters))
+            
             if ARI_labels is not None:
                 prediction_string_parts.append(
                     "    ARI (labels): {:.5g}.".format(ARI_labels))
+            
+            if ARI_superset_labels is not None:
+                prediction_string_parts.append(
+                    "    ARI (superset labels): {:.5g}.".format(
+                        ARI_superset_labels))
             
             prediction_string = "\n".join(prediction_string_parts) + "\n"
             
@@ -857,7 +891,9 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                     prediction_method, prediction_method_names),
                 "number of classes": number_of_classes,
                 "ARI (clusters)": ARI_clusters,
+                "ARI (clusters; superset)": ARI_superset_clusters,
                 "ARI (labels)": ARI_labels,
+                "ARI (superset labels)": ARI_superset_labels,
             }
             
             with open(prediction_log_path, "w") as prediction_file:
@@ -880,8 +916,14 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             print("Adjusted rand index:")
             if ARI_clusters is not None:
                 print("    clusters: {:.5g}".format(ARI_clusters))
+            if ARI_superset_clusters is not None:
+                print("    clusters (superset): {:.5g}".format(
+                    ARI_superset_clusters))
             if ARI_labels is not None:
                 print("    labels: {:.5g}".format(ARI_labels))
+            if ARI_superset_labels is not None:
+                print("    superset labels: {:.5g}".format(
+                    ARI_superset_labels))
             print()
         
         if count_accuracies:
