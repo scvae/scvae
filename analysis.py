@@ -5,8 +5,8 @@ import scipy.sparse
 
 from sklearn.decomposition import PCA, FastICA, TruncatedSVD
 from sklearn.manifold import TSNE
-from sklearn.metrics.cluster import adjusted_rand_score
 from miscellaneous.incremental_pca import IncrementalPCA
+import sklearn.metrics.cluster
 
 from matplotlib import pyplot
 import matplotlib.patches
@@ -728,7 +728,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             if evaluation_set.has_predicted_cluster_ids:
                 ARI_clusters = adjusted_rand_score(
                     evaluation_set.labels,
-                    evaluation_set.predicted_cluster_ids
+                    evaluation_set.predicted_cluster_ids,
+                    evaluation_set.excluded_classes
                 )
             else:
                 ARI_clusters = None
@@ -736,7 +737,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             if evaluation_set.has_predicted_labels:
                 ARI_labels = adjusted_rand_score(
                     evaluation_set.labels,
-                    evaluation_set.predicted_labels
+                    evaluation_set.predicted_labels,
+                    evaluation_set.excluded_classes
                 )
             else:
                 ARI_labels = None
@@ -2116,12 +2118,32 @@ def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
     
     return statistics
 
-def accuracy(labels, predicted_labels, excluded_classes = []):
+def excludeClassesFromLabelSet(*label_sets, excluded_classes = []):
+    
+    labels = label_sets[0]
+    other_label_sets = list(label_sets[1:])
+    
     for excluded_class in excluded_classes:
         included_indices = labels != excluded_class
         labels = labels[included_indices]
-        predicted_labels = predicted_labels[included_indices]
+        for i in range(len(other_label_sets)):
+            other_label_sets[i] = other_label_sets[i][included_indices]
+    
+    if other_label_sets:
+        return [labels] + other_label_sets
+    else:
+        return labels
+
+def accuracy(labels, predicted_labels, excluded_classes = []):
+    labels, predicted_labels = excludeClassesFromLabelSet(
+        labels, predicted_labels, excluded_classes = excluded_classes)
     return numpy.mean(predicted_labels == labels)
+
+def adjusted_rand_score(labels, predicted_labels, excluded_classes = []):
+    labels, predicted_labels = excludeClassesFromLabelSet(
+        labels, predicted_labels, excluded_classes = excluded_classes)
+    return sklearn.metrics.cluster.adjusted_rand_score(labels,
+        predicted_labels)
 
 def formatStatistics(statistics_sets, name = "Data set"):
     
