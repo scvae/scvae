@@ -1861,15 +1861,6 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             )
                         )
                     
-                        plot_duration = time() - plot_time_start
-                        print("    " +
-                            "{} (with predicted labels) plotted and saved ({})."\
-                                .format(
-                                    title_with_ID.capitalize(),
-                                    formatDuration(plot_duration)
-                            )
-                        )
-                    
                     if analysis_level == "extensive":
                         
                         if colouring_data_set.number_of_classes <= 10:
@@ -1970,6 +1961,41 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         name = plot_name,
                     )
                     saveFigure(figure, figure_name, decompositions_directory)
+                    
+                    plot_duration = time() - plot_time_start
+                    print("    " +
+                        "{} (with predicted labels) plotted and saved ({})."\
+                            .format(
+                                title_with_ID.capitalize(),
+                                formatDuration(plot_duration)
+                        )
+                    )
+                
+                if colouring_data_set.has_predicted_superset_labels:
+                    plot_time_start = time()
+                    
+                    figure, figure_name = plotValues(
+                        plot_values_decomposed,
+                        colour_coding = "predicted superset labels",
+                        colouring_data_set = colouring_data_set,
+                        centroids = centroids_decomposed,
+                        figure_labels = figure_labels,
+                        prediction_method = prediction_method,
+                        number_of_classes = number_of_classes,
+                        axis_limits = axis_limits,
+                        example_tag = data_set.tags["example"],
+                        name = plot_name,
+                    )
+                    saveFigure(figure, figure_name, decompositions_directory)
+                    
+                    plot_duration = time() - plot_time_start
+                    print("    " +
+                        "{} (with predicted superset labels) plotted and saved ({})."\
+                            .format(
+                                title_with_ID.capitalize(),
+                                formatDuration(plot_duration)
+                        )
+                    )
                 
                 # Count sum
                 
@@ -3565,13 +3591,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             "class" in colour_coding
         ):
         
-        if "superset" in colour_coding:
-            labels = colouring_data_set.superset_labels
-            class_names = colouring_data_set.superset_class_names
-            number_of_classes = colouring_data_set.number_of_superset_classes
-            class_palette = colouring_data_set.superset_class_palette
-            label_sorter = colouring_data_set.superset_label_sorter
-        elif colour_coding == "predicted_cluster_ids":
+        if colour_coding == "predicted_cluster_ids":
             labels = colouring_data_set.predicted_cluster_ids
             class_names = numpy.unique(labels).tolist()
             number_of_classes = len(class_names)
@@ -3583,6 +3603,19 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             number_of_classes = colouring_data_set.number_of_predicted_classes
             class_palette = colouring_data_set.predicted_class_palette
             label_sorter = colouring_data_set.predicted_label_sorter
+        elif colour_coding == "predicted_superset_labels":
+            labels = colouring_data_set.predicted_superset_labels
+            class_names = colouring_data_set.predicted_superset_class_names
+            number_of_classes = \
+                colouring_data_set.number_of_predicted_superset_classes
+            class_palette = colouring_data_set.predicted_superset_class_palette
+            label_sorter = colouring_data_set.predicted_superset_label_sorter
+        elif "superset" in colour_coding:
+            labels = colouring_data_set.superset_labels
+            class_names = colouring_data_set.superset_class_names
+            number_of_classes = colouring_data_set.number_of_superset_classes
+            class_palette = colouring_data_set.superset_class_palette
+            label_sorter = colouring_data_set.superset_label_sorter
         else:
             labels = colouring_data_set.labels
             class_names = colouring_data_set.class_names
