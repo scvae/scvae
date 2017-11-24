@@ -81,6 +81,13 @@ def enumerateListOfStrings(list_of_strings):
         )
     return enumerated_string
 
+def isfloat(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
 # Loading function for TensorBoard summaries
 
 def loadNumberOfEpochsTrained(model, early_stopping = False, best_model = False):

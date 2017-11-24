@@ -26,7 +26,7 @@ from time import time
 
 from auxiliary import (
     formatDuration,
-    normaliseString,
+    normaliseString, isfloat,
     downloadFile, copyFile
 )
 
@@ -2793,7 +2793,7 @@ def loadTabSeparatedMatrix(tsv_path, data_type = None):
         row_elements = next(tsv_file).split()
         
         for i, element in enumerate(row_elements):
-            if element.isdecimal():
+            if isfloat(element):
                 column_offset = i
                 break
         
