@@ -2735,11 +2735,13 @@ def loadTCGAKallistoDataSet(paths):
             labels[example_names == example_name] = label
         
         labels = labels.astype("U")
-
+    
+    print(set(metadata[label_key].tolist()))
+    
     # Feature mapping
-
+    
     feature_mapping = dict()
-
+    
     with gzip.open(paths["feature mapping"]["full"], "rt") \
         as feature_mapping_file:
 
@@ -3393,6 +3395,9 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction,
     # Preprocessing directory
     
     preprocessing_directory_parts = []
+    
+    if data_set.map_features:
+        preprocessing_directory_parts.append("features_mapped")
     
     if data_set.feature_selection:
         feature_selection_part = normaliseString(data_set.feature_selection)
