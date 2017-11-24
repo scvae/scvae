@@ -294,7 +294,7 @@ data_sets = {
                 "full": "https://toil.xenahubs.net/download/tcga_Kallisto_est_counts.gz"
             },
             "labels": {
-                "full": None
+                "full": "https://tcga.xenahubs.net/download/TCGA.PANCAN.sampleMap/PANCAN_clinicalMatrix.gz"
             },
             "feature mapping": {
                 "full": "https://toil.xenahubs.net/download/gencode.v23.annotation.transcript.probemap.gz"
@@ -2702,23 +2702,47 @@ def loadDIMMSCsCombined10xDataSet(paths):
 
 def loadTCGAKallistoDataSet(paths):
     
+    # Values, example names, and feature names
+    
     values, column_headers, row_indices = \
         loadTabSeparatedMatrix(paths["values"]["full"], numpy.float32)
-    
+
     values = values.T
     values = numpy.round(numpy.power(2, values) - 1)
     values = numpy.round(values)
-    
+
     example_names = numpy.array(column_headers)
-    
+
     column_for_row_indices = 0
     feature_names = numpy.array(row_indices)[:, column_for_row_indices]
     
-    feature_mapping = dict()
+    # Labels
     
+    if paths["labels"]["full"]:
+        
+        metadata = pandas.read_csv(
+            paths["labels"]["full"],
+            index_col = "sampleID",
+            delimiter = "\t"
+        )
+        
+        label_key = "_primary_site"
+        
+        labels = numpy.zeros(example_names.shape, metadata[label_key].dtype)
+        labels[labels == 0] = "No class"
+        
+        for example_name, label in metadata[label_key].iteritems():
+            labels[example_names == example_name] = label
+        
+        labels = labels.astype("U")
+
+    # Feature mapping
+
+    feature_mapping = dict()
+
     with gzip.open(paths["feature mapping"]["full"], "rt") \
         as feature_mapping_file:
-        
+
         for row in feature_mapping_file:
             if row.startswith("#"):
                 continue
@@ -2729,9 +2753,11 @@ def loadTCGAKallistoDataSet(paths):
                 feature_mapping[feature_name] = []
             feature_mapping[feature_name].append(feature_id)
     
+    # Dictionary
+    
     data_dictionary = {
         "values": values,
-        "labels": None,
+        "labels": labels,
         "example names": example_names,
         "feature names": feature_names,
         "feature mapping": feature_mapping
