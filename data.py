@@ -872,7 +872,10 @@ class DataSet(object):
             
             if example_names is not None:
                 self.example_names = example_names
-                M_examples = example_names.shape[0]
+                assert len(self.example_names.shape) == 1, \
+                    "The list of example names is multi-dimensional: {}."\
+                        .format(self.example_names.shape)
+                M_examples = self.example_names.shape[0]
                 assert M_values == M_examples, \
                     "The number of examples in the value matrix ({}) "\
                         .format(M_values) + \
@@ -881,7 +884,10 @@ class DataSet(object):
             
             if feature_names is not None:
                 self.feature_names = feature_names
-                N_features = feature_names.shape[0]
+                assert len(self.feature_names.shape) == 1, \
+                    "The list of feature names is multi-dimensional: {}."\
+                        .format(self.feature_names.shape)
+                N_features = self.feature_names.shape[0]
                 assert N_values == N_features, \
                     "The number of features in the value matrix ({}) "\
                         .format(N_values) + \
@@ -2704,7 +2710,9 @@ def loadTCGAKallistoDataSet(paths):
     values = numpy.round(values)
     
     example_names = numpy.array(column_headers)
-    feature_names = numpy.array(row_indices)
+    
+    column_for_row_indices = 0
+    feature_names = numpy.array(row_indices)[:, column_for_row_indices]
     
     feature_mapping = dict()
     
@@ -2743,6 +2751,8 @@ def loadMatrixAsDataSet(paths, transpose = True):
     else:
         example_names = numpy.array(row_indices)
         feature_names = numpy.array(column_headers)
+    
+    feature_names = feature_names[:, 0]
     
     data_dictionary = {
         "values": values,
@@ -2800,7 +2810,7 @@ def loadTabSeparatedMatrix(tsv_path, data_type = None):
         column_headers = column_headers[column_offset:]
         
         def parseRowElements(row_elements):
-            row_index = row_elements[0]
+            row_index = row_elements[:column_offset]
             row_indices.append(row_index)
             row_values = list(map(float, row_elements[column_offset:]))
             values.append(row_values)
