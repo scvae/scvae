@@ -295,6 +295,9 @@ data_sets = {
             },
             "labels": {
                 "full": None
+            },
+            "feature mapping": {
+                "full": "https://toil.xenahubs.net/download/gencode.v23.annotation.transcript.probemap.gz"
             }
         },
         "loading function": lambda x: loadTCGAKallistoDataSet(x),
@@ -552,8 +555,9 @@ class DataSet(object):
         explained_standard_deviations = None,
         preprocessed_values = None, binarised_values = None,
         labels = None, class_names = None,
-        example_names = None, feature_names = None,
-        feature_selection = [], feature_parameter = None, example_filter = [],
+        example_names = None, feature_names = None, map_features = True,
+        feature_selection = [], feature_parameter = None,
+        example_filter = [],
         preprocessing_methods = [], preprocessed = None,
         binarise_values = False,
         noisy_preprocessing_methods = [],
@@ -668,6 +672,10 @@ class DataSet(object):
             superset = True)
         self.superset_label_sorter = createLabelSorter(
             sorted_superset_class_names)
+        
+        # Feature mapping
+        self.map_features = map_features
+        self.feature_mapping = None
         
         # Feature selection
         self.feature_selection = feature_selection
@@ -991,11 +999,10 @@ class DataSet(object):
         if os.path.isfile(sparse_path):
             print("Loading data set.")
             data_dictionary = loadDataDictionary(sparse_path)
+            print()
         else:
             original_paths = acquireDataSet(self.title,
                 self.original_directory)
-            
-            print()
             
             loading_time_start = time()
             data_dictionary = loadOriginalDataSet(self.title,
@@ -1025,6 +1032,11 @@ class DataSet(object):
         if "split indices" in data_dictionary:
             self.split_indices = data_dictionary["split indices"]
         
+        if "feature mapping" in data_dictionary:
+            self.feature_mapping = data_dictionary["feature mapping"]
+        else:
+            self.map_features = False
+        
         if not self.feature_parameter:
             self.feature_parameter = defaultFeatureParameter(
                 self.feature_selection, self.number_of_features)
@@ -1036,12 +1048,13 @@ class DataSet(object):
     
     def preprocess(self):
         
-        if not self.preprocessing_methods and not self.feature_selection \
-            and not self.example_filter:
+        if not self.feature_mapping and not self.preprocessing_methods \
+            and not self.feature_selection and not self.example_filter:
             self.update(preprocessed_values = None)
             return
         
         sparse_path = self.preprocessedPath(
+            map_features = self.map_features,
             preprocessing_methods = self.preprocessing_methods,
             feature_selection = self.feature_selection, 
             feature_parameter = self.feature_parameter,
@@ -1052,10 +1065,29 @@ class DataSet(object):
         if os.path.isfile(sparse_path):
             print("Loading preprocessed data.")
             data_dictionary = loadDataDictionary(sparse_path)
-            data_dictionary["preprocessed values"] = self.values
+            if "preprocessed values" not in data_dictionary:
+                data_dictionary["preprocessed values"] = None
+            print()
         else:
             
             preprocessing_time_start = time()
+            
+            values = self.values
+            example_names = self.example_names
+            feature_names = self.feature_names
+            
+            if self.map_features:
+                
+                print("Mapping features.")
+                start_time = time()
+                
+                values, feature_names = mapFeatures(
+                    values, feature_names, self.feature_mapping)
+                
+                duration = time() - start_time
+                print("Features mapped ({}).".format(formatDuration(duration)))
+                
+                print()
             
             if not self.preprocessed and self.preprocessing_methods:
                     
@@ -1067,7 +1099,7 @@ class DataSet(object):
                     self.preprocessing_methods,
                     self.preprocessedPath
                 )
-                preprocessed_values = preprocessing_function(self.values)
+                preprocessed_values = preprocessing_function(values)
                 
                 duration = time() - start_time
                 print("Values preprocessed ({}).".format(formatDuration(duration)))
@@ -1075,11 +1107,7 @@ class DataSet(object):
                 print()
             
             else:
-                preprocessed_values = self.values
-            
-            values = self.values
-            example_names = self.example_names
-            feature_names = self.feature_names
+                preprocessed_values = None
             
             if self.feature_selection:
                 values_dictionary, feature_names = selectFeatures(
@@ -1120,7 +1148,7 @@ class DataSet(object):
                 "preprocessed values": preprocessed_values,
             }
             
-            if self.feature_selection:
+            if self.map_features or self.feature_selection:
                 data_dictionary["feature names"] = feature_names
             
             if self.example_filter:
@@ -1135,11 +1163,15 @@ class DataSet(object):
             
                 print("Saving preprocessed data set.")
                 saveDataDictionary(data_dictionary, sparse_path)
+                print()
         
         values = data_dictionary["values"]
         preprocessed_values = data_dictionary["preprocessed values"]
         
-        if self.feature_selection:
+        if preprocessed_values is None:
+            preprocessed_values = values
+        
+        if self.map_features or self.feature_selection:
             feature_names = data_dictionary["feature names"]
         else:
             feature_names = self.feature_names
@@ -1171,6 +1203,7 @@ class DataSet(object):
         binarise_preprocessing = ["binarise"]
         
         sparse_path = self.preprocessedPath(
+            map_features = self.map_features,
             preprocessing_methods = binarise_preprocessing,
             feature_selection = self.feature_selection, 
             feature_parameter = self.feature_parameter,
@@ -1236,6 +1269,7 @@ class DataSet(object):
             method = self.defaultSplittingMethod()
         
         sparse_path = self.preprocessedPath(
+            map_features = self.map_features,
             preprocessing_methods = self.preprocessing_methods,
             feature_selection = self.feature_selection,
             feature_parameter = self.feature_parameter,
@@ -1246,7 +1280,6 @@ class DataSet(object):
             split_indices = self.split_indices
         )
         
-        print()
         print("Splitting:")
         print("    method:", method)
         if method != "indices":
@@ -1256,7 +1289,7 @@ class DataSet(object):
         if os.path.isfile(sparse_path):
             print("Loading split data sets.")
             split_data_dictionary = loadDataDictionary(sparse_path)
-        
+            print()
         else:
             
             if self.values is None:
@@ -1284,6 +1317,7 @@ class DataSet(object):
                 
                 print("Saving split data sets.")
                 saveDataDictionary(split_data_dictionary, sparse_path)
+                print()
         
         for data_subset in split_data_dictionary:
             for data_subset_key in split_data_dictionary[data_subset]:
@@ -1346,8 +1380,6 @@ class DataSet(object):
             noisy_preprocessing_methods = self.noisy_preprocessing_methods,
             kind = "test"
         )
-        
-        print()
         
         print(
             "Data sets with {} features{}:\n".format(
@@ -1800,7 +1832,8 @@ def loadOriginalDataSet(title, paths):
 
 def preprocessedPathFunction(preprocess_directory = "", name = ""):
     
-    def preprocessedPath(base_name = None, preprocessing_methods = None,
+    def preprocessedPath(base_name = None, map_features = None,
+        preprocessing_methods = None,
         feature_selection = None, feature_parameter = None,
         example_filter = None, example_filter_parameters = None,
         splitting_method = None, splitting_fraction = None,
@@ -1812,6 +1845,9 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
         
         if base_name:
             filename_parts.append(normaliseString(base_name))
+        
+        if map_features:
+            filename_parts.append("features_mapped")
         
         if feature_selection:
             feature_selection_part = normaliseString(feature_selection)
@@ -1848,6 +1884,65 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
         return path
     
     return preprocessedPath
+
+def mapFeatures(values, feature_IDs, feature_mapping):
+    
+    values = scipy.sparse.csc_matrix(values)
+    
+    M, N_IDs = values.shape
+    N_features = len(feature_mapping)
+    
+    feature_name_from_ID = {
+        v: k for k, vs in feature_mapping.items() for v in vs
+    }
+    
+    N_unknown_IDs = 0
+    
+    for feature_ID in feature_IDs:
+        if feature_ID not in feature_name_from_ID:
+            feature_name_from_ID[feature_ID] = feature_ID
+            N_unknown_IDs += 1
+    
+    if N_unknown_IDs > 0:
+        print("{0} feature{1} cannot be mapped -- using original feature{1}."\
+            .format(N_unknown_IDs, "s" if N_unknown_IDs > 1 else ""))
+    
+    N_features += N_unknown_IDs
+    
+    aggregated_values = numpy.zeros((M, N_features), values.dtype)
+    feature_names_with_index = dict()
+    
+    for i, feature_ID in enumerate(feature_IDs):
+        
+        feature_name = feature_name_from_ID[feature_ID]
+        
+        if feature_name in feature_names_with_index:
+            index = feature_names_with_index[feature_name]
+        else:
+            index = len(feature_names_with_index)
+            feature_names_with_index[feature_name] = index
+        
+        aggregated_values[:, index] += values[:, i].A.flatten()
+    
+    feature_names = list(feature_names_with_index.keys())
+    
+    feature_names_not_found = set(feature_mapping.keys()) - set(feature_names)
+    N_feature_names_not_found = len(feature_names_not_found)
+    N_features -= N_feature_names_not_found
+    aggregated_values = aggregated_values[:, :N_features]
+    
+    if N_feature_names_not_found > 0:
+        print(
+            "Did not find any original features for {} new feature{}.".format(
+                N_feature_names_not_found,
+                "s" if N_feature_names_not_found > 1 else ""
+            )
+        )
+    
+    aggregated_values = SparseRowMatrix(aggregated_values)
+    feature_names = numpy.array(feature_names)
+    
+    return aggregated_values, feature_names
 
 def selectFeatures(values_dictionary, feature_names, feature_selection = None,
     feature_parameter = None, preprocessPath = None):
@@ -2280,15 +2375,19 @@ def loadDataDictionary(path):
                 elif node_title == "split indices":
                     data_dictionary[node_title] = loadSplitIndices(
                         tables_file, group = node)
+                elif node_title == "feature mapping":
+                    data_dictionary[node_title] = loadFeatureMapping(
+                        tables_file, group = node)
                 else:
                     raise NotImplementedError(
-                        "Loading group `{}` not implemented.".format(node_path)
+                        "Loading group `{}` not implemented.".format(
+                            node_title)
                     )
             elif isinstance(node, tables.Array):
                 data_dictionary[node_title] = loadArrayAsOtherType(node)
             else:
                 raise NotImplementedError(
-                    "Loading node `{}` not implemented.".format(node_path)
+                    "Loading node `{}` not implemented.".format(node_title)
                 )
         
         return data_dictionary
@@ -2342,6 +2441,25 @@ def loadSplitIndices(tables_file, group):
     
     return split_indices
 
+def loadFeatureMapping(tables_file, group):
+    
+    feature_lists = {}
+    
+    for array in tables_file.iter_nodes(group, "Array"):
+        feature_lists[array.title] = array.read().tolist()
+    
+    feature_names = feature_lists["feature_names"]
+    feature_counts = feature_lists["feature_counts"]
+    feature_IDs = feature_lists["feature_IDs"]
+    
+    feature_mapping = {}
+    
+    for feature_name, feature_count in zip(feature_names, feature_counts):
+        feature_ID_set = [feature_IDs.pop(0) for i in range(feature_count)]
+        feature_mapping[feature_name] = feature_ID_set
+    
+    return feature_mapping
+
 def saveDataDictionary(data_dictionary, path):
     
     def save(data_dictionary, tables_file, group_title = None):
@@ -2360,14 +2478,16 @@ def saveDataDictionary(data_dictionary, path):
                 saveArray(value, title, group, tables_file)
             elif title == "split indices":
                 saveSplitIndices(value, title, group, tables_file)
+            elif title == "feature mapping":
+                saveFeatureMapping(value, title, group, tables_file)
             elif value is None:
                 saveString(str(value), title, group, tables_file)
             elif title.endswith("set"):
                 save(value, tables_file, group_title = title)
             else:
                 raise NotImplementedError(
-                    "Saving type {} for title \"{}\" not implemented.".format(
-                        type(value), title)
+                    "Saving type {} for title \"{}\" has not been implemented."
+                        .format(type(value), title)
                 )
     
     start_time = time()
@@ -2416,6 +2536,30 @@ def saveSplitIndices(split_indices, title, group, tables_file):
         subset_slice_array = numpy.array(
             [subset_slice.start, subset_slice.stop])
         saveArray(subset_slice_array, subset_name, group, tables_file)
+
+def saveFeatureMapping(feature_mapping, title, group, tables_file):
+    
+    name = normaliseString(title)
+    group = tables_file.create_group(group, name, title)
+    
+    feature_names = []
+    feature_counts = []
+    feature_IDs = []
+    
+    for feature_name, feature_ID_set in feature_mapping.items():
+        feature_names.append(feature_name)
+        feature_counts.append(len(feature_ID_set))
+        feature_IDs.extend(feature_ID_set)
+    
+    feature_lists = {
+        "feature_names": feature_names,
+        "feature_counts": feature_counts,
+        "feature_IDs": feature_IDs
+    }
+    
+    for feature_list_name, feature_list in feature_lists.items():
+        feature_list_array = numpy.array(feature_list)
+        saveArray(feature_list_array, feature_list_name, group, tables_file)
 
 def loadMouseRetinaDataSet(paths):
     
@@ -2562,11 +2706,27 @@ def loadTCGAKallistoDataSet(paths):
     example_names = numpy.array(column_headers)
     feature_names = numpy.array(row_indices)
     
+    feature_mapping = dict()
+    
+    with gzip.open(paths["feature mapping"]["full"], "rt") \
+        as feature_mapping_file:
+        
+        for row in feature_mapping_file:
+            if row.startswith("#"):
+                continue
+            row_elements = row.split()
+            feature_name = row_elements[1]
+            feature_id = row_elements[0]
+            if feature_name not in feature_mapping:
+                feature_mapping[feature_name] = []
+            feature_mapping[feature_name].append(feature_id)
+    
     data_dictionary = {
         "values": values,
         "labels": None,
         "example names": example_names,
-        "feature names": feature_names
+        "feature names": feature_names,
+        "feature mapping": feature_mapping
     }
     
     return data_dictionary

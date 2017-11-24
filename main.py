@@ -24,7 +24,8 @@ import random
 
 def main(input_file_or_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
-    feature_selection = [], feature_parameter = None, example_filter = [],
+    map_features = True, feature_selection = [], feature_parameter = None,
+    example_filter = [],
     preprocessing_methods = [], noisy_preprocessing_methods = [],
     splitting_method = "default", splitting_fraction = 0.8,
     model_type = "VAE", latent_size = 50, hidden_sizes = [500],
@@ -116,6 +117,7 @@ def main(input_file_or_name, data_directory = "data",
     data_set = data.DataSet(
         input_file_or_name,
         directory = data_directory,
+        map_features = map_features,
         feature_selection = feature_selection,
         feature_parameter = feature_parameter,
         example_filter = example_filter,
@@ -131,8 +133,6 @@ def main(input_file_or_name, data_directory = "data",
         splitting_method, splitting_fraction)
     
     all_data_sets = [data_set, training_set, validation_set, test_set]
-    
-    print()
     
     ## Setup of log and results directories
     
@@ -607,6 +607,18 @@ parser.add_argument(
     help = "directory where results are saved"
 )
 parser.add_argument(
+    "--map-features",
+    action = "store_true",
+    help = "map features using a feature mapping if available"
+)
+parser.add_argument(
+    "--skip-mapping-features",
+    dest = "map_features",
+    action = "store_false",
+    help = "do not map features using any feature mapping"
+)
+parser.set_defaults(map_features = True)
+parser.add_argument(
     "--feature-selection", "-F",
     type = str,
     nargs = "?",
@@ -777,6 +789,7 @@ parser.add_argument(
     action = "store_false",
     help = "do not use batch normalisation"
 )
+parser.set_defaults(batch_normalisation = True)
 parser.add_argument(
     "--dropout-keep-probabilities", "-d",
     type = float,
@@ -784,7 +797,6 @@ parser.add_argument(
     default = [],
     help = "List of probabilities, p, of keeping connections when using dropout. Interval: ]0, 1[, where p in {0, 1, False} means no dropout."
 )
-parser.set_defaults(batch_normalisation = True)
 parser.add_argument(
     "--count-sum", "-s",
     action = "store_true",
