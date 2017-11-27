@@ -1504,15 +1504,20 @@ def parseInput(input_file_or_name):
         else:
             name = baseName(json_path)
         
-        if "values" in data_set_dictionary:
-            json_directory = os.path.dirname(json_path)
-            data_set_dictionary["values"] = os.path.join(
-                json_directory, data_set_dictionary["values"])
-        elif "URLs" in data_set_dictionary:
-            pass
-        else:
-            raise KeyError("Missing path or URL to values.")
-        
+        if "URLs" not in data_set_dictionary:
+            
+            if "values" in data_set_dictionary:
+                json_directory = os.path.dirname(json_path)
+                data_set_dictionary["values"] = os.path.join(
+                    json_directory, data_set_dictionary["values"])
+            else:
+                raise KeyError("Missing path or URL to values.")
+            
+            if "labels" in data_set_dictionary:
+                json_directory = os.path.dirname(json_path)
+                data_set_dictionary["labels"] = os.path.join(
+                    json_directory, data_set_dictionary["labels"])
+    
     elif os.path.isfile(input_file_or_name):
         file_path = input_file_or_name
         name = baseName(file_path)
@@ -1605,6 +1610,11 @@ def dataSetFromJSONFile(json_path):
                 "full": data_set["values"]
             }
         }
+        
+        if "labels" in data_set:
+            data_set["URLs"]["labels"] = {
+                "full": data_set["labels"]
+            }
     
     if "loading function" in data_set:
         loading_function_string = data_set["loading function"]
@@ -1618,7 +1628,8 @@ def dataSetFromJSONFile(json_path):
 loading_functions = {
     "default": lambda x: loadMatrixAsDataSet(x, transpose = False),
     "transpose": lambda x: loadMatrixAsDataSet(x, transpose = True),
-    "10x": lambda x: load10xDataSet(x)
+    "10x": lambda x: load10xDataSet(x),
+    "gtex": lambda x: loadGTExDataSet(x)
 }
 
 def loadingFunction(search_string):
@@ -2708,13 +2719,13 @@ def loadTCGAKallistoDataSet(paths):
         loadTabSeparatedMatrix(paths["values"]["full"], numpy.float32)
 
     values = values.T
-    values = numpy.round(numpy.power(2, values) - 1)
+    values = numpy.power(2, values) - 1
     values = numpy.round(values)
 
     example_names = numpy.array(column_headers)
 
-    column_for_row_indices = 0
-    feature_names = numpy.array(row_indices)[:, column_for_row_indices]
+    feature_ID_column = 0
+    feature_IDs = numpy.array(row_indices)[:, feature_ID_column]
     
     # Labels
     
@@ -2736,8 +2747,6 @@ def loadTCGAKallistoDataSet(paths):
         
         labels = labels.astype("U")
     
-    print(set(metadata[label_key].tolist()))
-    
     # Feature mapping
     
     feature_mapping = dict()
@@ -2750,10 +2759,10 @@ def loadTCGAKallistoDataSet(paths):
                 continue
             row_elements = row.split()
             feature_name = row_elements[1]
-            feature_id = row_elements[0]
+            feature_ID = row_elements[0]
             if feature_name not in feature_mapping:
                 feature_mapping[feature_name] = []
-            feature_mapping[feature_name].append(feature_id)
+            feature_mapping[feature_name].append(feature_ID)
     
     # Dictionary
     
@@ -2761,7 +2770,65 @@ def loadTCGAKallistoDataSet(paths):
         "values": values,
         "labels": labels,
         "example names": example_names,
-        "feature names": feature_names,
+        "feature names": feature_IDs,
+        "feature mapping": feature_mapping
+    }
+    
+    return data_dictionary
+
+def loadGTExDataSet(paths):
+    
+    # Values, example names and feature names
+    
+    values, column_headers, row_indices = \
+        loadTabSeparatedMatrix(paths["values"]["full"], numpy.float32)
+
+    values = values.T
+
+    example_names = numpy.array(column_headers)
+
+    feature_ID_column = 0
+    feature_name_column = 1
+    
+    feature_IDs = numpy.array(row_indices)[:, feature_ID_column]
+    feature_names = numpy.array(row_indices)[:, feature_name_column]
+    
+    # Labels
+    
+    if paths["labels"]["full"]:
+
+        metadata = pandas.read_csv(
+            paths["labels"]["full"],
+            index_col = "SAMPID",
+            delimiter = "\t"
+        )
+
+        label_key = "SMTSD"
+
+        labels = numpy.zeros(example_names.shape, metadata[label_key].dtype)
+        labels[labels == 0] = "No class"
+
+        for example_name, label in metadata[label_key].iteritems():
+            labels[example_names == example_name] = label
+
+        labels = labels.astype("U")
+    
+    # Feature mapping
+    
+    feature_mapping = dict()
+    
+    for feature_name, feature_ID in zip(feature_names, feature_IDs):
+        if feature_name not in feature_mapping:
+            feature_mapping[feature_name] = []
+        feature_mapping[feature_name].append(feature_ID)
+    
+    # Dictionary
+    
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
+        "example names": example_names,
+        "feature names": feature_IDs,
         "feature mapping": feature_mapping
     }
     
