@@ -1388,10 +1388,13 @@ class DataSet(object):
         )
         
         print(
-            "Data sets with {} features{}:\n".format(
+            "Data sets with {} features{}{}:\n".format(
                 training_set.number_of_features,
                 " and {} classes".format(self.number_of_classes)
-                    if self.number_of_classes else "") +
+                    if self.number_of_classes else "",
+                " ({} superset classes)".format(self.number_of_superset_classes)
+                    if self.number_of_superset_classes else ""
+                ) +
             "    Training sets: {} examples.\n".format(
                 training_set.number_of_examples) +
             "    Validation sets: {} examples.\n".format(
@@ -1732,13 +1735,13 @@ def dataSetExcludedClasses(title):
     if "excluded classes" in data_sets[title]:
         return data_sets[title]["excluded classes"]
     else:
-        return []
+        return ["No class"]
 
 def dataSetExcludedSupersetClasses(title):
     if "excluded superset classes" in data_sets[title]:
         return data_sets[title]["excluded superset classes"]
     else:
-        return []
+        return ["No class"]
 
 def dataSetPreprocessingMethods(title):
     if "preprocessing methods" in data_sets[title]:
