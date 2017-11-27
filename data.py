@@ -1084,7 +1084,9 @@ class DataSet(object):
             
             if self.map_features:
                 
-                print("Mapping features.")
+                print("Mapping {} original features to {} new features."
+                    .format(self.number_of_features, len(self.feature_mapping))
+                )
                 start_time = time()
                 
                 values, feature_names = mapFeatures(
