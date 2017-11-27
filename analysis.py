@@ -2116,15 +2116,11 @@ def evaluationSubsetIndices(evaluation_set,
     total_maximum_number_of_examples =
         evaluation_subset_maximum_number_of_examples):
     
-    numpy.random.seed(80)
+    random_state = numpy.random.RandomState(80)
     
     M = evaluation_set.number_of_examples
     
     if evaluation_set.has_labels:
-        
-        subset = set()
-        
-        counter_max = maximum_number_of_examples_per_class
         
         if evaluation_set.label_superset:
             class_names = evaluation_set.superset_class_names
@@ -2133,26 +2129,18 @@ def evaluationSubsetIndices(evaluation_set,
             class_names = evaluation_set.class_names
             labels = evaluation_set.labels
         
-        class_counter = {}
+        subset = set()
         
         for class_name in class_names:
-            class_counter[class_name] = 0
-        
-        while any(map(lambda x: x < counter_max, class_counter.values())):
-            i = numpy.random.randint(0, M)
-            label = labels[i]
-            if class_counter[label] >= counter_max or i in subset:
-                continue
-            else:
-                class_counter[label] += 1
-                subset.add(i)
+            class_label_indices = numpy.argwhere(labels == class_name)
+            random_state.shuffle(class_label_indices)
+            subset.update(*class_label_indices
+                [:maximum_number_of_examples_per_class])
     
     else:
         subset = numpy.random.permutation(M)\
             [:total_maximum_number_of_examples]
         subset = set(subset)
-    
-    numpy.random.seed()
     
     return subset
 
