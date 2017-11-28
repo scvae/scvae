@@ -920,6 +920,11 @@ class DataSet(object):
                 self.class_name_to_class_id[class_name] = i
                 self.class_id_to_class_name[i] = class_name
             
+            if not self.excluded_classes:
+                for excluded_class in default_excluded_classes:
+                    if excluded_class in self.class_names:
+                        self.excluded_classes.append(excluded_class)
+            
             self.number_of_classes = len(self.class_names)
             
             if self.label_superset:
@@ -937,6 +942,11 @@ class DataSet(object):
                     enumerate(self.superset_class_names):
                     self.superset_class_name_to_superset_class_id[class_name] = i
                     self.superset_class_id_to_superset_class_name[i] = class_name
+                
+                if not self.excluded_superset_classes:
+                    for excluded_class in default_excluded_classes:
+                        if excluded_class in self.superset_class_names:
+                            self.excluded_superset_classes.append(excluded_class)
                 
                 self.number_of_superset_classes = len(self.superset_class_names)
         
@@ -1733,17 +1743,21 @@ def dataSetSortedClassNames(title, superset = False):
     else:
         return []
 
+# Default excluded class
+# (added later if present in data set labels)
+default_excluded_classes = ["No class"]
+
 def dataSetExcludedClasses(title):
     if "excluded classes" in data_sets[title]:
         return data_sets[title]["excluded classes"]
     else:
-        return ["No class"]
+        return []
 
 def dataSetExcludedSupersetClasses(title):
     if "excluded superset classes" in data_sets[title]:
         return data_sets[title]["excluded superset classes"]
     else:
-        return ["No class"]
+        return []
 
 def dataSetPreprocessingMethods(title):
     if "preprocessing methods" in data_sets[title]:
