@@ -2604,19 +2604,20 @@ def loadMouseRetinaDataSet(paths):
     
     values = values.T
     example_names = numpy.array(column_headers)
-    feature_names = numpy.array(row_indices)
     
-    labels = numpy.zeros(example_names.shape, numpy.int32)
+    feature_column = 0
+    feature_names = numpy.array(row_indices)[:, feature_column]
     
-    with open(paths["labels"]["full"], "r") as labels_data:
-        for line in labels_data.read().split("\n"):
-            
-            if line == "":
-                continue
-            
-            example_name, label = line.split("\t")
-            
-            labels[example_names == example_name] = int(label)
+    if paths["labels"]["full"]:
+        labels = loadLabelsFromDelimiterSeparetedValues(
+            path = paths["labels"]["full"],
+            label_column = 1,
+            example_column = 0,
+            example_names = example_names,
+            header = None,
+            dtype = numpy.int32,
+            default_label = 0
+        )
     
     data_dictionary = {
         "values": values,
@@ -2646,19 +2647,14 @@ def load10xDataSet(paths):
     feature_names = table["gene_names"].astype("U")
     
     if paths["labels"]["full"]:
-        
-        metadata = pandas.read_csv(paths["labels"]["full"],
-            index_col = "cell_index")
-        
-        label_key = "Cell_types_res0.8"
-        
-        labels = numpy.zeros(example_names.shape, metadata[label_key].dtype)
-        labels[labels == 0] = "No class"
-        
-        for example_name, label in metadata[label_key].iteritems():
-            labels[example_names == example_name] = label
-        
-        labels = labels.astype("U")
+        labels = loadLabelsFromDelimiterSeparetedValues(
+            path = paths["labels"]["full"],
+            label_column = "Cell_types_res0.8",
+            example_column = "cell_index",
+            example_names = example_names,
+            delimiter = ",",
+            dtype = "U"
+        )
     
     else:
         labels = None
@@ -2749,22 +2745,13 @@ def loadTCGAKallistoDataSet(paths):
     # Labels
     
     if paths["labels"]["full"]:
-        
-        metadata = pandas.read_csv(
-            paths["labels"]["full"],
-            index_col = "sampleID",
-            delimiter = "\t"
+        labels = loadLabelsFromDelimiterSeparetedValues(
+            path = paths["labels"]["full"],
+            label_column = "_primary_site",
+            example_column = "sampleID",
+            example_names = example_names,
+            dtype = "U"
         )
-        
-        label_key = "_primary_site"
-        
-        labels = numpy.zeros(example_names.shape, metadata[label_key].dtype)
-        labels[labels == 0] = "No class"
-        
-        for example_name, label in metadata[label_key].iteritems():
-            labels[example_names == example_name] = label
-        
-        labels = labels.astype("U")
     
     # Feature mapping
     
@@ -2815,22 +2802,13 @@ def loadGTExDataSet(paths):
     # Labels
     
     if paths["labels"]["full"]:
-
-        metadata = pandas.read_csv(
-            paths["labels"]["full"],
-            index_col = "SAMPID",
-            delimiter = "\t"
+        labels = loadLabelsFromDelimiterSeparetedValues(
+            path = paths["labels"]["full"],
+            label_column = "SMTSD",
+            example_column = "SAMPID",
+            example_names = example_names,
+            dtype = "U"
         )
-
-        label_key = "SMTSD"
-
-        labels = numpy.zeros(example_names.shape, metadata[label_key].dtype)
-        labels[labels == 0] = "No class"
-
-        for example_name, label in metadata[label_key].iteritems():
-            labels[example_names == example_name] = label
-
-        labels = labels.astype("U")
     
     # Feature mapping
     
@@ -2937,6 +2915,34 @@ def loadTabSeparatedMatrix(tsv_path, data_type = None):
     values = numpy.array(values, data_type)
     
     return values, column_headers, row_indices
+
+def loadLabelsFromDelimiterSeparetedValues(path, label_column = 1,
+    example_column = 0, example_names = None, delimiter = "\t",
+    header = "infer", dtype = None, default_label = "No class"):
+    
+    metadata = pandas.read_csv(
+        path,
+        index_col = example_column,
+        delimiter = delimiter,
+        header = header
+    )
+    unordered_labels = metadata[label_column]
+    
+    if example_names is not None:
+        
+        labels = numpy.zeros(example_names.shape, unordered_labels.dtype)
+        labels[labels == 0] = default_label
+        
+        for example_name, label in unordered_labels.items():
+            labels[example_names == example_name] = label
+    
+    else:
+        labels = unordered_labels.values
+    
+    if dtype:
+        labels = labels.astype(dtype)
+    
+    return labels
 
 def loadMNISTDataSet(paths):
     
