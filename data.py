@@ -2047,7 +2047,10 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
     feature_selected_values = {}
     
     for version, values in values_dictionary.items():
-        feature_selected_values[version] = values[:, indices]
+        if values is not None:
+            feature_selected_values[version] = values[:, indices]
+        else:
+            feature_selected_values[version] = None
     
     feature_selected_feature_names = feature_names[indices]
     
@@ -2172,7 +2175,11 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
     example_filtered_values = {}
     
     for version, values in values_dictionary.items():
-        example_filtered_values[version] = values[filter_indices, :]
+        if values is not None:
+            example_filtered_values[version] = values[filter_indices, :]
+        else:
+            example_filtered_values[version] = None
+        
     
     example_filtered_example_names = example_names[filter_indices]
     
