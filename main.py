@@ -32,7 +32,7 @@ def main(input_file_or_name, data_directory = "data",
     number_of_importance_samples = [5],
     number_of_monte_carlo_samples = [10],
     latent_distribution = "gaussian",
-    number_of_classes = 1,
+    number_of_classes = None,
     parameterise_latent_posterior = False,
     reconstruction_distribution = "poisson",
     number_of_reconstruction_classes = 0,
@@ -168,17 +168,40 @@ def main(input_file_or_name, data_directory = "data",
     
     title("Modelling")
     
+    # Set the number of features for the model
+    feature_size = training_set.number_of_features
+    
+    # Parse numbers of samples
+    number_of_monte_carlo_samples = parseSampleLists(
+        number_of_monte_carlo_samples)
+    number_of_importance_samples = parseSampleLists(
+        number_of_importance_samples)
+    
+    # Use analytical KL term for single-Gaussian-VAE
     if "VAE" in model_type:
         if latent_distribution == "gaussian":
             analytical_kl_term = True
         else:
             analytical_kl_term = False
     
-    feature_size = training_set.number_of_features
-    number_of_monte_carlo_samples = parseSampleLists(
-        number_of_monte_carlo_samples)
-    number_of_importance_samples = parseSampleLists(
-        number_of_importance_samples)
+    # Change latent distribution to Gaussian mixture if not already set
+    if model_type == "GMVAE" and latent_distribution != "gaussian mixture":
+        latent_distribution = "gaussian mixture"
+        print("The latent distribution was changed to",
+            "a Gaussian-mixture model, because of the model chosen.\n")
+    
+    # Set the number of classes if not already set
+    if not number_of_classes:
+        if "mixture" in latent_distribution:
+            if training_set.has_labels:
+                number_of_classes = training_set.number_of_classes
+            else:
+                raise ValueError(
+                    "For a mixture model and a data set without labels, "
+                    "the number of classes has to be set."
+                )
+        else:
+            number_of_classes = 1
     
     subtitle("Model setup")
     
@@ -204,11 +227,6 @@ def main(input_file_or_name, data_directory = "data",
         )
 
     elif model_type == "GMVAE":
-        
-        if latent_distribution != "gaussian mixture":
-            latent_distribution = "gaussian mixture"
-            print("The latent distribution was changed to",
-                "a Gaussian-mixture model, because of the model chosen.\n")
         
         if prior_probabilities_method == "uniform":
             prior_probabilities = None
@@ -707,7 +725,6 @@ parser.add_argument(
 parser.add_argument(
     "--number-of-classes", "-K",
     type = int,
-    default = 1,
     help = "number of proposed clusters in data set"
 )
 parser.add_argument(
