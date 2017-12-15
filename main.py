@@ -42,7 +42,7 @@ def main(input_file_or_name, data_directory = "data",
     batch_normalisation = True,
     dropout_keep_probabilities = [],
     count_sum = True,
-    number_of_epochs = 200, plot_for_every_n_epochs = None, 
+    number_of_epochs = 200, plotting_interval_during_training = None, 
     batch_size = 100, learning_rate = 1e-4,
     prediction_method = None,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
@@ -282,9 +282,13 @@ def main(input_file_or_name, data_directory = "data",
     subtitle("Model training")
     
     status = model.train(
-        training_set, validation_set,
-        number_of_epochs, batch_size, learning_rate,
-        reset_training, plot_for_every_n_epochs
+        training_set,
+        validation_set,
+        number_of_epochs = number_of_epochs,
+        batch_size = batch_size,
+        learning_rate = learning_rate,
+        plotting_interval = plotting_interval_during_training,
+        reset_training = reset_training
     )
     
     if not status["completed"]:
@@ -765,7 +769,7 @@ parser.add_argument(
     help = "number of epochs for which to train"
 )
 parser.add_argument(
-    "--plot-for-every-n-epochs",
+    "--plotting-interval-during-training",
     type = int,
     nargs = "?",
     help = "number of training epochs between each intermediate plot starting at the first"

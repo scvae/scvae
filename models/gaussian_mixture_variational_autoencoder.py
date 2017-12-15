@@ -995,7 +995,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
     def train(self, training_set, validation_set,
         number_of_epochs = 100, batch_size = 100, learning_rate = 1e-3,
-        reset_training = False, plot_for_every_n_epochs = False):
+        plotting_interval = None, reset_training = False):
         
         if reset_training and os.path.exists(self.log_directory):
             shutil.rmtree(self.log_directory)
@@ -1724,7 +1724,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 print()
                 
                 # Plot latent validation values
-                if plot_for_every_n_epochs is None:
+                if plotting_interval is None:
                     under_10 = epoch < 10
                     under_100 = epoch < 100 and (epoch + 1) % 10 == 0
                     under_1000 = epoch < 1000 and (epoch + 1) % 50 == 0 
@@ -1737,7 +1737,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                         or last_one
                 else: 
                     plot_intermediate_results =\
-                        epoch % plot_for_every_n_epochs == 0
+                        epoch % plotting_interval == 0
 
                 if plot_intermediate_results:
                     if "mixture" in self.latent_distribution_name:
