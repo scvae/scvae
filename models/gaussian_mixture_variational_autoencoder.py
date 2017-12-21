@@ -4,6 +4,7 @@ from models.auxiliary import (
     dense_layer, dense_layers,
     epochsWithNoImprovement,
     log_reduce_exp, reduce_logmeanexp,
+    correctModelCheckpointPath,
     trainingString, dataString,
     copyModelDirectory, removeOldCheckpoints
 )
@@ -1225,9 +1226,13 @@ class GaussianMixtureVariationalAutoencoder(object):
                 print("Restoring earlier model parameters.")
                 restoring_time_start = time()
                 
-                self.saver.restore(session, checkpoint.model_checkpoint_path)
-                epoch_start = int(os.path.basename(
-                    checkpoint.model_checkpoint_path).split('-')[-1])
+                model_checkpoint_path = correctModelCheckpointPath(
+                    checkpoint.model_checkpoint_path,
+                    log_directory
+                )
+                self.saver.restore(session, model_checkpoint_path)
+                epoch_start = int(os.path.split(model_checkpoint_path)[-1]
+                    .split('-')[-1])
                 
                 ELBO_valid_learning_curve = loadLearningCurves(
                     self,
@@ -2008,9 +2013,13 @@ class GaussianMixtureVariationalAutoencoder(object):
                     eval_summary_directory)
             
             if checkpoint:
-                self.saver.restore(session, checkpoint.model_checkpoint_path)
-                epoch = int(os.path.split(
-                    checkpoint.model_checkpoint_path)[-1].split('-')[-1])
+                model_checkpoint_path = correctModelCheckpointPath(
+                    checkpoint.model_checkpoint_path,
+                    log_directory
+                )
+                self.saver.restore(session, model_checkpoint_path)
+                epoch = int(os.path.split(model_checkpoint_path)[-1]
+                    .split('-')[-1])
             else:
                 print("Cannot evaluate model when it has not been trained.")
                 return [None] * len(output_versions)

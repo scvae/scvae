@@ -221,6 +221,13 @@ def dataString(data_set, reconstruction_distribution_name):
 
 # Model
 
+def correctModelCheckpointPath(model_checkpoint_path, parent_directory):
+    correct_model_checkpoint_path = os.path.join(
+        parent_directory,
+        os.path.basename(model_checkpoint_path)
+    )
+    return correct_model_checkpoint_path
+
 def copyModelDirectory(model_checkpoint, main_destination_directory):
     
     checkpoint_path_prefix = model_checkpoint.model_checkpoint_path
