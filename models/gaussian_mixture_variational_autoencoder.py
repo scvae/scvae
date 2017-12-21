@@ -139,8 +139,8 @@ class GaussianMixtureVariationalAutoencoder(object):
 
         self.epsilon = epsilon
         
-        self.main_log_directory = log_directory
-        self.main_results_directory = results_directory
+        self.base_log_directory = log_directory
+        self.base_results_directory = results_directory
         
         # Early stopping
         self.early_stopping_rounds = 10
@@ -258,17 +258,36 @@ class GaussianMixtureVariationalAutoencoder(object):
         
         return model_name
     
-    @property
-    def early_stopping_log_directory(self):
-        return os.path.join(self.log_directory, "early_stopping")
-    
-    @property
-    def best_model_log_directory(self):
-        return os.path.join(self.log_directory, "best")
+    def logDirectory(self, base = None,
+        early_stopping = False, best_model = False):
+        
+        if not base:
+            base = self.base_log_directory
+        
+        log_directory = os.path.join(base, self.name)
+        
+        if early_stopping and best_model:
+            raise ValueError(
+                "Early-stopping model and best model are mutually exclusive."
+            )
+        elif early_stopping:
+            log_directory = os.path.join(log_directory, "early_stopping")
+        elif best_model:
+            log_directory = os.path.join(log_directory, "best")
+        
+        return log_directory
     
     @property
     def log_directory(self):
-        return os.path.join(self.main_log_directory, self.name)
+        return self.logDirectory()
+    
+    @property
+    def early_stopping_log_directory(self):
+        return self.logDirectory(early_stopping = True)
+    
+    @property
+    def best_model_log_directory(self):
+        return self.logDirectory(best_model = True)
     
     @property
     def title(self):
@@ -995,59 +1014,91 @@ class GaussianMixtureVariationalAutoencoder(object):
 
     def train(self, training_set, validation_set,
         number_of_epochs = 100, batch_size = 100, learning_rate = 1e-3,
-        plotting_interval = None, reset_training = False):
+        plotting_interval = None, reset_training = False,
+        temporary_log_directory = None):
         
         if reset_training and os.path.exists(self.log_directory):
             shutil.rmtree(self.log_directory)
         
-        # Logging
+        # Setup
+        
+        ## Logging
         
         status = {
             "completed": False,
             "message": None,
-            "trained": None,
+            "epochs trained": None,
             "training time": None,
-            "last epoch time": None
+            "last epoch time": None,
+            "learning rate": learning_rate,
+            "batch size": batch_size
         }
         
-        # Earlier model
+        ## Earlier model
         
-        checkpoint = tf.train.get_checkpoint_state(self.log_directory)
+        old_checkpoint = tf.train.get_checkpoint_state(self.log_directory)
         
-        if checkpoint:
-            epoch_start = int(os.path.split(
-                checkpoint.model_checkpoint_path)[-1].split('-')[-1])
+        if old_checkpoint:
+            epoch_start = int(os.path.basename(
+                old_checkpoint.model_checkpoint_path).split('-')[-1])
         else:
             epoch_start = 0
         
-        status["trained"] = "{}-{}".format(epoch_start, number_of_epochs)
-
-        # Training message
+        status["epochs trained"] = "{}-{}".format(epoch_start, number_of_epochs)
+        
+        ## Training message
         
         data_string = dataString(training_set,
             self.reconstruction_distribution_name)
         training_string = trainingString(epoch_start, number_of_epochs,
             data_string)
         
-        # Stop if model already trained
+        ## Stop, if model is already trained
         
         if epoch_start >= number_of_epochs:
             print(training_string)
             print()
             status["completed"] = True
-            status["training time"] = "0 s"
-            status["last epoch time"] = "0 s"
+            status["training time"] = "nan"
+            status["last epoch time"] = "nan"
+            status["epochs trained"] = "{}-{}".format(epoch_start,
+                number_of_epochs)
             return status
         
-        # parameter_values = "lr_{:.1g}".format(learning_rate)
-        # parameter_values += "_b_" + str(batch_size)
+        ## Log directories
         
-        # self.log_directory = os.path.join(self.log_directory,
-        #     parameter_values)
+        if temporary_log_directory:
+            
+            log_directory = self.logDirectory(base = temporary_log_directory)
+            early_stopping_log_directory = self.logDirectory(
+                base = temporary_log_directory,
+                early_stopping = True
+            )
+            best_model_log_directory = self.logDirectory(
+                base = temporary_log_directory,
+                best_model = True
+            )
+            
+            if os.path.exists(self.log_directory):
+                
+                print("Copying log directory to temporary directory.")
+                copying_time_start = time()
+                
+                shutil.copytree(self.log_directory, log_directory)
+                
+                copying_duration = time() - copying_time_start
+                print("Log directory copied ({}).".format(formatDuration(
+                    copying_duration)))
+                
+                print()
+        else:
+            log_directory = self.log_directory
+            early_stopping_log_directory = self.early_stopping_log_directory
+            best_model_log_directory = self.best_model_log_directory
         
-        # Setup
+        ## New model
         
-        checkpoint_file = os.path.join(self.log_directory, 'model.ckpt')
+        checkpoint_file = os.path.join(log_directory, 'model.ckpt')
         
         ## Data
         
@@ -1056,19 +1107,24 @@ class GaussianMixtureVariationalAutoencoder(object):
         
         ## Features
         
+        ### Count sum for distributions
         if self.count_sum:
             n_train = training_set.count_sum
             n_valid = validation_set.count_sum
-
+        
+        ### Normalised count sum as a feature to the decoder
         if self.count_sum_feature:
             n_feature_train = training_set.normalised_count_sum
             n_feature_valid = validation_set.normalised_count_sum
         
+        ### Numbers of examples for data subsets
         M_train = training_set.number_of_examples
         M_valid = validation_set.number_of_examples
         
+        ### Preprocessing function at every epoch
         noisy_preprocess = training_set.noisy_preprocess
         
+        ### Input and output
         if not noisy_preprocess:
             
             if training_set.has_preprocessed_values:
@@ -1085,7 +1141,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 t_train = training_set.values
                 t_valid = validation_set.values
         
-        ## Labels
+        ### Labels
         
         if training_set.has_labels:
             
@@ -1102,9 +1158,9 @@ class GaussianMixtureVariationalAutoencoder(object):
             else:
                 excluded_class_ids = []
         
-        ## Superset labels
+        ### Superset labels
         
-        if training_set.label_superset:
+        if training_set.has_superset_labels:
         
             superset_class_names_to_superset_class_ids = numpy.vectorize(
                 lambda superset_class_name:
@@ -1131,7 +1187,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             preparing_data_duration)))
         print()
         
-        ## Steps
+        ## Display intervals during every epoch
         steps_per_epoch = numpy.ceil(M_train / batch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
         
@@ -1155,22 +1211,29 @@ class GaussianMixtureVariationalAutoencoder(object):
         with tf.Session(graph = self.graph) as session:
             
             parameter_summary_writer = tf.summary.FileWriter(
-                self.log_directory)
+                log_directory)
             training_summary_writer = tf.summary.FileWriter(
-                os.path.join(self.log_directory, "training"))
+                os.path.join(log_directory, "training"))
             validation_summary_writer = tf.summary.FileWriter(
-                os.path.join(self.log_directory, "validation"))
+                os.path.join(log_directory, "validation"))
             
             # Initialisation
+            
+            checkpoint = tf.train.get_checkpoint_state(log_directory)
             
             if checkpoint:
                 print("Restoring earlier model parameters.")
                 restoring_time_start = time()
                 
                 self.saver.restore(session, checkpoint.model_checkpoint_path)
+                epoch_start = int(os.path.basename(
+                    checkpoint.model_checkpoint_path).split('-')[-1])
                 
-                ELBO_valid_learning_curve = loadLearningCurves(self,
-                    "validation")["lower_bound"]
+                ELBO_valid_learning_curve = loadLearningCurves(
+                    self,
+                    "validation",
+                    log_directory = log_directory
+                )["lower_bound"]
                 ELBO_valid_maximum = ELBO_valid_learning_curve.max()
                 ELBO_valid_prev = ELBO_valid_learning_curve[-1]
                 epochs_with_no_improvement = epochsWithNoImprovement(
@@ -1178,7 +1241,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 ELBO_valid_early_stopping = ELBO_valid_learning_curve[
                     -1 - epochs_with_no_improvement]
                 
-                if os.path.exists(self.early_stopping_log_directory) \
+                if os.path.exists(early_stopping_log_directory) \
                     and epochs_with_no_improvement == 0:
                     self.stopped_early = True
                 else:
@@ -1194,6 +1257,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 
                 session.run(tf.global_variables_initializer())
                 parameter_summary_writer.add_graph(session.graph)
+                epoch_start = 0
                 
                 ELBO_valid_maximum = - numpy.inf
                 ELBO_valid_prev = - numpy.inf
@@ -1206,6 +1270,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                 print("Model parameters initialised ({}).".format(
                     formatDuration(initialising_duration)))
                 print()
+            
+            status["epochs trained"] = "{}-{}".format(epoch_start, number_of_epochs)
             
             # Training loop
             
@@ -1665,10 +1731,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                             ELBO_valid_early_stopping = ELBO_valid
                             current_checkpoint = \
                                 tf.train.get_checkpoint_state(
-                                    self.log_directory)
+                                    log_directory)
                             if current_checkpoint:
                                 copyModelDirectory(current_checkpoint,
-                                    self.early_stopping_log_directory)
+                                    early_stopping_log_directory)
                             saving_duration = time() - saving_time_start
                             print("        " + 
                                 "Previous model parameters saved ({})."\
@@ -1685,8 +1751,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                                 "Validation loss improved.")
                         epochs_with_no_improvement = 0
                         ELBO_valid_early_stopping = ELBO_valid
-                        if os.path.exists(self.early_stopping_log_directory):
-                            shutil.rmtree(self.early_stopping_log_directory)
+                        if os.path.exists(early_stopping_log_directory):
+                            shutil.rmtree(early_stopping_log_directory)
                     
                     if epochs_with_no_improvement >= \
                         self.early_stopping_rounds:
@@ -1712,11 +1778,11 @@ class GaussianMixtureVariationalAutoencoder(object):
                     saving_time_start = time()
                     ELBO_valid_maximum = ELBO_valid
                     current_checkpoint = \
-                        tf.train.get_checkpoint_state(self.log_directory)
+                        tf.train.get_checkpoint_state(log_directory)
                     if current_checkpoint:
                         copyModelDirectory(current_checkpoint,
-                            self.best_model_log_directory)
-                    removeOldCheckpoints(self.best_model_log_directory)
+                            best_model_log_directory)
+                    removeOldCheckpoints(best_model_log_directory)
                     saving_duration = time() - saving_time_start
                     print('    Best model parameters saved ({}).'.format(
                         formatDuration(saving_duration)))
@@ -1768,7 +1834,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                         learning_curves, epoch_start, epoch,
                         z_mean_valid, validation_set, centroids,
                         self.name, self.type,
-                        self.main_results_directory
+                        self.base_results_directory
                     )
                     print()
                 else:
@@ -1776,7 +1842,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                         learning_curves, epoch_start,
                         model_name = self.name,
                         model_type = self.type,
-                        results_directory = self.main_results_directory
+                        results_directory = self.base_results_directory
                     )
                     print()
                 
@@ -1785,15 +1851,28 @@ class GaussianMixtureVariationalAutoencoder(object):
             
             training_duration = time() - training_time_start
             
-            if epoch_start >= number_of_epochs:
-                epoch_duration = training_duration
-            else:
-                print("Model trained for {} epochs ({}).".format(
-                    number_of_epochs, formatDuration(training_duration)))
+            print("Model trained for {} epochs ({}).".format(
+                number_of_epochs, formatDuration(training_duration)))
             
             # Clean up
             
-            removeOldCheckpoints(self.log_directory)
+            removeOldCheckpoints(log_directory)
+            
+            if temporary_log_directory:
+                
+                print("Moving log directory to permanent directory.")
+                copying_time_start = time()
+                
+                if os.path.exists(self.log_directory):
+                    shutil.rmtree(self.log_directory)
+                
+                shutil.move(log_directory, self.log_directory)
+                
+                copying_duration = time() - copying_time_start
+                print("Log directory moved ({}).".format(formatDuration(
+                    copying_duration)))
+                
+                print()
             
             status["completed"] = True
             status["training time"] = formatDuration(training_duration)

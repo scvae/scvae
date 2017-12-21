@@ -14,7 +14,8 @@ from miscellaneous.prediction import predict
 
 from auxiliary import (
     title, subtitle, chapter,
-    normaliseString, enumerateListOfStrings
+    normaliseString, enumerateListOfStrings,
+    removeEmptyDirectories
 )
 
 import os
@@ -24,6 +25,7 @@ import random
 
 def main(input_file_or_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
+    temporary_log_directory = None,
     map_features = True, feature_selection = [], feature_parameter = None,
     example_filter = [],
     preprocessing_methods = [], noisy_preprocessing_methods = [],
@@ -142,6 +144,11 @@ def main(input_file_or_name, data_directory = "data",
         splitting_method, splitting_fraction, preprocessing = False)
     results_directory = data.directory(results_directory, data_set,
         splitting_method, splitting_fraction)
+    
+    if temporary_log_directory:
+        main_temporary_log_directory = temporary_log_directory
+        temporary_log_directory = data.directory(temporary_log_directory,
+            data_set, splitting_method, splitting_fraction)
     
     ## Data analysis
     
@@ -288,16 +295,21 @@ def main(input_file_or_name, data_directory = "data",
         batch_size = batch_size,
         learning_rate = learning_rate,
         plotting_interval = plotting_interval_during_training,
-        reset_training = reset_training
+        reset_training = reset_training,
+        temporary_log_directory = temporary_log_directory
     )
+    
+    # Remove temporary directories created and emptied during training
+    if temporary_log_directory and os.path.exists(main_temporary_log_directory):
+        removeEmptyDirectories(main_temporary_log_directory)
     
     if not status["completed"]:
         print(status["message"])
         return
     
     status_filename = "status"
-    if "trained" in status:
-        status_filename += "-" + status["trained"]
+    if "epochs trained" in status:
+        status_filename += "-" + status["epochs trained"]
     status_path = os.path.join(
         model.log_directory,
         status_filename + ".log"
@@ -620,13 +632,18 @@ parser.add_argument(
     "--log-directory", "-L",
     type = str,
     default = "log",
-    help = "directory where models are logged"
+    help = "directory where models are stored"
 )
 parser.add_argument(
     "--results-directory", "-R",
     type = str,
     default = "results",
     help = "directory where results are saved"
+)
+parser.add_argument(
+    "--temporary-log-directory", "-T",
+    type = str,
+    help = "directory for temporary storage"
 )
 parser.add_argument(
     "--map-features",

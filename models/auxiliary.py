@@ -164,7 +164,7 @@ def epochsWithNoImprovement(losses):
         else:
             k = 0
     
-    return k    
+    return k
 
 # Strings
 

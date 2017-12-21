@@ -92,7 +92,7 @@ def isfloat(value):
 
 def loadNumberOfEpochsTrained(model, early_stopping = False, best_model = False):
     
-    # Seup
+    # Setup
     
     ## Data set kind
     data_set_kind = "training"
@@ -135,7 +135,7 @@ def loadNumberOfEpochsTrained(model, early_stopping = False, best_model = False)
     return E_1
 
 def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False,
-    best_model = False):
+    best_model = False, log_directory = None):
     
     # Setup
     
@@ -148,12 +148,11 @@ def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False,
         data_set_kinds = [data_set_kinds]
     
     ## Log directory
-    if early_stopping:
-        log_directory = model.early_stopping_log_directory
-    elif best_model:
-        log_directory = model.best_model_log_directory
-    else:
-        log_directory = model.log_directory
+    if not log_directory:
+        log_directory = model.logDirectory(
+            early_stopping = early_stopping,
+            best_model = best_model
+        )
     
     ## Losses depending on model type
     if model.type == "SNN":
@@ -426,6 +425,16 @@ def loadKLDivergences(model, early_stopping = False, best_model = False):
 
 def copyFile(URL, path):
     shutil.copyfile(URL, path)
+
+def removeEmptyDirectories(source_directory):
+    for directory_path, _, _ in os.walk(source_directory, topdown = False):
+        if directory_path == source_directory:
+            break
+        try:
+            os.rmdir(directory_path)
+        except OSError as os_error:
+            pass
+            # print(os_error)
 
 def downloadFile(URL, path):
     urllib.request.urlretrieve(URL, path, download_report_hook)
