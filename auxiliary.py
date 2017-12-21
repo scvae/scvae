@@ -421,6 +421,11 @@ def loadKLDivergences(model, early_stopping = False, best_model = False):
     
     return KL_neurons
 
+def betterModelExists(model):
+    E_current = loadNumberOfEpochsTrained(model, best_model = False)
+    E_best = loadNumberOfEpochsTrained(model, best_model = True)
+    return E_best < E_current
+
 # IO
 
 def copyFile(URL, path):

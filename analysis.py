@@ -3989,11 +3989,6 @@ def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
     
     return axis_label
 
-def betterModelExists(model):
-    E_current = loadNumberOfEpochsTrained(model, best_model = False)
-    E_best = loadNumberOfEpochsTrained(model, best_model = True)
-    return E_best < E_current
-
 class CustomTicker(LogFormatterSciNotation):
     def __call__(self, x, pos = None):
         if 0.1 <= x < 1:

@@ -15,6 +15,7 @@ from miscellaneous.prediction import predict
 from auxiliary import (
     title, subtitle, chapter,
     normaliseString, enumerateListOfStrings,
+    betterModelExists,
     removeEmptyDirectories
 )
 
@@ -372,7 +373,7 @@ def main(input_file_or_name, data_directory = "data",
     
     model_parameter_set_names = ["end of epoch"]
     
-    if analysis.betterModelExists(model):
+    if betterModelExists(model):
         model_parameter_set_names.append("best model")
     
     if model.stopped_early:
