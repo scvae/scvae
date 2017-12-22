@@ -8,7 +8,10 @@ import argparse
 from analysis import formatStatistics
 from auxiliary import formatTime, title, subtitle
 
-test_metrics_filename = "test-metrics.pkl.gz"
+test_metrics_basename = "test-metrics"
+test_prediction_basename = "test-prediction"
+
+zipped_pickle_extension = ".pkl.gz"
 
 def main(log_directory = None, results_directory = None,
     data_set_include_search_strings = [], 
@@ -71,12 +74,14 @@ def main(log_directory = None, results_directory = None,
                 
                 timestamp = test_metrics["timestamp"]
                 
-                print("timestamp: {}".format(formatTime(timestamp)))
+                print("Timestamp: {}".format(formatTime(timestamp)))
                 
                 # Epochs
                 
                 E = test_metrics["number of epochs trained"]
-                print("epochs_trained: {}".format(E))
+                print("Epochs trained: {}".format(E))
+                
+                print()
                 
                 # Evaluation
                 
@@ -106,6 +111,8 @@ def main(log_directory = None, results_directory = None,
                         print("{}: {:6.2f} %".format(
                             accuracy, 100 * test_metrics[accuracy][-1]))
                 
+                print()
+                
                 # Statistics
                 
                 if isinstance(test_metrics["statistics"], list):
@@ -124,13 +131,41 @@ def main(log_directory = None, results_directory = None,
                     print(formatStatistics(reconstructed_statistics))
                 
                 print()
+                
+                # Predictions
+                
+                if "predictions" in test_metrics:
+                    for prediction in test_metrics["predictions"].values():
+                        
+                        ARIs = {}
+                        
+                        for key, value in prediction.items():
+                            if key.startswith("ARI") and value:
+                                ARIs[key] = value
+                        
+                        method = prediction["prediction method"]
+                        number_of_classes = prediction["number of classes"]
+                        
+                        if ARIs:
+                            print("{} ({} classes):".format(
+                                method, number_of_classes))
+                            
+                            for ARI_name, ARI_value in ARIs.items():
+                                print("    {}: {:.5g}".format(
+                                    ARI_name, ARI_value))
+                        
+                            print()
+                
 
 def testMetricsInResultsDirectory(results_directory):
     
+    test_metrics_filename = test_metrics_basename + zipped_pickle_extension
+    
     test_metrics_set = {}
     
-    for path, directories, files in os.walk(results_directory):
-        if test_metrics_filename in files:
+    for path, _, filenames in os.walk(results_directory):
+        
+        if test_metrics_filename in filenames:
             
             data_set_model = path.replace(results_directory, "")
             data_set_model_parts = data_set_model.split(os.sep)
@@ -144,13 +179,37 @@ def testMetricsInResultsDirectory(results_directory):
             
             with gzip.open(test_metrics_path, "r") as test_metrics_file:
                 test_metrics_data = pickle.load(test_metrics_file)
-                
+            
+            predictions = {}
+            
+            for filename in filenames:
+                if filename.startswith(test_prediction_basename) \
+                    and filename.endswith(zipped_pickle_extension):
+                    
+                    prediction_name = filename\
+                        .replace(zipped_pickle_extension, "")\
+                        .replace(test_prediction_basename, "")\
+                        .replace("-", "")
+                    
+                    test_prediction_path = os.path.join(path, filename)
+                    
+                    with gzip.open(test_prediction_path, "r") as \
+                        test_prediction_file:
+                        
+                        test_prediction_data = pickle.load(
+                            test_prediction_file)
+                    
+                    predictions[prediction_name] = test_prediction_data
+            
+            if predictions:
+                test_metrics_data["predictions"] = predictions
+            
             test_metrics_set[data_set][model] = test_metrics_data
     
     return test_metrics_set
 
 parser = argparse.ArgumentParser(
-    description='Cross-analyse models.',
+    description="Cross-analyse models.",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter
 )
 
