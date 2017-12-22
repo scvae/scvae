@@ -1,3 +1,5 @@
+import numpy
+
 import tensorflow as tf
 
 from tensorflow.contrib.layers import (
@@ -153,18 +155,28 @@ def pairwise_distance(a, b = None):
 
 # Early stopping
 
-def epochsWithNoImprovement(losses):
+def earlyStoppingStatus(losses, early_stopping_rounds):
     
     E = len(losses)
+    
+    # Epochs with no improvements
     k = 0
     
+    stopped_early = False
+    
     for e in range(1, E):
+        
         if losses[e] < losses[e - 1]:
             k += 1
         else:
             k = 0
+        
+        if k >= early_stopping_rounds:
+            stopped_early = True
+            k = numpy.nan
+            break
     
-    return k
+    return stopped_early, k
 
 # Strings
 

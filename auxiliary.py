@@ -426,6 +426,10 @@ def betterModelExists(model):
     E_best = loadNumberOfEpochsTrained(model, best_model = True)
     return E_best < E_current
 
+def modelStoppedEarly(model):
+    stopped_early, _ = model.earlyStoppingStatus()
+    return stopped_early
+
 # IO
 
 def copyFile(URL, path):

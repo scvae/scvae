@@ -15,7 +15,7 @@ from miscellaneous.prediction import predict
 from auxiliary import (
     title, subtitle, chapter,
     normaliseString, enumerateListOfStrings,
-    betterModelExists,
+    betterModelExists, modelStoppedEarly,
     removeEmptyDirectories
 )
 
@@ -376,7 +376,7 @@ def main(input_file_or_name, data_directory = "data",
     if betterModelExists(model):
         model_parameter_set_names.append("best model")
     
-    if model.stopped_early:
+    if modelStoppedEarly(model):
         model_parameter_set_names.append("early stopping")
     
     print("Model parameter sets: {}.".format(enumerateListOfStrings(

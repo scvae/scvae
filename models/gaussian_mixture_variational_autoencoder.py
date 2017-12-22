@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from models.auxiliary import (
     dense_layer, dense_layers,
-    epochsWithNoImprovement,
+    earlyStoppingStatus,
     log_reduce_exp, reduce_logmeanexp,
     correctModelCheckpointPath,
     trainingString, dataString,

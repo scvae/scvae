@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from models.auxiliary import (
     dense_layer, dense_layers, log_reduce_exp, reduce_logmeanexp,
-    epochsWithNoImprovement,
+    earlyStoppingStatus,
     trainingString, dataString,
     correctModelCheckpointPath,
     copyModelDirectory, removeOldCheckpoints
@@ -120,7 +120,7 @@ class VariationalAutoencoder(object):
         
         # Early stopping
         
-        self.early_stopping_rounds = 10
+        self.early_stopping_rounds = 1 #10 # TODO Change back
         self.stopped_early = None
         
         # Graph setup
@@ -898,7 +898,34 @@ class VariationalAutoencoder(object):
                 setupTraining()
         else:
             setupTraining()
-
+    
+    def earlyStoppingStatus(self, early_stopping_log_directory = None):
+        
+        stopped_early = False
+        epochs_with_no_improvement = 0
+        
+        if not early_stopping_log_directory:
+            early_stopping_log_directory = self.early_stopping_log_directory
+        
+        log_directory = os.path.dirname(early_stopping_log_directory)
+        
+        if os.path.exists(log_directory):
+            
+            validation_losses = loadLearningCurves(
+                self,
+                "validation",
+                log_directory = log_directory
+            )["lower_bound"]
+        
+            if os.path.exists(early_stopping_log_directory):
+                stopped_early, epochs_with_no_improvement = \
+                    earlyStoppingStatus(
+                        validation_losses,
+                        self.early_stopping_rounds
+                    )
+        
+        return stopped_early, epochs_with_no_improvement
+    
     def train(self, training_set, validation_set,
         number_of_epochs = 100, batch_size = 100, learning_rate = 1e-3,
         plotting_interval = None, reset_training = False,
@@ -1082,17 +1109,17 @@ class VariationalAutoencoder(object):
                     "validation",
                     log_directory = log_directory
                 )["lower_bound"]
+                
                 ELBO_valid_maximum = ELBO_valid_learning_curve.max()
                 ELBO_valid_prev = ELBO_valid_learning_curve[-1]
-                epochs_with_no_improvement = epochsWithNoImprovement(
-                    ELBO_valid_learning_curve)
+                
+                self.stopped_early, epochs_with_no_improvement = \
+                    self.earlyStoppingStatus(
+                        early_stopping_log_directory)
                 ELBO_valid_early_stopping = ELBO_valid_learning_curve[
                     -1 - epochs_with_no_improvement]
                 
-                if os.path.exists(early_stopping_log_directory) \
-                    and epochs_with_no_improvement == 0:
-                    self.stopped_early = True
-                else:
+                if not os.path.exists(early_stopping_log_directory):
                     self.stopped_early = False
                 
                 restoring_duration = time() - restoring_time_start
@@ -1472,7 +1499,7 @@ class VariationalAutoencoder(object):
                         print("    Early stopping in effect:",
                             "Previously saved model parameters is available.")
                         self.stopped_early = True
-                        epochs_with_no_improvement = 0
+                        epochs_with_no_improvement = numpy.nan
                 
                 # Saving model parameters (update checkpoint)
                 print('    Saving model parameters.')
