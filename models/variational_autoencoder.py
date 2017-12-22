@@ -120,7 +120,7 @@ class VariationalAutoencoder(object):
         
         # Early stopping
         
-        self.early_stopping_rounds = 1 #10 # TODO Change back
+        self.early_stopping_rounds = 10
         self.stopped_early = None
         
         # Graph setup
@@ -1118,9 +1118,6 @@ class VariationalAutoencoder(object):
                         early_stopping_log_directory)
                 ELBO_valid_early_stopping = ELBO_valid_learning_curve[
                     -1 - epochs_with_no_improvement]
-                
-                if not os.path.exists(early_stopping_log_directory):
-                    self.stopped_early = False
                 
                 restoring_duration = time() - restoring_time_start
                 print("Earlier model parameters restored ({}).".format(
