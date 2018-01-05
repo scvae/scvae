@@ -202,7 +202,7 @@ class VariationalAutoencoder(object):
         
         reconstruction_parts.append("mc_{}".format(
             self.number_of_monte_carlo_samples["training"]))
-        reconstruction_parts.append("mc_{}".format(
+        reconstruction_parts.append("iw_{}".format(
             self.number_of_importance_samples["training"]))
         
         if self.analytical_kl_term:
