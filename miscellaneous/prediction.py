@@ -8,6 +8,7 @@ from auxiliary import properString, formatDuration
 
 prediction_method_names = {
     "k-means": ["k_means", "kmeans"],
+    "model": ["model"],
     "test": ["test"],
     "copy": ["copy"]
 }

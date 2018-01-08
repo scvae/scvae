@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 
 import os
+
 import pickle
 import gzip
+
+import re
+
 import argparse
 
 from analysis import formatStatistics
@@ -47,7 +51,7 @@ def main(log_directory = None, results_directory = None,
             if not data_set_match:
                 continue
             
-            title(data_set)
+            title(parseDataSetName(data_set))
             
             for model, test_metrics in models.items():
                 
@@ -68,7 +72,7 @@ def main(log_directory = None, results_directory = None,
                 if not model_match:
                     continue
                 
-                subtitle(model)
+                subtitle(parseModelName(model))
                 
                 # Time
                 
@@ -155,7 +159,6 @@ def main(log_directory = None, results_directory = None,
                                     ARI_name, ARI_value))
                         
                             print()
-                
 
 def testMetricsInResultsDirectory(results_directory):
     
@@ -207,6 +210,174 @@ def testMetricsInResultsDirectory(results_directory):
             test_metrics_set[data_set][model] = test_metrics_data
     
     return test_metrics_set
+
+def parseName(name, replacement_dictionaries = None):
+    
+    if replacement_dictionaries:
+        if not isinstance(replacement_dictionaries, list):
+            replacement_dictionaries = [replacement_dictionaries]
+        
+        for replacements in replacement_dictionaries:
+            for pattern, replacement in replacements.items():
+                if not isinstance(replacement, str):
+                    replacement_function = replacement
+                    
+                    match = re.search(pattern, name)
+                    
+                    if match:
+                        replacement = replacement_function(match)
+                
+                name = re.sub(pattern, replacement, name)
+    
+    name = name.replace("/", " ▸ ")
+    name = name.replace("-", "; ")
+    name = name.replace("_", " ")
+    
+    return name
+
+data_set_name_replacements = {
+    "10x": "10x",
+    "10x_20k": "10x (20k samples)",
+    "10x_arc_lira": "10x ARC LIRA",
+    "development": "Development",
+    r"dimm_sc_10x_(\w+)": lambda match: "3′ ({})".format(match.group(1)),
+    "gtex": "GTEx",
+    r"mnist_(\w+)": lambda match: "MNIST ({})".format(match.group(1)),
+    r"sample_?(sparse)?": lambda match: "Sample" \
+        if len(match.groups()) == 1
+        else "Sample ({})".format(match.group(1)),
+    "tcga_kallisto": "TCGA (Kallisto)"
+}
+
+split_replacements = {
+    r"split-(\w+)_(0\.\d+)": lambda match: \
+        "{} split ({:.3g} %)".format(
+            match.group(1),
+            100 * float(match.group(2))
+        )
+}
+
+feature_replacements = {
+    "features_mapped": "feature mapping",
+    r"keep_gini_indices_above_([\d.]+)": lambda match: \
+        "features with Gini index above {}".format(int(float(match.group(1)))),
+    r"keep_highest_gini_indices_([\d.]+)": lambda match: \
+        " {} features with highest Gini indices".format(
+            int(float(match.group(1)))),
+    r"keep_variances_above_([\d.]+)": lambda match: \
+        "features with variance above {}".format(
+            int(float(match.group(1)))),
+    r"keep_highest_variances_([\d.]+)": lambda match: \
+        "{} most varying features".format(int(float(match.group(1))))
+}
+
+example_feaute_replacements = {
+    "macosko": "Macosko",
+    "remove_zeros": "examples with only zeros removed",
+    r"remove_count_sum_above_([\d.]+)": lambda match: \
+        "examples with count sum above {} removed".format(
+            int(float(match.group(1))))
+}
+
+example_replacements = {
+    r"keep_(\w+)": lambda match: "{} examples".format(match.group(1)\
+        .replace("_", ", ")),
+    r"remove_(\w+)": lambda match: "{} examples removed".format(match.group(1)\
+        .replace("_", ", ")),
+    "excluded_classes": "excluded classes removed",
+}
+
+preprocessing_replacements = {
+    "gini": "Gini indices",
+    "idf": "IDF"
+}
+
+def parseDataSetName(name):
+    
+    replacement_dictionaries = [
+        data_set_name_replacements,
+        split_replacements,
+        feature_replacements,
+        example_feaute_replacements,
+        example_replacements,
+        preprocessing_replacements
+    ]
+    
+    return parseName(name, replacement_dictionaries)
+
+GMVAE_replacements = {
+    r"GMVAE/gaussian_mixture-c_(\d+)-?p?_?(\w+)?": lambda match: \
+        "GMVAE({})".format(match.group(1)) \
+        if not match.group(2) \
+        else "GMVAE({}; {})".format(*match.groups())
+}
+
+mixture_replacements = {
+    r"gaussian_mixture-c_(\d+)": lambda match: "GM({})".format(match.group(1))
+}
+
+distribution_modification_replacements = {
+    "constrained poisson": "CP",
+    "zero_inflated_": "ZI",
+    r"/(\w+)-k_(\d+)": lambda match: "/PC{}({})".format(match.group(1),
+        match.group(2))
+}
+
+distribution_replacements = {
+    "gaussian": "Gaussian",
+    "bernoulli": "B",
+    "poisson": "P",
+    "negative_binomial": "NB",
+    "lomax": "L",
+    "pareto": "Pa",
+}
+
+network_replacements = {
+    r"l_(\d+)-h_([\d_]+)": lambda match: "{}×{}".format(
+        match.group(2).replace("_", "×"),
+        match.group(1)
+    )
+}
+
+sample_replacements = {
+    r"-mc_(\d+)": lambda match: "" if int(match.group(1)) == 1 else \
+        "-{} MC samples".format(match.groups(1)),
+    r"-iw_(\d+)": lambda match: "" if int(match.group(1)) == 1 else \
+        "-{} IW samples".format(match.groups(1))
+}
+
+model_version_replacements = {
+    r"e_(\d+)-?(\w+)?": lambda match: "{} epochs".format(match.group(1)) \
+        if not match.group(2) \
+        else "{} epochs ({})".format(
+            match.group(1),
+            match.group(2).replace("_", " ").replace(" model", "")
+        )
+}
+
+miscellaneous_replacements = {
+    # "sum": "count sum",
+    "-kl": "",
+    "bn": "BN",
+    r"dropout_([\d._]+)": lambda match: "dropout: {}".format(
+        match.group(1).replace("_", ", ")),
+    r"wu_(\d+)": lambda match: "WU: {}".format(match.group(1))
+}
+
+def parseModelName(name):
+    
+    replacement_dictionaries = [
+        GMVAE_replacements,
+        mixture_replacements,
+        distribution_modification_replacements,
+        distribution_replacements,
+        network_replacements,
+        sample_replacements,
+        model_version_replacements,
+        miscellaneous_replacements
+    ]
+    
+    return parseName(name, replacement_dictionaries)
 
 parser = argparse.ArgumentParser(
     description="Cross-analyse models.",
