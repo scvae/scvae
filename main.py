@@ -200,14 +200,13 @@ def main(input_file_or_name, data_directory = "data",
     
     # Set the number of classes if not already set
     if not number_of_classes:
-        if "mixture" in latent_distribution:
-            if training_set.has_labels:
-                number_of_classes = training_set.number_of_classes
-            else:
-                raise ValueError(
-                    "For a mixture model and a data set without labels, "
-                    "the number of classes has to be set."
-                )
+        if training_set.has_labels:
+            number_of_classes = training_set.number_of_classes
+        elif "mixture" in latent_distribution:
+            raise ValueError(
+                "For a mixture model and a data set without labels, "
+                "the number of classes has to be set."
+            )
         else:
             number_of_classes = 1
     
