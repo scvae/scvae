@@ -53,6 +53,8 @@ def main(log_directory = None, results_directory = None,
             
             title(parseDataSetName(data_set))
             
+            summary_table = {}
+            
             for model, test_metrics in models.items():
                 
                 model_match = True
@@ -72,7 +74,9 @@ def main(log_directory = None, results_directory = None,
                 if not model_match:
                     continue
                 
-                subtitle(parseModelName(model))
+                model_name = parseModelName(model)
+                
+                subtitle(model_name)
                 
                 # Time
                 
@@ -105,6 +109,11 @@ def main(log_directory = None, results_directory = None,
                 for loss in losses:
                     if loss in evaluation:
                         print("{}: {:.5g}".format(loss, evaluation[loss][-1]))
+                
+                if "lower_bound" in evaluation:
+                    model_lower_bound = evaluation["lower_bound"][-1]
+                else:
+                    model_lower_bound = None
                 
                 # Accuracies
                 
@@ -139,6 +148,11 @@ def main(log_directory = None, results_directory = None,
                 # Predictions
                 
                 if "predictions" in test_metrics:
+                    
+                    ARI_min = 2
+                    ARI_max = -1
+                    any_ARIs = False
+                    
                     for prediction in test_metrics["predictions"].values():
                         
                         ARIs = {}
@@ -146,6 +160,9 @@ def main(log_directory = None, results_directory = None,
                         for key, value in prediction.items():
                             if key.startswith("ARI") and value:
                                 ARIs[key] = value
+                                ARI_min = min(ARI_min, value)
+                                ARI_max = max(ARI_max, value)
+                                any_ARIs = True
                         
                         method = prediction["prediction method"]
                         number_of_classes = prediction["number of classes"]
@@ -157,8 +174,77 @@ def main(log_directory = None, results_directory = None,
                             for ARI_name, ARI_value in ARIs.items():
                                 print("    {}: {:.5g}".format(
                                     ARI_name, ARI_value))
-                        
+                            
                             print()
+                    
+                    if any_ARIs:
+                        model_ARI = {
+                            "min": ARI_min,
+                            "max": ARI_max
+                        }
+                    else:
+                        model_ARI = None
+                
+                summary_table[model_name] = {
+                    "lower bound": model_lower_bound,
+                    "ARI": model_ARI
+                }
+            
+            subtitle("Summary")
+            
+            spacing = "  "
+            
+            sorted_summary_table_items = sorted(
+                summary_table.items(),
+                key = lambda key_value_pair: key_value_pair[-1]["lower bound"],
+                reverse = True
+            )
+            
+            model_name_width = max(map(len, summary_table))
+            lower_bound_width = max(map(
+                lambda ELBO: len("{:-.5g}".format(ELBO)),
+                [metrics["lower bound"] for metrics in summary_table.values()]
+            ))
+            
+            any_ARIs = any([
+                bool(metrics["ARI"]) for metrics in summary_table.values()
+            ])
+            
+            summary_table_heading_parts = [
+                "{:{}}".format("Model", model_name_width),
+                "{:{}}".format("ELBO", lower_bound_width)
+            ]
+            
+            if any_ARIs:
+                summary_table_heading_parts.append("ARI       ")
+            
+            summary_table_heading = spacing.join(summary_table_heading_parts)
+            
+            print(summary_table_heading)
+            print("-" * len(summary_table_heading))
+            
+            for model_name, model_metrics in sorted_summary_table_items:
+                
+                summary_table_row_parts = [
+                    "{:{}}".format(model_name, model_name_width),
+                    "{:{}.5g}".format(model_metrics["lower bound"],
+                        lower_bound_width)
+                ]
+                
+                if model_metrics["ARI"]:
+                    
+                    ARI_min = model_metrics["ARI"]["min"]
+                    ARI_max = model_metrics["ARI"]["max"]
+                    
+                    if ARI_min == ARI_max:
+                        ARI_string = "      {:4.2f}".format(ARI_max)
+                    else:
+                        ARI_string = "{:4.2f}--{:4.2f}".format(
+                            ARI_min, ARI_max)
+                    
+                    summary_table_row_parts.append(ARI_string)
+                    
+                print(spacing.join(summary_table_row_parts))
 
 def testMetricsInResultsDirectory(results_directory):
     
@@ -324,7 +410,7 @@ distribution_modification_replacements = {
 }
 
 distribution_replacements = {
-    "gaussian": "Gaussian",
+    "gaussian": "G",
     "bernoulli": "B",
     "poisson": "P",
     "negative_binomial": "NB",
@@ -349,10 +435,7 @@ sample_replacements = {
 model_version_replacements = {
     r"e_(\d+)-?(\w+)?": lambda match: "{} epochs".format(match.group(1)) \
         if not match.group(2) \
-        else "{} epochs ({})".format(
-            match.group(1),
-            match.group(2).replace("_", " ").replace(" model", "")
-        )
+        else match.group(2).replace("_", " ").replace(" model", "")
 }
 
 miscellaneous_replacements = {
