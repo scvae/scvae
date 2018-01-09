@@ -115,7 +115,7 @@ def main(input_file_or_name, data_directory = "data",
     
     # Data
     
-    title("Data")
+    print(title("Data"))
     
     data_set = data.DataSet(
         input_file_or_name,
@@ -154,7 +154,7 @@ def main(input_file_or_name, data_directory = "data",
     ## Data analysis
     
     if analyse and analyse_data:
-        subtitle("Analysing data")
+        print(subtitle("Analysing data"))
         analysis.analyseData(
             all_data_sets,
             decomposition_methods, highlight_feature_indices,
@@ -174,7 +174,7 @@ def main(input_file_or_name, data_directory = "data",
         print("Modelling skipped.")
         return
     
-    title("Modelling")
+    print(title("Modelling"))
     
     # Set the number of features for the model
     feature_size = training_set.number_of_features
@@ -210,7 +210,7 @@ def main(input_file_or_name, data_directory = "data",
         else:
             number_of_classes = 1
     
-    subtitle("Model setup")
+    print(subtitle("Model setup"))
     
     if model_type == "VAE":
         model = VariationalAutoencoder(
@@ -286,7 +286,7 @@ def main(input_file_or_name, data_directory = "data",
     
     ## Training
     
-    subtitle("Model training")
+    print(subtitle("Model training"))
     
     status = model.train(
         training_set,
@@ -347,7 +347,7 @@ def main(input_file_or_name, data_directory = "data",
     
     evaluation_title = enumerateListOfStrings(evaluation_title_parts)
     
-    title(evaluation_title.capitalize())
+    print(title(evaluation_title.capitalize()))
     
     ### Evaluation set
     
@@ -387,7 +387,7 @@ def main(input_file_or_name, data_directory = "data",
     
     if analyse:
         
-        subtitle("Model analysis")
+        print(subtitle("Model analysis"))
         analysis.analyseModel(model, analyses, analysis_level,
             video, results_directory)
     
@@ -406,13 +406,13 @@ def main(input_file_or_name, data_directory = "data",
             use_early_stopping_model = False
         
         model_parameter_set_name = model_parameter_set_name.capitalize()
-        subtitle(model_parameter_set_name)
+        print(subtitle(model_parameter_set_name))
         
         # Evaluation
         
         model_parameter_set_name = model_parameter_set_name.replace(" ", "-")
         
-        chapter("{} evaluation".format(model_parameter_set_name))
+        print(chapter("{} evaluation".format(model_parameter_set_name)))
         
         if "VAE" in model.type:
             transformed_evaluation_set, reconstructed_evaluation_set,\
@@ -442,7 +442,7 @@ def main(input_file_or_name, data_directory = "data",
         if analyse and "VAE" in model.type and prediction_method \
             and not transformed_evaluation_set.has_predictions:
             
-            chapter("{} prediction".format(model_parameter_set_name))
+            print(chapter("{} prediction".format(model_parameter_set_name)))
             
             latent_training_sets = model.evaluate(
                 evaluation_set = training_set,
@@ -486,7 +486,7 @@ def main(input_file_or_name, data_directory = "data",
         
         if analyse:
             
-            chapter("{} results analysis".format(model_parameter_set_name))
+            print(chapter("{} results analysis".format(model_parameter_set_name)))
             
             analysis.analyseResults(
                 transformed_evaluation_set,

@@ -467,22 +467,24 @@ def bold(string):
     """Convert to bold type."""
     return BOLD + string + RESETFORMAT
 
-def underline(string, character="="):
+def underline(string, character="-"):
     """Convert string to header marks"""
     return character * len(string)
 
-def title(string):
-    """Display a bold title."""
-    print("{}\n{}\n".format(bold(string), underline(string, "◼︎")))
+def heading(string, underline_symbol = "-", plain = False):
+    string = "{}\n{}\n".format(string, underline(string, underline_symbol))
+    if not plain:
+        string = bold(string)
+    return string
 
-def subtitle(string):
-    """Display a bold subtitle."""
-    print("{}\n{}\n".format(bold(string), underline(string, "≡")))
+def title(string, plain = False):
+    underline_symbol = "◼︎"
+    return heading(string, underline_symbol, plain)
 
-def chapter(string):
-    """Display a bold chapter."""
-    print("{}\n{}\n".format(bold(string), underline(string, "=")))
+def subtitle(string, plain = False):
+    underline_symbol = "≡"
+    return heading(string, underline_symbol, plain)
 
-def heading(string):
-    """Display a bold heading."""
-    print("{}\n{}\n".format(bold(string), underline(string, "-")))
+def chapter(string, plain = False):
+    underline_symbol = "="
+    return heading(string, underline_symbol, plain)

@@ -51,7 +51,7 @@ def main(log_directory = None, results_directory = None,
             if not data_set_match:
                 continue
             
-            title(parseDataSetName(data_set))
+            print(title(parseDataSetName(data_set)))
             
             comparison_table = {}
             
@@ -76,7 +76,7 @@ def main(log_directory = None, results_directory = None,
                 
                 model_name = parseModelName(model)
                 
-                subtitle(model_name)
+                print(subtitle(model_name))
                 
                 # Time
                 
@@ -193,7 +193,7 @@ def main(log_directory = None, results_directory = None,
             if not comparison_table:
                 continue
             
-            subtitle("Comparison")
+            print(subtitle("Comparison"))
             
             spacing = "  "
             

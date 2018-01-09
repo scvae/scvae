@@ -106,7 +106,7 @@ def analyseData(data_sets,
     
     if "metrics" in analyses:
         
-        heading("Metrics")
+        print(heading("Metrics"))
         
         print("Calculating metrics for data set.")
         metrics_time_start = time()
@@ -173,7 +173,7 @@ def analyseData(data_sets,
     
     for data_set in data_sets:
         
-        heading("Analyses of {} set".format(data_set.kind))
+        print(heading("Analyses of {} set".format(data_set.kind)))
         
         # Examples for data set
         
@@ -272,7 +272,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
     
     if "learning_curves" in analyses:
         
-        heading("Learning curves")
+        print(heading("Learning curves"))
             
         print("Plotting learning curves.")
         learning_curves_time_start = time()
@@ -331,7 +331,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
         
         if accuracies is not None:
             
-            heading("Accuracies")
+            print(heading("Accuracies"))
             
             print("Plotting accuracies.")
             
@@ -356,7 +356,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
     
     if "kl_heat_maps" in analyses and model.type == "VAE":
         
-        heading("KL divergence")
+        print(heading("KL divergence"))
     
         print("Plotting logarithm of KL divergence heat map.")
         heat_map_time_start = time()
@@ -379,7 +379,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
     
     if "latent_distributions" in analyses and model.type == "GMVAE":
         
-        heading("Latent distributions")
+        print(heading("Latent distributions"))
         
         centroids = loadCentroids(model, data_set_kinds = "validation")
         
@@ -673,7 +673,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     if "metrics" in analyses:
     
-        heading("Metrics")
+        print(heading("Metrics"))
         
         ## Loading
         
@@ -932,7 +932,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     # Reconstructions
     
     if "images" in analyses or "profile_comparisons" in analyses:
-        heading("Reconstructions")
+        print(heading("Reconstructions"))
     
     ## Examples
     
@@ -1211,7 +1211,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     if "latent_space" in analyses and "VAE" in model.type:
         
-        heading("Latent space")
+        print(heading("Latent space"))
         
         if model.latent_distribution_name == "gaussian_mixture":
         
