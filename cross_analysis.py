@@ -53,7 +53,7 @@ def main(log_directory = None, results_directory = None,
             
             title(parseDataSetName(data_set))
             
-            summary_table = {}
+            comparison_table = {}
             
             for model, test_metrics in models.items():
                 
@@ -147,6 +147,8 @@ def main(log_directory = None, results_directory = None,
                 
                 # Predictions
                 
+                model_ARI = None
+                
                 if "predictions" in test_metrics:
                     
                     ARI_min = 2
@@ -182,50 +184,51 @@ def main(log_directory = None, results_directory = None,
                             "min": ARI_min,
                             "max": ARI_max
                         }
-                    else:
-                        model_ARI = None
                 
-                summary_table[model_name] = {
+                comparison_table[model_name] = {
                     "lower bound": model_lower_bound,
                     "ARI": model_ARI
                 }
             
-            subtitle("Summary")
+            if not comparison_table:
+                continue
+            
+            subtitle("Comparison")
             
             spacing = "  "
             
-            sorted_summary_table_items = sorted(
-                summary_table.items(),
+            sorted_comparison_table_items = sorted(
+                comparison_table.items(),
                 key = lambda key_value_pair: key_value_pair[-1]["lower bound"],
                 reverse = True
             )
             
-            model_name_width = max(map(len, summary_table))
+            model_name_width = max(map(len, comparison_table))
             lower_bound_width = max(map(
                 lambda ELBO: len("{:-.5g}".format(ELBO)),
-                [metrics["lower bound"] for metrics in summary_table.values()]
+                [metrics["lower bound"] for metrics in comparison_table.values()]
             ))
             
             any_ARIs = any([
-                bool(metrics["ARI"]) for metrics in summary_table.values()
+                bool(metrics["ARI"]) for metrics in comparison_table.values()
             ])
             
-            summary_table_heading_parts = [
+            comparison_table_heading_parts = [
                 "{:{}}".format("Model", model_name_width),
                 "{:{}}".format("ELBO", lower_bound_width)
             ]
             
             if any_ARIs:
-                summary_table_heading_parts.append("ARI       ")
+                comparison_table_heading_parts.append("ARI       ")
             
-            summary_table_heading = spacing.join(summary_table_heading_parts)
+            comparison_table_heading = spacing.join(comparison_table_heading_parts)
             
-            print(summary_table_heading)
-            print("-" * len(summary_table_heading))
+            print(comparison_table_heading)
+            print("-" * len(comparison_table_heading))
             
-            for model_name, model_metrics in sorted_summary_table_items:
+            for model_name, model_metrics in sorted_comparison_table_items:
                 
-                summary_table_row_parts = [
+                comparison_table_row_parts = [
                     "{:{}}".format(model_name, model_name_width),
                     "{:{}.5g}".format(model_metrics["lower bound"],
                         lower_bound_width)
@@ -242,9 +245,11 @@ def main(log_directory = None, results_directory = None,
                         ARI_string = "{:4.2f}--{:4.2f}".format(
                             ARI_min, ARI_max)
                     
-                    summary_table_row_parts.append(ARI_string)
+                    comparison_table_row_parts.append(ARI_string)
                     
-                print(spacing.join(summary_table_row_parts))
+                print(spacing.join(comparison_table_row_parts))
+            
+            print()
 
 def testMetricsInResultsDirectory(results_directory):
     
