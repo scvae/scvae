@@ -16,12 +16,14 @@ test_metrics_basename = "test-metrics"
 test_prediction_basename = "test-prediction"
 
 zipped_pickle_extension = ".pkl.gz"
+log_extension = ".log"
 
 def main(log_directory = None, results_directory = None,
     data_set_include_search_strings = [], 
     model_include_search_strings = [],
     data_set_exclude_search_strings = [], 
-    model_exclude_search_strings = []):
+    model_exclude_search_strings = [],
+    log_summary = False):
     
     if log_directory:
         log_directory = os.path.normpath(log_directory) + os.sep
@@ -29,6 +31,30 @@ def main(log_directory = None, results_directory = None,
     if results_directory:
         
         results_directory = os.path.normpath(results_directory) + os.sep
+        
+        if log_summary:
+            
+            log_filename_parts = []
+            
+            def appendSearchStrings(search_strings, symbol):
+                if search_strings:
+                    log_filename_parts.append("{}_{}".format(
+                        symbol,
+                        "_".join(search_strings)
+                    ))
+            
+            appendSearchStrings(data_set_include_search_strings, "d")
+            appendSearchStrings(data_set_exclude_search_strings, "D")
+            appendSearchStrings(model_include_search_strings, "m")
+            appendSearchStrings(model_exclude_search_strings, "M")
+            
+            if not log_filename_parts:
+                log_filename_parts.append("all")
+            
+            log_filename = "-".join(log_filename_parts) + log_extension
+            log_path = os.path.join(results_directory, log_filename)
+            
+            log_string_parts = []
         
         test_metrics_set = testMetricsInResultsDirectory(results_directory)
         
@@ -78,6 +104,9 @@ def main(log_directory = None, results_directory = None,
             data_set_title = titleFromDataSetName(data_set_name)
             
             print(title(data_set_title))
+            
+            if log_summary:
+                log_string_parts.append(title(data_set_title, plain = True))
             
             comparison_table = {}
             
@@ -215,6 +244,12 @@ def main(log_directory = None, results_directory = None,
                 
                 print(subtitle(model_title))
                 print(metrics_string)
+                
+                if log_summary:
+                    log_string_parts.append(
+                        subtitle(model_title, plain = True)
+                    )
+                    log_string_parts.append(metrics_string)
             
             if len(comparison_table) <= 1:
                 continue
@@ -286,6 +321,17 @@ def main(log_directory = None, results_directory = None,
             
             print(subtitle("Comparison"))
             print(comparison_table + "\n")
+            
+            if log_summary:
+                log_string_parts.append(subtitle("Comparison", plain = True))
+                log_string_parts.append(comparison_table + "\n")
+        
+        if log_summary:
+            
+            log_string = "\n".join(log_string_parts)
+            
+            with open(log_path, "w") as log_file:
+                log_file.write(log_string)
 
 def testMetricsInResultsDirectory(results_directory):
     
@@ -546,6 +592,18 @@ parser.add_argument(
     default = [],
     help = "list of search strings to exclude in model directories"
 )
+parser.add_argument(
+    "--log-summary", "-s",
+    action = "store_true",
+    help = "log summary (saved in results directory)"
+)
+parser.add_argument(
+    "--skip-logging-summary", "-S",
+    dest = "log_summary",
+    action = "store_false",
+    help = "do not log summary"
+)
+parser.set_defaults(log_summary = False)
 
 if __name__ == '__main__':
     arguments = parser.parse_args()
