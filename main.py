@@ -13,7 +13,7 @@ from distributions import distributions, latent_distributions
 from miscellaneous.prediction import predict
 
 from auxiliary import (
-    title, subtitle, chapter,
+    title, subtitle, heading,
     normaliseString, enumerateListOfStrings,
     betterModelExists, modelStoppedEarly,
     removeEmptyDirectories
@@ -412,7 +412,7 @@ def main(input_file_or_name, data_directory = "data",
         
         model_parameter_set_name = model_parameter_set_name.replace(" ", "-")
         
-        print(chapter("{} evaluation".format(model_parameter_set_name)))
+        print(heading("{} evaluation".format(model_parameter_set_name)))
         
         if "VAE" in model.type:
             transformed_evaluation_set, reconstructed_evaluation_set,\
@@ -442,7 +442,7 @@ def main(input_file_or_name, data_directory = "data",
         if analyse and "VAE" in model.type and prediction_method \
             and not transformed_evaluation_set.has_predictions:
             
-            print(chapter("{} prediction".format(model_parameter_set_name)))
+            print(heading("{} prediction".format(model_parameter_set_name)))
             
             latent_training_sets = model.evaluate(
                 evaluation_set = training_set,
@@ -486,7 +486,7 @@ def main(input_file_or_name, data_directory = "data",
         
         if analyse:
             
-            print(chapter("{} results analysis".format(model_parameter_set_name)))
+            print(heading("{} results analysis".format(model_parameter_set_name)))
             
             analysis.analyseResults(
                 transformed_evaluation_set,

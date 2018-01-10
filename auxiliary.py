@@ -478,13 +478,13 @@ def heading(string, underline_symbol = "-", plain = False):
     return string
 
 def title(string, plain = False):
-    underline_symbol = "◼︎"
+    underline_symbol = "═"
     return heading(string, underline_symbol, plain)
 
 def subtitle(string, plain = False):
-    underline_symbol = "≡"
+    underline_symbol = "─"
     return heading(string, underline_symbol, plain)
 
-def chapter(string, plain = False):
-    underline_symbol = "="
+def subheading(string, plain = False):
+    underline_symbol = "╌"
     return heading(string, underline_symbol, plain)
