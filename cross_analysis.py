@@ -32,7 +32,7 @@ def main(log_directory = None, results_directory = None,
         
         test_metrics_set = testMetricsInResultsDirectory(results_directory)
         
-        for data_set, models in test_metrics_set.items():
+        for data_set_name, models in test_metrics_set.items():
             
             data_set_match = True
             
@@ -51,32 +51,43 @@ def main(log_directory = None, results_directory = None,
             if not data_set_match:
                 continue
             
-            print(title(parseDataSetName(data_set)))
+            matched_model_names = []
             
-            comparison_table = {}
-            
-            for model, test_metrics in models.items():
+            for model_name in models:
                 
                 model_match = True
                 
                 for model_search_string in model_include_search_strings:
-                    if model_search_string in model:
+                    if model_search_string in model_name:
                         model_match *= True
                     else:
                         model_match *= False
                 
                 for model_search_string in model_exclude_search_strings:
-                    if model_search_string not in model:
+                    if model_search_string not in model_name:
                         model_match *= True
                     else:
                         model_match *= False
                 
-                if not model_match:
-                    continue
+                if model_match:
+                    matched_model_names.append(model_name)
+            
+            if not matched_model_names:
+                continue
+            
+            data_set_title = titleFromDataSetName(data_set_name)
+            
+            print(title(data_set_title))
+            
+            comparison_table = {}
+            
+            for model_name in matched_model_names:
                 
-                model_name = parseModelName(model)
+                test_metrics = models[model_name]
                 
-                print(subtitle(model_name))
+                model_title = titleFromModelName(model_name)
+                
+                print(subtitle(model_title))
                 
                 # Time
                 
@@ -185,12 +196,12 @@ def main(log_directory = None, results_directory = None,
                             "max": ARI_max
                         }
                 
-                comparison_table[model_name] = {
+                comparison_table[model_title] = {
                     "lower bound": model_lower_bound,
                     "ARI": model_ARI
                 }
             
-            if not comparison_table:
+            if len(comparison_table) <= 1:
                 continue
             
             print(subtitle("Comparison"))
@@ -203,7 +214,7 @@ def main(log_directory = None, results_directory = None,
                 reverse = True
             )
             
-            model_name_width = max(map(len, comparison_table))
+            model_title_width = max(map(len, comparison_table))
             lower_bound_width = max(map(
                 lambda ELBO: len("{:-.5g}".format(ELBO)),
                 [metrics["lower bound"] for metrics in comparison_table.values()]
@@ -214,7 +225,7 @@ def main(log_directory = None, results_directory = None,
             ])
             
             comparison_table_heading_parts = [
-                "{:{}}".format("Model", model_name_width),
+                "{:{}}".format("Model", model_title_width),
                 "{:{}}".format("ELBO", lower_bound_width)
             ]
             
@@ -226,10 +237,10 @@ def main(log_directory = None, results_directory = None,
             print(comparison_table_heading)
             print("-" * len(comparison_table_heading))
             
-            for model_name, model_metrics in sorted_comparison_table_items:
+            for model_title, model_metrics in sorted_comparison_table_items:
                 
                 comparison_table_row_parts = [
-                    "{:{}}".format(model_name, model_name_width),
+                    "{:{}}".format(model_title, model_title_width),
                     "{:{}.5g}".format(model_metrics["lower bound"],
                         lower_bound_width)
                 ]
@@ -302,7 +313,7 @@ def testMetricsInResultsDirectory(results_directory):
     
     return test_metrics_set
 
-def parseName(name, replacement_dictionaries = None):
+def titleFromName(name, replacement_dictionaries = None):
     
     if replacement_dictionaries:
         if not isinstance(replacement_dictionaries, list):
@@ -383,7 +394,7 @@ preprocessing_replacements = {
     "idf": "IDF"
 }
 
-def parseDataSetName(name):
+def titleFromDataSetName(name):
     
     replacement_dictionaries = [
         data_set_name_replacements,
@@ -394,7 +405,7 @@ def parseDataSetName(name):
         preprocessing_replacements
     ]
     
-    return parseName(name, replacement_dictionaries)
+    return titleFromName(name, replacement_dictionaries)
 
 GMVAE_replacements = {
     r"GMVAE/gaussian_mixture-c_(\d+)-?p?_?(\w+)?": lambda match: \
@@ -452,7 +463,7 @@ miscellaneous_replacements = {
     r"wu_(\d+)": lambda match: "WU: {}".format(match.group(1))
 }
 
-def parseModelName(name):
+def titleFromModelName(name):
     
     replacement_dictionaries = [
         GMVAE_replacements,
@@ -465,7 +476,7 @@ def parseModelName(name):
         miscellaneous_replacements
     ]
     
-    return parseName(name, replacement_dictionaries)
+    return titleFromName(name, replacement_dictionaries)
 
 parser = argparse.ArgumentParser(
     description="Cross-analyse models.",
