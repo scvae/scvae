@@ -527,7 +527,7 @@ mixture_replacements = {
 }
 
 distribution_modification_replacements = {
-    "constrained poisson": "CP",
+    "constrained_poisson": "CP",
     "zero_inflated_": "ZI",
     r"/(\w+)-k_(\d+)": lambda match: "/PC{}({})".format(match.group(1),
         match.group(2))

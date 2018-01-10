@@ -559,7 +559,7 @@ def validateModelParameters(model_type, latent_distribution,
             likelihood_validity = False
         
         if "constrained" in reconstruction_distribution:
-            likelihood_error_list.append("the multinomial distribution")
+            likelihood_error_list.append("constrained distributions")
             likelihood_validity = False
         
         if "multinomial" in reconstruction_distribution:
