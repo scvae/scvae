@@ -557,18 +557,23 @@ sample_replacements = {
 }
 
 model_version_replacements = {
-    r"e_(\d+)-?(\w+)?": lambda match: "{} epochs".format(match.group(1)) \
+    r"e_(\d+)-?(\w+)?": lambda match: "{}e".format(match.group(1)) \
         if not match.group(2) \
-        else match.group(2).replace("_", " ").replace(" model", "")
+        else "{}e ({})".format(
+            match.group(1),
+            match.group(2)
+        ),
+    "best_model": "*",
+    "early_stopping": "ES"
 }
 
 miscellaneous_replacements = {
-    # "sum": "count sum",
+    "sum": "CS",
     "-kl": "",
     "bn": "BN",
     r"dropout_([\d._]+)": lambda match: "dropout: {}".format(
         match.group(1).replace("_", ", ")),
-    r"wu_(\d+)": lambda match: "WU: {}".format(match.group(1))
+    r"wu_(\d+)": lambda match: "WU({}e)".format(match.group(1))
 }
 
 def titleFromModelName(name):
