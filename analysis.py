@@ -818,11 +818,13 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 metrics_string += "    Accuracy: {:6.2f} %.\n".format(
                     100 * accuracy_eval[-1])
             if superset_accuracy_eval is not None:
-                metrics_string += "    Accuracy (superset): {:6.2f} %.\n".format(
-                    100 * superset_accuracy_eval[-1])
-            metrics_string += "\n" + formatStatistics(evaluation_set_statistics)
+                metrics_string += "    Accuracy (superset): {:6.2f} %.\n"\
+                    .format(100 * superset_accuracy_eval[-1])
+            metrics_string += "\n" \
+                + formatStatistics(evaluation_set_statistics) + "\n"
             if count_accuracies:
-                metrics_string += "\n" + formatCountAccuracies(count_accuracies)
+                metrics_string += "\n" + \
+                    formatCountAccuracies(count_accuracies) + "\n"
             metrics_file.write(metrics_string)
         
         with gzip.open(metrics_dictionary_path, "w") as metrics_file:
@@ -911,6 +913,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         ## Displaying
         
         print(formatStatistics(evaluation_set_statistics))
+        print()
         
         if ARI_clusters is not None or ARI_labels is not None:
             print("Adjusted rand index:")
@@ -928,6 +931,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         if count_accuracies:
             print(formatCountAccuracies(count_accuracies))
+            print()
     
     # Reconstructions
     
@@ -2226,7 +2230,7 @@ def formatStatistics(statistics_sets, name = "Data set"):
             "{:<7.5g}".format(statistics_set["sparsity"]),
         ]
         
-        statistics_string += "  ".join(string_parts) + "\n"
+        statistics_string += "  ".join(string_parts)
     
     return statistics_string
 
@@ -2338,7 +2342,7 @@ def formatCountAccuracies(count_accuracies):
             "{:^{}}".format(k, k_width),
             "{:6.2f}".format(100 * f)
         ]
-        formatted_string += "    ".join(string_parts) + "\n"
+        formatted_string += "    ".join(string_parts)
     
     return formatted_string
 
