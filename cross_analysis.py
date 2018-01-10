@@ -32,6 +32,43 @@ def main(log_directory = None, results_directory = None,
         
         results_directory = os.path.normpath(results_directory) + os.sep
         
+        explanation_string_parts = []
+        
+        def appendExplanationForSearchStrings(search_strings, inclusive, kind):
+            if search_strings:
+                explanation_string_parts.append("{} {} with: {}.".format(
+                    "Including" if inclusive else "Excluding",
+                    kind,
+                    ", ".join(search_strings)
+                ))
+        
+        appendExplanationForSearchStrings(
+            data_set_include_search_strings,
+            inclusive = True,
+            kind = "data sets"
+        )
+        appendExplanationForSearchStrings(
+            data_set_exclude_search_strings,
+            inclusive = False,
+            kind = "data sets"
+        )
+        appendExplanationForSearchStrings(
+            model_include_search_strings,
+            inclusive = True,
+            kind = "models"
+        )
+        appendExplanationForSearchStrings(
+            model_exclude_search_strings,
+            inclusive = False,
+            kind = "models"
+        )
+        
+        explanation_string = "\n".join(explanation_string_parts)
+        
+        print(explanation_string)
+        
+        print()
+        
         if log_summary:
             
             log_filename_parts = []
@@ -54,7 +91,7 @@ def main(log_directory = None, results_directory = None,
             log_filename = "-".join(log_filename_parts) + log_extension
             log_path = os.path.join(results_directory, log_filename)
             
-            log_string_parts = []
+            log_string_parts = [explanation_string + "\n"]
         
         test_metrics_set = testMetricsInResultsDirectory(results_directory)
         
