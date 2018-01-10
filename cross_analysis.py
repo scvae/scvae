@@ -37,13 +37,13 @@ def main(log_directory = None, results_directory = None,
             data_set_match = True
             
             for data_set_search_string in data_set_include_search_strings:
-                if data_set_search_string in data_set:
+                if data_set_search_string in data_set_name:
                     data_set_match *= True
                 else:
                     data_set_match *= False
             
             for data_set_search_string in data_set_exclude_search_strings:
-                if data_set_search_string not in data_set:
+                if data_set_search_string not in data_set_name:
                     data_set_match *= True
                 else:
                     data_set_match *= False
@@ -83,24 +83,24 @@ def main(log_directory = None, results_directory = None,
             
             for model_name in matched_model_names:
                 
+                model_title = titleFromModelName(model_name)
                 test_metrics = models[model_name]
                 
-                model_title = titleFromModelName(model_name)
-                
-                print(subtitle(model_title))
+                metrics_string_parts = []
                 
                 # Time
                 
                 timestamp = test_metrics["timestamp"]
-                
-                print("Timestamp: {}".format(formatTime(timestamp)))
+                metrics_string_parts.append(
+                    "Timestamp: {}".format(formatTime(timestamp))
+                )
                 
                 # Epochs
                 
                 E = test_metrics["number of epochs trained"]
-                print("Epochs trained: {}".format(E))
+                metrics_string_parts.append("Epochs trained: {}".format(E))
                 
-                print()
+                metrics_string_parts.append("")
                 
                 # Evaluation
                 
@@ -119,7 +119,9 @@ def main(log_directory = None, results_directory = None,
                 
                 for loss in losses:
                     if loss in evaluation:
-                        print("{}: {:.5g}".format(loss, evaluation[loss][-1]))
+                        metrics_string_parts.append(
+                            "{}: {:.5g}".format(loss, evaluation[loss][-1])
+                        )
                 
                 if "lower_bound" in evaluation:
                     model_lower_bound = evaluation["lower_bound"][-1]
@@ -132,10 +134,10 @@ def main(log_directory = None, results_directory = None,
                 
                 for accuracy in accuracies:
                     if accuracy in test_metrics and test_metrics[accuracy]:
-                        print("{}: {:6.2f} %".format(
+                        metrics_string_parts.append("{}: {:6.2f} %".format(
                             accuracy, 100 * test_metrics[accuracy][-1]))
                 
-                print()
+                metrics_string_parts.append("")
                 
                 # Statistics
                 
@@ -152,9 +154,11 @@ def main(log_directory = None, results_directory = None,
                             reconstructed_statistics = statistics_set
                 
                 if reconstructed_statistics:
-                    print(formatStatistics(reconstructed_statistics))
+                    metrics_string_parts.append(
+                        formatStatistics(reconstructed_statistics)
+                    )
                 
-                print()
+                metrics_string_parts.append("")
                 
                 # Predictions
                 
@@ -181,14 +185,20 @@ def main(log_directory = None, results_directory = None,
                         number_of_classes = prediction["number of classes"]
                         
                         if ARIs:
-                            print("{} ({} classes):".format(
-                                method, number_of_classes))
+                            metrics_string_parts.append(
+                                "{} ({} classes):".format(
+                                    method, number_of_classes
+                                )
+                            )
                             
                             for ARI_name, ARI_value in ARIs.items():
-                                print("    {}: {:.5g}".format(
-                                    ARI_name, ARI_value))
+                                metrics_string_parts.append(
+                                    "    {}: {:.5g}".format(
+                                        ARI_name, ARI_value
+                                    )
+                                )
                             
-                            print()
+                            metrics_string_parts.append("")
                     
                     if any_ARIs:
                         model_ARI = {
@@ -200,13 +210,19 @@ def main(log_directory = None, results_directory = None,
                     "lower bound": model_lower_bound,
                     "ARI": model_ARI
                 }
+                
+                metrics_string = "\n".join(metrics_string_parts)
+                
+                print(subtitle(model_title))
+                print(metrics_string)
             
             if len(comparison_table) <= 1:
                 continue
             
-            print(subtitle("Comparison"))
+            # Comparison
             
-            spacing = "  "
+            comparison_table_rows = []
+            table_column_spacing = "  "
             
             sorted_comparison_table_items = sorted(
                 comparison_table.items(),
@@ -217,7 +233,8 @@ def main(log_directory = None, results_directory = None,
             model_title_width = max(map(len, comparison_table))
             lower_bound_width = max(map(
                 lambda ELBO: len("{:-.5g}".format(ELBO)),
-                [metrics["lower bound"] for metrics in comparison_table.values()]
+                [metrics["lower bound"] for metrics
+                    in comparison_table.values()]
             ))
             
             any_ARIs = any([
@@ -232,10 +249,13 @@ def main(log_directory = None, results_directory = None,
             if any_ARIs:
                 comparison_table_heading_parts.append("ARI       ")
             
-            comparison_table_heading = spacing.join(comparison_table_heading_parts)
+            comparison_table_heading = table_column_spacing.join(
+                comparison_table_heading_parts
+            )
+            comparison_table_toprule = "-" * len(comparison_table_heading)
             
-            print(comparison_table_heading)
-            print("-" * len(comparison_table_heading))
+            comparison_table_rows.append(comparison_table_heading)
+            comparison_table_rows.append(comparison_table_toprule)
             
             for model_title, model_metrics in sorted_comparison_table_items:
                 
@@ -258,9 +278,14 @@ def main(log_directory = None, results_directory = None,
                     
                     comparison_table_row_parts.append(ARI_string)
                     
-                print(spacing.join(comparison_table_row_parts))
+                comparison_table_rows.append(
+                    table_column_spacing.join(comparison_table_row_parts)
+                )
             
-            print()
+            comparison_table = "\n".join(comparison_table_rows)
+            
+            print(subtitle("Comparison"))
+            print(comparison_table + "\n")
 
 def testMetricsInResultsDirectory(results_directory):
     
