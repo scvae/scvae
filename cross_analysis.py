@@ -145,7 +145,7 @@ def main(log_directory = None, results_directory = None,
             if log_summary:
                 log_string_parts.append(title(data_set_title, plain = True))
             
-            comparison_table = {}
+            comparisons = {}
             
             for model_name in matched_model_names:
                 
@@ -228,13 +228,9 @@ def main(log_directory = None, results_directory = None,
                 
                 # Predictions
                 
-                model_ARI = None
+                model_ARIs = []
                 
                 if "predictions" in test_metrics:
-                    
-                    ARI_min = 2
-                    ARI_max = -1
-                    any_ARIs = False
                     
                     for prediction in test_metrics["predictions"].values():
                         
@@ -243,9 +239,6 @@ def main(log_directory = None, results_directory = None,
                         for key, value in prediction.items():
                             if key.startswith("ARI") and value:
                                 ARIs[key] = value
-                                ARI_min = min(ARI_min, value)
-                                ARI_max = max(ARI_max, value)
-                                any_ARIs = True
                         
                         method = prediction["prediction method"]
                         number_of_classes = prediction["number of classes"]
@@ -265,16 +258,12 @@ def main(log_directory = None, results_directory = None,
                                 )
                             
                             metrics_string_parts.append("")
-                    
-                    if any_ARIs:
-                        model_ARI = {
-                            "min": ARI_min,
-                            "max": ARI_max
-                        }
+                        
+                        model_ARIs.extend(ARIs.values())
                 
-                comparison_table[model_title] = {
-                    "lower bound": model_lower_bound,
-                    "ARI": model_ARI
+                comparisons[model_title] = {
+                    "ELBO": model_lower_bound,
+                    "ARI": model_ARIs
                 }
                 
                 metrics_string = "\n".join(metrics_string_parts)
@@ -288,38 +277,113 @@ def main(log_directory = None, results_directory = None,
                     )
                     log_string_parts.append(metrics_string)
             
-            if len(comparison_table) <= 1:
+            if len(comparisons) <= 1:
                 continue
             
             # Comparison
             
-            comparison_table_rows = []
-            table_column_spacing = "  "
+            model_spec_names = [
+                "type",
+                "distribution",
+                "structure",
+                "other",
+                "epochs"
+            ]
             
-            sorted_comparison_table_items = sorted(
-                comparison_table.items(),
-                key = lambda key_value_pair: key_value_pair[-1]["lower bound"],
+            model_spec_short_names = {
+                "type": "T",
+                "distribution": "LD",
+                "structure": "NS",
+                "other": "O",
+                "epochs": "E"
+            }
+            
+            model_metric_names = [
+                "ELBO",
+                "ARI"
+            ]
+            
+            model_field_names = model_spec_names + model_metric_names
+            
+            for model_title in comparisons:
+                model_title_parts = model_title.split("; ")
+                comparisons[model_title].update({
+                    "type": model_title_parts.pop(0),
+                    "distribution": model_title_parts.pop(0),
+                    "structure": model_title_parts.pop(0),
+                    "epochs": model_title_parts.pop(-1),
+                    "other": "; ".join(model_title_parts)
+                })
+            
+            sorted_comparison_items = sorted(
+                comparisons.items(),
+                key = lambda key_value_pair: key_value_pair[-1]["ELBO"],
                 reverse = True
             )
             
-            model_title_width = max(map(len, comparison_table))
-            lower_bound_width = max(map(
-                lambda ELBO: len("{:-.5g}".format(ELBO)),
-                [metrics["lower bound"] for metrics
-                    in comparison_table.values()]
-            ))
+            for model_title, model_fields in comparisons.items():
+                for field_name, field_value in model_fields.items():
+                    
+                    if isinstance(field_value, str):
+                        continue
+                    
+                    elif not field_value:
+                        string = ""
+                    
+                    elif isinstance(field_value, float):
+                        string = "{:-.5g}".format(field_value)
+                    
+                    elif isinstance(field_value, int):
+                        string = "{:d}".format(field_value)
+                    
+                    elif isinstance(field_value, list):
+                        
+                        minimum = min(field_value)
+                        maximum = max(field_value)
+                        
+                        if minimum == maximum:
+                            string = "{:4.2f}".format(maximum)
+                        else:
+                            string = "{:4.2f}--{:4.2f}".format(
+                                minimum, maximum)
+                    
+                    else:
+                        raise TypeError(
+                            "Type `{}` not supported in comparison table."
+                                .format(type(field_value))
+                        )
+                    
+                    comparisons[model_title][field_name] = string
             
-            any_ARIs = any([
-                bool(metrics["ARI"]) for metrics in comparison_table.values()
-            ])
+            comparison_table_rows = []
+            table_column_spacing = "  "
             
-            comparison_table_heading_parts = [
-                "{:{}}".format("Model", model_title_width),
-                "{:{}}".format("ELBO", lower_bound_width)
-            ]
+            comparison_table_column_widths = {}
             
-            if any_ARIs:
-                comparison_table_heading_parts.append("ARI       ")
+            for field_name in model_field_names:
+                comparison_table_column_widths[field_name] = max(
+                    [len(metrics[field_name]) for metrics in
+                        comparisons.values()]
+                )
+            
+            comparison_table_heading_parts = []
+            
+            for field_name in model_field_names:
+                
+                field_width = comparison_table_column_widths[field_name]
+                
+                if field_width == 0:
+                    continue
+                
+                if field_name in model_spec_names:
+                    if len(field_name) > field_width:
+                        field_name = model_spec_short_names[field_name]
+                    else:
+                        field_name = field_name.capitalize()
+                
+                comparison_table_heading_parts.append(
+                    "{:{}}".format(field_name, field_width)
+                )
             
             comparison_table_heading = table_column_spacing.join(
                 comparison_table_heading_parts
@@ -329,36 +393,32 @@ def main(log_directory = None, results_directory = None,
             comparison_table_rows.append(comparison_table_heading)
             comparison_table_rows.append(comparison_table_toprule)
             
-            for model_title, model_metrics in sorted_comparison_table_items:
+            for model_title, model_fields in sorted_comparison_items:
+                
+                sorted_model_field_items = sorted(
+                    model_fields.items(),
+                    key = lambda key_value_pair:
+                        model_field_names.index(key_value_pair[0])
+                )
                 
                 comparison_table_row_parts = [
-                    "{:{}}".format(model_title, model_title_width),
-                    "{:{}.5g}".format(model_metrics["lower bound"],
-                        lower_bound_width)
+                    "{:{}}".format(
+                        field_value,
+                        comparison_table_column_widths[field_name]
+                    )
+                    for field_name, field_value in sorted_model_field_items
+                    if comparison_table_column_widths[field_name] > 0
                 ]
                 
-                if model_metrics["ARI"]:
-                    
-                    ARI_min = model_metrics["ARI"]["min"]
-                    ARI_max = model_metrics["ARI"]["max"]
-                    
-                    if ARI_min == ARI_max:
-                        ARI_string = "      {:4.2f}".format(ARI_max)
-                    else:
-                        ARI_string = "{:4.2f}--{:4.2f}".format(
-                            ARI_min, ARI_max)
-                    
-                    comparison_table_row_parts.append(ARI_string)
-                    
                 comparison_table_rows.append(
                     table_column_spacing.join(comparison_table_row_parts)
                 )
-            
+
             comparison_table = "\n".join(comparison_table_rows)
-            
+
             print(subtitle("Comparison"))
             print(comparison_table + "\n")
-            
+
             if log_summary:
                 log_string_parts.append(subtitle("Comparison", plain = True))
                 log_string_parts.append(comparison_table + "\n")
@@ -439,7 +499,7 @@ def titleFromName(name, replacement_dictionaries = None):
                 
                 name = re.sub(pattern, replacement, name)
     
-    name = name.replace("/", " ▸ ")
+    name = name.replace("/", "; ")
     name = name.replace("-", "; ")
     name = name.replace("_", " ")
     
@@ -515,11 +575,16 @@ def titleFromDataSetName(name):
     
     return titleFromName(name, replacement_dictionaries)
 
+reorder_replacements = {
+    r"(-sum)(-l_\d+-h_[\d_]+)": lambda match: "".join(reversed(match.groups()))
+}
+
 GMVAE_replacements = {
     r"GMVAE/gaussian_mixture-c_(\d+)-?p?_?(\w+)?": lambda match: \
         "GMVAE({})".format(match.group(1)) \
         if not match.group(2) \
-        else "GMVAE({}; {})".format(*match.groups())
+        else "GMVAE({}; {})".format(*match.groups()),
+    r"VAE/([\w.-]+)": lambda match: "VAE({})".format(match.group(1))
 }
 
 mixture_replacements = {
@@ -557,9 +622,9 @@ sample_replacements = {
 }
 
 model_version_replacements = {
-    r"e_(\d+)-?(\w+)?": lambda match: "{}e".format(match.group(1)) \
+    r"e_(\d+)-?(\w+)?": lambda match: "{}".format(match.group(1)) \
         if not match.group(2) \
-        else "{}e ({})".format(
+        else "{} ({})".format(
             match.group(1),
             match.group(2)
         ),
@@ -573,12 +638,13 @@ miscellaneous_replacements = {
     "bn": "BN",
     r"dropout_([\d._]+)": lambda match: "dropout: {}".format(
         match.group(1).replace("_", ", ")),
-    r"wu_(\d+)": lambda match: "WU({}e)".format(match.group(1))
+    r"wu_(\d+)": lambda match: "WU({})".format(match.group(1))
 }
 
 def titleFromModelName(name):
     
     replacement_dictionaries = [
+        reorder_replacements,
         GMVAE_replacements,
         mixture_replacements,
         distribution_modification_replacements,

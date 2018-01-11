@@ -179,11 +179,11 @@ class VariationalAutoencoder(object):
         
         latent_parts = [normaliseString(self.latent_distribution_name)]
         
-        if self.parameterise_latent_posterior:
-            latent_parts.append("parameterised")
-        
         if "mixture" in self.latent_distribution_name:
             latent_parts.append("c_{}".format(self.number_of_latent_clusters))
+        
+        if self.parameterise_latent_posterior:
+            latent_parts.append("parameterised")
         
         # Reconstruction parts
         
