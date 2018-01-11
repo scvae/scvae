@@ -93,50 +93,15 @@ def main(log_directory = None, results_directory = None,
             
             log_string_parts = [explanation_string + "\n"]
         
-        test_metrics_set = testMetricsInResultsDirectory(results_directory)
+        test_metrics_set = testMetricsInResultsDirectory(
+            results_directory,
+            data_set_include_search_strings,
+            data_set_exclude_search_strings,
+            model_include_search_strings,
+            model_exclude_search_strings
+        )
         
         for data_set_name, models in test_metrics_set.items():
-            
-            data_set_match = True
-            
-            for data_set_search_string in data_set_include_search_strings:
-                if data_set_search_string in data_set_name:
-                    data_set_match *= True
-                else:
-                    data_set_match *= False
-            
-            for data_set_search_string in data_set_exclude_search_strings:
-                if data_set_search_string not in data_set_name:
-                    data_set_match *= True
-                else:
-                    data_set_match *= False
-            
-            if not data_set_match:
-                continue
-            
-            matched_model_names = []
-            
-            for model_name in models:
-                
-                model_match = True
-                
-                for model_search_string in model_include_search_strings:
-                    if model_search_string in model_name:
-                        model_match *= True
-                    else:
-                        model_match *= False
-                
-                for model_search_string in model_exclude_search_strings:
-                    if model_search_string not in model_name:
-                        model_match *= True
-                    else:
-                        model_match *= False
-                
-                if model_match:
-                    matched_model_names.append(model_name)
-            
-            if not matched_model_names:
-                continue
             
             data_set_title = titleFromDataSetName(data_set_name)
             
@@ -147,10 +112,9 @@ def main(log_directory = None, results_directory = None,
             
             comparisons = {}
             
-            for model_name in matched_model_names:
+            for model_name, test_metrics in models.items():
                 
                 model_title = titleFromModelName(model_name)
-                test_metrics = models[model_name]
                 
                 metrics_string_parts = []
                 
@@ -430,7 +394,9 @@ def main(log_directory = None, results_directory = None,
             with open(log_path, "w") as log_file:
                 log_file.write(log_string)
 
-def testMetricsInResultsDirectory(results_directory):
+def testMetricsInResultsDirectory(results_directory,
+    data_set_include_search_strings, data_set_exclude_search_strings,
+    model_include_search_strings, model_exclude_search_strings):
     
     test_metrics_filename = test_metrics_basename + zipped_pickle_extension
     
@@ -438,12 +404,52 @@ def testMetricsInResultsDirectory(results_directory):
     
     for path, _, filenames in os.walk(results_directory):
         
+        data_set_model = path.replace(results_directory, "")
+        data_set_model_parts = data_set_model.split(os.sep)
+        data_set = os.sep.join(data_set_model_parts[:3])
+        model = os.sep.join(data_set_model_parts[3:])
+        
+        # Verify data set match
+        
+        data_set_match = True
+        
+        for data_set_search_string in data_set_include_search_strings:
+            if data_set_search_string in data_set:
+                data_set_match *= True
+            else:
+                data_set_match *= False
+        
+        for data_set_search_string in data_set_exclude_search_strings:
+            if data_set_search_string not in data_set:
+                data_set_match *= True
+            else:
+                data_set_match *= False
+        
+        if not data_set_match:
+            continue
+        
+        # Verify model match
+        
+        model_match = True
+        
+        for model_search_string in model_include_search_strings:
+            if model_search_string in model:
+                model_match *= True
+            else:
+                model_match *= False
+        
+        for model_search_string in model_exclude_search_strings:
+            if model_search_string not in model:
+                model_match *= True
+            else:
+                model_match *= False
+        
+        if not model_match:
+            continue
+        
+        # Verify metrics found
+        
         if test_metrics_filename in filenames:
-            
-            data_set_model = path.replace(results_directory, "")
-            data_set_model_parts = data_set_model.split(os.sep)
-            data_set = os.sep.join(data_set_model_parts[:3])
-            model = os.sep.join(data_set_model_parts[3:])
             
             if not data_set in test_metrics_set:
                 test_metrics_set[data_set] = {}
