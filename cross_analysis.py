@@ -7,6 +7,9 @@ import gzip
 
 import re
 
+from itertools import product
+from string import ascii_uppercase
+
 import argparse
 
 from analysis import formatStatistics
@@ -101,6 +104,8 @@ def main(log_directory = None, results_directory = None,
             model_exclude_search_strings
         )
         
+        model_IDs = modelID()
+        
         for data_set_name, models in test_metrics_set.items():
             
             data_set_title = titleFromDataSetName(data_set_name)
@@ -117,6 +122,13 @@ def main(log_directory = None, results_directory = None,
                 model_title = titleFromModelName(model_name)
                 
                 metrics_string_parts = []
+                
+                # ID
+                
+                model_ID = next(model_IDs)
+                metrics_string_parts.append(
+                    "ID: {}".format(model_ID)
+                )
                 
                 # Time
                 
@@ -226,6 +238,7 @@ def main(log_directory = None, results_directory = None,
                         model_ARIs.extend(ARIs.values())
                 
                 comparisons[model_title] = {
+                    "ID": model_ID,
                     "ELBO": model_lower_bound,
                     "ARI": model_ARIs
                 }
@@ -247,6 +260,7 @@ def main(log_directory = None, results_directory = None,
             # Comparison
             
             model_spec_names = [
+                "ID",
                 "type",
                 "distribution",
                 "structure",
@@ -255,6 +269,7 @@ def main(log_directory = None, results_directory = None,
             ]
             
             model_spec_short_names = {
+                "ID": "#",
                 "type": "T",
                 "distribution": "LD",
                 "structure": "NS",
@@ -342,7 +357,7 @@ def main(log_directory = None, results_directory = None,
                 if field_name in model_spec_names:
                     if len(field_name) > field_width:
                         field_name = model_spec_short_names[field_name]
-                    else:
+                    elif field_name == field_name.lower():
                         field_name = field_name.capitalize()
                 
                 comparison_table_heading_parts.append(
@@ -662,6 +677,17 @@ def titleFromModelName(name):
     ]
     
     return titleFromName(name, replacement_dictionaries)
+
+def modelID():
+    
+    numbers = list(map(str, range(10)))
+    letters = list(ascii_uppercase)
+    
+    values = numbers + letters
+    
+    for value1, value2 in product(values, values):
+        model_id = value1 + value2
+        yield model_id
 
 parser = argparse.ArgumentParser(
     description="Cross-analyse models.",
