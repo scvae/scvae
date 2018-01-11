@@ -166,8 +166,10 @@ def analyseData(data_sets,
         ## Displaying
         
         print(formatStatistics(data_set_statistics))
+        print()
         
         print(formatStatistics(histogram_statistics, name = "Series"))
+        print()
     
     # Loop over data sets
     

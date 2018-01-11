@@ -27,7 +27,7 @@ import random
 def main(input_file_or_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     temporary_log_directory = None,
-    map_features = True, feature_selection = [], feature_parameter = None,
+    map_features = False, feature_selection = [], feature_parameter = None,
     example_filter = [],
     preprocessing_methods = [], noisy_preprocessing_methods = [],
     splitting_method = "default", splitting_fraction = 0.8,
@@ -656,7 +656,7 @@ parser.add_argument(
     action = "store_false",
     help = "do not map features using any feature mapping"
 )
-parser.set_defaults(map_features = True)
+parser.set_defaults(map_features = False)
 parser.add_argument(
     "--feature-selection", "-F",
     type = str,

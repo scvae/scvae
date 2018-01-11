@@ -555,7 +555,7 @@ class DataSet(object):
         explained_standard_deviations = None,
         preprocessed_values = None, binarised_values = None,
         labels = None, class_names = None,
-        example_names = None, feature_names = None, map_features = True,
+        example_names = None, feature_names = None, map_features = False,
         feature_selection = [], feature_parameter = None,
         example_filter = [],
         preprocessing_methods = [], preprocessed = None,
@@ -745,6 +745,9 @@ class DataSet(object):
             
             print("Data set:")
             print("    title:", self.title)
+            
+            if self.map_features:
+                print("    feature mapping: if available")
             
             if self.feature_selection:
                 print("    feature selection:", self.feature_selection)
