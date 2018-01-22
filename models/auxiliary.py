@@ -109,12 +109,12 @@ def dense_layers(inputs, num_outputs, reverse_order = False, is_training = True,
 
 def log_reduce_exp(A, reduction_function=tf.reduce_mean, axis=None):
     # log-mean-exp over axis to avoid overflow and underflow
-    A_max = tf.reduce_max(A, axis=axis, keep_dims=True)
+    A_max = tf.reduce_max(A, axis=axis, keepdims=True)
     B = tf.log(reduction_function(
-        tf.exp(A - A_max), axis = axis, keep_dims=True)) + A_max
+        tf.exp(A - A_max), axis = axis, keepdims=True)) + A_max
     return tf.squeeze(B)
 
-def reduce_logmeanexp(input_tensor, axis=None, keep_dims=False):
+def reduce_logmeanexp(input_tensor, axis=None, keepdims=False):
     """Computes log(mean(exp(elements across dimensions of a tensor))).
 
     Parameters
@@ -124,7 +124,7 @@ def reduce_logmeanexp(input_tensor, axis=None, keep_dims=False):
     axis : int or list of int, optional
     The dimensions to reduce. If `None` (the default), reduces all
     dimensions.
-    keep_dims : bool, optional
+    keepdims : bool, optional
     If true, retains reduced dimensions with length 1.
 
     Returns
@@ -132,7 +132,7 @@ def reduce_logmeanexp(input_tensor, axis=None, keep_dims=False):
     tf.Tensor
     The reduced tensor.
     """
-    logsumexp = tf.reduce_logsumexp(input_tensor, axis, keep_dims)
+    logsumexp = tf.reduce_logsumexp(input_tensor, axis, keepdims)
     input_tensor = tf.convert_to_tensor(input_tensor)
     n = input_tensor.get_shape().as_list()
     if axis is None:
@@ -144,12 +144,12 @@ def reduce_logmeanexp(input_tensor, axis=None, keep_dims=False):
 
 def pairwise_distance(a, b = None):
     if not b:
-        r = tf.reduce_sum(a*a, axis = 1, keep_dims=True)
+        r = tf.reduce_sum(a*a, axis = 1, keepdims=True)
         D = r - 2*tf.matmul(a, a, transpose_b = True)\
             + tf.transpose(r)
     else:
-        r_a = tf.reduce_sum(a*a, 1, keep_dims=True)
-        r_b = tf.reshape(tf.reduce_sum(b*b, axis = 1, keep_dims=True), [1, -1])
+        r_a = tf.reduce_sum(a*a, 1, keepdims=True)
+        r_b = tf.reshape(tf.reduce_sum(b*b, axis = 1, keepdims=True), [1, -1])
         D = r_a - 2*tf.matmul(a, b, transpose_b=True) + r_b
     return D
 

@@ -165,7 +165,7 @@ class NonPermutedMultinomial(distribution.Distribution):
         self._n = array_ops.identity(n, name="convert_n")
         self._mean_val = n * self._p
         self._broadcast_shape = math_ops.reduce_sum(
-            self._mean_val, reduction_indices=[-1], keep_dims=False)
+            self._mean_val, reduction_indices=[-1], keepdims=False)
     super(NonPermutedMultinomial, self).__init__(
         dtype=self._p.dtype,
         is_continuous=False,
