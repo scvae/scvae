@@ -937,7 +937,10 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     # Reconstructions
     
-    if "images" in analyses or "profile_comparisons" in analyses:
+    if "images" in analyses and \
+        reconstructed_evaluation_set.example_type == "images" \
+        or "profile_comparisons" in analyses:
+        
         print(subheading("Reconstructions"))
     
     ## Examples
@@ -2217,12 +2220,14 @@ def formatStatistics(statistics_sets, name = "Data set"):
     for statistics_set in statistics_sets:
         name_width = max(len(statistics_set["name"]), name_width)
     
-    statistics_string = "  ".join(["{:{}}".format(name, name_width),
+    table_heading = "  ".join(["{:{}}".format(name, name_width),
         " mean ", "std. dev. ", "dispersion",
-        " minimum ", " maximum ","sparsity"]) + "\n"
+        " minimum ", " maximum ","sparsity"])
+    
+    table_rows = [table_heading]
     
     for statistics_set in statistics_sets:
-        string_parts = [
+        table_row_parts = [
             "{:{}}".format(statistics_set["name"], name_width),
             "{:<9.5g}".format(statistics_set["mean"]),
             "{:<9.5g}".format(statistics_set["standard deviation"]),
@@ -2231,10 +2236,12 @@ def formatStatistics(statistics_sets, name = "Data set"):
             "{:<11.5g}".format(statistics_set["maximum"]),
             "{:<7.5g}".format(statistics_set["sparsity"]),
         ]
-        
-        statistics_string += "  ".join(string_parts)
+        table_row = "  ".join(table_row_parts)
+        table_rows.append(table_row)
     
-    return statistics_string
+    table = "\n".join(table_rows)
+    
+    return table
 
 def computeCountAccuracies(x, x_tilde, method = None):
     """
@@ -2337,16 +2344,20 @@ def formatCountAccuracies(count_accuracies):
     for k in count_accuracies.keys():
         k_width = max(len(k), k_width)
     
-    formatted_string = "Count   Accuracy\n"
+    table_heading = "Count   Accuracy"
+    table_rows = [table_heading]
     
     for k, f in count_accuracies.items():
-        string_parts = [
+        table_row_parts = [
             "{:^{}}".format(k, k_width),
             "{:6.2f}".format(100 * f)
         ]
-        formatted_string += "    ".join(string_parts)
+        table_row = "    ".join(table_row_parts)
+        table_rows.append(table_row)
     
-    return formatted_string
+    table = "\n".join(table_rows)
+    
+    return table
 
 decomposition_method_names = {
     "PCA": ["pca"],
