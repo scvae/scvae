@@ -1072,7 +1072,40 @@ class GaussianMixtureVariationalAutoencoder(object):
         else:
             epoch_start = 0
         
-        status["epochs trained"] = "{}-{}".format(epoch_start, number_of_epochs)
+        ## Log directories
+        
+        if temporary_log_directory:
+            
+            log_directory = self.logDirectory(base = temporary_log_directory)
+            early_stopping_log_directory = self.logDirectory(
+                base = temporary_log_directory,
+                early_stopping = True
+            )
+            best_model_log_directory = self.logDirectory(
+                base = temporary_log_directory,
+                best_model = True
+            )
+            
+            temporary_checkpoint = \
+                tf.train.get_checkpoint_state(log_directory)
+    
+            if temporary_checkpoint:
+                temporary_epoch_start = int(os.path.basename(
+                    temporary_checkpoint.model_checkpoint_path
+                ).split('-')[-1])
+            else:
+                temporary_epoch_start = 0
+            
+            if temporary_epoch_start > epoch_start:
+                epoch_start = temporary_epoch_start
+                replace_temporary_directory = False
+            else:
+                replace_temporary_directory = True
+            
+        else:
+            log_directory = self.log_directory
+            early_stopping_log_directory = self.early_stopping_log_directory
+            best_model_log_directory = self.best_model_log_directory
         
         ## Training message
         
@@ -1093,36 +1126,24 @@ class GaussianMixtureVariationalAutoencoder(object):
                 number_of_epochs)
             return status
         
-        ## Log directories
+        ## Copy log directory to temporary location, if necessary
         
-        if temporary_log_directory:
+        if temporary_log_directory and os.path.exists(self.log_directory) \
+            and replace_temporary_directory:
             
-            log_directory = self.logDirectory(base = temporary_log_directory)
-            early_stopping_log_directory = self.logDirectory(
-                base = temporary_log_directory,
-                early_stopping = True
-            )
-            best_model_log_directory = self.logDirectory(
-                base = temporary_log_directory,
-                best_model = True
-            )
+            print("Copying log directory to temporary directory.")
+            copying_time_start = time()
             
-            if os.path.exists(self.log_directory):
-                
-                print("Copying log directory to temporary directory.")
-                copying_time_start = time()
-                
-                shutil.copytree(self.log_directory, log_directory)
-                
-                copying_duration = time() - copying_time_start
-                print("Log directory copied ({}).".format(formatDuration(
-                    copying_duration)))
-                
-                print()
-        else:
-            log_directory = self.log_directory
-            early_stopping_log_directory = self.early_stopping_log_directory
-            best_model_log_directory = self.best_model_log_directory
+            if os.path.exists(log_directory):
+                shutil.rmtree(log_directory)
+            
+            shutil.copytree(self.log_directory, log_directory)
+            
+            copying_duration = time() - copying_time_start
+            print("Log directory copied ({}).".format(formatDuration(
+                copying_duration)))
+            
+            print()
         
         ## New model
         
