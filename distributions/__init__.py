@@ -263,6 +263,21 @@ latent_distributions = {
             "parameters": {}
         }
     },
+    "unit-variance gaussian": {
+        "prior": {
+            "name": "gaussian",
+            "parameters": {
+                "mu": 0.0,
+                "log_sigma": 0.0
+            }
+        },
+        "posterior": {
+            "name": "gaussian",
+            "parameters": {
+                "log_sigma": 0.0
+            }
+        }
+    },
     "gaussian mixture": {
         "prior": {
             "name": "gaussian mixture",
