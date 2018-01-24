@@ -34,8 +34,10 @@ class VariationalAutoencoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
         number_of_monte_carlo_samples, number_of_importance_samples,
         analytical_kl_term = False,
+        inference_architecture = "MLP",
         latent_distribution = "gaussian", number_of_latent_clusters = 1,
         parameterise_latent_posterior = False,
+        generative_architecture = "MLP",
         reconstruction_distribution = None, 
         number_of_reconstruction_classes = None, 
         batch_normalisation = True, 
@@ -54,6 +56,7 @@ class VariationalAutoencoder(object):
         self.latent_size = latent_size
         self.hidden_sizes = hidden_sizes
         
+        self.inference_architecture = inference_architecture.upper()
         self.latent_distribution_name = latent_distribution
         self.latent_distribution = copy.deepcopy(
             latent_distributions[latent_distribution]
@@ -66,7 +69,8 @@ class VariationalAutoencoder(object):
         # estimator and "importance weighting" during both train and test time.
         self.number_of_importance_samples = number_of_importance_samples
         self.number_of_monte_carlo_samples = number_of_monte_carlo_samples
-
+        
+        self.generative_architecture = generative_architecture.upper()
         self.reconstruction_distribution_name = reconstruction_distribution
         self.reconstruction_distribution = distributions\
             [reconstruction_distribution]
@@ -175,56 +179,62 @@ class VariationalAutoencoder(object):
     @property
     def name(self):
         
-        # Latent parts
+        # Major parts
         
-        latent_parts = [normaliseString(self.latent_distribution_name)]
+        major_parts = [normaliseString(self.latent_distribution_name)]
         
         if "mixture" in self.latent_distribution_name:
-            latent_parts.append("c_{}".format(self.number_of_latent_clusters))
+            major_parts.append("c_{}".format(self.number_of_latent_clusters))
         
         if self.parameterise_latent_posterior:
-            latent_parts.append("parameterised")
+            major_parts.append("parameterised")
         
-        # Reconstruction parts
+        if self.inference_architecture != "MLP":
+            major_parts.append("ia_{}".format(self.inference_architecture))
         
-        reconstruction_parts = [normaliseString(
+        if self.generative_architecture != "MLP":
+            major_parts.append("ga_{}".format(self.generative_architecture))
+        
+        # Minor parts
+        
+        minor_parts = [normaliseString(
             self.reconstruction_distribution_name)]
         
         if self.k_max:
-            reconstruction_parts.append("k_{}".format(self.k_max))
+            minor_parts.append("k_{}".format(self.k_max))
         
         if self.count_sum_feature:
-            reconstruction_parts.append("sum")
+            minor_parts.append("sum")
         
-        reconstruction_parts.append("l_{}".format(self.latent_size))
-        reconstruction_parts.append(
+        minor_parts.append("l_{}".format(self.latent_size))
+        minor_parts.append(
             "h_" + "_".join(map(str, self.hidden_sizes)))
         
-        reconstruction_parts.append("mc_{}".format(
+        minor_parts.append("mc_{}".format(
             self.number_of_monte_carlo_samples["training"]))
-        reconstruction_parts.append("iw_{}".format(
+        minor_parts.append("iw_{}".format(
             self.number_of_importance_samples["training"]))
         
         if self.analytical_kl_term:
-            reconstruction_parts.append("kl")
+            minor_parts.append("kl")
         
         if self.batch_normalisation:
-            reconstruction_parts.append("bn")
+            minor_parts.append("bn")
 
         if len(self.dropout_parts) > 0:
-            reconstruction_parts.append(
+            minor_parts.append(
                 "dropout_" + "_".join(self.dropout_parts))
         
         if self.number_of_warm_up_epochs:
-            reconstruction_parts.append("wu_{}".format(
+            minor_parts.append("wu_{}".format(
                 self.number_of_warm_up_epochs))
         
         # Complete name
         
-        latent_part = "-".join(latent_parts)
-        reconstruction_part = "-".join(reconstruction_parts)
+        major_part = "-".join(major_parts)
+        minor_part = "-".join(minor_parts)
         
-        model_name = os.path.join(self.type, latent_part, reconstruction_part)
+        model_name = os.path.join(self.type, major_part, minor_part)
         
         return model_name
     
@@ -380,16 +390,27 @@ class VariationalAutoencoder(object):
         return parameters_string
     
     def inference(self):
-        encoder = dense_layers(
-            inputs = self.x,
-            num_outputs = self.hidden_sizes,
-            activation_fn = relu,
-            batch_normalisation = self.batch_normalisation, 
-            is_training = self.is_training,
-            input_dropout_keep_probability = self.dropout_keep_probability_x,
-            hidden_dropout_keep_probability = self.dropout_keep_probability_h,
-            scope = "ENCODER"
-        )
+        
+        if self.inference_architecture == "MLP":
+            encoder = dense_layers(
+                inputs = self.x,
+                num_outputs = self.hidden_sizes,
+                activation_fn = relu,
+                batch_normalisation = self.batch_normalisation, 
+                is_training = self.is_training,
+                input_dropout_keep_probability =
+                    self.dropout_keep_probability_x,
+                hidden_dropout_keep_probability =
+                    self.dropout_keep_probability_h,
+                scope = "ENCODER"
+            )
+        elif self.inference_architecture == "LFM":
+            encoder = self.x
+        else:
+            raise ValueError(
+                "The generative architecture can only be "
+                "a neural network (MLP) or a linear factor model (LFM)."
+            )
         
         # Parameterising the approximate posterior and prior over z
 
@@ -566,18 +587,26 @@ class VariationalAutoencoder(object):
         else:
             decoder = self.z
         
-        decoder = dense_layers(
-            inputs = decoder,
-            num_outputs = self.hidden_sizes,
-            reverse_order = True,
-            activation_fn = relu,
-            batch_normalisation = self.batch_normalisation, 
-            is_training = self.is_training,
-            input_dropout_keep_probability = self.dropout_keep_probability_z,
-            hidden_dropout_keep_probability = self.dropout_keep_probability_h,
-            scope = "DECODER"
-        )
-
+        if self.generative_architecture == "MLP":
+            decoder = dense_layers(
+                inputs = decoder,
+                num_outputs = self.hidden_sizes,
+                reverse_order = True,
+                activation_fn = relu,
+                batch_normalisation = self.batch_normalisation, 
+                is_training = self.is_training,
+                input_dropout_keep_probability = self.dropout_keep_probability_z,
+                hidden_dropout_keep_probability = self.dropout_keep_probability_h,
+                scope = "DECODER"
+            )
+        elif self.generative_architecture == "LFM":
+            pass
+        else:
+            raise ValueError(
+                "The inference architecture can only be "
+                "a neural network (MLP) or a linear factor model (LFM)."
+            )
+        
         # Reconstruction distribution parameterisation
         
         with tf.variable_scope("X_TILDE"):

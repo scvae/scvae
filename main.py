@@ -34,9 +34,11 @@ def main(input_file_or_name, data_directory = "data",
     model_type = "VAE", latent_size = 50, hidden_sizes = [500],
     number_of_importance_samples = [5],
     number_of_monte_carlo_samples = [10],
+    inference_architecture = "MLP",
     latent_distribution = "gaussian",
     number_of_classes = None,
     parameterise_latent_posterior = False,
+    generative_architecture = "MLP",
     reconstruction_distribution = "poisson",
     number_of_reconstruction_classes = 0,
     prior_probabilities_method = "uniform",
@@ -220,9 +222,11 @@ def main(input_file_or_name, data_directory = "data",
             number_of_monte_carlo_samples =number_of_monte_carlo_samples,
             number_of_importance_samples = number_of_importance_samples,
             analytical_kl_term = analytical_kl_term,
+            inference_architecture = inference_architecture,
             latent_distribution = latent_distribution,
             number_of_latent_clusters = number_of_classes,
             parameterise_latent_posterior = parameterise_latent_posterior,
+            generative_architecture = generative_architecture,
             reconstruction_distribution = reconstruction_distribution,
             number_of_reconstruction_classes = number_of_reconstruction_classes,
             batch_normalisation = batch_normalisation,
@@ -738,6 +742,12 @@ parser.add_argument(
     help = "the number of Monte Carlo samples (if two numbers given, the first will be used for training and the second for evaluation)"
 )
 parser.add_argument(
+    "--inference-architecture",
+    type = str,
+    default = "MLP",
+    help = "architecture of the inference model"
+)
+parser.add_argument(
     "--latent-distribution", "-q",
     type = str,
     default = "gaussian",
@@ -760,6 +770,12 @@ parser.add_argument(
     help = "do not parameterise latent posterior parameters"
 )
 parser.set_defaults(parameterise_latent_posterior = False)
+parser.add_argument(
+    "--generative-architecture",
+    type = str,
+    default = "MLP",
+    help = "architecture of the generative model"
+)
 parser.add_argument(
     "--reconstruction-distribution", "-r",
     type = str,

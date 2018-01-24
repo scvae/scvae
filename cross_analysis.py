@@ -263,7 +263,7 @@ def main(log_directory = None, results_directory = None,
                 "ID",
                 "type",
                 "distribution",
-                "structure",
+                "sizes",
                 "other",
                 "epochs"
             ]
@@ -272,7 +272,7 @@ def main(log_directory = None, results_directory = None,
                 "ID": "#",
                 "type": "T",
                 "distribution": "LD",
-                "structure": "NS",
+                "sizes": "S",
                 "other": "O",
                 "epochs": "E"
             }
@@ -289,8 +289,8 @@ def main(log_directory = None, results_directory = None,
                 comparisons[model_title].update({
                     "type": model_title_parts.pop(0),
                     "distribution": model_title_parts.pop(0),
-                    "structure": model_title_parts.pop(0),
-                    "epochs": model_title_parts.pop(-1),
+                    "sizes": model_title_parts.pop(0),
+                    "epochs": model_title_parts.pop(-1).replace(" epochs", ""),
                     "other": "; ".join(model_title_parts)
                 })
             
@@ -534,14 +534,14 @@ data_set_name_replacements = {
     r"dimm_sc_10x_(\w+)": lambda match: "3′ ({})".format(match.group(1)),
     "gtex": "GTEx",
     r"mnist_(\w+)": lambda match: "MNIST ({})".format(match.group(1)),
-    r"sample_?(sparse)?": lambda match: "Sample" \
+    r"sample_?(sparse)?": lambda match: "Sample"
         if len(match.groups()) == 1
         else "Sample ({})".format(match.group(1)),
     "tcga_kallisto": "TCGA (Kallisto)"
 }
 
 split_replacements = {
-    r"split-(\w+)_(0\.\d+)": lambda match: \
+    r"split-(\w+)_(0\.\d+)": lambda match:
         "{} split ({:.3g} %)".format(
             match.group(1),
             100 * float(match.group(2))
@@ -550,22 +550,22 @@ split_replacements = {
 
 feature_replacements = {
     "features_mapped": "feature mapping",
-    r"keep_gini_indices_above_([\d.]+)": lambda match: \
+    r"keep_gini_indices_above_([\d.]+)": lambda match:
         "features with Gini index above {}".format(int(float(match.group(1)))),
-    r"keep_highest_gini_indices_([\d.]+)": lambda match: \
+    r"keep_highest_gini_indices_([\d.]+)": lambda match:
         " {} features with highest Gini indices".format(
             int(float(match.group(1)))),
-    r"keep_variances_above_([\d.]+)": lambda match: \
+    r"keep_variances_above_([\d.]+)": lambda match:
         "features with variance above {}".format(
             int(float(match.group(1)))),
-    r"keep_highest_variances_([\d.]+)": lambda match: \
+    r"keep_highest_variances_([\d.]+)": lambda match:
         "{} most varying features".format(int(float(match.group(1))))
 }
 
 example_feaute_replacements = {
     "macosko": "Macosko",
     "remove_zeros": "examples with only zeros removed",
-    r"remove_count_sum_above_([\d.]+)": lambda match: \
+    r"remove_count_sum_above_([\d.]+)": lambda match:
         "examples with count sum above {} removed".format(
             int(float(match.group(1))))
 }
@@ -600,16 +600,22 @@ reorder_replacements = {
     r"(-sum)(-l_\d+-h_[\d_]+)": lambda match: "".join(reversed(match.groups()))
 }
 
-GMVAE_replacements = {
-    r"GMVAE/gaussian_mixture-c_(\d+)-?p?_?(\w+)?": lambda match: \
-        "GMVAE({})".format(match.group(1)) \
-        if not match.group(2) \
+model_replacements = {
+    r"GMVAE/gaussian_mixture-c_(\d+)-?p?_?(\w+)?": lambda match:
+        "GMVAE({})".format(match.group(1))
+        if not match.group(2)
         else "GMVAE({}; {})".format(*match.groups()),
-    r"VAE/([\w.-]+)": lambda match: "VAE({})".format(match.group(1))
+    r"VAE/([\w-]+)": lambda match: "VAE({})".format(match.group(1)),
+    "-parameterised": ", PLP",
+    r"-ia_(\w+)-ga_(\w+)": lambda match: ", {}".format(match.group(1))
+        if match.group(1) == match.group(2)
+        else ", i: {}, g: {}".format(*match.group(1, 2))
 }
 
-mixture_replacements = {
-    r"gaussian_mixture-c_(\d+)": lambda match: "GM({})".format(match.group(1))
+secondary_model_replacements = {
+    r"gaussian_mixture-c_(\d+)": lambda match: "GM({})".format(match.group(1)),
+    r"-ia_(\w+)": lambda match: ", i: {}".format(match.group(1)),
+    r"-ga_(\w+)": lambda match: ", g: {}".format(match.group(1))
 }
 
 distribution_modification_replacements = {
@@ -636,16 +642,16 @@ network_replacements = {
 }
 
 sample_replacements = {
-    r"-mc_(\d+)": lambda match: "" if int(match.group(1)) == 1 else \
+    r"-mc_(\d+)": lambda match: "" if int(match.group(1)) == 1 else
         "-{} MC samples".format(match.groups(1)),
-    r"-iw_(\d+)": lambda match: "" if int(match.group(1)) == 1 else \
+    r"-iw_(\d+)": lambda match: "" if int(match.group(1)) == 1 else
         "-{} IW samples".format(match.groups(1))
 }
 
 model_version_replacements = {
-    r"e_(\d+)-?(\w+)?": lambda match: "{}".format(match.group(1)) \
-        if not match.group(2) \
-        else "{} ({})".format(
+    r"e_(\d+)-?(\w+)?": lambda match: "{} epochs".format(match.group(1))
+        if not match.group(2)
+        else "{} epochs ({})".format(
             match.group(1),
             match.group(2)
         ),
@@ -666,8 +672,8 @@ def titleFromModelName(name):
     
     replacement_dictionaries = [
         reorder_replacements,
-        GMVAE_replacements,
-        mixture_replacements,
+        model_replacements,
+        secondary_model_replacements,
         distribution_modification_replacements,
         distribution_replacements,
         network_replacements,
