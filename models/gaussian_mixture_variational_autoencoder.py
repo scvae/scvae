@@ -190,7 +190,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             if self.count_sum:
                 self.n = tf.placeholder(tf.float32, [None, 1], 'count_sum')
                 self.replicated_n = tf.tile(
-                    self.n_feature,
+                    self.n,
                     [self.S_iw*self.S_mc, 1]
                 )
             self.inference()
