@@ -1322,6 +1322,8 @@ class DataSet(object):
                 "binarised values": self.binarised_values,
                 "labels": self.labels,
                 "example names": self.example_names,
+                "feature names": self.feature_names,
+                "class names": self.class_names,
                 "split indices": self.split_indices
             }
             
@@ -1357,8 +1359,8 @@ class DataSet(object):
                 split_data_dictionary["training set"]["binarised values"],
             labels = split_data_dictionary["training set"]["labels"],
             example_names = split_data_dictionary["training set"]["example names"],
-            feature_names = self.feature_names,
-            class_names = self.class_names,
+            feature_names = split_data_dictionary["feature names"],
+            class_names = split_data_dictionary["class names"],
             feature_selection = self.feature_selection,
             example_filter = self.example_filter,
             preprocessing_methods = self.preprocessing_methods,
@@ -1375,8 +1377,8 @@ class DataSet(object):
                 split_data_dictionary["validation set"]["binarised values"],
             labels = split_data_dictionary["validation set"]["labels"],
             example_names = split_data_dictionary["validation set"]["example names"],
-            feature_names = self.feature_names,
-            class_names = self.class_names,
+            feature_names = split_data_dictionary["feature names"],
+            class_names = split_data_dictionary["class names"],
             feature_selection = self.feature_selection,
             example_filter = self.example_filter,
             preprocessing_methods = self.preprocessing_methods,
@@ -1393,8 +1395,8 @@ class DataSet(object):
                 split_data_dictionary["test set"]["binarised values"],
             labels = split_data_dictionary["test set"]["labels"],
             example_names = split_data_dictionary["test set"]["example names"],
-            feature_names = self.feature_names,
-            class_names = self.class_names,
+            feature_names = split_data_dictionary["feature names"],
+            class_names = split_data_dictionary["class names"],
             feature_selection = self.feature_selection,
             example_filter = self.example_filter,
             preprocessing_methods = self.preprocessing_methods,
@@ -2361,6 +2363,8 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
             "labels": None,
             "example names": data_dictionary["example names"][test_indices]
         },
+        "feature names": data_dictionary["feature names"],
+        "class names": data_dictionary["class names"]
     }
     
     if "labels" in data_dictionary and data_dictionary["labels"] is not None:
@@ -2461,6 +2465,9 @@ def loadArrayAsOtherType(node):
         if value == "None":
             value = None
     
+    if node._v_name.endswith("_was_list"):
+        value = value.tolist()
+    
     return value
 
 def loadSparseMatrix(tables_file, group):
@@ -2520,7 +2527,7 @@ def saveDataDictionary(data_dictionary, path):
             
             if isinstance(value, scipy.sparse.csr_matrix):
                 saveSparseMatrix(value, title, group, tables_file)
-            elif isinstance(value, numpy.ndarray):
+            elif isinstance(value, (numpy.ndarray, list)):
                 saveArray(value, title, group, tables_file)
             elif title == "split indices":
                 saveSplitIndices(value, title, group, tables_file)
@@ -2548,6 +2555,9 @@ def saveDataDictionary(data_dictionary, path):
 
 def saveArray(array, title, group, tables_file):
     name = normaliseString(title)
+    if isinstance(array, list):
+        array = numpy.array(array)
+        name += "_was_list"
     if array.dtype.char == "U":
         array = numpy.array([s.encode("UTF-8") for s in array.tolist()])
     atom = tables.Atom.from_dtype(array.dtype)
