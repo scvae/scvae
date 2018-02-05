@@ -693,6 +693,8 @@ def modelID():
     
     for value1, value2 in product(values, values):
         model_id = value1 + value2
+        if model_id.isdigit():
+            continue
         yield model_id
 
 parser = argparse.ArgumentParser(
