@@ -12,7 +12,7 @@ from string import ascii_uppercase
 
 import argparse
 
-from analysis import formatStatistics
+from analysis import formatStatistics, plotCorrelations, saveFigure
 from auxiliary import formatTime, title, subtitle
 
 test_metrics_basename = "test-metrics"
@@ -34,6 +34,8 @@ def main(log_directory = None, results_directory = None,
     if results_directory:
         
         results_directory = os.path.normpath(results_directory) + os.sep
+        cross_analysis_directory = os.path.join(
+            results_directory + "cross_analysis")
         
         explanation_string_parts = []
         
@@ -92,7 +94,7 @@ def main(log_directory = None, results_directory = None,
                 log_filename_parts.append("all")
             
             log_filename = "-".join(log_filename_parts) + log_extension
-            log_path = os.path.join(results_directory, log_filename)
+            log_path = os.path.join(cross_analysis_directory, log_filename)
             
             log_string_parts = [explanation_string + "\n"]
         
@@ -116,6 +118,7 @@ def main(log_directory = None, results_directory = None,
                 log_string_parts.append(title(data_set_title, plain = True))
             
             comparisons = {}
+            correlation_sets = {}
             
             for model_name, test_metrics in models.items():
                 
@@ -220,18 +223,29 @@ def main(log_directory = None, results_directory = None,
                         number_of_classes = prediction["number of classes"]
                         
                         if ARIs:
-                            metrics_string_parts.append(
-                                "{} ({} classes):".format(
-                                    method, number_of_classes
-                                )
-                            )
+                            prediction_string = "{} ({} classes):".format(
+                                method, number_of_classes)
+                            metrics_string_parts.append(prediction_string)
                             
                             for ARI_name, ARI_value in ARIs.items():
                                 metrics_string_parts.append(
                                     "    {}: {:.5g}".format(
-                                        ARI_name, ARI_value
+                                        ARI_name,
+                                        ARI_value
                                     )
                                 )
+                                correlation_set_name = "; ".join([
+                                    prediction_string, ARI_name
+                                ])
+                                if correlation_set_name not in correlation_sets:
+                                    correlation_sets[correlation_set_name] = {
+                                        "ELBO": [],
+                                        "ARI": []
+                                    }
+                                correlation_sets[correlation_set_name]["ELBO"]\
+                                    .append(model_lower_bound)
+                                correlation_sets[correlation_set_name]["ARI"]\
+                                    .append(ARI_value)
                             
                             metrics_string_parts.append("")
                         
@@ -256,6 +270,17 @@ def main(log_directory = None, results_directory = None,
             
             if len(comparisons) <= 1:
                 continue
+            
+            # Correlations
+            
+            if correlation_sets:
+                figure, figure_name = plotCorrelations(
+                    correlation_sets,
+                    x_label = "ELBO",
+                    y_label = "ARI",
+                    name = data_set_name.replace(os.sep, "-")
+                )
+                saveFigure(figure, figure_name, cross_analysis_directory)
             
             # Comparison
             

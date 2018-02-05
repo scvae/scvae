@@ -3487,6 +3487,37 @@ def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
     
     return figure, figure_name
 
+def plotCorrelations(correlation_sets, x_label = None, y_label = None,
+    name = "correlations"):
+    
+    # Setup
+    
+    figure_name = name
+    
+    if not isinstance(correlation_sets, dict):
+        correlation_sets = {"correlations": correlation_sets}
+    
+    # Figure
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    seaborn.despine()
+    
+    axis.set_xlabel(x_label)
+    axis.set_ylabel(y_label)
+    
+    for correlation_set_name, correlation_set in correlation_sets.items():
+        axis.scatter(
+            correlation_set[x_label], correlation_set[y_label],
+            label = correlation_set_name
+        )
+    
+    if len(correlation_sets) > 1:
+        axis.legend(loc = "best")
+    
+    return figure, figure_name
+
 def plotValues(values, colour_coding = None, colouring_data_set = None,
     centroids = None, class_name = None, feature_index = None,
     figure_labels = None, prediction_method = None, number_of_classes = None,
