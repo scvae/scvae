@@ -223,6 +223,9 @@ def main(log_directory = None, results_directory = None,
                         number_of_classes = prediction["number of classes"]
                         
                         if ARIs:
+                            if not method:
+                                method = "model"
+                            
                             prediction_string = "{} ({} classes):".format(
                                 method, number_of_classes)
                             metrics_string_parts.append(prediction_string)
