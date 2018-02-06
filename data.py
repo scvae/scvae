@@ -1067,7 +1067,7 @@ class DataSet(object):
     
     def preprocess(self):
         
-        if not self.feature_mapping and not self.preprocessing_methods \
+        if not self.map_features and not self.preprocessing_methods \
             and not self.feature_selection and not self.example_filter:
             self.update(preprocessed_values = None)
             return
