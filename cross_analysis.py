@@ -226,9 +226,9 @@ def main(log_directory = None, results_directory = None,
                             if not method:
                                 method = "model"
                             
-                            prediction_string = "{} ({} classes):".format(
+                            prediction_string = "{} ({} classes)".format(
                                 method, number_of_classes)
-                            metrics_string_parts.append(prediction_string)
+                            metrics_string_parts.append(prediction_string + ":")
                             
                             for ARI_name, ARI_value in ARIs.items():
                                 metrics_string_parts.append(
