@@ -1343,6 +1343,8 @@ class DataSet(object):
                 print()
         
         for data_subset in split_data_dictionary:
+            if not isinstance(split_data_dictionary[data_subset], dict):
+                continue
             for data_subset_key in split_data_dictionary[data_subset]:
                 if "values" in data_subset_key:
                     values = split_data_dictionary[data_subset][data_subset_key]
