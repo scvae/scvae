@@ -83,7 +83,7 @@ analysis_groups = {
     "simple": ["metrics", "images", "learning_curves", "accuracies"],
     "default": ["kl_heat_maps", "profile_comparisons", "distributions",
         "decompositions", "latent_space"],
-    "complete": ["heat_maps", "latent_distributions"]
+    "complete": ["heat_maps", "latent_distributions", "latent_correlations"]
 }
 analysis_groups["default"] += analysis_groups["simple"]
 analysis_groups["complete"] += analysis_groups["default"]
@@ -1260,6 +1260,21 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             )
             
             print()
+    
+    # Latent correlations
+    
+    if "latent_correlations" in analyses and "VAE" in model.type:
+        
+        print(subheading("Latent correlations"))
+        
+        for set_name in latent_evaluation_sets:
+            latent_evaluation_set = latent_evaluation_sets[set_name]
+            figure, figure_name = plotVariableCorrelations(
+                latent_evaluation_set.values,
+                latent_evaluation_set.feature_names,
+                name = "latent correlations"
+            )
+            saveFigure(figure, figure_name, results_directory)
 
 def analyseDistributions(data_set, colouring_data_set = None,
     cutoffs = None, preprocessed = False, original_maximum_count = None,
@@ -3484,6 +3499,34 @@ def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
     
     axis.set_xlabel(x_name)
     axis.set_ylabel(y_name)
+    
+    return figure, figure_name
+
+def plotVariableCorrelations(values, variable_names = None,
+    name = "variable_correlations"):
+    
+    # Setup
+    
+    figure_name = figureName(name)
+    
+    M, N = values.shape
+    
+    # Figure
+    
+    figure, axes = pyplot.subplots(
+        nrows = N,
+        ncols = N,
+        # figsize = (6.4, 9.6)
+    )
+    
+    # seaborn.despine()
+    
+    # axis.set_xlabel(x_label)
+    # axis.set_ylabel(y_label)
+    
+    for i in range(N):
+        for j in range(N):
+            axes[i, j].scatter(values[:, i], values[:, j])
     
     return figure, figure_name
 
