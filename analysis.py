@@ -1267,14 +1267,30 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         print(subheading("Latent correlations"))
         
+        correlations_directory = os.path.join(results_directory,
+            "latent_correlations")
+        
+        print("Plotting latent correlations.")
+        
         for set_name in latent_evaluation_sets:
+            correlations_time_start = time()
+            
             latent_evaluation_set = latent_evaluation_sets[set_name]
             figure, figure_name = plotVariableCorrelations(
                 latent_evaluation_set.values,
                 latent_evaluation_set.feature_names,
-                name = "latent correlations"
+                latent_evaluation_set,
+                name = ["latent correlations", set_name]
             )
-            saveFigure(figure, figure_name, results_directory)
+            saveFigure(figure, figure_name, correlations_directory)
+            
+            correlations_duration = time() - correlations_time_start
+            print("    Latent correlations for {} plotted ({}).".format(
+                set_name,
+                formatDuration(correlations_duration)
+            ))
+        
+        print()
 
 def analyseDistributions(data_set, colouring_data_set = None,
     cutoffs = None, preprocessed = False, original_maximum_count = None,
@@ -3503,7 +3519,7 @@ def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
     return figure, figure_name
 
 def plotVariableCorrelations(values, variable_names = None,
-    name = "variable_correlations"):
+    colouring_data_set = None, name = "variable_correlations"):
     
     # Setup
     
@@ -3511,22 +3527,57 @@ def plotVariableCorrelations(values, variable_names = None,
     
     M, N = values.shape
     
+    random_state = numpy.random.RandomState(117)
+    shuffled_indices = random_state.permutation(M)
+    values = values[shuffled_indices]
+    
+    if colouring_data_set:
+        labels = colouring_data_set.labels
+        class_names = colouring_data_set.class_names
+        number_of_classes = colouring_data_set.number_of_classes
+        class_palette = colouring_data_set.class_palette
+        label_sorter = colouring_data_set.label_sorter
+        
+        if not label_sorter:
+            label_sorter = createLabelSorter()
+        
+        if not class_palette:
+            index_palette = lighter_palette(number_of_classes)
+            class_palette = {
+                class_name: index_palette[i] for i, class_name in
+                enumerate(sorted(class_names, key = label_sorter))
+            }
+        
+        labels = labels[shuffled_indices]
+        
+        colours = []
+    
+        for label in labels:
+            colour = class_palette[label]
+            colours.append(colour)
+        
+    else:
+        colours = neutral_colour
+    
     # Figure
     
     figure, axes = pyplot.subplots(
         nrows = N,
         ncols = N,
-        # figsize = (6.4, 9.6)
+        figsize = [1.5 * N] * 2
     )
-    
-    # seaborn.despine()
-    
-    # axis.set_xlabel(x_label)
-    # axis.set_ylabel(y_label)
     
     for i in range(N):
         for j in range(N):
-            axes[i, j].scatter(values[:, i], values[:, j])
+            axes[i, j].scatter(values[:, i], values[:, j], c = colours, s = 1)
+            
+            axes[i, j].set_xticks([])
+            axes[i, j].set_yticks([])
+            
+            if i == N - 1:
+                axes[i, j].set_xlabel(variable_names[j])
+        
+        axes[i, 0].set_ylabel(variable_names[i])
     
     return figure, figure_name
 
@@ -3996,6 +4047,13 @@ def saveImage(image, image_name, results_directory):
     image.save(image_path)
 
 def figureName(base_name, other_names = None):
+    
+    if isinstance(base_name, list):
+        if not other_names:
+            other_names = []
+        other_names.extend(base_name[1:])
+        base_name = normaliseString(base_name[0])
+    
     figure_name = base_name
     
     if other_names:
