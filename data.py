@@ -930,6 +930,10 @@ class DataSet(object):
             
             self.number_of_classes = len(self.class_names)
             
+            self.number_of_excluded_classes = len(self.excluded_classes) \
+                if self.excluded_classes \
+                else 0
+            
             if self.label_superset:
                 
                 self.superset_labels = supersetLabels(
@@ -952,6 +956,11 @@ class DataSet(object):
                             self.excluded_superset_classes.append(excluded_class)
                 
                 self.number_of_superset_classes = len(self.superset_class_names)
+                
+                self.number_of_excluded_superset_classes = \
+                    len(self.excluded_superset_classes) \
+                    if self.excluded_superset_classes \
+                    else 0
         
         if total_standard_deviations is not None:
             self.total_standard_deviations = total_standard_deviations

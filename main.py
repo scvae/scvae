@@ -203,7 +203,8 @@ def main(input_file_or_name, data_directory = "data",
     # Set the number of classes if not already set
     if not number_of_classes:
         if training_set.has_labels:
-            number_of_classes = training_set.number_of_classes
+            number_of_classes = training_set.number_of_classes \
+                - training_set.number_of_excluded_classes
         elif "mixture" in latent_distribution:
             raise ValueError(
                 "For a mixture model and a data set without labels, "
