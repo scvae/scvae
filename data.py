@@ -319,7 +319,7 @@ data_sets = {
                 "full": "https://tcga.xenahubs.net/download/TCGA.PANCAN.sampleMap/PANCAN_clinicalMatrix.gz"
             },
             "feature mapping": {
-                "full": "https://toil.xenahubs.net/download/gencode.v23.annotation.transcript.probemap.gz"
+                "full": "https://toil.xenahubs.net/download/gencode.v23.annotation.gene.probeMap.gz"
             }
         },
         "loading function": lambda x: loadTCGADataSet(x),
