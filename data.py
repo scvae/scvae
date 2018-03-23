@@ -300,7 +300,29 @@ data_sets = {
                 "full": "https://toil.xenahubs.net/download/gencode.v23.annotation.transcript.probemap.gz"
             }
         },
-        "loading function": lambda x: loadTCGAKallistoDataSet(x),
+        "loading function": lambda x: loadTCGADataSet(x),
+        "example type": "counts"
+    },
+    
+    "TCGA (RSEM)": {
+        "tags": {
+            "example": "sample",
+            "feature": "gene ID",
+            "type": "count",
+            "item": "transcript"
+        },
+        "URLs": {
+            "values": {
+                "full": "https://toil.xenahubs.net/download/tcga_gene_expected_count.gz"
+            },
+            "labels": {
+                "full": "https://tcga.xenahubs.net/download/TCGA.PANCAN.sampleMap/PANCAN_clinicalMatrix.gz"
+            },
+            "feature mapping": {
+                "full": "https://toil.xenahubs.net/download/gencode.v23.annotation.transcript.probemap.gz"
+            }
+        },
+        "loading function": lambda x: loadTCGADataSet(x),
         "example type": "counts"
     },
     
@@ -2757,7 +2779,7 @@ def loadDIMMSCsCombined10xDataSet(paths):
     
     return data_dictionary
 
-def loadTCGAKallistoDataSet(paths):
+def loadTCGADataSet(paths):
     
     # Values, example names, and feature names
     
