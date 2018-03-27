@@ -6,12 +6,20 @@ import time
 
 import re
 
+from functools import reduce
+from operator import mul
+
 from math import floor
 
 import urllib.request
 
 from tensorboard.backend.event_processing import event_multiplexer
 import numpy
+
+# Math
+
+def prod(iterable):
+    return reduce(mul, iterable, 1)
 
 # Time
 

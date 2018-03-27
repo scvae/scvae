@@ -3518,6 +3518,46 @@ def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
     
     return figure, figure_name
 
+def plotELBOHeatMap(data_frame, x_label, y_label, z_label = None, z_symbol = None,
+    z_min = None, z_max = None, name = None):
+    
+    figure_name = figureName("ELBO_heat_map", name)
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    if not z_min:
+        z_min = data_frame.values.min()
+
+    if not z_max:
+        z_max = data_frame.values.max()
+    
+    if z_symbol:
+        z_label = "$" + z_symbol + "$"
+    
+    cbar_dict = {}
+    
+    if z_label:
+        cbar_dict["label"] = z_label
+    
+    seaborn.set(style = "white")
+    
+    seaborn.heatmap(
+        data_frame,
+        vmin = z_min, vmax = z_max,
+        xticklabels = True, yticklabels = True,
+        cbar = True, cbar_kws = cbar_dict, #cmap = standard_colour_map,
+        annot = True, fmt = "-.5g",
+        square = False, ax = axis
+    )
+    
+    reset_plot_look()
+    
+    axis.set_xlabel(x_label)
+    axis.set_ylabel(y_label)
+    
+    return figure, figure_name
+
 def plotVariableCorrelations(values, variable_names = None,
     colouring_data_set = None, name = "variable_correlations"):
     

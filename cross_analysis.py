@@ -4,6 +4,7 @@ import os
 
 import pickle
 import gzip
+import pandas
 
 import re
 
@@ -12,8 +13,11 @@ from string import ascii_uppercase
 
 import argparse
 
-from analysis import formatStatistics, plotCorrelations, saveFigure
-from auxiliary import formatTime, title, subtitle
+from analysis import (
+    formatStatistics, saveFigure,
+    plotCorrelations, plotELBOHeatMap
+)
+from auxiliary import formatTime, title, subtitle, prod
 
 test_metrics_basename = "test-metrics"
 test_prediction_basename = "test-prediction"
@@ -327,6 +331,57 @@ def main(log_directory = None, results_directory = None,
                 key = lambda key_value_pair: key_value_pair[-1]["ELBO"],
                 reverse = True
             )
+            
+            network_architecture_ELBOs = {}
+            
+            for model_title, model_fields in comparisons.items():
+                if model_fields["type"] == "VAE(G)" \
+                    and model_fields["distribution"] == "NB" \
+                    and model_fields["other"] == "BN" \
+                    and "1" in model_fields["epochs"]:
+                    # and "(*)" in model_fields["epochs"]:
+                    
+                    architecture = model_fields["sizes"]
+                    ELBO = model_fields["ELBO"]
+                    
+                    h, l = architecture.rsplit("×", maxsplit = 1)
+                    
+                    if l not in network_architecture_ELBOs:
+                        network_architecture_ELBOs[l] = {}
+                    
+                    if h not in network_architecture_ELBOs[l]:
+                        network_architecture_ELBOs[l][h] = ELBO
+                    else:
+                        raise KeyError()
+            
+            if network_architecture_ELBOs:
+                network_architecture_ELBOs = pandas.DataFrame(
+                    network_architecture_ELBOs
+                )
+                network_architecture_ELBOs = network_architecture_ELBOs\
+                    .reindex(
+                        columns = sorted(
+                            network_architecture_ELBOs.columns,
+                            key = lambda s: int(s)
+                        )
+                    )
+                network_architecture_ELBOs = network_architecture_ELBOs\
+                    .reindex(
+                        index = sorted(
+                            network_architecture_ELBOs.index,
+                            key = lambda s: prod(map(int, s.split("×")))
+                        )
+                    )
+                print(network_architecture_ELBOs)
+                figure, figure_name = plotELBOHeatMap(
+                    network_architecture_ELBOs,
+                    x_label = "Latent dimension",
+                    y_label = "Number of hidden units",
+                    z_symbol = "\mathcal{L}",
+                    name = data_set_name.replace(os.sep, "-")
+                )
+                saveFigure(figure, figure_name, cross_analysis_directory)
+                print()
             
             for model_title, model_fields in comparisons.items():
                 for field_name, field_value in model_fields.items():
