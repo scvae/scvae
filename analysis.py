@@ -44,8 +44,8 @@ standard_palette = seaborn.color_palette('Set2', 8)
 standard_colour_map = seaborn.cubehelix_palette(light = .95, as_cmap = True)
 neutral_colour = (0.7, 0.7, 0.7)
 
-lighter_palette = lambda N: seaborn.hls_palette(N)
-darker_palette = lambda N: seaborn.hls_palette(N, l = .4)
+lighter_palette = lambda N: seaborn.husl_palette(N, l = .75)
+darker_palette = lambda N: seaborn.husl_palette(N, l = .55)
 
 reset_plot_look = lambda: seaborn.set(
     context = "notebook",
