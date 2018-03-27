@@ -69,13 +69,18 @@ def normaliseString(s):
     
     return s
 
-def properString(s, translation):
+def properString(original_string, translation, normalise = True):
     
-    s = normaliseString(s)
+    if normalise:
+        transformed_string = normaliseString(original_string)
+    else:
+        transformed_string = original_string
     
-    for proper_string, normalised_strings in translation.items():
-        if s in normalised_strings:
+    for proper_string, related_strings in translation.items():
+        if transformed_string in related_strings:
             return proper_string
+    
+    return original_string
 
 def enumerateListOfStrings(list_of_strings):
     if len(list_of_strings) == 1:

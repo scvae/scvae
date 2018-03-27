@@ -26,7 +26,7 @@ from time import time
 
 from auxiliary import (
     formatDuration,
-    normaliseString, isfloat,
+    normaliseString, properString, isfloat,
     downloadFile, copyFile
 )
 
@@ -570,6 +570,34 @@ data_sets = {
     }
 }
 
+DIMM_SC_class_mapper = {
+    "CD14+ monocytes": ["CD14+ Monocytes"],
+    "CD19+ B cells": [
+        "CD19+ B Cells",
+        "CD19+ B cells"
+    ],
+    "CD34+ cells": ["CD34+ Cells"],
+    "CD4+ helper T cells": ["CD4+ Helper T Cells"],
+    "CD4+/CD25+ regulatory T cells": [
+        "CD4+/CD25+ Regulatory T Cells",
+        "CD4+/CD25+ regulatory T cells"
+    ],
+    "CD4+/CD45RA+/CD25- naïve T cells": [
+        "CD4+/CD45RA+/CD25- Naive T Cells",
+        "CD4+/CD45RA+/CD25- naive T cells"
+    ],
+    "CD4+/CD45RO+ memory T cells": ["CD4+/CD45RO+ Memory T Cells"],
+    "CD56+ natural killer cells": [
+        "CD56+ Natural Killer Cells",
+        "CD56+ NK cells"
+    ],
+    "CD8+ cytotoxic T cells": ["CD8+ Cytotoxic T Cells"],
+    "CD8+/CD45RA+ naïve cytotoxic T cells": [
+        "CD8+/CD45RA+ Naive Cytotoxic T Cells",
+        "CD8+/CD45RA+ naive cytotoxic T cells"
+    ]
+}
+
 class DataSet(object):
     def __init__(self, input_file_or_name,
         values = None,
@@ -626,6 +654,9 @@ class DataSet(object):
         
         # Literature probabilities for data set
         self.literature_probabilities = dataSetLiteratureProbabilities(self.title)
+        
+        # Class mapper for data set
+        self.class_mapper = dataSetClassMapper(self.title)
         
         # Label super set for data set
         self.label_superset = dataSetLabelSuperset(self.title)
@@ -930,6 +961,14 @@ class DataSet(object):
                 self.feature_names = feature_names
         
         if labels is not None:
+            
+            if self.class_mapper:
+                labels = labels.tolist()
+                labels = [
+                    properString(label, self.class_mapper, normalise = False)
+                    for label in labels
+                ]
+                labels = numpy.array(labels)
             
             self.labels = labels
             
@@ -1754,12 +1793,27 @@ def dataSetLiteratureProbabilities(title):
     else:
         return None
 
+def dataSetClassMapper(title):
+    if "DIMM-SC" in title:
+        class_mapper = DIMM_SC_class_mapper
+    else:
+        class_mapper = None
+    return class_mapper
+
 def dataSetClassPalette(title):
     if "class palette" in data_sets[title]:
         class_palette = data_sets[title]["class palette"]
     elif "MNIST" in title:
         index_palette = seaborn.hls_palette(10)
         class_palette = {i: index_palette[i] for i in range(10)}
+    elif "DIMM-SC" in title:
+        classes = [
+            properString(c, DIMM_SC_class_mapper, normalise = False)
+            for c in data_sets["DIMM-SC (10x, all)"]["URLs"]["all"].keys()
+        ]
+        N = len(classes)
+        brewer_palette = seaborn.color_palette("Set3", N)
+        class_palette = {c: brewer_palette[i] for i, c in enumerate(classes)}
     else:
         class_palette = None
     return class_palette
