@@ -338,8 +338,7 @@ def main(log_directory = None, results_directory = None,
                 if model_fields["type"] == "VAE(G)" \
                     and model_fields["distribution"] == "NB" \
                     and model_fields["other"] == "BN" \
-                    and "1" in model_fields["epochs"]:
-                    # and "(*)" in model_fields["epochs"]:
+                    and "(*)" in model_fields["epochs"]:
                     
                     architecture = model_fields["sizes"]
                     ELBO = model_fields["ELBO"]
