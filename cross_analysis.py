@@ -10,6 +10,7 @@ import re
 
 from itertools import product
 from string import ascii_uppercase
+from math import inf
 
 import argparse
 
@@ -30,6 +31,7 @@ def main(log_directory = None, results_directory = None,
     model_include_search_strings = [],
     data_set_exclude_search_strings = [], 
     model_exclude_search_strings = [],
+    epoch_cut_off = inf,
     log_summary = False):
     
     if log_directory:
@@ -333,25 +335,35 @@ def main(log_directory = None, results_directory = None,
             )
             
             network_architecture_ELBOs = {}
+            network_architecture_epochs = {}
             
             for model_title, model_fields in comparisons.items():
                 if model_fields["type"] == "VAE(G)" \
                     and model_fields["distribution"] == "NB" \
-                    and model_fields["other"] == "BN" \
-                    and "(*)" in model_fields["epochs"]:
+                    and model_fields["other"] == "BN":
                     
+                    epochs = model_fields["epochs"]
                     architecture = model_fields["sizes"]
                     ELBO = model_fields["ELBO"]
+                    
+                    if int(epochs.split()[0]) > epoch_cut_off:
+                        continue
                     
                     h, l = architecture.rsplit("×", maxsplit = 1)
                     
                     if l not in network_architecture_ELBOs:
                         network_architecture_ELBOs[l] = {}
+                        network_architecture_epochs[l] = {}
                     
                     if h not in network_architecture_ELBOs[l]:
                         network_architecture_ELBOs[l][h] = ELBO
+                        network_architecture_epochs[l][h] = epochs
                     else:
-                        raise KeyError()
+                        best_model_version = bestModelVersion(
+                            network_architecture_epochs[l][h], epochs)
+                        if epochs == best_model_version:
+                            network_architecture_ELBOs[l][h] = ELBO
+                            network_architecture_epochs[l][h] = epochs
             
             if network_architecture_ELBOs:
                 network_architecture_ELBOs = pandas.DataFrame(
@@ -779,6 +791,38 @@ def modelID():
             continue
         yield model_id
 
+def parseNumberOfEpochsAndVersion(ev):
+    version_rank = {
+        "default": 0,
+        "(ES)": 1,
+        "(*)": 2
+    }
+    if ev.isdigit():
+        epochs = int(ev)
+        version = version_rank["default"]
+    else:
+        epochs, version = ev.split()
+        epochs = int(epochs)
+        version = version_rank[version]
+    return epochs, version
+
+def bestModelVersion(ev1, ev2):
+    
+    e1, v1 = parseNumberOfEpochsAndVersion(ev1)
+    e2, v2 = parseNumberOfEpochsAndVersion(ev2)
+    
+    if v1 > v2:
+        return ev1
+    elif v2 > v1:
+        return ev2
+    elif v1 == v2:
+        if e1 > e2:
+            return ev1
+        elif e2 > e1:
+            return ev2
+        elif e1 == e2:
+            return ev1
+
 parser = argparse.ArgumentParser(
     description="Cross-analyse models.",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -821,6 +865,11 @@ parser.add_argument(
     nargs = "*",
     default = [],
     help = "list of search strings to exclude in model directories"
+)
+parser.add_argument(
+    "--epoch-cut-off",
+    type = int,
+    default = inf
 )
 parser.add_argument(
     "--log-summary", "-s",
