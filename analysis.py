@@ -3827,7 +3827,14 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 if labels:
                     labels, handles = zip(*sorted(zip(labels, handles),
                         key = lambda t: label_sorter(t[0])))
-                    legend = axis.legend(handles, labels, loc = "best")
+                    legend = axis.legend(
+                        handles, labels,
+                        # bbox_to_anchor = (0., 1.02, 1., 1.02), loc = 3,
+                        bbox_to_anchor = (-.1, 1.02, 1.1, 1.02), loc = 3,
+                        # bbox_to_anchor = (0, 0, 1, 1), loc = 1,
+                        # bbox_transform = figure.transFigure,
+                        ncol = 2, mode = "expand", borderaxespad = 0.
+                    )
         
         elif "class" in colour_coding:
             colours = []
@@ -3865,7 +3872,14 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 handles, labels = axis.get_legend_handles_labels()
                 labels, handles = zip(*sorted(zip(labels, handles),
                     key = lambda t: label_sorter(t[0])))
-                legend = axis.legend(handles, labels, loc = "best")
+                legend = axis.legend(
+                    handles, labels, 
+                    # bbox_to_anchor = (0., 1.02, 1., 1.02), loc = 3,
+                    bbox_to_anchor = (-.1, 1.02, 1.1, 1.02), loc = 3,
+                    # bbox_to_anchor = (0, 0, 1, 1), loc = 1,
+                    # bbox_transform = figure.transFigure,
+                    ncol = 2, mode = "expand", borderaxespad = 0.
+                )
     
     elif colour_coding == "count_sum":
         
