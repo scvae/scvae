@@ -795,7 +795,8 @@ def modelID():
 def parseNumberOfEpochsAndVersion(ev):
     version_rank = {
         "default": 0,
-        "(ES)": 1,
+        # "(ES)": 1,
+        "(ES)": -1,
         "(*)": 2
     }
     if ev.isdigit():
