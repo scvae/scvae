@@ -171,7 +171,7 @@ def main(log_directory = None, results_directory = None,
                 for loss in losses:
                     if loss in evaluation:
                         metrics_string_parts.append(
-                            "{}: {:.5g}".format(loss, evaluation[loss][-1])
+                            "{}: {:-.6g}".format(loss, evaluation[loss][-1])
                         )
                 
                 if "lower_bound" in evaluation:
@@ -238,7 +238,7 @@ def main(log_directory = None, results_directory = None,
                             
                             for ARI_name, ARI_value in ARIs.items():
                                 metrics_string_parts.append(
-                                    "    {}: {:.5g}".format(
+                                    "    {}: {:.6g}".format(
                                         ARI_name,
                                         ARI_value
                                     )
@@ -404,7 +404,7 @@ def main(log_directory = None, results_directory = None,
                         string = ""
                     
                     elif isinstance(field_value, float):
-                        string = "{:-.5g}".format(field_value)
+                        string = "{:-.6g}".format(field_value)
                     
                     elif isinstance(field_value, int):
                         string = "{:d}".format(field_value)

@@ -3547,7 +3547,7 @@ def plotELBOHeatMap(data_frame, x_label, y_label, z_label = None, z_symbol = Non
         vmin = z_min, vmax = z_max,
         xticklabels = True, yticklabels = True,
         cbar = True, cbar_kws = cbar_dict, #cmap = standard_colour_map,
-        annot = True, fmt = "-.5g",
+        annot = True, fmt = "-.6g",
         square = False, ax = axis
     )
     
