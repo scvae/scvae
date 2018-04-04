@@ -383,16 +383,17 @@ def main(log_directory = None, results_directory = None,
                             key = lambda s: prod(map(int, s.split("×")))
                         )
                     )
-                print(network_architecture_ELBOs)
-                figure, figure_name = plotELBOHeatMap(
-                    network_architecture_ELBOs,
-                    x_label = "Latent dimension",
-                    y_label = "Number of hidden units",
-                    z_symbol = "\mathcal{L}",
-                    name = data_set_name.replace(os.sep, "-")
-                )
-                saveFigure(figure, figure_name, cross_analysis_directory)
-                print()
+                
+                if network_architecture_ELBOs.size > 1:
+                    figure, figure_name = plotELBOHeatMap(
+                        network_architecture_ELBOs,
+                        x_label = "Latent dimension",
+                        y_label = "Number of hidden units",
+                        z_symbol = "\mathcal{L}",
+                        name = data_set_name.replace(os.sep, "-")
+                    )
+                    saveFigure(figure, figure_name, cross_analysis_directory)
+                    print()
             
             for model_title, model_fields in comparisons.items():
                 for field_name, field_value in model_fields.items():
