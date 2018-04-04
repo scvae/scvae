@@ -2595,7 +2595,10 @@ def loadFeatureMapping(tables_file, group):
     feature_mapping = {}
     
     for feature_name, feature_count in zip(feature_names, feature_counts):
-        feature_ID_set = [feature_IDs.pop(0) for i in range(feature_count)]
+        feature_name = feature_name.decode("UTF-8")
+        feature_ID_set = [
+            feature_IDs.pop(0).decode("UTF-8") for i in range(feature_count)
+        ]
         feature_mapping[feature_name] = feature_ID_set
     
     return feature_mapping
