@@ -243,22 +243,26 @@ def main(log_directory = None, results_directory = None,
                                         ARI_value
                                     )
                                 )
-                                correlation_set_name = "; ".join([
-                                    prediction_string, ARI_name
-                                ])
-                                if correlation_set_name not in correlation_sets:
-                                    correlation_sets[correlation_set_name] = {
-                                        "ELBO": [],
-                                        "ARI": []
-                                    }
-                                correlation_sets[correlation_set_name]["ELBO"]\
-                                    .append(model_lower_bound)
-                                correlation_sets[correlation_set_name]["ARI"]\
-                                    .append(ARI_value)
+                                
+                                if "clusters" in ARI_name:
+                                    correlation_set_name = "; ".join([
+                                        prediction_string, ARI_name
+                                    ])
+                                    if correlation_set_name not in correlation_sets:
+                                        correlation_sets[correlation_set_name] = {
+                                            "ELBO": [],
+                                            "ARI": []
+                                        }
+                                    correlation_sets[correlation_set_name]["ELBO"]\
+                                        .append(model_lower_bound)
+                                    correlation_sets[correlation_set_name]["ARI"]\
+                                        .append(ARI_value)
                             
                             metrics_string_parts.append("")
                         
-                        model_ARIs.extend(ARIs.values())
+                        model_ARIs.extend([
+                            v for k, v in ARIs.items() if "clusters" in k
+                        ])
                 
                 comparisons[model_title] = {
                     "ID": model_ID,
@@ -416,9 +420,9 @@ def main(log_directory = None, results_directory = None,
                         maximum = max(field_value)
                         
                         if minimum == maximum:
-                            string = "{:4.2f}".format(maximum)
+                            string = "{:.6g}".format(maximum)
                         else:
-                            string = "{:4.2f}--{:4.2f}".format(
+                            string = "{:5.3f}–{:5.3f}".format(
                                 minimum, maximum)
                     
                     else:
