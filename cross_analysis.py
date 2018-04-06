@@ -78,12 +78,12 @@ def main(log_directory = None, results_directory = None,
         appendExplanationForSearchStrings(
             prediction_included_strings,
             inclusive = True,
-            kind = "predictions"
+            kind = "prediction methods"
         )
         appendExplanationForSearchStrings(
             prediction_excluded_strings,
             inclusive = False,
-            kind = "predictions"
+            kind = "prediction methods"
         )
         
         explanation_string = "\n".join(explanation_string_parts)
@@ -235,21 +235,18 @@ def main(log_directory = None, results_directory = None,
                         
                         ARIs = {}
                         
-                        prediction_match = matchString(
-                            prediction,
-                            prediction_included_strings,
-                            prediction_excluded_strings
-                        )
-                        
-                        if not prediction_match:
-                            continue
-                        
                         method = prediction["prediction method"]
                         number_of_classes = prediction["number of classes"]
                         
+                        if not method:
+                            method = "model"
+                        
+                        prediction_string = "{} ({} classes)".format(
+                            method, number_of_classes)
+                        
                         for key, value in prediction.items():
                             key_match = matchString(
-                                key,
+                                "; ".join([prediction_string, key]),
                                 prediction_included_strings,
                                 prediction_excluded_strings
                             )
@@ -259,11 +256,7 @@ def main(log_directory = None, results_directory = None,
                                 ARIs[key] = value
                         
                         if ARIs:
-                            if not method:
-                                method = "model"
                             
-                            prediction_string = "{} ({} classes)".format(
-                                method, number_of_classes)
                             metrics_string_parts.append(prediction_string + ":")
                             
                             for ARI_name, ARI_value in ARIs.items():
@@ -274,7 +267,7 @@ def main(log_directory = None, results_directory = None,
                                     )
                                 )
                                 
-                                if "clusters" in ARI_name:
+                                if "clusters" in ARI_name and ARI_value > 0:
                                     correlation_set_name = "; ".join([
                                         prediction_string, ARI_name
                                     ])
