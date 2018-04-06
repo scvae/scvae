@@ -3621,8 +3621,8 @@ def plotVariableCorrelations(values, variable_names = None,
     
     return figure, figure_name
 
-def plotCorrelations(correlation_sets, x_label = None, y_label = None,
-    name = None):
+def plotCorrelations(correlation_sets, x_key, y_key,
+    x_label = None, y_label = None, name = None):
     
     # Setup
     
@@ -3643,7 +3643,7 @@ def plotCorrelations(correlation_sets, x_label = None, y_label = None,
     
     for correlation_set_name, correlation_set in correlation_sets.items():
         axis.scatter(
-            correlation_set[x_label], correlation_set[y_label],
+            correlation_set[x_key], correlation_set[y_key],
             label = correlation_set_name
         )
     

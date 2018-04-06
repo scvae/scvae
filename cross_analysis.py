@@ -27,10 +27,12 @@ zipped_pickle_extension = ".pkl.gz"
 log_extension = ".log"
 
 def main(log_directory = None, results_directory = None,
-    data_set_include_search_strings = [], 
-    model_include_search_strings = [],
-    data_set_exclude_search_strings = [], 
-    model_exclude_search_strings = [],
+    data_set_included_strings = [], 
+    data_set_excluded_strings = [], 
+    model_included_strings = [],
+    model_excluded_strings = [],
+    prediction_included_strings = [],
+    prediction_excluded_strings = [],
     epoch_cut_off = inf,
     log_summary = False):
     
@@ -54,24 +56,34 @@ def main(log_directory = None, results_directory = None,
                 ))
         
         appendExplanationForSearchStrings(
-            data_set_include_search_strings,
+            data_set_included_strings,
             inclusive = True,
             kind = "data sets"
         )
         appendExplanationForSearchStrings(
-            data_set_exclude_search_strings,
+            data_set_excluded_strings,
             inclusive = False,
             kind = "data sets"
         )
         appendExplanationForSearchStrings(
-            model_include_search_strings,
+            model_included_strings,
             inclusive = True,
             kind = "models"
         )
         appendExplanationForSearchStrings(
-            model_exclude_search_strings,
+            model_excluded_strings,
             inclusive = False,
             kind = "models"
+        )
+        appendExplanationForSearchStrings(
+            prediction_included_strings,
+            inclusive = True,
+            kind = "predictions"
+        )
+        appendExplanationForSearchStrings(
+            prediction_excluded_strings,
+            inclusive = False,
+            kind = "predictions"
         )
         
         explanation_string = "\n".join(explanation_string_parts)
@@ -91,10 +103,12 @@ def main(log_directory = None, results_directory = None,
                         "_".join(search_strings)
                     ))
             
-            appendSearchStrings(data_set_include_search_strings, "d")
-            appendSearchStrings(data_set_exclude_search_strings, "D")
-            appendSearchStrings(model_include_search_strings, "m")
-            appendSearchStrings(model_exclude_search_strings, "M")
+            appendSearchStrings(data_set_included_strings, "d")
+            appendSearchStrings(data_set_excluded_strings, "D")
+            appendSearchStrings(model_included_strings, "m")
+            appendSearchStrings(model_excluded_strings, "M")
+            appendSearchStrings(prediction_included_strings, "p")
+            appendSearchStrings(prediction_excluded_strings, "P")
             
             if not log_filename_parts:
                 log_filename_parts.append("all")
@@ -106,10 +120,10 @@ def main(log_directory = None, results_directory = None,
         
         test_metrics_set = testMetricsInResultsDirectory(
             results_directory,
-            data_set_include_search_strings,
-            data_set_exclude_search_strings,
-            model_include_search_strings,
-            model_exclude_search_strings
+            data_set_included_strings,
+            data_set_excluded_strings,
+            model_included_strings,
+            model_excluded_strings
         )
         
         model_IDs = modelID()
@@ -221,12 +235,28 @@ def main(log_directory = None, results_directory = None,
                         
                         ARIs = {}
                         
-                        for key, value in prediction.items():
-                            if key.startswith("ARI") and value:
-                                ARIs[key] = value
+                        prediction_match = matchString(
+                            prediction,
+                            prediction_included_strings,
+                            prediction_excluded_strings
+                        )
+                        
+                        if not prediction_match:
+                            continue
                         
                         method = prediction["prediction method"]
                         number_of_classes = prediction["number of classes"]
+                        
+                        for key, value in prediction.items():
+                            key_match = matchString(
+                                key,
+                                prediction_included_strings,
+                                prediction_excluded_strings
+                            )
+                            if not key_match:
+                                continue
+                            if key.startswith("ARI") and value is not None:
+                                ARIs[key] = value
                         
                         if ARIs:
                             if not method:
@@ -289,8 +319,10 @@ def main(log_directory = None, results_directory = None,
             if correlation_sets:
                 figure, figure_name = plotCorrelations(
                     correlation_sets,
-                    x_label = "ELBO",
-                    y_label = "ARI",
+                    x_key = "ELBO",
+                    y_key = "ARI",
+                    x_label = r"$\mathcal{L}$",
+                    y_label = r"$R_{\mathrm{adj}}$",
                     name = data_set_name.replace(os.sep, "-")
                 )
                 saveFigure(figure, figure_name, cross_analysis_directory)
@@ -509,8 +541,8 @@ def main(log_directory = None, results_directory = None,
                 log_file.write(log_string)
 
 def testMetricsInResultsDirectory(results_directory,
-    data_set_include_search_strings, data_set_exclude_search_strings,
-    model_include_search_strings, model_exclude_search_strings):
+    data_set_included_strings, data_set_excluded_strings,
+    model_included_strings, model_excluded_strings):
     
     test_metrics_filename = test_metrics_basename + zipped_pickle_extension
     
@@ -525,38 +557,22 @@ def testMetricsInResultsDirectory(results_directory,
         
         # Verify data set match
         
-        data_set_match = True
-        
-        for data_set_search_string in data_set_include_search_strings:
-            if data_set_search_string in data_set:
-                data_set_match *= True
-            else:
-                data_set_match *= False
-        
-        for data_set_search_string in data_set_exclude_search_strings:
-            if data_set_search_string not in data_set:
-                data_set_match *= True
-            else:
-                data_set_match *= False
+        data_set_match = matchString(
+            data_set,
+            data_set_included_strings,
+            data_set_excluded_strings
+        )
         
         if not data_set_match:
             continue
         
         # Verify model match
         
-        model_match = True
-        
-        for model_search_string in model_include_search_strings:
-            if model_search_string in model:
-                model_match *= True
-            else:
-                model_match *= False
-        
-        for model_search_string in model_exclude_search_strings:
-            if model_search_string not in model:
-                model_match *= True
-            else:
-                model_match *= False
+        model_match = matchString(
+            model,
+            model_included_strings,
+            model_excluded_strings
+        )
         
         if not model_match:
             continue
@@ -600,6 +616,24 @@ def testMetricsInResultsDirectory(results_directory,
             test_metrics_set[data_set][model] = test_metrics_data
     
     return test_metrics_set
+
+def matchString(string, included_strings, excluded_strings):
+    
+    match = True
+    
+    for search_string in included_strings:
+        if search_string in string:
+            match *= True
+        else:
+            match *= False
+    
+    for search_string in excluded_strings:
+        if search_string not in string:
+            match *= True
+        else:
+            match *= False
+    
+    return match
 
 def titleFromName(name, replacement_dictionaries = None):
     
@@ -845,32 +879,46 @@ parser.add_argument(
     help = "directory where results were saved"
 )
 parser.add_argument(
-    "--data-set-include-search-strings", "-d",
+    "--data-set-included-strings", "-d",
     type = str,
     nargs = "*",
     default = [],
-    help = "list of search strings to include in data set directories"
+    help = "strings to include in data set directories"
 )
 parser.add_argument(
-    "--model-include-search-strings", "-m",
+    "--data-set-excluded-strings", "-D",
     type = str,
     nargs = "*",
     default = [],
-    help = "list of search strings to include in model directories"
+    help = "strings to exclude in data set directories"
 )
 parser.add_argument(
-    "--data-set-exclude-search-strings", "-D",
+    "--model-included-strings", "-m",
     type = str,
     nargs = "*",
     default = [],
-    help = "list of search strings to exclude in data set directories"
+    help = "strings to include in model directories"
 )
 parser.add_argument(
-    "--model-exclude-search-strings", "-M",
+    "--model-excluded-strings", "-M",
     type = str,
     nargs = "*",
     default = [],
-    help = "list of search strings to exclude in model directories"
+    help = "strings to exclude in model directories"
+)
+parser.add_argument(
+    "--prediction-included-strings", "-p",
+    type = str,
+    nargs = "*",
+    default = [],
+    help = "strings to include in prediction methods"
+)
+parser.add_argument(
+    "--prediction-excluded-strings", "-P",
+    type = str,
+    nargs = "*",
+    default = [],
+    help = "strings to exclude in prediction methods"
 )
 parser.add_argument(
     "--epoch-cut-off",
