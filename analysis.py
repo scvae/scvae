@@ -3622,11 +3622,11 @@ def plotVariableCorrelations(values, variable_names = None,
     return figure, figure_name
 
 def plotCorrelations(correlation_sets, x_label = None, y_label = None,
-    name = "correlations"):
+    name = None):
     
     # Setup
     
-    figure_name = name
+    figure_name = figureName("correlations", name)
     
     if not isinstance(correlation_sets, dict):
         correlation_sets = {"correlations": correlation_sets}
