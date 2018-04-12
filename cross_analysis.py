@@ -11,6 +11,7 @@ import re
 from itertools import product
 from string import ascii_uppercase
 from math import inf
+from scipy.stats import pearsonr
 
 import argparse
 
@@ -310,6 +311,25 @@ def main(log_directory = None, results_directory = None,
             # Correlations
             
             if correlation_sets:
+                
+                correlation_string_parts = []
+                correlation_table = {}
+                
+                for set_name in correlation_sets:
+                    if len(correlation_sets[set_name]["ELBO"]) < 2:
+                        continue
+                    correlation_coefficient, _ = pearsonr(
+                        correlation_sets[set_name]["ELBO"],
+                        correlation_sets[set_name]["ARI"]
+                    )
+                    correlation_table[set_name] = {"r": correlation_coefficient}
+                
+                if correlation_table:
+                    correlation_table = pandas.DataFrame(correlation_table).T
+                    correlation_string_parts.append(str(correlation_table))
+                
+                correlation_string_parts.append("")
+                correlation_string_parts.append("Plotting correlations.")
                 figure, figure_name = plotCorrelations(
                     correlation_sets,
                     x_key = "ELBO",
@@ -319,6 +339,15 @@ def main(log_directory = None, results_directory = None,
                     name = data_set_name.replace(os.sep, "-")
                 )
                 saveFigure(figure, figure_name, cross_analysis_directory)
+                
+                correlation_string = "\n".join(correlation_string_parts)
+                
+                print(subtitle("ELBO--ARI correlations"))
+                print(correlation_string + "\n")
+            
+                if log_summary:
+                    log_string_parts.append(subtitle("ELBO--ARI correlations", plain = True))
+                    log_string_parts.append(correlation_string + "\n")
             
             # Comparison
             
@@ -516,12 +545,12 @@ def main(log_directory = None, results_directory = None,
                 comparison_table_rows.append(
                     table_column_spacing.join(comparison_table_row_parts)
                 )
-
+            
             comparison_table = "\n".join(comparison_table_rows)
-
+            
             print(subtitle("Comparison"))
             print(comparison_table + "\n")
-
+            
             if log_summary:
                 log_string_parts.append(subtitle("Comparison", plain = True))
                 log_string_parts.append(comparison_table + "\n")
