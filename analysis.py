@@ -14,6 +14,7 @@ import matplotlib.lines
 import matplotlib.gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
 from matplotlib.ticker import LogFormatterSciNotation
+from textwrap import wrap
 
 import seaborn
 
@@ -101,6 +102,9 @@ def analyseData(data_sets,
         os.makedirs(results_directory)
     
     analyses = parseAnalyses(analyses)
+    
+    if not isinstance(data_sets, list):
+        data_sets = [data_sets]
     
     # Metrics
     
@@ -3822,18 +3826,33 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             
             axis.scatter(values[:, 0], values[:, 1], c = colours)
             
-            if number_of_classes < 20:
-                handles, labels = axis.get_legend_handles_labels()
-                if labels:
-                    labels, handles = zip(*sorted(zip(labels, handles),
-                        key = lambda t: label_sorter(t[0])))
+            class_handles, class_labels = axis.get_legend_handles_labels()
+            
+            if class_labels:
+                class_labels, class_handles = zip(*sorted(
+                    zip(class_labels, class_handles),
+                    key = lambda t: label_sorter(t[0])
+                ))
+                class_label_maximum_width = max(*map(len, class_labels))
+                if class_label_maximum_width <= 5 and number_of_classes <= 20:
                     legend = axis.legend(
-                        handles, labels,
+                        class_handles, class_labels,
+                        loc = "best"
+                    )
+                else:
+                    if number_of_classes <= 20:
+                        class_label_columns = 2
+                    else:
+                        class_label_columns = 3
+                    legend = axis.legend(
+                        class_handles, class_labels,
                         # bbox_to_anchor = (0., 1.02, 1., 1.02), loc = 3,
-                        bbox_to_anchor = (-.1, 1.02, 1.1, 1.02), loc = 3,
+                        bbox_to_anchor = (-.1, 1.05, 1.1, 1.05), loc = "lower left",
                         # bbox_to_anchor = (0, 0, 1, 1), loc = 1,
                         # bbox_transform = figure.transFigure,
-                        ncol = 2, mode = "expand", borderaxespad = 0.
+                        ncol = class_label_columns, mode = "expand",
+                        borderaxespad = 0.,
+                        fontsize = "x-small"
                     )
         
         elif "class" in colour_coding:
