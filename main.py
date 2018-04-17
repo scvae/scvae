@@ -54,7 +54,7 @@ def main(input_file_or_name, data_directory = "data",
     reset_training = False, skip_modelling = False,
     analyse = True, evaluation_set_name = "test", analyse_data = False,
     analyses = ["default"], analysis_level = "normal", fast_analysis = False,
-    video = False):
+    export_for_video = False):
     
     print()
     
@@ -394,7 +394,7 @@ def main(input_file_or_name, data_directory = "data",
         
         print(subtitle("Model analysis"))
         analysis.analyseModel(model, analyses, analysis_level,
-            video, results_directory)
+            export_for_video, results_directory)
     
     ## Results evaluation, prediction, and analysis
     
@@ -953,17 +953,17 @@ parser.add_argument(
 )
 parser.set_defaults(fast_analysis = False)
 parser.add_argument(
-    "--video", "-v",
+    "--export-for-video", "-v",
     action = "store_true",
     help = "analyse model evolution for video"
 )
 parser.add_argument(
-    "--no-video", "-V",
-    dest = "video",
+    "--skip-exporting-for-video", "-V",
+    dest = "export_for_video",
     action = "store_false",
     help = "do not analyse model evolution for video"
 )
-parser.set_defaults(video = False)
+parser.set_defaults(export_for_video = False)
 
 if __name__ == '__main__':
     arguments = parser.parse_args()

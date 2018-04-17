@@ -259,7 +259,7 @@ def analyseData(data_sets,
             )
 
 def analyseModel(model, analyses = ["default"], analysis_level = "normal",
-    for_video = False, results_directory = "results"):
+    export_for_video = False, results_directory = "results"):
     
     # Setup
     
@@ -289,14 +289,14 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
         figure, figure_name = plotLearningCurves(learning_curves, model.type)
         saveFigure(figure, figure_name, results_directory)
         
-        if for_video:
-            print("Plotting learning curve evolution for video")
+        if export_for_video:
+            print("Plotting learning-curve evolutions for video.")
             for epoch in range(number_of_epochs_trained):
                 figure, figure_name = plotLearningCurves(
                     learning_curves,
                     model.type,
                     epoch_slice = slice(epoch + 1),
-                    global_y_lim = for_video
+                    global_y_lim = export_for_video
                 )
                 saveFigure(figure, figure_name, os.path.join(results_directory, "learning_curve_evolution"))
         
@@ -360,7 +360,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
     
     # Heat map of KL for all latent neurons
     
-    if "kl_heat_maps" in analyses and model.type == "VAE":
+    if "kl_heat_maps" in analyses and "VAE" in model.type:
         
         print(subheading("KL divergence"))
     
@@ -441,7 +441,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
                 
                 print()
 
-        if for_video:
+        if export_for_video:
             print("Plotting evolution of latent class probabilities for video")
             centroid_prior_probabilities = centroids["prior"]["probabilities"]
             centroid_posterior_probabilities = centroids["posterior"]["probabilities"]
@@ -460,11 +460,8 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
                     linestyle = "solid",
                     name = ["epoch", i]
                 )
-                saveFigure(figure,
-                    figure_name,
-                    centroids_directory,
-                    for_video = for_video
-                )
+                saveFigure(figure, figure_name, centroids_directory,
+                    export_for_video)
 
             print()
 
@@ -490,12 +487,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
         model_type,
         epoch_offset = epoch_start
     )
-    
-    if epoch is not None:
-        saveFigure(figure, figure_name, results_directory, for_video = False)
-    else:
-        saveFigure(figure, figure_name, results_directory)
-
+    saveFigure(figure, figure_name, results_directory)
     
     learning_curves_duration = time() - learning_curves_time_start
     print("Learning curves plotted and saved ({}).".format(
@@ -566,12 +558,8 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                 figure_labels = figure_labels,
                 name = name
             )
-            figure.axes[0].set_xbound([-8, 13])
-            figure.axes[0].set_ybound([-5, 12])
-            figure.axes[0].set_xlim([-8, 13])
-            figure.axes[0].set_ylim([-5, 12])
             saveFigure(figure, figure_name, results_directory,
-                for_video = True)
+                export_for_video = True)
             if data_set.label_superset is not None:
                 figure, figure_name = plotValues(
                     latent_values_decomposed,
@@ -581,12 +569,8 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                     figure_labels = figure_labels,
                     name = name
                 )
-                figure.axes[0].set_xbound([-8, 13])
-                figure.axes[0].set_ybound([-5, 12])
-                figure.axes[0].set_xlim([-8, 13])
-                figure.axes[0].set_ylim([-5, 12])
                 saveFigure(figure, figure_name, results_directory,
-                    for_video = True)
+                    export_for_video = True)
         else:
             figure, figure_name = plotValues(
                 latent_values_decomposed,
@@ -594,17 +578,13 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                 figure_labels = figure_labels,
                 name = name
             )
-            figure.axes[0].set_xbound([-8, 13])
-            figure.axes[0].set_ybound([-5, 12])
-            figure.axes[0].set_xlim([-8, 13])
-            figure.axes[0].set_ylim([-5, 12])
             saveFigure(figure, figure_name, results_directory,
-                for_video = True)
+                export_for_video = True)
     
         if centroids:
             analyseCentroidProbabilities(
                 centroids, epoch_name,
-                for_video = True,
+                export_for_video = True,
                 results_directory = results_directory)
     
         plot_duration = time() - plot_time_start
@@ -2090,7 +2070,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 print()
 
 def analyseCentroidProbabilities(centroids, name = None,
-    analysis_level = "normal", for_video = False, results_directory = "results"):
+    analysis_level = "normal", export_for_video = False, results_directory = "results"):
     
     print("Plotting centroid probabilities.")
     plot_time_start = time()
@@ -2148,7 +2128,8 @@ def analyseCentroidProbabilities(centroids, name = None,
         uniform = False,
         name = plot_name
     )
-    saveFigure(figure, figure_name, results_directory, for_video=for_video)
+    saveFigure(figure, figure_name, results_directory,
+        export_for_video)
     
     plot_duration = time() - plot_time_start
     print("Centroid probabilities plotted and saved ({}).".format(
@@ -4139,13 +4120,13 @@ def figureName(base_name, other_names = None):
     
     return figure_name
 
-def saveFigure(figure, figure_name, results_directory, for_video=False):
+def saveFigure(figure, figure_name, results_directory, export_for_video = False):
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
     
     figure_path = os.path.join(results_directory, figure_name) + figure_extension
-    if for_video:
+    if export_for_video:
         bounding_box = None
         dpi = 'figure'
     else:
