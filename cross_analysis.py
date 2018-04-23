@@ -35,6 +35,7 @@ def main(log_directory = None, results_directory = None,
     prediction_included_strings = [],
     prediction_excluded_strings = [],
     epoch_cut_off = inf,
+    export_options = [],
     log_summary = False):
     
     if log_directory:
@@ -338,7 +339,8 @@ def main(log_directory = None, results_directory = None,
                     y_label = r"$R_{\mathrm{adj}}$",
                     name = data_set_name.replace(os.sep, "-")
                 )
-                saveFigure(figure, figure_name, cross_analysis_directory)
+                saveFigure(figure, figure_name, export_options,
+                    cross_analysis_directory)
                 
                 correlation_string = "\n".join(correlation_string_parts)
                 
@@ -450,7 +452,8 @@ def main(log_directory = None, results_directory = None,
                         z_symbol = "\mathcal{L}",
                         name = data_set_name.replace(os.sep, "-")
                     )
-                    saveFigure(figure, figure_name, cross_analysis_directory)
+                    saveFigure(figure, figure_name, export_options,
+                        cross_analysis_directory)
                     print()
             
             for model_title, model_fields in comparisons.items():
@@ -959,6 +962,13 @@ parser.add_argument(
     help = "do not log summary"
 )
 parser.set_defaults(log_summary = False)
+parser.add_argument(
+    "--export-options",
+    type = str,
+    nargs = "?",
+    default = [],
+    help = "analyse model evolution for video"
+)
 
 if __name__ == '__main__':
     arguments = parser.parse_args()

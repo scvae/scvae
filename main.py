@@ -54,9 +54,7 @@ def main(input_file_or_name, data_directory = "data",
     reset_training = False, skip_modelling = False,
     analyse = True, evaluation_set_name = "test", analyse_data = False,
     analyses = ["default"], analysis_level = "normal", fast_analysis = False,
-    export_for_video = False):
-    
-    print()
+    export_options = []):
     
     # Setup
     
@@ -161,7 +159,7 @@ def main(input_file_or_name, data_directory = "data",
             all_data_sets,
             decomposition_methods, highlight_feature_indices,
             analyses, analysis_level,
-            data_results_directory
+            export_options, data_results_directory
         )
         print()
     
@@ -394,7 +392,7 @@ def main(input_file_or_name, data_directory = "data",
         
         print(subtitle("Model analysis"))
         analysis.analyseModel(model, analyses, analysis_level,
-            export_for_video, results_directory)
+            export_options, results_directory)
     
     ## Results evaluation, prediction, and analysis
     
@@ -506,6 +504,7 @@ def main(input_file_or_name, data_directory = "data",
                 best_model = use_best_model,
                 early_stopping = use_early_stopping_model,
                 analyses = analyses, analysis_level = analysis_level,
+                export_options = export_options,
                 results_directory = results_directory
             )
 
@@ -953,17 +952,12 @@ parser.add_argument(
 )
 parser.set_defaults(fast_analysis = False)
 parser.add_argument(
-    "--export-for-video", "-v",
-    action = "store_true",
+    "--export-options",
+    type = str,
+    nargs = "?",
+    default = [],
     help = "analyse model evolution for video"
 )
-parser.add_argument(
-    "--skip-exporting-for-video", "-V",
-    dest = "export_for_video",
-    action = "store_false",
-    help = "do not analyse model evolution for video"
-)
-parser.set_defaults(export_for_video = False)
 
 if __name__ == '__main__':
     arguments = parser.parse_args()

@@ -92,7 +92,7 @@ analysis_groups["complete"] += analysis_groups["default"]
 def analyseData(data_sets,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     analyses = ["default"], analysis_level = "normal",
-    results_directory = "results"):
+    export_options = [], results_directory = "results"):
     
     # Setup
     
@@ -205,6 +205,7 @@ def analyseData(data_sets,
                 data_set,
                 cutoffs = default_cutoffs,
                 analysis_level = analysis_level,
+                export_options = export_options,
                 results_directory = results_directory
             )
         
@@ -235,7 +236,7 @@ def analyseData(data_sets,
                 z_symbol = "x",
                 name = data_set.kind
             )
-            saveFigure(figure, figure_name, heat_maps_directory)
+            saveFigure(figure, figure_name, export_options, heat_maps_directory)
             
             heat_maps_duration = time() - heat_maps_time_start
             print("Heat map for {} set plotted and saved ({})."\
@@ -255,11 +256,12 @@ def analyseData(data_sets,
                 title = "original space",
                 specifier = lambda data_set: data_set.kind,
                 analysis_level = analysis_level,
+                export_options = export_options,
                 results_directory = results_directory
             )
 
 def analyseModel(model, analyses = ["default"], analysis_level = "normal",
-    export_for_video = False, results_directory = "results"):
+    export_options = [], results_directory = "results"):
     
     # Setup
     
@@ -287,38 +289,42 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
             data_set_kinds = ["training", "validation"])
         
         figure, figure_name = plotLearningCurves(learning_curves, model.type)
-        saveFigure(figure, figure_name, results_directory)
+        saveFigure(figure, figure_name, export_options, results_directory)
         
-        if export_for_video:
+        if "video" in export_options:
             print("Plotting learning-curve evolutions for video.")
             for epoch in range(number_of_epochs_trained):
                 figure, figure_name = plotLearningCurves(
                     learning_curves,
                     model.type,
                     epoch_slice = slice(epoch + 1),
-                    global_y_lim = export_for_video
+                    global_y_lim = "video" in export_options
                 )
-                saveFigure(figure, figure_name, os.path.join(results_directory, "learning_curve_evolution"))
+                saveFigure(figure, figure_name, export_options,
+                    os.path.join(results_directory, "learning_curve_evolution"))
         
         if model.type == "SNN":
             figure, figure_name = plotSeparateLearningCurves(learning_curves,
                 loss = "log_likelihood")
-            saveFigure(figure, figure_name, results_directory)
+            saveFigure(figure, figure_name, export_options, results_directory)
         elif "VAE" in model.type:
             figure, figure_name = plotSeparateLearningCurves(learning_curves,
                 loss = ["lower_bound", "reconstruction_error"])
-            saveFigure(figure, figure_name, results_directory)
+            saveFigure(figure, figure_name, export_options, results_directory)
             if model.type in ["GMVAE"]:
                 figure, figure_name = plotSeparateLearningCurves(learning_curves,
                     loss = "kl_divergence_z")
-                saveFigure(figure, figure_name, results_directory)
-                figure, figure_name = plotSeparateLearningCurves(learning_curves,
-                    loss = "kl_divergence_y")
-                saveFigure(figure, figure_name, results_directory)
+                saveFigure(figure, figure_name, export_options,
+                    results_directory)
+                figure, figure_name = plotSeparateLearningCurves(
+                    learning_curves,
+                    loss = "kl_divergence_y"
+                )
+                saveFigure(figure, figure_name, export_options, results_directory)
             else:
                 figure, figure_name = plotSeparateLearningCurves(learning_curves,
                     loss = "kl_divergence")
-                saveFigure(figure, figure_name, results_directory)
+                saveFigure(figure, figure_name, export_options, results_directory)
     
         learning_curves_duration = time() - learning_curves_time_start
         print("Learning curves plotted and saved ({}).".format(
@@ -342,7 +348,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
             print("Plotting accuracies.")
             
             figure, figure_name = plotAccuracies(accuracies)
-            saveFigure(figure, figure_name, results_directory)
+            saveFigure(figure, figure_name, export_options, results_directory)
             
             superset_accuracies = loadAccuracies(model,
                 data_set_kinds = ["training", "validation"], superset = True)
@@ -350,7 +356,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
             if superset_accuracies is not None:
                 figure, figure_name = plotAccuracies(superset_accuracies,
                     name = "superset")
-                saveFigure(figure, figure_name, results_directory)
+                saveFigure(figure, figure_name, export_options, results_directory)
             
             accuracies_duration = time() - accuracies_time_start
             print("Accuracies plotted and saved ({}).".format(
@@ -373,7 +379,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
         log_KL_neurons = numpy.log(KL_neurons)
         
         figure, figure_name = plotKLDivergenceEvolution(KL_neurons)
-        saveFigure(figure, figure_name, results_directory)
+        saveFigure(figure, figure_name, export_options, results_directory)
         
         heat_map_duration = time() - heat_map_time_start
         print("Heat map plotted and saved ({}).".format(
@@ -425,15 +431,15 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
                 
                 figure, figure_name = plotEvolutionOfCentroidProbabilities(
                     centroid_probabilities, distribution)
-                saveFigure(figure, figure_name, centroids_directory)
+                saveFigure(figure, figure_name, export_options, centroids_directory)
                 
                 figure, figure_name = plotEvolutionOfCentroidMeans(
                     centroid_means_decomposed, distribution, decomposed)
-                saveFigure(figure, figure_name, centroids_directory)
+                saveFigure(figure, figure_name, export_options, centroids_directory)
                 
                 figure, figure_name = plotEvolutionOfCentroidCovarianceMatrices(
                     centroid_covariance_matrices, distribution)
-                saveFigure(figure, figure_name, centroids_directory)
+                saveFigure(figure, figure_name, export_options, centroids_directory)
                 
                 centroids_duration = time() - centroids_time_start
                 print("Evolution of latent {} parameters plotted and saved ({})"\
@@ -441,7 +447,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
                 
                 print()
 
-        if export_for_video:
+        if "video" in export_options:
             print("Plotting evolution of latent class probabilities for video")
             centroid_prior_probabilities = centroids["prior"]["probabilities"]
             centroid_posterior_probabilities = centroids["posterior"]["probabilities"]
@@ -460,8 +466,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
                     linestyle = "solid",
                     name = ["epoch", i]
                 )
-                saveFigure(figure, figure_name, centroids_directory,
-                    export_for_video)
+                saveFigure(figure, figure_name, export_options, centroids_directory)
 
             print()
 
@@ -469,6 +474,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
     epoch = None, latent_values = None, data_set = None, centroids = None,
     model_name = None, model_type = None, results_directory = "results"):
     
+    export_options = []
     results_directory = os.path.join(results_directory, model_name,
         "intermediate")
     
@@ -487,7 +493,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
         model_type,
         epoch_offset = epoch_start
     )
-    saveFigure(figure, figure_name, results_directory)
+    saveFigure(figure, figure_name, export_options, results_directory)
     
     learning_curves_duration = time() - learning_curves_time_start
     print("Learning curves plotted and saved ({}).".format(
@@ -558,8 +564,8 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                 figure_labels = figure_labels,
                 name = name
             )
-            saveFigure(figure, figure_name, results_directory,
-                export_for_video = True)
+            saveFigure(figure, figure_name, export_options = ["video"],
+                results_directory = results_directory)
             if data_set.label_superset is not None:
                 figure, figure_name = plotValues(
                     latent_values_decomposed,
@@ -569,8 +575,8 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                     figure_labels = figure_labels,
                     name = name
                 )
-                saveFigure(figure, figure_name, results_directory,
-                    export_for_video = True)
+                saveFigure(figure, figure_name, export_options = ["video"],    
+                    results_directory = results_directory)
         else:
             figure, figure_name = plotValues(
                 latent_values_decomposed,
@@ -578,13 +584,13 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                 figure_labels = figure_labels,
                 name = name
             )
-            saveFigure(figure, figure_name, results_directory,
-                export_for_video = True)
+            saveFigure(figure, figure_name, export_options = ["video"],
+                results_directory = results_directory)
     
         if centroids:
             analyseCentroidProbabilities(
                 centroids, epoch_name,
-                export_for_video = True,
+                export_options = ["video"],
                 results_directory = results_directory)
     
         plot_duration = time() - plot_time_start
@@ -599,7 +605,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     number_of_classes = None,
     early_stopping = False, best_model = False,
     analyses = ["default"], analysis_level = "normal",
-    results_directory = "results"):
+    export_options = [], results_directory = "results"):
     
     if early_stopping and best_model:
         raise ValueError("Early-stopping model and best model cannot be"
@@ -1018,7 +1024,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                         y_scale = y_scale,
                         name = example_name_parts
                     )
-                    saveFigure(figure, figure_name,
+                    saveFigure(figure, figure_name, export_options,
                         profile_comparisons_directory)
             
             if maximum_count > 3 * y_cutoff:
@@ -1041,7 +1047,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                         y_cutoff = y_cutoff,
                         name = example_name_parts
                     )
-                    saveFigure(figure, figure_name,
+                    saveFigure(figure, figure_name, export_options,
                         profile_comparisons_directory)
             
             # Plot image examples for subset
@@ -1086,6 +1092,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             preprocessed = evaluation_set.preprocessing_methods,
             original_maximum_count = evaluation_set_maximum_value,
             analysis_level = analysis_level,
+            export_options = export_options,
             results_directory = results_directory
         )
     
@@ -1104,6 +1111,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             pca_limits = evaluation_set.pca_limits,
             title = "reconstruction space",
             analysis_level = analysis_level,
+            export_options = export_options,
             results_directory = results_directory,
         )
         
@@ -1121,6 +1129,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             pca_limits = evaluation_set.pca_limits,
             title = "original space",
             analysis_level = analysis_level,
+            export_options = export_options,
             results_directory = results_directory,
         )
     
@@ -1150,7 +1159,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             z_symbol = "\\tilde{{x}}",
             name = "reconstruction"
         )
-        saveFigure(figure, figure_name, heat_maps_directory)
+        saveFigure(figure, figure_name, export_options, heat_maps_directory)
         
         heat_maps_duration = time() - heat_maps_time_start
         print("    Reconstruction heat map plotted and saved ({})." \
@@ -1171,7 +1180,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 name = "difference",
                 center = 0
             )
-            saveFigure(figure, figure_name, heat_maps_directory)
+            saveFigure(figure, figure_name, export_options, heat_maps_directory)
             
             heat_maps_duration = time() - heat_maps_time_start
             print("    Difference heat map plotted and saved ({})." \
@@ -1192,7 +1201,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 name = "log_ratio",
                 center = 0
             )
-            saveFigure(figure, figure_name, heat_maps_directory)
+            saveFigure(figure, figure_name, export_options, heat_maps_directory)
             
             heat_maps_duration = time() - heat_maps_time_start
             print("    log-ratio heat map plotted and saved ({})." \
@@ -1233,6 +1242,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             title = "latent space",
             specifier = lambda data_set: data_set.version,
             analysis_level = analysis_level,
+            export_options = export_options,
             results_directory = results_directory,
         )
         
@@ -1266,7 +1276,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 latent_evaluation_set,
                 name = ["latent correlations", set_name]
             )
-            saveFigure(figure, figure_name, correlations_directory)
+            saveFigure(figure, figure_name, export_options,
+                correlations_directory)
             
             correlations_duration = time() - correlations_time_start
             print("    Latent correlations for {} plotted ({}).".format(
@@ -1278,7 +1289,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
 
 def analyseDistributions(data_set, colouring_data_set = None,
     cutoffs = None, preprocessed = False, original_maximum_count = None,
-    analysis_level = "normal", results_directory = "results"):
+    analysis_level = "normal", export_options = [],
+    results_directory = "results"):
     
     # Setup
     
@@ -1339,7 +1351,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
             label_sorter = data_set.label_sorter,
             name = data_set_name
         )
-        saveFigure(figure, figure_name, distribution_directory)
+        saveFigure(figure, figure_name, export_options, distribution_directory)
         
         distribution_duration = time() - distribution_time_start
         print("    Class distribution plotted and saved ({})."\
@@ -1358,7 +1370,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
             label_sorter = data_set.superset_label_sorter,
             name = [data_set_name, "superset"]
         )
-        saveFigure(figure, figure_name, distribution_directory)
+        saveFigure(figure, figure_name, export_options, distribution_directory)
         
         distribution_duration = time() - distribution_time_start
         print("    Superset class distribution plotted and saved ({})."\
@@ -1399,7 +1411,8 @@ def analyseDistributions(data_set, colouring_data_set = None,
                 maximum_count = maximum_count,
                 name = count_histogram_name
             )
-            saveFigure(figure, figure_name, distribution_directory)
+            saveFigure(figure, figure_name, export_options,
+                distribution_directory)
         
         if maximum_count:
             maximum_count_string = " (with a maximum count of {:d})".format(
@@ -1428,7 +1441,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
                 scale = "log",
                 name = data_set_name
             )
-            saveFigure(figure, figure_name,
+            saveFigure(figure, figure_name, export_options,
                 distribution_directory + "-counts")
 
         distribution_duration = time() - distribution_time_start
@@ -1448,7 +1461,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
         y_scale = "log",
         name = ["count sum", data_set_name]
     )
-    saveFigure(figure, figure_name, distribution_directory)
+    saveFigure(figure, figure_name, export_options, distribution_directory)
     
     distribution_duration = time() - distribution_time_start
     print("    Count sum distribution plotted and saved ({})."\
@@ -1510,7 +1523,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
                 colour = class_palette[class_name],
                 name = ["counts", data_set_name, "class", class_name]
             )
-            saveFigure(figure, figure_name,
+            saveFigure(figure, figure_name, export_options,
                 class_count_distribution_directory)
     
         distribution_duration = time() - distribution_time_start
@@ -1533,7 +1546,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
                 colour = class_palette[class_name],
                 name = ["count sum", data_set_name, "class", class_name]
             )
-            saveFigure(figure, figure_name,
+            saveFigure(figure, figure_name, export_options,
                 class_count_distribution_directory)
     
         distribution_duration = time() - distribution_time_start
@@ -1549,7 +1562,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     prediction_method = None, number_of_classes = None,
     symbol = None, pca_limits = None,
     title = "data set", specifier = None,
-    analysis_level = "normal", results_directory = "results"):
+    analysis_level = "normal", export_options = [],
+    results_directory = "results"):
     
     centroids_original = centroids
     
@@ -1832,7 +1846,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     example_tag = data_set.tags["example"],
                     name = plot_name
                 )
-                saveFigure(figure, figure_name, decompositions_directory)
+                saveFigure(figure, figure_name, export_options,
+                    decompositions_directory)
             
                 plot_duration = time() - plot_time_start
                 print("    {} plotted and saved ({}).".format(
@@ -1855,7 +1870,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         example_tag = data_set.tags["example"],
                         name = plot_name
                     )
-                    saveFigure(figure, figure_name, decompositions_directory)
+                    saveFigure(figure, figure_name, export_options,
+                        decompositions_directory)
         
                     plot_duration = time() - plot_time_start
                     print("    {} (with labels) plotted and saved ({}).".format(
@@ -1874,7 +1890,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             example_tag = data_set.tags["example"],
                             name = plot_name
                         )
-                        saveFigure(figure, figure_name, decompositions_directory)
+                        saveFigure(figure, figure_name, export_options,
+                            decompositions_directory)
                     
                         plot_duration = time() - plot_time_start
                         print("    " +
@@ -1902,7 +1919,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                                     example_tag = data_set.tags["example"],
                                     name = plot_name
                                 )
-                                saveFigure(figure, figure_name,
+                                saveFigure(figure, figure_name, export_options,
                                     decompositions_directory)
                         
                             plot_duration = time() - plot_time_start
@@ -1930,7 +1947,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                                     example_tag = data_set.tags["example"],
                                     name = plot_name
                                 )
-                                saveFigure(figure, figure_name,
+                                saveFigure(figure, figure_name, export_options,
                                     decompositions_directory)
                         
                             plot_duration = time() - plot_time_start
@@ -1958,7 +1975,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         example_tag = data_set.tags["example"],
                         name = plot_name,
                     )
-                    saveFigure(figure, figure_name, decompositions_directory)
+                    saveFigure(figure, figure_name, export_options,
+                        decompositions_directory)
                 
                     plot_duration = time() - plot_time_start
                     print("    " +
@@ -1984,7 +2002,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         example_tag = data_set.tags["example"],
                         name = plot_name,
                     )
-                    saveFigure(figure, figure_name, decompositions_directory)
+                    saveFigure(figure, figure_name, export_options,
+                        decompositions_directory)
                     
                     plot_duration = time() - plot_time_start
                     print("    " +
@@ -2010,7 +2029,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         example_tag = data_set.tags["example"],
                         name = plot_name,
                     )
-                    saveFigure(figure, figure_name, decompositions_directory)
+                    saveFigure(figure, figure_name, export_options,
+                        decompositions_directory)
                     
                     plot_duration = time() - plot_time_start
                     print("    " +
@@ -2035,7 +2055,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     example_tag = data_set.tags["example"],
                     name = plot_name
                 )
-                saveFigure(figure, figure_name, decompositions_directory)
+                saveFigure(figure, figure_name, export_options,
+                    decompositions_directory)
         
                 plot_duration = time() - plot_time_start
                 print("    {} (with count sum) plotted and saved ({}).".format(
@@ -2058,7 +2079,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         example_tag = data_set.tags["example"],
                         name = plot_name
                     )
-                    saveFigure(figure, figure_name, decompositions_directory)
+                    saveFigure(figure, figure_name, export_options,
+                        decompositions_directory)
             
                     plot_duration = time() - plot_time_start
                     print("    {} (with {}) plotted and saved ({}).".format(
@@ -2070,7 +2092,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 print()
 
 def analyseCentroidProbabilities(centroids, name = None,
-    analysis_level = "normal", export_for_video = False, results_directory = "results"):
+    analysis_level = "normal", export_options = [], results_directory = "results"):
     
     print("Plotting centroid probabilities.")
     plot_time_start = time()
@@ -2128,8 +2150,7 @@ def analyseCentroidProbabilities(centroids, name = None,
         uniform = False,
         name = plot_name
     )
-    saveFigure(figure, figure_name, results_directory,
-        export_for_video)
+    saveFigure(figure, figure_name, export_options, results_directory)
     
     plot_duration = time() - plot_time_start
     print("Centroid probabilities plotted and saved ({}).".format(
@@ -4120,19 +4141,31 @@ def figureName(base_name, other_names = None):
     
     return figure_name
 
-def saveFigure(figure, figure_name, results_directory, export_for_video = False):
+def saveFigure(figure, figure_name, export_options, results_directory):
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
     
-    figure_path = os.path.join(results_directory, figure_name) + figure_extension
-    if export_for_video:
+    figure_path = os.path.join(results_directory, figure_name) \
+        + figure_extension
+    
+    figure_width, figure_height = figure.get_size_inches()
+    aspect_ratio = figure_width / figure_height
+    
+    if "video" in export_options:
         bounding_box = None
-        dpi = 'figure'
     else:
         bounding_box = 'tight'
+    
+    if "hires" in export_options:
+        dpi = 300
+        # figure_width = 1200 / dpi
+        # figure_height = figure_width / aspect_ratio
+    else:
         dpi = None
-
+    
+    figure.set_size_inches(figure_width, figure_height)
+    
     figure.savefig(figure_path, bbox_inches = bounding_box, dpi = dpi)
     
     pyplot.close(figure)
