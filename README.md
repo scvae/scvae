@@ -27,7 +27,7 @@ The tool is implemented in Python using [TensorFlow][]. [Pandas][], [PyTables][]
 [scikit-learn]: http://scikit-learn.org
 [matplotlib]: http://matplotlib.org
 [Seaborn]: http://seaborn.pydata.org
-[Pillow]: https://python-pillow.org
+[Pillow]: http://python-pillow.org
 
 All included data sets are downloaded and processed automatically as needed.
 
