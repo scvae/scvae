@@ -66,12 +66,12 @@ To reproduce the main results from our paper, you can run the following commands
 
 Purified immune cells data set from 10x Genomics:
 
-	$ ./main.py -i 10x_pic -m GMVAE -r negative_binomial -l 100 -H 100 100 -e 500
+	$ ./main.py -i 10x_pic -m GMVAE -r negative_binomial -l 100 -H 100 100 -e 500 --decomposition-methods pca tsne
 
 Mouse brain cells data set from 10x Genomics:
 
-	$ ./main.py -i 10x_mbc -m GMVAE -K 10 -r zero_inflated_negative_binomial -l 25 -H 250 250 -e 500
+	$ ./main.py -i 10x_mbc -m GMVAE -K 10 -r zero_inflated_negative_binomial -l 25 -H 250 250 -e 500 --decomposition-methods pca tsne
 
 TCGA data set:
 
-	$ ./main.py -i tcga_rsem -m GMVAE --map-features -r negative_binomial -l 50 -H 500 500 -e 500
+	$ ./main.py -i tcga_rsem -m GMVAE --map-features -r negative_binomial -l 50 -H 500 500 -e 500 --decomposition-methods pca tsne
