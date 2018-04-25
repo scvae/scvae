@@ -37,7 +37,7 @@ preprocessed_extension = ".sparse.h5"
 maximum_duration_before_saving = 30 # seconds
 
 data_sets = {
-    "mouse retina": {
+    "Macosko-MRC": {
         "tags": {
             "example": "cell",
             "feature": "gene",
@@ -183,7 +183,7 @@ data_sets = {
         }
     },
     
-    "10x 20k": {
+    "10x-MBC-20k": {
         "tags": {
             "example": "cell",
             "feature": "gene",
@@ -202,7 +202,7 @@ data_sets = {
         "example type": "counts"
     },
     
-    "10x": {
+    "10x-MBC": {
         "tags": {
             "example": "cell",
             "feature": "gene",
@@ -221,7 +221,7 @@ data_sets = {
         "example type": "counts"
     },
     
-    "DIMM-SC (10x, simple)": {
+    "10x-PIC-L": {
         "tags": {
             "example": "cell",
             "feature": "gene",
@@ -239,7 +239,7 @@ data_sets = {
         "example type": "counts"
     },
     
-    "DIMM-SC (10x, challenging)": {
+    "10x-PIC-T": {
         "tags": {
             "example": "cell",
             "feature": "gene",
@@ -257,7 +257,7 @@ data_sets = {
         "example type": "counts"
     },
     
-    "DIMM-SC (10x, all)": {
+    "10x-PIC": {
         "tags": {
             "example": "cell",
             "feature": "gene",
@@ -282,7 +282,7 @@ data_sets = {
         "example type": "counts"
     },
     
-    "TCGA (Kallisto)": {
+    "TCGA-Kallisto": {
         "tags": {
             "example": "sample",
             "feature": "gene ID",
@@ -304,7 +304,7 @@ data_sets = {
         "example type": "counts"
     },
     
-    "TCGA (RSEM)": {
+    "TCGA-RSEM": {
         "tags": {
             "example": "sample",
             "feature": "gene ID",
