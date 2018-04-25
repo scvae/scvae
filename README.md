@@ -1,4 +1,4 @@
-# scVAE: Variational auto-encoders for single-cell gene expression data #
+# scVAE: Single-cell variational auto-encoders #
 
 This software tool implements two variants of variational auto-encoders: one with a Gaussian prior and another with a Gaussian-mixture prior. In addition, several discrete probability functions and derivations are included to handle sparse count data like single-cell gene expression data. Easy access to recent single-cell and traditional gene expression data sets are also provided. Lastly, the tool can also produce relevant analytics of the data sets and the models.
 
