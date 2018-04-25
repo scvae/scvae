@@ -75,3 +75,13 @@ Mouse brain cells data set from 10x Genomics:
 TCGA data set:
 
 	$ ./main.py -i tcga_rsem -m GMVAE --map-features -r negative_binomial -l 50 -H 500 500 -e 500 --decomposition-methods pca tsne
+
+### Comparisons ###
+
+The script `cross_analysis.py` is provided to compare different models. After running several different models with different network architectures and likelihood functions, this can be run to compare these models.
+
+It requires the relative path to the results folder, so using the standard configuration, it is run using the following command:
+
+	$ ./cross_analysis.py -R results/
+
+Logs can be saved by adding the `-s` argument, and these are saved together with produced figures in the results folder specified. Data sets, models, and prediction methods can also be included or excluded using specific arguments. For documentation on these, use the command `./cross_analysis.py -h`.
