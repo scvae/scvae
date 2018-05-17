@@ -2,10 +2,11 @@
 
 This software tool implements two variants of variational auto-encoders: one with a Gaussian prior and another with a Gaussian-mixture prior. In addition, several discrete probability functions and derivations are included to handle sparse count data like single-cell gene expression data. Easy access to recent single-cell and traditional gene expression data sets are also provided. Lastly, the tool can also produce relevant analytics of the data sets and the models.
 
-The methods used by this tool is described and examined in the paper "scVAE: Variational auto-encoders for single-cell gene expression data" by [Christopher Heje Grønbech][Chris], [Maximillian Fornitz Vording][Max], [Pascal Nordgren Timshel][Pascal], [Casper Kaae Sønderby][Casper], [Tune Hannes Pers][Tune], and [Ole Winther][Ole].
+The methods used by this tool is described and examined in the paper ["scVAE: Variational auto-encoders for single-cell gene expression data"][scVAE-paper] by [Christopher Heje Grønbech][Chris], [Maximillian Fornitz Vording][Max], [Pascal Nordgren Timshel][Pascal], [Casper Kaae Sønderby][Casper], [Tune Hannes Pers][Tune], and [Ole Winther][Ole].
 
 The tool has been developed by Christopher and Maximillian at [Section for Cognitive Systems][CogSys] at [DTU Compute][] with help from Casper and [Lars Maaløe][Lars] supervised by Ole and in collaboration with [Pers Lab][].
 
+[scVAE-paper]: https://www.biorxiv.org/content/early/2018/05/16/318295
 [Chris]: https://github.com/chgroenbech
 [Max]: https://github.com/maximillian91
 [Pascal]: https://github.com/pascaltimshel
