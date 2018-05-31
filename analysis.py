@@ -32,7 +32,6 @@ import matplotlib.lines
 import matplotlib.gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
 from matplotlib.ticker import LogFormatterSciNotation
-from textwrap import wrap
 
 import seaborn
 
@@ -69,9 +68,14 @@ darker_palette = lambda N: seaborn.husl_palette(N, l = .55)
 reset_plot_look = lambda: seaborn.set(
     context = "notebook",
     style = "ticks",
-    palette = standard_palette
+    palette = standard_palette,
+    rc = {"lines.markersize": 5}
 )
 reset_plot_look()
+
+publication_dpi = 350
+publication_full_width_figure_width = 17.8 / 2.54
+publication_half_width_figure_width = 8.6 / 2.54
 
 figure_extension = ".png"
 image_extension = ".png"
@@ -3865,12 +3869,12 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                     else:
                         class_label_columns = 3
                     legend = axis.legend(
-                        class_handles, class_labels,
-                        # bbox_to_anchor = (0., 1.02, 1., 1.02), loc = 3,
-                        bbox_to_anchor = (-.1, 1.05, 1.1, 1.05), loc = "lower left",
-                        # bbox_to_anchor = (0, 0, 1, 1), loc = 1,
-                        # bbox_transform = figure.transFigure,
-                        ncol = class_label_columns, mode = "expand",
+                        class_handles,
+                        class_labels,
+                        bbox_to_anchor = (-.1, 1.05, 1.1, 1.05),
+                        loc = "lower left",
+                        ncol = class_label_columns,
+                        mode = "expand",
                         borderaxespad = 0.,
                         fontsize = "x-small"
                     )
@@ -3912,12 +3916,13 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 labels, handles = zip(*sorted(zip(labels, handles),
                     key = lambda t: label_sorter(t[0])))
                 legend = axis.legend(
-                    handles, labels, 
-                    # bbox_to_anchor = (0., 1.02, 1., 1.02), loc = 3,
-                    bbox_to_anchor = (-.1, 1.02, 1.1, 1.02), loc = 3,
-                    # bbox_to_anchor = (0, 0, 1, 1), loc = 1,
-                    # bbox_transform = figure.transFigure,
-                    ncol = 2, mode = "expand", borderaxespad = 0.
+                    handles,
+                    labels, 
+                    bbox_to_anchor = (-.1, 1.05, 1.1, 1.05),
+                    loc = "lower left",
+                    ncol = 2,
+                    mode = "expand",
+                    borderaxespad = 0.
                 )
     
     elif colour_coding == "count_sum":
@@ -3993,6 +3998,9 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             legend = axis.legend(handles = [])
     
         legend.set_title(outliers_string, {"size": "small"})
+    
+    if legend and legendIsAboveAxis(legend, axis):
+        adjustFigureHeightForLegendAboveAxis(figure, legend)
     
     return figure, figure_name
 
@@ -4167,26 +4175,50 @@ def saveFigure(figure, figure_name, export_options, results_directory):
     figure_path = os.path.join(results_directory, figure_name) \
         + figure_extension
     
+    tight_layout = True
+    
+    dpi = figure.get_dpi()
     figure_width, figure_height = figure.get_size_inches()
     aspect_ratio = figure_width / figure_height
     
     if "video" in export_options:
-        bounding_box = None
-    else:
-        bounding_box = 'tight'
+        tight_layout = False
     
-    if "hires" in export_options:
-        dpi = 300
-        # figure_width = 1200 / dpi
-        # figure_height = figure_width / aspect_ratio
-    else:
-        dpi = None
+    if "publication" in export_options:
+        dpi = publication_dpi
+        figure_width = publication_full_width_figure_width
+        figure_height = figure_width / aspect_ratio
     
+    figure.set_dpi(dpi)
     figure.set_size_inches(figure_width, figure_height)
+    figure.set_tight_layout(tight_layout)
     
-    figure.savefig(figure_path, bbox_inches = bounding_box, dpi = dpi)
+    figure.savefig(figure_path)
     
     pyplot.close(figure)
+
+def legendIsAboveAxis(legend, axis):
+    
+    legend_bottom_vertical_position_relative_to_axis = \
+        legend.get_bbox_to_anchor().transformed(axis.transAxes.inverted()).ymin
+    
+    if legend_bottom_vertical_position_relative_to_axis >= 1:
+        legend_is_above_axis = True
+    else:
+        legend_is_above_axis = False
+    
+    return legend_is_above_axis
+
+def adjustFigureHeightForLegendAboveAxis(figure, legend):
+    
+    figure.canvas.draw()
+    
+    legend_size = legend.get_window_extent()
+    legend_height_in_inches = legend_size.height / figure.get_dpi()
+
+    figure_width, figure_height = figure.get_size_inches()
+    figure_height += legend_height_in_inches
+    figure.set_size_inches(figure_width, figure_height)
 
 def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
     distribution = None, prefix = "", suffix = ""):
