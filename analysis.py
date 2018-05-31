@@ -66,19 +66,29 @@ lighter_palette = lambda N: seaborn.husl_palette(N, l = .75)
 darker_palette = lambda N: seaborn.husl_palette(N, l = .55)
 
 reset_plot_look = lambda: seaborn.set(
-    context = "notebook",
+    context = "paper",
     style = "ticks",
     palette = standard_palette,
-    rc = {"lines.markersize": 5}
+    rc = {"lines.markersize": 3}
 )
 reset_plot_look()
 
-publication_dpi = 350
-publication_full_width_figure_width = 17.8 / 2.54
-publication_half_width_figure_width = 8.6 / 2.54
-
 figure_extension = ".png"
 image_extension = ".png"
+
+publication_figure_extension = ".tiff"
+publication_dpi = 350
+publication_copies = {
+    "full_width": {
+        "figure_width": 17.8 / 2.54
+    },
+    "three_quarters_width": {
+        "figure_width": numpy.mean([8.6, 17.8]) / 2.54
+    },
+    "half_width": {
+        "figure_width": 8.6 / 2.54
+    }
+}
 
 maximum_feature_size_for_analyses = 2000
 
@@ -3871,12 +3881,12 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                     legend = axis.legend(
                         class_handles,
                         class_labels,
-                        bbox_to_anchor = (-.1, 1.05, 1.1, 1.05),
+                        bbox_to_anchor = (-0.1, 1.05, 1.1, 0.95),
                         loc = "lower left",
                         ncol = class_label_columns,
                         mode = "expand",
                         borderaxespad = 0.,
-                        fontsize = "x-small"
+                        # fontsize = "x-small"
                     )
         
         elif "class" in colour_coding:
@@ -3918,7 +3928,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 legend = axis.legend(
                     handles,
                     labels, 
-                    bbox_to_anchor = (-.1, 1.05, 1.1, 1.05),
+                    bbox_to_anchor = (-0.1, 1.05, 1.1, 0.95),
                     loc = "lower left",
                     ncol = 2,
                     mode = "expand",
@@ -3998,9 +4008,6 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             legend = axis.legend(handles = [])
     
         legend.set_title(outliers_string, {"size": "small"})
-    
-    if legend and legendIsAboveAxis(legend, axis):
-        adjustFigureHeightForLegendAboveAxis(figure, legend)
     
     return figure, figure_name
 
@@ -4172,30 +4179,72 @@ def saveFigure(figure, figure_name, export_options, results_directory):
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
     
-    figure_path = os.path.join(results_directory, figure_name) \
-        + figure_extension
+    figure_path_base = os.path.join(results_directory, figure_name)
     
     tight_layout = True
     
-    dpi = figure.get_dpi()
     figure_width, figure_height = figure.get_size_inches()
     aspect_ratio = figure_width / figure_height
     
     if "video" in export_options:
-        tight_layout = False
+        # This check was used to ensure figure frames for a video had the same
+        # size, since whitespace were removed when saving, but since figures
+        # now use tight layout instead, whitespace does not need to be
+        # removed. The check is kept for later use.
+        # tight_layout = False
+        pass
     
-    if "publication" in export_options:
-        dpi = publication_dpi
-        figure_width = publication_full_width_figure_width
-        figure_height = figure_width / aspect_ratio
-    
-    figure.set_dpi(dpi)
-    figure.set_size_inches(figure_width, figure_height)
     figure.set_tight_layout(tight_layout)
+    adjustFigureForLegend(figure)
     
+    figure_path = figure_path_base + figure_extension
     figure.savefig(figure_path)
     
+    if "publication" in export_options:
+        
+        figure.set_tight_layout(True)
+        figure.set_dpi(publication_dpi)
+        
+        local_publication_copies = publication_copies.copy()
+        local_publication_copies["standard"] = {
+            "figure_width": figure_width
+        }
+        
+        for copy_name, copy_properties in local_publication_copies.items():
+            
+            figure.set_size_inches(figure_width, figure_height)
+            
+            publication_figure_width = copy_properties["figure_width"]
+            publication_figure_height = publication_figure_width \
+                / aspect_ratio
+            
+            figure.set_size_inches(publication_figure_width,
+                                   publication_figure_height)
+            adjustFigureForLegend(figure)
+            
+            figure_path = "-".join([
+                figure_path_base, "publication", copy_name]
+            ) + publication_figure_extension
+            
+            figure.savefig(figure_path)
+    
     pyplot.close(figure)
+
+def adjustFigureForLegend(figure):
+    
+    for axis in figure.get_axes():
+        legend = axis.get_legend()
+        
+        if legend and legendIsAboveAxis(legend, axis):
+            
+            figure.canvas.draw()
+            
+            legend_size = legend.get_window_extent()
+            legend_height_in_inches = legend_size.height / figure.get_dpi()
+            
+            figure_width, figure_height = figure.get_size_inches()
+            figure_height += legend_height_in_inches
+            figure.set_size_inches(figure_width, figure_height)
 
 def legendIsAboveAxis(legend, axis):
     
@@ -4208,17 +4257,6 @@ def legendIsAboveAxis(legend, axis):
         legend_is_above_axis = False
     
     return legend_is_above_axis
-
-def adjustFigureHeightForLegendAboveAxis(figure, legend):
-    
-    figure.canvas.draw()
-    
-    legend_size = legend.get_window_extent()
-    legend_height_in_inches = legend_size.height / figure.get_dpi()
-
-    figure_width, figure_height = figure.get_size_inches()
-    figure_height += legend_height_in_inches
-    figure.set_size_inches(figure_width, figure_height)
 
 def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
     distribution = None, prefix = "", suffix = ""):
