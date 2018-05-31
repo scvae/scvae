@@ -239,7 +239,7 @@ data_sets = {
         "example type": "counts"
     },
     
-    "10x-PIC-L": {
+    "10x-PBMC-L": {
         "tags": {
             "example": "cell",
             "feature": "gene",
@@ -257,7 +257,7 @@ data_sets = {
         "example type": "counts"
     },
     
-    "10x-PIC-T": {
+    "10x-PBMC-T": {
         "tags": {
             "example": "cell",
             "feature": "gene",
@@ -275,7 +275,7 @@ data_sets = {
         "example type": "counts"
     },
     
-    "10x-PIC": {
+    "10x-PBMC": {
         "tags": {
             "example": "cell",
             "feature": "gene",
@@ -588,7 +588,7 @@ data_sets = {
     }
 }
 
-DIMM_SC_class_mapper = {
+pbmc_class_mapper = {
     "CD14+ monocytes": ["CD14+ Monocytes"],
     "CD19+ B cells": [
         "CD19+ B Cells",
@@ -1812,8 +1812,8 @@ def dataSetLiteratureProbabilities(title):
         return None
 
 def dataSetClassMapper(title):
-    if "DIMM-SC" in title:
-        class_mapper = DIMM_SC_class_mapper
+    if "10x-PBMC" in title:
+        class_mapper = pbmc_class_mapper
     else:
         class_mapper = None
     return class_mapper
@@ -1824,10 +1824,10 @@ def dataSetClassPalette(title):
     elif "MNIST" in title:
         index_palette = seaborn.hls_palette(10)
         class_palette = {i: index_palette[i] for i in range(10)}
-    elif "DIMM-SC" in title:
+    elif "10x-PBMC" in title:
         classes = [
-            properString(c, DIMM_SC_class_mapper, normalise = False)
-            for c in data_sets["DIMM-SC (10x, all)"]["URLs"]["all"].keys()
+            properString(c, pbmc_class_mapper, normalise = False)
+            for c in data_sets["10x-PBMC"]["URLs"]["all"].keys()
         ]
         N = len(classes)
         brewer_palette = seaborn.color_palette("Set3", N)
