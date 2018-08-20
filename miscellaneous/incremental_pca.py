@@ -24,6 +24,7 @@ from sklearn.utils import check_array, gen_batches
 from sklearn.utils.validation import check_is_fitted
 
 class IncrementalPCA(SKLIncrementalPCA):
+    """Incremental PCA supporting large sparse matrices."""
     def __init__(self, n_components = None, whiten = False, copy = True,
                  batch_size = None):
         super(IncrementalPCA, self).__init__(
