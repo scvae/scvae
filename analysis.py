@@ -3786,7 +3786,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
     
     seaborn.despine()
     
-    axis.set_aspect("equal", adjustable = "datalim")
+    # axis.set_aspect("equal", adjustable = "datalim")
     
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
@@ -4181,7 +4181,8 @@ def saveFigure(figure, figure_name, export_options, results_directory):
     
     figure_path_base = os.path.join(results_directory, figure_name)
     
-    tight_layout = True
+    default_tight_layout = {"pad": 0.1}
+    tight_layout = default_tight_layout
     
     figure_width, figure_height = figure.get_size_inches()
     aspect_ratio = figure_width / figure_height
@@ -4202,7 +4203,7 @@ def saveFigure(figure, figure_name, export_options, results_directory):
     
     if "publication" in export_options:
         
-        figure.set_tight_layout(True)
+        figure.set_tight_layout(default_tight_layout)
         figure.set_dpi(publication_dpi)
         
         local_publication_copies = publication_copies.copy()
