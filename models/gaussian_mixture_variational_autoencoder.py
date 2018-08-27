@@ -211,7 +211,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     self.n,
                     [self.S_iw*self.S_mc, 1]
                 )
-            self.inference()
+            self.model_graph()
             self.loss()
             self.training()
             
@@ -672,7 +672,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             
             return p_x_given_z
 
-    def inference(self):
+    def model_graph(self):
         # Retrieving layers parameterising all distributions in model:
         
         # Y latent space

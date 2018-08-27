@@ -188,7 +188,7 @@ class VariationalAutoencoder(object):
                 'number_of_mc_samples'
             )
 
-            self.inference()
+            self.model_graph()
             self.loss()
             self.training()
             
@@ -407,7 +407,7 @@ class VariationalAutoencoder(object):
         
         return parameters_string
     
-    def inference(self):
+    def model_graph(self):
         
         if self.inference_architecture == "MLP":
             encoder = dense_layers(
