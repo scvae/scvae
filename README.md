@@ -42,7 +42,7 @@ All included data sets are downloaded and processed automatically as needed.
 
 ## Installation ##
 
-This tool is not available as a Python module. So you will first need to install all other modules which it is dependent upon by yourself. This can be done by running
+This tool is not available as a Python module yet. In the meantime you will first need to install all other modules which it is dependent upon by yourself. This can be done by running
 
 	$ pip install numpy scipy scikit-learn tensorflow-gpu tensorflow-probability-gpu pandas tables beautifulsoup4 stemming matplotlib seaborn pillow
 
@@ -54,7 +54,7 @@ After this, you can clone this tool to an appropriate folder:
 
 ## Running ##
 
-The standard configuration of the model using the synthetic data set, can be run by just running the `main.py` script. Be aware that it might take some time to load and preprocess the data the first time for large data sets. Also note to load and analyse the largest data set, which is made available by 10x Genomics and consists of 1.3 million mouse brain cells, 47 GB of memory is required (32 GB for the original data set in sparse representation and 15 GB for the reconstructed test set).
+The standard configuration of the model using the synthetic data set, can be run by just running the `main.py` script. Be aware that it might take some time to load and preprocess the data the first time for large data sets. Also note that to load and analyse the largest data set, which is made available by 10x Genomics and consists of 1.3 million mouse brain cells, 47 GB of memory is required (32 GB for the original data set in sparse representation and 15 GB for the reconstructed test set).
 
 Per default, data is downloaded to the subfolder `data/`, models are saved in the subfolder `log/`, and results are saved in the subfolder `results/`.
 
@@ -66,17 +66,25 @@ To see how to change the standard configuration or use another data set, run the
 
 To reproduce the main results from our paper, you can run the following commands:
 
-Purified immune cells data set from 10x Genomics:
+* Purified immune cells data set from 10x Genomics:
 
-	$ ./main.py -i 10x_pbmc -m GMVAE -r negative_binomial -l 100 -H 100 100 -e 500 --decomposition-methods pca tsne
+		$ ./main.py -i 10x_pbmc -m GMVAE -r negative_binomial -l 100 -H 100 100 -e 500 --decomposition-methods pca tsne
 
-Mouse brain cells data set from 10x Genomics:
+* Mouse brain cells data set from 10x Genomics:
 
-	$ ./main.py -i 10x_mbc -m GMVAE -K 10 -r zero_inflated_negative_binomial -l 25 -H 250 250 -e 500 --decomposition-methods pca tsne
+		$ ./main.py -i 10x_mbc -m GMVAE -K 10 -r zero_inflated_negative_binomial -l 25 -H 250 250 -e 500 --decomposition-methods pca tsne
 
-TCGA data set:
+* TCGA data set:
 
-	$ ./main.py -i tcga_rsem -m GMVAE --map-features -r negative_binomial -l 50 -H 500 500 -e 500 --decomposition-methods pca tsne
+		$ ./main.py -i tcga_rsem --map-features -m GMVAE -r negative_binomial -l 50 -H 500 500 -e 500 --decomposition-methods pca tsne
+
+You can also model the MNIST data set. Three different versions are supported: [the original][MNIST-original], [the normalised][MNIST-normalised], and [the binarised][MNIST-binarised]. To run the GMVAE model for, e.g., the binarised version, issue the following command:
+
+	$ ./main.py -i mnist_binarised -m GMVAE -r bernoulli -l 10 -H 200 200 -e 500 --decomposition-methods pca tsne
+
+[MNIST-original]: http://yann.lecun.com/exdb/mnist/
+[MNIST-normalised]: http://deeplearning.net/data/mnist/
+[MNIST-binarised]: http://www.cs.toronto.edu/~larocheh/publications/icml-2008-discriminative-rbm.pdf
 
 ### Comparisons ###
 
