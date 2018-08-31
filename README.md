@@ -4,7 +4,7 @@ This software tool implements two variants of variational auto-encoders: one wit
 
 The methods used by this tool is described and examined in the paper ["scVAE: Variational auto-encoders for single-cell gene expression data"][scVAE-paper] by [Christopher Heje Grønbech][Chris], [Maximillian Fornitz Vording][Max], [Pascal Nordgren Timshel][Pascal], [Casper Kaae Sønderby][Casper], [Tune Hannes Pers][Tune], and [Ole Winther][Ole].
 
-The tool has been developed by Christopher and Maximillian at [Section for Cognitive Systems][CogSys] at [DTU Compute][] with help from Casper and [Lars Maaløe][Lars] supervised by Ole and in collaboration with [Pers Lab][].
+The tool has been developed by Christopher and Maximillian at [Section for Cognitive Systems][CogSys] at [DTU Compute][] with help from Casper and [Lars Maaløe][Lars] supervised by Ole and in collaboration with [Pers Lab][]. It is being further developed by Christopher at [Unit for Genomic Medicine][GM] (only available in Danish) at [Rigshospitalet][RH].
 
 [scVAE-paper]: https://www.biorxiv.org/content/early/2018/05/16/318295
 [Chris]: https://github.com/chgroenbech
@@ -19,11 +19,12 @@ The tool has been developed by Christopher and Maximillian at [Section for Cogni
 [CogSys]: https://github.com/DTUComputeCognitiveSystems
 [DTU Compute]: http://compute.dtu.dk
 [Pers Lab]: https://github.com/perslab
+[GM]: https://www.rigshospitalet.dk/afdelinger-og-klinikker/diagnostisk/genomisk-medicin/Sider/default.aspx
+[RH]: https://www.rigshospitalet.dk/english/Pages/default.aspx
 
 ## Setup ##
 
-The tool is implemented in Python using [TensorFlow][]. [Pandas][], [PyTables][],
-[Beautiful Soup][], and the [stemming][] module are used for importing and preprocessing data. Analyses of the models and the results are performed using the modules [NumPy][], [SciPy][], and [scikit-learn][], and figures are made using the modules [matplotlib][], [Seaborn][], and [Pillow][].
+The tool is implemented in Python (versions 3.3--3.6) using [TensorFlow][]. [Pandas][], [PyTables][], [Beautiful Soup][], and the [stemming][] module are used for importing and preprocessing data. Analyses of the models and the results are performed using the modules [NumPy][], [SciPy][], and [scikit-learn][], and figures are made using the modules [matplotlib][], [Seaborn][], and [Pillow][].
 
 [TensorFlow]: https://www.tensorflow.org
 [Pandas]: http://pandas.pydata.org
@@ -43,7 +44,7 @@ All included data sets are downloaded and processed automatically as needed.
 
 This tool is not available as a Python module. So you will first need to install all other modules which it is dependent upon by yourself. This can be done by running
 
-	$ pip install numpy scipy scikit-learn tensorflow-gpu pandas tables beautifulsoup4 stemming matplotlib seaborn pillow
+	$ pip install numpy scipy scikit-learn tensorflow-gpu tensorflow-probability-gpu pandas tables beautifulsoup4 stemming matplotlib seaborn pillow
 
 (If you do not have a GPU to use with TensorFlow, install the standard version by replacing `tensorflow-gpu` with `tensorflow`.)
 

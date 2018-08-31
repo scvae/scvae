@@ -69,6 +69,7 @@ reset_plot_look = lambda: seaborn.set(
     context = "paper",
     style = "ticks",
     palette = standard_palette,
+    color_codes = False,
     rc = {"lines.markersize": 3}
 )
 reset_plot_look()
@@ -370,8 +371,10 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
         
         accuracies_time_start = time()
         
-        accuracies = loadAccuracies(model,
-            data_set_kinds = ["training", "validation"])
+        accuracies = loadAccuracies(
+            model = model,
+            data_set_kinds = ["training", "validation"]
+        )
         
         if accuracies is not None:
             
@@ -1247,7 +1250,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         print(subheading("Latent space"))
         
-        if model.latent_distribution_name == "gaussian_mixture":
+        if model.latent_distribution_name == "gaussian mixture":
         
             print("Loading centroids from model log directory.")
             loading_time_start = time()

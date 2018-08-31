@@ -19,12 +19,7 @@
 import tensorflow as tf
 from numpy import inf
 
-from tensorflow.contrib.distributions import (
-    Bernoulli,
-    Poisson, NegativeBinomial,
-    Normal, MultivariateNormalDiag, Multinomial,
-    Categorical, Mixture
-)
+from tensorflow_probability import distributions as tensorflow_distributions
 
 from tensorflow.python.ops.nn import relu, softmax, softplus
 from tensorflow import sigmoid, identity
@@ -50,7 +45,7 @@ distributions = {
                 "initial value": tf.zeros
             }
         },
-        "class": lambda theta: Normal(
+        "class": lambda theta: tensorflow_distributions.Normal(
             loc = theta["mu"], 
             scale = tf.exp(theta["log_sigma"])
         )
@@ -69,7 +64,7 @@ distributions = {
                 "initial value": tf.ones
             }
         },
-        "class": lambda theta: Normal(
+        "class": lambda theta: tensorflow_distributions.Normal(
             loc = theta["mean"], 
             scale = tf.sqrt(theta["variance"])
         )
@@ -93,9 +88,9 @@ distributions = {
                 "initial value": tf.zeros
             }
         },
-        "class": lambda theta: Mixture(
-            cat = Categorical(logits = theta["logits"]), 
-            components = [MultivariateNormalDiag(
+        "class": lambda theta: tensorflow_distributions.Mixture(
+            cat = tensorflow_distributions.Categorical(logits = theta["logits"]), 
+            components = [tensorflow_distributions.MultivariateNormalDiag(
                 loc = m, scale_diag = tf.exp(s)) for m, s in 
                 zip(theta["mus"], theta["log_sigmas"])]
         )
@@ -109,7 +104,7 @@ distributions = {
             }
         },
         "class": lambda theta: 
-            Categorical(logits = theta["logits"]), 
+            tensorflow_distributions.Categorical(logits = theta["logits"]), 
     },
 
     "bernoulli": {
@@ -119,7 +114,7 @@ distributions = {
                 "activation function": identity
             }
         },
-        "class": lambda theta: Bernoulli(
+        "class": lambda theta: tensorflow_distributions.Bernoulli(
             logits = theta["logits"]
         )
     },
@@ -131,7 +126,7 @@ distributions = {
                 "activation function": identity
             }
         },
-        "class": lambda theta: Poisson(
+        "class": lambda theta: tensorflow_distributions.Poisson(
             rate = tf.exp(theta["log_lambda"])
         )
     },
@@ -143,7 +138,7 @@ distributions = {
                 "activation function": softmax
             }
         },
-        "class": lambda theta, N: Poisson(
+        "class": lambda theta, N: tensorflow_distributions.Poisson(
             rate = theta["lambda"] * N
         )
     },
@@ -218,7 +213,7 @@ distributions = {
             }
         },
         "class": lambda theta: ZeroInflated(
-            Poisson(
+            tensorflow_distributions.Poisson(
                 rate = tf.exp(theta["log_lambda"])
             ),
             pi = theta["pi"]
@@ -236,7 +231,7 @@ distributions = {
                 "activation function": identity
             }
         },
-        "class": lambda theta: NegativeBinomial(
+        "class": lambda theta: tensorflow_distributions.NegativeBinomial(
             total_count = tf.exp(theta["log_r"]),
             probs = theta["p"]
         )
@@ -258,7 +253,7 @@ distributions = {
             }
         },
         "class": lambda theta: ZeroInflated(
-            NegativeBinomial(
+            tensorflow_distributions.NegativeBinomial(
                 total_count = tf.exp(theta["log_r"]),
                 probs = theta["p"]
             ),

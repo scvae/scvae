@@ -17,22 +17,19 @@
 # ======================================================================== #
 
 import os
+import re
 import sys
 import shutil
-
 import time
-
-import re
-
+from collections import namedtuple
 from functools import reduce
-from operator import mul
-
 from math import floor
+from operator import mul
 
 import urllib.request
 
-from tensorboard.backend.event_processing import event_multiplexer
 import numpy
+import tensorflow
 
 # Math
 
@@ -129,10 +126,13 @@ def loadNumberOfEpochsTrained(model, early_stopping = False, best_model = False)
     data_set_kind = "training"
     
     ## Loss depending on model type
-    if model.type == "SNN":
-        loss = "log_likelihood"
-    elif "AE" in model.type:
+    if "VAE" in model.type:
         loss = "lower_bound"
+    else:
+        loss = "log_likelihood"
+    
+    loss_prefix = "losses/"
+    loss = loss_prefix + loss
     
     ## Log directory
     if early_stopping:
@@ -142,24 +142,17 @@ def loadNumberOfEpochsTrained(model, early_stopping = False, best_model = False)
     else:
         log_directory = model.log_directory
     
-    ## TensorBoard class with summaries
-    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
-        log_directory)
-    multiplexer.Reload()
-    
     # Loading
     
     # Losses for every epochs
-    scalars = multiplexer.Scalars(data_set_kind, "losses/" + loss)
+    scalar_sets = summary_reader(log_directory, data_set_kind, loss)
+    scalars = scalar_sets[data_set_kind][loss]
     
     # First estimate of number of epochs
     E_1 = len(scalars)
     
     # Second estimate of number of epochs
-    E_2 = 0
-    
-    for scalar in scalars:
-        E_2 = max(E_2, scalar.step)
+    E_2 = max([scalar.step for scalar in scalars])
     
     assert E_1 == E_2
     
@@ -186,23 +179,26 @@ def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False,
         )
     
     ## Losses depending on model type
-    if model.type == "SNN":
-        losses = ["log_likelihood"]
-    elif model.type == "CVAE":
-        losses = ["lower_bound", "reconstruction_error",
-            "kl_divergence_z1", "kl_divergence_z2", "kl_divergence_y"]
-    elif model.type in ["GMVAE", "GMVAE_alt"]:
-        losses = ["lower_bound", "reconstruction_error",
-            "kl_divergence_z", "kl_divergence_y"]
-    elif "AE" in model.type:
+    if model.type == "GMVAE":
+        losses = [
+            "lower_bound",
+            "reconstruction_error",
+            "kl_divergence_z",
+            "kl_divergence_y"
+    ]
+    elif "VAE" == model.type:
         losses = ["lower_bound", "reconstruction_error", "kl_divergence"]
+    else:
+        losses = ["log_likelihood"]
     
-    ## TensorBoard class with summaries
-    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
-        log_directory)
-    multiplexer.Reload()
+    loss_prefix = "losses/"
+    loss_searches = list(map(lambda s: loss_prefix + s, losses))
     
     # Loading
+    
+    scalar_sets = summary_reader(log_directory, data_set_kinds, loss_searches)
+    
+    # Organising
     
     for data_set_kind in data_set_kinds:
         
@@ -210,7 +206,7 @@ def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False,
         
         for loss in losses:
             
-            scalars = multiplexer.Scalars(data_set_kind, "losses/" + loss)
+            scalars = scalar_sets[data_set_kind][loss_prefix + loss]
             
             learning_curve = numpy.empty(len(scalars))
             
@@ -250,11 +246,6 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False,
     else:
         log_directory = model.log_directory
     
-    ## TensorBoard class with summaries
-    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
-        log_directory)
-    multiplexer.Reload()
-    
     ## Tag
     
     accuracy_tag = "accuracy"
@@ -264,15 +255,23 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False,
     
     # Loading
     
-    errors = 0
+    accuracy_scalar_sets = summary_reader(
+        log_directory=log_directory,
+        data_set_kinds=data_set_kinds,
+        tag_searches=[accuracy_tag]
+    )
+    
+    # Organising
+    
+    empty_scalar_sets = 0
     
     for data_set_kind in data_set_kinds:
         
         try:
-            scalars = multiplexer.Scalars(data_set_kind, accuracy_tag)
+            scalars = accuracy_scalar_sets[data_set_kind][accuracy_tag]
         except KeyError:
             accuracies[data_set_kind] = None
-            errors += 1
+            empty_scalar_sets += 1
             continue
         
         accuracies_kind = numpy.empty(len(scalars))
@@ -288,7 +287,7 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False,
     if len(data_set_kinds) == 1:
         accuracies = accuracies[data_set_kinds[0]]
     
-    if errors == len(data_set_kinds):
+    if empty_scalar_sets == len(data_set_kinds):
         accuracies = None
     
     return accuracies
@@ -298,16 +297,14 @@ def loadCentroids(model, data_set_kinds = "all", early_stopping = False,
     
     # Setup
     
-    centroids_sets = {}
-    
     ## Data set kinds
     if data_set_kinds == "all":
         data_set_kinds = ["training", "validation", "evaluation"]
     elif not isinstance(data_set_kinds, list):
         data_set_kinds = [data_set_kinds]
     
-    ## Exit if SNN model
-    if model.type == "SNN":
+    ## Exit if not VAE model
+    if "VAE" not in model.type:
         return None
     
     ## Log directory
@@ -318,12 +315,21 @@ def loadCentroids(model, data_set_kinds = "all", early_stopping = False,
     else:
         log_directory = model.log_directory
     
-    ## TensorBoard class with summaries
-    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
-        log_directory)
-    multiplexer.Reload()
+    ## Tag search
+    
+    centroid_tag = "cluster"
     
     # Loading
+    
+    centroid_scalar_sets = summary_reader(
+        log_directory=log_directory,
+        data_set_kinds=data_set_kinds,
+        tag_searches=[centroid_tag]
+    )
+    
+    # Organising
+    
+    centroids_sets = {}
     
     for data_set_kind in data_set_kinds:
         
@@ -332,8 +338,8 @@ def loadCentroids(model, data_set_kinds = "all", early_stopping = False,
         for distribution in ["prior", "posterior"]:
             
             try:
-                scalars = multiplexer.Scalars(data_set_kind,
-                    distribution + "/cluster_0/probability")
+                scalars = centroid_scalar_sets[data_set_kind]\
+                    [distribution + "/cluster_0/probability"]
             except KeyError:
                 centroids_set[distribution] = None
                 continue
@@ -359,8 +365,8 @@ def loadCentroids(model, data_set_kinds = "all", early_stopping = False,
             # Looping
             for k in range(K):
                 
-                probability_scalars = multiplexer.Scalars(data_set_kind,
-                    distribution + "/cluster_{}/probability".format(k))
+                probability_scalars = centroid_scalar_sets[data_set_kind]\
+                    [distribution + "/cluster_{}/probability".format(k)]
                 
                 if len(probability_scalars) == 1:
                     z_probabilities[0][k] = probability_scalars[0].value
@@ -370,9 +376,9 @@ def loadCentroids(model, data_set_kinds = "all", early_stopping = False,
                 
                 for l in range(L):
                     
-                    mean_scalars = multiplexer.Scalars(data_set_kind,
-                        distribution + "/cluster_{}/mean/dimension_{}".format(
-                            k, l))
+                    mean_scalars = centroid_scalar_sets[data_set_kind]\
+                        [distribution + "/cluster_{}/mean/dimension_{}"
+                            .format(k, l)]
                     
                     if len(mean_scalars) == 1:
                         z_means[0][k][l] = mean_scalars[0].value
@@ -380,10 +386,9 @@ def loadCentroids(model, data_set_kinds = "all", early_stopping = False,
                         for scalar in mean_scalars:
                             z_means[scalar.step - 1][k][l] = scalar.value
                     
-                    variance_scalars = multiplexer.Scalars(data_set_kind,
-                        distribution + 
-                            "/cluster_{}/variance/dimension_{}"
-                                .format(k, l))
+                    variance_scalars = centroid_scalar_sets[data_set_kind]\
+                        [distribution + "/cluster_{}/variance/dimension_{}"
+                            .format(k, l)]
                     
                     if len(variance_scalars) == 1:
                         z_variances[0][k][l] = \
@@ -418,6 +423,9 @@ def loadKLDivergences(model, early_stopping = False, best_model = False):
     
     # Setup
     
+    ## Data set kind
+    data_set_kind = "training"
+    
     ## Log directory
     if early_stopping:
         log_directory = model.early_stopping_log_directory
@@ -426,13 +434,20 @@ def loadKLDivergences(model, early_stopping = False, best_model = False):
     else:
         log_directory = model.log_directory
     
-    ## TensorBoard class with summaries
-    multiplexer = event_multiplexer.EventMultiplexer().AddRunsFromDirectory(
-        log_directory)
-    multiplexer.Reload()
+    ## Tag search
+    kl_divergence_neurons_tag = "kl_divergence_neurons/"
     
-    N_epochs = len(multiplexer.Scalars("training",
-        "kl_divergence_neurons/0"))
+    # Loading
+    
+    scalar_sets = summary_reader(
+        log_directory=log_directory,
+        data_set_kinds=data_set_kind,
+        tag_searches=[kl_divergence_neurons_tag]
+    )
+    
+    # Additional setup
+    
+    N_epochs = len(scalar_sets[data_set_kind][kl_divergence_neurons_tag + "0"])
     
     if "mixture" in model.latent_distribution_name:
         latent_size = 1
@@ -441,16 +456,49 @@ def loadKLDivergences(model, early_stopping = False, best_model = False):
 
     KL_neurons = numpy.empty([N_epochs, latent_size])
     
-    # Loading
+    # Organising
     
     for i in range(latent_size):
-        scalars = multiplexer.Scalars("training",
-            "kl_divergence_neurons/{}".format(i))
+        scalars = scalar_sets[data_set_kind][kl_divergence_neurons_tag + str(i)]
         
         for scalar in scalars:
             KL_neurons[scalar.step - 1][i] = scalar.value
     
     return KL_neurons
+
+ScalarEvent = namedtuple('ScalarEvent', ['wall_time', 'step', 'value'])
+
+def summary_reader(log_directory, data_set_kinds, tag_searches):
+
+    if not isinstance(data_set_kinds, list):
+        data_set_kinds = [data_set_kinds]
+
+    if not isinstance(tag_searches, list):
+        tag_searches = [tag_searches]
+
+    scalars = {}
+
+    for data_set_kind in data_set_kinds:
+        data_set_log_directory = os.path.join(log_directory, data_set_kind)
+        data_set_scalars = {}
+        for event_filename in sorted(os.listdir(data_set_log_directory)):
+            event_path = os.path.join(data_set_log_directory, event_filename)
+            for event in tensorflow.train.summary_iterator(event_path):
+                for value in event.summary.value:
+                    for tag_search in tag_searches:
+                        if tag_search in value.tag:
+                            tag = value.tag
+                            scalar = ScalarEvent(
+                                wall_time=event.wall_time,
+                                step=event.step,
+                                value=value.simple_value
+                            )
+                            if tag not in data_set_scalars:
+                                data_set_scalars[tag] = []
+                            data_set_scalars[tag].append(scalar)
+        scalars[data_set_kind] = data_set_scalars
+
+    return scalars
 
 def betterModelExists(model):
     E_current = loadNumberOfEpochsTrained(model, best_model = False)
