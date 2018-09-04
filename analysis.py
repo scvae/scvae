@@ -52,6 +52,7 @@ from time import time
 from auxiliary import (
     loadNumberOfEpochsTrained, loadLearningCurves, loadAccuracies,
     loadCentroids, loadKLDivergences,
+    checkRunID,
     formatTime, formatDuration,
     normaliseString, properString, subheading
 )
@@ -293,16 +294,24 @@ def analyseData(data_sets,
                 results_directory = results_directory
             )
 
-def analyseModel(model, analyses = ["default"], analysis_level = "normal",
-    export_options = [], results_directory = "results"):
+def analyseModel(model, run_id = None, analyses = ["default"],
+    analysis_level = "normal", export_options = [],
+    results_directory = "results"):
+    
+    if run_id:
+        run_id = checkRunID(run_id)
     
     # Setup
     
-    number_of_epochs_trained = loadNumberOfEpochsTrained(model)
-    
+    number_of_epochs_trained = loadNumberOfEpochsTrained(model, run_id=run_id)
     epochs_string = "e_" + str(number_of_epochs_trained)
     
-    results_directory = os.path.join(results_directory, model.name, epochs_string)
+    results_directory = buildPathForResultDirectory(
+        base_directory = results_directory,
+        model_name = model.name,
+        run_id = run_id,
+        subdirectories = [epochs_string]
+    )
     
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
@@ -318,8 +327,11 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
         print("Plotting learning curves.")
         learning_curves_time_start = time()
         
-        learning_curves = loadLearningCurves(model,
-            data_set_kinds = ["training", "validation"])
+        learning_curves = loadLearningCurves(
+            model = model,
+            data_set_kinds = ["training", "validation"],
+            run_id = run_id
+        )
         
         figure, figure_name = plotLearningCurves(learning_curves, model.type)
         saveFigure(figure, figure_name, export_options, results_directory)
@@ -373,6 +385,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
         
         accuracies = loadAccuracies(
             model = model,
+            run_id = run_id,
             data_set_kinds = ["training", "validation"]
         )
         
@@ -385,8 +398,12 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
             figure, figure_name = plotAccuracies(accuracies)
             saveFigure(figure, figure_name, export_options, results_directory)
             
-            superset_accuracies = loadAccuracies(model,
-                data_set_kinds = ["training", "validation"], superset = True)
+            superset_accuracies = loadAccuracies(
+                model = model,
+                data_set_kinds = ["training", "validation"],
+                superset = True,
+                run_id = run_id
+            )
             
             if superset_accuracies is not None:
                 figure, figure_name = plotAccuracies(superset_accuracies,
@@ -408,7 +425,7 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
         print("Plotting logarithm of KL divergence heat map.")
         heat_map_time_start = time()
         
-        KL_neurons = loadKLDivergences(model)
+        KL_neurons = loadKLDivergences(model = model, run_id = run_id)
     
         KL_neurons = numpy.sort(KL_neurons, axis = 1)
         log_KL_neurons = numpy.log(KL_neurons)
@@ -428,7 +445,11 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
         
         print(subheading("Latent distributions"))
         
-        centroids = loadCentroids(model, data_set_kinds = "validation")
+        centroids = loadCentroids(
+            model = model,
+            data_set_kinds = "validation",
+            run_id = run_id
+        )
         
         centroids_directory = os.path.join(results_directory, "centroids_evolution")
         
@@ -507,11 +528,21 @@ def analyseModel(model, analyses = ["default"], analysis_level = "normal",
 
 def analyseIntermediateResults(learning_curves = None, epoch_start = None,
     epoch = None, latent_values = None, data_set = None, centroids = None,
-    model_name = None, model_type = None, results_directory = "results"):
+    model_name = None, run_id = None, model_type = None,
+    results_directory = "results"):
+    
+    if run_id:
+        run_id = checkRunID(run_id)
+    
+    # Setup
     
     export_options = []
-    results_directory = os.path.join(results_directory, model_name,
-        "intermediate")
+    results_directory = buildPathForResultDirectory(
+        base_directory = results_directory,
+        model_name = model_name,
+        run_id = run_id,
+        subdirectories = ["intermediate"]
+    )
     
     # Learning curves
     
@@ -633,7 +664,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
             latent_set_name.capitalize(), formatDuration(plot_duration)))
 
 def analyseResults(evaluation_set, reconstructed_evaluation_set,
-    latent_evaluation_sets, model,
+    latent_evaluation_sets, model, run_id = None,
     decomposition_methods = ["PCA"], evaluation_subset_indices = set(),
     highlight_feature_indices = [],
     prediction_method = None,
@@ -646,13 +677,20 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         raise ValueError("Early-stopping model and best model cannot be"
             + " evaluated at the same time.")
     
+    if run_id:
+        run_id = checkRunID(run_id)
+    
     # Setup
     
     print("Setting up results analyses.")
     setup_time_start = time()
     
-    number_of_epochs_trained = loadNumberOfEpochsTrained(model,
-        early_stopping = early_stopping, best_model = best_model)
+    number_of_epochs_trained = loadNumberOfEpochsTrained(
+        model = model,
+        run_id = run_id,
+        early_stopping = early_stopping,
+        best_model = best_model
+    )
     
     M = evaluation_set.number_of_examples
     
@@ -683,8 +721,12 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     evaluation_directory = "-".join(evaluation_directory_parts)
     
-    results_directory = os.path.join(results_directory, model.name,
-        evaluation_directory)
+    results_directory = buildPathForResultDirectory(
+        base_directory = results_directory,
+        model_name = model.name,
+        run_id = run_id,
+        subdirectories = [evaluation_directory]
+    )
     
     if evaluation_set.kind != "test":
         results_directory = os.path.join(results_directory, evaluation_set.kind)
@@ -707,13 +749,27 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         print("Loading results from model log directory.")
         loading_time_start = time()
         
-        evaluation_eval = loadLearningCurves(model, "evaluation",
-            early_stopping = early_stopping, best_model = best_model)
-        accuracy_eval = loadAccuracies(model, "evaluation",
-            early_stopping = early_stopping, best_model = best_model)
+        evaluation_eval = loadLearningCurves(
+            model = model,
+            data_set_kinds = "evaluation",
+            run_id = run_id,
+            early_stopping = early_stopping,
+            best_model = best_model
+        )
+        accuracy_eval = loadAccuracies(
+            model = model,
+            data_set_kinds = "evaluation",
+            run_id = run_id,
+            early_stopping = early_stopping,
+            best_model = best_model
+        )
         superset_accuracy_eval = loadAccuracies(
-            model, "evaluation", superset = True,
-            early_stopping = early_stopping, best_model = best_model
+            model = model,
+            data_set_kinds = "evaluation",
+            superset = True,
+            run_id = run_id,
+            early_stopping = early_stopping,
+            best_model = best_model
         )
         
         loading_duration = time() - loading_time_start
@@ -1255,8 +1311,13 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             print("Loading centroids from model log directory.")
             loading_time_start = time()
             
-            centroids = loadCentroids(model, data_set_kinds = "evaluation",
-                early_stopping = early_stopping, best_model = best_model)
+            centroids = loadCentroids(
+                model = model,
+                data_set_kinds = "evaluation",
+                run_id = run_id,
+                early_stopping = early_stopping,
+                best_model = best_model
+            )
             
             loading_duration = time() - loading_time_start
             print("Centroids loaded ({}).".format(
@@ -4327,6 +4388,24 @@ class CustomTicker(LogFormatterSciNotation):
             tick_label =  LogFormatterSciNotation.__call__(self, x, pos = None)
         print(tick_label)
         return tick_label
+
+def buildPathForResultDirectory(base_directory, model_name,
+    run_id = None, subdirectories = None):
+    
+    results_directory = os.path.join(base_directory, model_name)
+    
+    if run_id:
+        run_id = checkRunID(run_id)
+        results_directory = os.path.join(results_directory, run_id)
+    
+    if subdirectories:
+        
+        if not isinstance(subdirectories, list):
+            subdirectories = [subdirectories]
+        
+        results_directory = os.path.join(results_directory, *subdirectories)
+    
+    return results_directory
 
 def parseAnalyses(analyses):
     

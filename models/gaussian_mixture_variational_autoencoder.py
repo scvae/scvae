@@ -22,9 +22,10 @@ from models.auxiliary import (
     dense_layer, dense_layers,
     earlyStoppingStatus,
     log_reduce_exp, reduce_logmeanexp,
-    correctModelCheckpointPath,
     trainingString, dataString,
-    copyModelDirectory, removeOldCheckpoints
+    generateUniqueRunIDForModel,
+    correctModelCheckpointPath, copyModelDirectory, removeOldCheckpoints,
+    clearLogDirectory
 )
 
 from tensorflow.python.ops.nn import relu, softmax
@@ -43,7 +44,11 @@ import scipy.sparse
 import copy
 import os, shutil
 from time import time
-from auxiliary import formatDuration, normaliseString
+from auxiliary import (
+    checkRunID,
+    formatDuration, formatTime,
+    normaliseString, capitaliseString
+)
 
 from data import DataSet
 from analysis import analyseIntermediateResults, accuracy
@@ -277,13 +282,20 @@ class GaussianMixtureVariationalAutoencoder(object):
         
         return model_name
     
-    def logDirectory(self, base = None,
+    def logDirectory(self, base = None, run_id = None,
         early_stopping = False, best_model = False):
         
         if not base:
             base = self.base_log_directory
         
         log_directory = os.path.join(base, self.name)
+        
+        if run_id:
+            run_id = checkRunID(run_id)
+            log_directory = os.path.join(
+                log_directory,
+                "run_{}".format(run_id)
+            )
         
         if early_stopping and best_model:
             raise ValueError(
@@ -295,18 +307,6 @@ class GaussianMixtureVariationalAutoencoder(object):
             log_directory = os.path.join(log_directory, "best")
         
         return log_directory
-    
-    @property
-    def log_directory(self):
-        return self.logDirectory()
-    
-    @property
-    def early_stopping_log_directory(self):
-        return self.logDirectory(early_stopping = True)
-    
-    @property
-    def best_model_log_directory(self):
-        return self.logDirectory(best_model = True)
     
     @property
     def title(self):
@@ -1031,21 +1031,24 @@ class GaussianMixtureVariationalAutoencoder(object):
         else:
             setupTraining()
     
-    def earlyStoppingStatus(self, early_stopping_log_directory = None):
+    def earlyStoppingStatus(self, run_id = None):
         
         stopped_early = False
         epochs_with_no_improvement = 0
         
-        if not early_stopping_log_directory:
-            early_stopping_log_directory = self.early_stopping_log_directory
+        early_stopping_log_directory = self.logDirectory(
+            run_id = run_id,
+            early_stopping = True
+        )
         
         log_directory = os.path.dirname(early_stopping_log_directory)
         
         if os.path.exists(log_directory):
             
             validation_losses = loadLearningCurves(
-                self,
-                "validation",
+                model = self,
+                data_set_kinds = "validation",
+                run_id = run_id,
                 log_directory = log_directory
             )["lower_bound"]
         
@@ -1060,13 +1063,34 @@ class GaussianMixtureVariationalAutoencoder(object):
     
     def train(self, training_set, validation_set,
         number_of_epochs = 100, batch_size = 100, learning_rate = 1e-3,
-        plotting_interval = None, reset_training = False,
+        plotting_interval = None,
+        run_id = None, new_run = False, reset_training = False,
         temporary_log_directory = None):
         
-        if reset_training and os.path.exists(self.log_directory):
-            shutil.rmtree(self.log_directory)
-        
         # Setup
+        
+        start_time = time()
+        
+        if run_id:
+            run_id = checkRunID(run_id)
+            new_run = True
+        elif new_run:
+            run_id = generateUniqueRunIDForModel(
+                model = self,
+                timestamp = start_time
+            )
+        
+        if run_id:
+            model_string = "model for run {}".format(run_id)
+        else:
+            model_string = "model"
+        
+        # Remove model run if prompted
+        
+        permanent_log_directory = self.logDirectory(run_id=run_id)
+        
+        if reset_training and os.path.exists(permanent_log_directory):
+            clearLogDirectory(permanent_log_directory)
         
         ## Logging
         
@@ -1074,15 +1098,16 @@ class GaussianMixtureVariationalAutoencoder(object):
             "completed": False,
             "message": None,
             "epochs trained": None,
-            "training time": None,
-            "last epoch time": None,
+            "start time": formatTime(start_time),
+            "training duration": None,
+            "last epoch duration": None,
             "learning rate": learning_rate,
             "batch size": batch_size
         }
         
         ## Earlier model
         
-        old_checkpoint = tf.train.get_checkpoint_state(self.log_directory)
+        old_checkpoint = tf.train.get_checkpoint_state(permanent_log_directory)
         
         if old_checkpoint:
             epoch_start = int(os.path.basename(
@@ -1094,13 +1119,18 @@ class GaussianMixtureVariationalAutoencoder(object):
         
         if temporary_log_directory:
             
-            log_directory = self.logDirectory(base = temporary_log_directory)
+            log_directory = self.logDirectory(
+                base = temporary_log_directory,
+                run_id = run_id
+            )
             early_stopping_log_directory = self.logDirectory(
                 base = temporary_log_directory,
+                run_id = run_id,
                 early_stopping = True
             )
             best_model_log_directory = self.logDirectory(
                 base = temporary_log_directory,
+                run_id = run_id,
                 best_model = True
             )
             
@@ -1121,16 +1151,29 @@ class GaussianMixtureVariationalAutoencoder(object):
                 replace_temporary_directory = True
             
         else:
-            log_directory = self.log_directory
-            early_stopping_log_directory = self.early_stopping_log_directory
-            best_model_log_directory = self.best_model_log_directory
+            log_directory = self.logDirectory(run_id=run_id)
+            early_stopping_log_directory = self.logDirectory(
+                run_id = run_id,
+                early_stopping = True
+            )
+            best_model_log_directory = self.logDirectory(
+                run_id = run_id,
+                best_model = True
+            )
         
         ## Training message
         
-        data_string = dataString(training_set,
-            self.reconstruction_distribution_name)
-        training_string = trainingString(epoch_start, number_of_epochs,
-            data_string)
+        data_string = dataString(
+            data_set = training_set,
+            reconstruction_distribution_name =
+                self.reconstruction_distribution_name
+        )
+        training_string = trainingString(
+            model_string,
+            epoch_start = epoch_start,
+            number_of_epochs = number_of_epochs,
+            data_string = data_string
+        )
         
         ## Stop, if model is already trained
         
@@ -1138,15 +1181,16 @@ class GaussianMixtureVariationalAutoencoder(object):
             print(training_string)
             print()
             status["completed"] = True
-            status["training time"] = "nan"
-            status["last epoch time"] = "nan"
+            status["training duration"] = "nan"
+            status["last epoch duration"] = "nan"
             status["epochs trained"] = "{}-{}".format(epoch_start,
                 number_of_epochs)
-            return status
+            return status, run_id
         
         ## Copy log directory to temporary location, if necessary
         
-        if temporary_log_directory and os.path.exists(self.log_directory) \
+        if temporary_log_directory \
+            and os.path.exists(permanent_log_directory) \
             and replace_temporary_directory:
             
             print("Copying log directory to temporary directory.")
@@ -1155,7 +1199,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             if os.path.exists(log_directory):
                 shutil.rmtree(log_directory)
             
-            shutil.copytree(self.log_directory, log_directory)
+            shutil.copytree(permanent_log_directory, log_directory)
             
             copying_duration = time() - copying_time_start
             print("Log directory copied ({}).".format(formatDuration(
@@ -1301,8 +1345,9 @@ class GaussianMixtureVariationalAutoencoder(object):
                     .split('-')[-1])
                 
                 ELBO_valid_learning_curve = loadLearningCurves(
-                    self,
-                    "validation",
+                    model = self,
+                    data_set_kinds = "validation",
+                    run_id = run_id,
                     log_directory = log_directory
                 )["lower_bound"]
                 
@@ -1310,8 +1355,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 ELBO_valid_prev = ELBO_valid_learning_curve[-1]
                 
                 self.stopped_early, epochs_with_no_improvement = \
-                    self.earlyStoppingStatus(
-                        early_stopping_log_directory)
+                    self.earlyStoppingStatus(run_id = run_id)
                 ELBO_valid_early_stopping = ELBO_valid_learning_curve[
                     -1 - epochs_with_no_improvement]
                 
@@ -1426,11 +1470,11 @@ class GaussianMixtureVariationalAutoencoder(object):
                         if numpy.isnan(batch_loss):
                             status["completed"] = False
                             status["message"] = "loss became nan"
-                            status["training time"] = formatDuration(
+                            status["training duration"] = formatDuration(
                                 time() - training_time_start)
-                            status["last epoch time"] = formatDuration(
+                            status["last epoch duration"] = formatDuration(
                                 time() - epoch_time_start)
-                            return status
+                            return status, run_id
                 
                 print()
                 
@@ -1899,16 +1943,24 @@ class GaussianMixtureVariationalAutoencoder(object):
                     else:
                         centroids = None
                     analyseIntermediateResults(
-                        learning_curves, epoch_start, epoch,
-                        z_mean_valid, validation_set, centroids,
-                        self.name, self.type,
-                        self.base_results_directory
+                        learning_curves = learning_curves,
+                        epoch_start = epoch_start,
+                        epoch = epoch,
+                        latent_values = z_mean_valid,
+                        data_set = validation_set,
+                        centroids = centroids,
+                        model_name = self.name,
+                        run_id = run_id,
+                        model_type = self.type,
+                        results_directory = self.base_results_directory
                     )
                     print()
                 else:
                     analyseIntermediateResults(
-                        learning_curves, epoch_start,
+                        learning_curves = learning_curves,
+                        epoch_start = epoch_start,
                         model_name = self.name,
+                        run_id = run_id,
                         model_type = self.type,
                         results_directory = self.base_results_directory
                     )
@@ -1919,8 +1971,12 @@ class GaussianMixtureVariationalAutoencoder(object):
             
             training_duration = time() - training_time_start
             
-            print("Model trained for {} epochs ({}).".format(
-                number_of_epochs, formatDuration(training_duration)))
+            print("{} trained for {} epochs ({}).".format(
+                capitaliseString(model_string),
+                number_of_epochs,
+                formatDuration(training_duration))
+            )
+            print()
             
             # Clean up
             
@@ -1931,10 +1987,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                 print("Moving log directory to permanent directory.")
                 copying_time_start = time()
                 
-                if os.path.exists(self.log_directory):
-                    shutil.rmtree(self.log_directory)
+                if os.path.exists(permanent_log_directory):
+                    shutil.rmtree(permanent_log_directory)
                 
-                shutil.move(log_directory, self.log_directory)
+                shutil.move(log_directory, permanent_log_directory)
                 
                 copying_duration = time() - copying_time_start
                 print("Log directory moved ({}).".format(formatDuration(
@@ -1943,17 +1999,23 @@ class GaussianMixtureVariationalAutoencoder(object):
                 print()
             
             status["completed"] = True
-            status["training time"] = formatDuration(training_duration)
-            status["last epoch time"] = formatDuration(epoch_duration)
+            status["training duration"] = formatDuration(training_duration)
+            status["last epoch duration"] = formatDuration(epoch_duration)
             
-            return status
+            return status, run_id
     
     def evaluate(self, evaluation_set, evaluation_subset_indices = set(),
-        batch_size = 100, predict_labels = True,
+        batch_size = 100, predict_labels = True, run_id = None,
         use_early_stopping_model = False, use_best_model = False,
         output_versions = "all", log_results = True):
         
         # Setup
+        
+        if run_id:
+            run_id = checkRunID(run_id)
+            model_string = "model for run {}".format(run_id)
+        else:
+            model_string = "model"
         
         if output_versions == "all":
             output_versions = ["transformed", "reconstructed", "latent"]
@@ -2053,13 +2115,12 @@ class GaussianMixtureVariationalAutoencoder(object):
         
         ## Other
         
-        if use_early_stopping_model:
-            log_directory = self.early_stopping_log_directory
-        elif use_best_model:
-            log_directory = self.best_model_log_directory
-        else:
-            log_directory = self.log_directory
-            
+        log_directory = self.logDirectory(
+            run_id = run_id,
+            early_stopping = use_early_stopping_model,
+            best_model = use_best_model
+        )
+        
         checkpoint = tf.train.get_checkpoint_state(log_directory)
         
         if log_results:
@@ -2084,12 +2145,16 @@ class GaussianMixtureVariationalAutoencoder(object):
                 epoch = int(os.path.split(model_checkpoint_path)[-1]
                     .split('-')[-1])
             else:
-                print("Cannot evaluate model when it has not been trained.")
+                print(
+                    "Cannot evaluate {} when it has not been trained.".format(
+                        model_string)
+                )
                 return [None] * len(output_versions)
             
             data_string = dataString(evaluation_set,
                 self.reconstruction_distribution_name)
-            print('Evaluating trained model on {}.'.format(data_string))
+            print('Evaluating trained {} on {}.'.format(model_string,
+                data_string))
             evaluating_time_start = time()
             
             ELBO_eval = 0

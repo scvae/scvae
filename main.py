@@ -33,6 +33,7 @@ from miscellaneous.prediction import predict
 from auxiliary import (
     title, subtitle, heading,
     normaliseString, enumerateListOfStrings,
+    checkRunID,
     betterModelExists, modelStoppedEarly,
     removeEmptyDirectories
 )
@@ -67,6 +68,7 @@ def main(input_file_or_name, data_directory = "data",
     count_sum = True,
     number_of_epochs = 200, plotting_interval_during_training = None, 
     batch_size = 100, learning_rate = 1e-4,
+    run_id = None, new_run = False,
     prediction_method = None,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
@@ -92,6 +94,10 @@ def main(input_file_or_name, data_directory = "data",
     ## Model configuration validation
     
     if not skip_modelling:
+        
+        if run_id:
+            run_id = checkRunID(run_id)
+        
         model_valid, model_errors = validateModelParameters(
             model_type, latent_distribution,
             reconstruction_distribution, number_of_reconstruction_classes,
@@ -174,10 +180,13 @@ def main(input_file_or_name, data_directory = "data",
     if analyse and analyse_data:
         print(subtitle("Analysing data"))
         analysis.analyseData(
-            all_data_sets,
-            decomposition_methods, highlight_feature_indices,
-            analyses, analysis_level,
-            export_options, data_results_directory
+            data_sets = all_data_sets,
+            decomposition_methods = decomposition_methods,
+            highlight_feature_indices = highlight_feature_indices,
+            analyses = analyses,
+            analysis_level = analysis_level,
+            export_options = export_options,
+            results_directory = data_results_directory
         )
         print()
     
@@ -309,13 +318,15 @@ def main(input_file_or_name, data_directory = "data",
     
     print(subtitle("Model training"))
     
-    status = model.train(
+    status, run_id = model.train(
         training_set,
         validation_set,
         number_of_epochs = number_of_epochs,
         batch_size = batch_size,
         learning_rate = learning_rate,
         plotting_interval = plotting_interval_during_training,
+        run_id = run_id,
+        new_run = new_run,
         reset_training = reset_training,
         temporary_log_directory = temporary_log_directory
     )
@@ -332,7 +343,7 @@ def main(input_file_or_name, data_directory = "data",
     if "epochs trained" in status:
         status_filename += "-" + status["epochs trained"]
     status_path = os.path.join(
-        model.log_directory,
+        model.logDirectory(run_id = run_id),
         status_filename + ".log"
     )
     with open(status_path, "w") as status_file:
@@ -409,8 +420,14 @@ def main(input_file_or_name, data_directory = "data",
     if analyse:
         
         print(subtitle("Model analysis"))
-        analysis.analyseModel(model, analyses, analysis_level,
-            export_options, results_directory)
+        analysis.analyseModel(
+            model = model,
+            run_id = run_id,
+            analyses = analyses,
+            analysis_level = analysis_level,
+            export_options = export_options,
+            results_directory = results_directory
+        )
     
     ## Results evaluation, prediction, and analysis
     
@@ -442,6 +459,7 @@ def main(input_file_or_name, data_directory = "data",
                     evaluation_subset_indices = evaluation_subset_indices,
                     batch_size = batch_size,
                     predict_labels = predict_labels_using_model,
+                    run_id = run_id,
                     use_best_model = use_best_model,
                     use_early_stopping_model = use_early_stopping_model
                 )
@@ -451,6 +469,7 @@ def main(input_file_or_name, data_directory = "data",
                     evaluation_set = evaluation_set,
                     evaluation_subset_indices = evaluation_subset_indices,
                     batch_size = batch_size,
+                    run_id = run_id,
                     use_best_model = use_best_model,
                     use_early_stopping_model = use_early_stopping_model
                 )
@@ -468,6 +487,7 @@ def main(input_file_or_name, data_directory = "data",
             latent_training_sets = model.evaluate(
                 evaluation_set = training_set,
                 batch_size = batch_size,
+                run_id = run_id,
                 use_best_model = use_best_model,
                 use_early_stopping_model = use_early_stopping_model,
                 output_versions = "latent",
@@ -510,10 +530,11 @@ def main(input_file_or_name, data_directory = "data",
             print(heading("{} results analysis".format(model_parameter_set_name)))
             
             analysis.analyseResults(
-                transformed_evaluation_set,
-                reconstructed_evaluation_set,
-                latent_evaluation_sets,
-                model,
+                evaluation_set = transformed_evaluation_set,
+                reconstructed_evaluation_set = reconstructed_evaluation_set,
+                latent_evaluation_sets = latent_evaluation_sets,
+                model = model,
+                run_id = run_id,
                 decomposition_methods = decomposition_methods,
                 evaluation_subset_indices = evaluation_subset_indices,
                 highlight_feature_indices = highlight_feature_indices,
@@ -881,6 +902,18 @@ parser.add_argument(
     help = "do not use count sum"
 )
 parser.set_defaults(count_sum = False)
+parser.add_argument(
+    "--run-id",
+    type = str,
+    nargs = "?",
+    default = None,
+    help = "ID for separate run of the model (can only contrain alphanumeric characters)"
+)
+parser.add_argument(
+    "--new-run",
+    action = "store_true",
+    help = "train a model anew as a separate run with a generated run ID"
+)
 parser.add_argument(
     "--prediction-method", "-P",
     type = str,

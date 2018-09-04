@@ -16,18 +16,25 @@
 # 
 # ======================================================================== #
 
+import os
+import random
+import re
+import shutil
+import time
+from datetime import datetime
+from string import ascii_uppercase
+
 import numpy
-
 import tensorflow as tf
-
 from tensorflow.contrib.layers import (
     fully_connected, batch_norm, dropout,
     variance_scaling_initializer, xavier_initializer
 )
-
 from tensorflow.python.ops.nn import relu
 
-import os, shutil
+from auxiliary import capitaliseString
+
+LENTGH_OF_RUN_ID_ALPHABETICAL_PART = 2
 
 ## N(mu=0,sigma=sqrt(2/n_in)) weight and 0-bias initialiser.
 # weights_init = variance_scaling_initializer(factor=2.0, mode ='FAN_IN', 
@@ -198,25 +205,25 @@ def earlyStoppingStatus(losses, early_stopping_rounds):
 
 # Strings
 
-def trainingString(epoch_start, number_of_epochs, data_string):
+def trainingString(model_string, epoch_start, number_of_epochs, data_string):
     
     if epoch_start == 0:
-        training_string = "Training model for {} epochs on {}.".format(
-            number_of_epochs, data_string)
+        training_string = "Training {} for {} epochs on {}.".format(
+            model_string, number_of_epochs, data_string)
     elif epoch_start < number_of_epochs:
-        training_string = "Continue training model for {}".format(
-            number_of_epochs - epoch_start) + " additionally epochs" \
-            + " (up to {} epochs)".format(number_of_epochs) \
-            + " on {}.".format(data_string)
+        training_string = "Continue training {} for {}".format(
+            model_string, number_of_epochs - epoch_start) \
+            + " additionally epochs (up to {} epochs)".format(
+            number_of_epochs) + " on {}.".format(data_string)
     elif epoch_start == number_of_epochs:
-        training_string = "Model has already been trained for" \
+        training_string = "{} has already been trained for".format(
+            capitaliseString(model_string)) \
             + " {} epochs on {}.".format(number_of_epochs, data_string)
     elif epoch_start > number_of_epochs:
-        training_string = "Model has already been trained for more" \
-            + " than {} epochs on {}.".format(number_of_epochs,
-                data_string) \
-            + " Loading model trained for {} epochs.".format(
-                epoch_start)
+        training_string = "{} has already been trained for more".format(
+            capitaliseString(model_string)) \
+            + " than {} epochs on {}.".format(number_of_epochs, data_string) \
+            + " Loading model trained for {} epochs.".format(epoch_start)
     else:
         raise ValueError("Cannot train a negative amount.")
     
@@ -250,6 +257,53 @@ def dataString(data_set, reconstruction_distribution_name):
     return data_string
 
 # Model
+
+def generateRunID(timestamp = None):
+    
+    if timestamp is None:
+        timestamp = time.time()
+    
+    formatted_timestamp = datetime.utcfromtimestamp(timestamp)\
+        .strftime("%Y%m%dT%H%M%SZ")
+    
+    uppercase_ascii_letters = list(ascii_uppercase)
+    letters = "".join(random.choices(
+        population = uppercase_ascii_letters,
+        k = LENTGH_OF_RUN_ID_ALPHABETICAL_PART
+    ))
+    
+    run_id = formatted_timestamp + "_" + letters
+    
+    return run_id
+
+def generateUniqueRunIDForModel(model, timestamp = None):
+    log_directory = model.logDirectory()
+    existing_run_ids = [
+        re.sub(r"^run_", "", d)
+        for d in os.listdir(log_directory)
+        if d.startswith("run_")
+    ]
+    unique_run_id_found = False
+    while not unique_run_id_found:
+        run_id = generateRunID(timestamp = timestamp)
+        if run_id not in existing_run_ids:
+            unique_run_id_found = True
+    return run_id
+
+def clearLogDirectory(log_directory):
+    remove_log_directory = True
+    if os.path.exists(log_directory):
+        for item_name in os.listdir(log_directory):
+            item_path = os.path.join(log_directory, item_name)
+            if os.path.isdir(item_path):
+                if item_name.startswith("run_"):
+                    remove_log_directory = False
+                else:
+                    shutil.rmtree(item_path)
+            else:
+                os.remove(item_path)
+        if remove_log_directory:
+            shutil.rmtree(log_directory)
 
 def correctModelCheckpointPath(model_checkpoint_path, parent_directory):
     correct_model_checkpoint_path = os.path.join(

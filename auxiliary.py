@@ -97,6 +97,20 @@ def properString(original_string, translation, normalise = True):
     
     return original_string
 
+def capitaliseString(original_string):
+    first_word, split_character, rest_of_original_string = re.split(
+        pattern=r"(\s)",
+        string=original_string,
+        maxsplit=1
+    )
+    if re.match(pattern=r"[A-Z]", string=first_word):
+        capitalised_first_word = first_word
+    else:
+        capitalised_first_word = first_word.capitalize()
+    capitalised_string = capitalised_first_word + split_character \
+        + rest_of_original_string
+    return capitalised_string
+
 def enumerateListOfStrings(list_of_strings):
     if len(list_of_strings) == 1:
         enumerated_string = list_of_strings[0]
@@ -116,9 +130,12 @@ def isfloat(value):
     except ValueError:
         return False
 
-# Loading function for TensorBoard summaries
+# Functions for models
+# TODO Move auxiliary model functions to `models/auxiliary.py`
+# Note that doing this with the current setup causes an import loop.
 
-def loadNumberOfEpochsTrained(model, early_stopping = False, best_model = False):
+def loadNumberOfEpochsTrained(model, run_id = None, early_stopping = False,
+        best_model = False):
     
     # Setup
     
@@ -135,12 +152,11 @@ def loadNumberOfEpochsTrained(model, early_stopping = False, best_model = False)
     loss = loss_prefix + loss
     
     ## Log directory
-    if early_stopping:
-        log_directory = model.early_stopping_log_directory
-    elif best_model:
-        log_directory = model.best_model_log_directory
-    else:
-        log_directory = model.log_directory
+    log_directory = model.logDirectory(
+        run_id = run_id,
+        early_stopping = early_stopping,
+        best_model = best_model
+    )
     
     # Loading
     
@@ -158,8 +174,8 @@ def loadNumberOfEpochsTrained(model, early_stopping = False, best_model = False)
     
     return E_1
 
-def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False,
-    best_model = False, log_directory = None):
+def loadLearningCurves(model, data_set_kinds = "all", run_id = None,
+    early_stopping = False, best_model = False, log_directory = None):
     
     # Setup
     
@@ -174,6 +190,7 @@ def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False,
     ## Log directory
     if not log_directory:
         log_directory = model.logDirectory(
+            run_id = run_id,
             early_stopping = early_stopping,
             best_model = best_model
         )
@@ -226,7 +243,7 @@ def loadLearningCurves(model, data_set_kinds = "all", early_stopping = False,
     return learning_curve_sets
 
 def loadAccuracies(model, data_set_kinds = "all", superset = False,
-    early_stopping = False, best_model = False):
+    run_id = None, early_stopping = False, best_model = False):
     
     # Setup
     
@@ -239,12 +256,11 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False,
         data_set_kinds = [data_set_kinds]
     
     ## Log directory
-    if early_stopping:
-        log_directory = model.early_stopping_log_directory
-    elif best_model:
-        log_directory = model.best_model_log_directory
-    else:
-        log_directory = model.log_directory
+    log_directory = model.logDirectory(
+        run_id = run_id,
+        early_stopping = early_stopping,
+        best_model = best_model
+    )
     
     ## Tag
     
@@ -292,8 +308,8 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False,
     
     return accuracies
 
-def loadCentroids(model, data_set_kinds = "all", early_stopping = False,
-    best_model = False):
+def loadCentroids(model, data_set_kinds = "all", run_id = None,
+    early_stopping = False, best_model = False):
     
     # Setup
     
@@ -308,12 +324,11 @@ def loadCentroids(model, data_set_kinds = "all", early_stopping = False,
         return None
     
     ## Log directory
-    if early_stopping:
-        log_directory = model.early_stopping_log_directory
-    elif best_model:
-        log_directory = model.best_model_log_directory
-    else:
-        log_directory = model.log_directory
+    log_directory = model.logDirectory(
+        run_id = run_id,
+        early_stopping = early_stopping,
+        best_model = best_model
+    )
     
     ## Tag search
     
@@ -419,7 +434,8 @@ def loadCentroids(model, data_set_kinds = "all", early_stopping = False,
     
     return centroids_sets
 
-def loadKLDivergences(model, early_stopping = False, best_model = False):
+def loadKLDivergences(model, run_id = None, early_stopping = False,
+    best_model = False):
     
     # Setup
     
@@ -427,12 +443,11 @@ def loadKLDivergences(model, early_stopping = False, best_model = False):
     data_set_kind = "training"
     
     ## Log directory
-    if early_stopping:
-        log_directory = model.early_stopping_log_directory
-    elif best_model:
-        log_directory = model.best_model_log_directory
-    else:
-        log_directory = model.log_directory
+    log_directory = model.logDirectory(
+        run_id = run_id,
+        early_stopping = early_stopping,
+        best_model = best_model
+    )
     
     ## Tag search
     kl_divergence_neurons_tag = "kl_divergence_neurons/"
@@ -500,14 +515,28 @@ def summary_reader(log_directory, data_set_kinds, tag_searches):
 
     return scalars
 
-def betterModelExists(model):
-    E_current = loadNumberOfEpochsTrained(model, best_model = False)
-    E_best = loadNumberOfEpochsTrained(model, best_model = True)
+def betterModelExists(model, run_id = None):
+    E_current = loadNumberOfEpochsTrained(model, run_id = run_id,
+        best_model = False)
+    E_best = loadNumberOfEpochsTrained(model, run_id = run_id,
+        best_model = True)
     return E_best < E_current
 
-def modelStoppedEarly(model):
-    stopped_early, _ = model.earlyStoppingStatus()
+def modelStoppedEarly(model, run_id = None):
+    stopped_early, _ = model.earlyStoppingStatus(run_id = run_id)
     return stopped_early
+
+def checkRunID(run_id):
+    if run_id is not None:
+        run_id = str(run_id)
+        if not re.fullmatch(r"[\w]+", run_id):
+            raise ValueError(
+                "`run_id` can only contain letters, numbers, and "
+                "underscores ('_')."
+            )
+    else:
+        raise TypeError("The run ID has not been set.")
+    return run_id
 
 # IO
 
