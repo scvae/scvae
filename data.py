@@ -624,8 +624,7 @@ class DataSet(object):
         preprocessed_values = None, binarised_values = None,
         labels = None, class_names = None,
         example_names = None, feature_names = None, map_features = False,
-        feature_selection = [], feature_parameter = None,
-        example_filter = [],
+        feature_selection = [], example_filter = [],
         preprocessing_methods = [], preprocessed = None,
         binarise_values = False,
         noisy_preprocessing_methods = [],
@@ -749,12 +748,17 @@ class DataSet(object):
         self.feature_mapping = None
         
         # Feature selection
-        self.feature_selection = feature_selection
-        self.feature_parameter = feature_parameter
+        if feature_selection:
+            self.feature_selection = feature_selection[0]
+            if len(feature_selection) > 1:
+                self.feature_selection_parameters = feature_selection[1:]
+            else:
+                self.feature_selection_parameters = None
+        else:
+            self.feature_selection = None
+            self.feature_selection_parameters = None
         
         # Example filterering
-        self.example_filter = example_filter
-        
         if example_filter:
             self.example_filter = example_filter[0]
             if len(example_filter) > 1:
@@ -822,10 +826,11 @@ class DataSet(object):
             
             if self.feature_selection:
                 print("    feature selection:", self.feature_selection)
-                if self.feature_parameter:
-                    print("        parameter:", self.feature_parameter)
+                if self.feature_selection_parameters:
+                    print("        parameters:",
+                        ", ".join(self.feature_selection_parameters))
                 else:
-                    print("        parameter: default")
+                    print("        parameters: default")
             else:
                 print("    feature selection: none")
             
@@ -1144,8 +1149,8 @@ class DataSet(object):
         else:
             self.map_features = False
         
-        if not self.feature_parameter:
-            self.feature_parameter = defaultFeatureParameter(
+        if not self.feature_selection_parameters:
+            self.feature_selection_parameters = defaultFeatureParameters(
                 self.feature_selection, self.number_of_features)
         
         self.preprocess()
@@ -1164,7 +1169,7 @@ class DataSet(object):
             map_features = self.map_features,
             preprocessing_methods = self.preprocessing_methods,
             feature_selection = self.feature_selection, 
-            feature_parameter = self.feature_parameter,
+            feature_selection_parameters = self.feature_selection_parameters,
             example_filter = self.example_filter,
             example_filter_parameters = self.example_filter_parameters
         )
@@ -1224,7 +1229,7 @@ class DataSet(object):
                      "preprocessed": preprocessed_values},
                     self.feature_names,
                     self.feature_selection,
-                    self.feature_parameter,
+                    self.feature_selection_parameters,
                     self.preprocessedPath
                 )
                 
@@ -1315,7 +1320,7 @@ class DataSet(object):
             map_features = self.map_features,
             preprocessing_methods = binarise_preprocessing,
             feature_selection = self.feature_selection, 
-            feature_parameter = self.feature_parameter,
+            feature_selection_parameters = self.feature_selection_parameters,
             example_filter = self.example_filter,
             example_filter_parameters = self.example_filter_parameters
         )
@@ -1381,7 +1386,7 @@ class DataSet(object):
             map_features = self.map_features,
             preprocessing_methods = self.preprocessing_methods,
             feature_selection = self.feature_selection,
-            feature_parameter = self.feature_parameter,
+            feature_selection_parameters = self.feature_selection_parameters,
             example_filter = self.example_filter,
             example_filter_parameters = self.example_filter_parameters,
             splitting_method = method,
@@ -1980,7 +1985,7 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
     
     def preprocessedPath(base_name = None, map_features = None,
         preprocessing_methods = None,
-        feature_selection = None, feature_parameter = None,
+        feature_selection = None, feature_selection_parameters = None,
         example_filter = None, example_filter_parameters = None,
         splitting_method = None, splitting_fraction = None,
         split_indices = None):
@@ -1997,15 +2002,18 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
         
         if feature_selection:
             feature_selection_part = normaliseString(feature_selection)
-            if feature_parameter:
-                feature_selection_part += "_{}".format(feature_parameter)
+            if feature_selection_parameters:
+                for parameter in feature_selection_parameters:
+                    feature_selection_part += "_" + normaliseString(str(
+                        parameter))
             filename_parts.append(feature_selection_part)
         
         if example_filter:
             example_filter_part = normaliseString(example_filter)
             if example_filter_parameters:
-                example_filter_part += "_" + "_".join(map(normaliseString,
-                    example_filter_parameters))
+                for parameter in example_filter_parameters:
+                    example_filter_part += "_" + normaliseString(str(
+                        parameter))
             filename_parts.append(example_filter_part)
         
         if preprocessing_methods:
@@ -2091,7 +2099,7 @@ def mapFeatures(values, feature_IDs, feature_mapping):
     return aggregated_values, feature_names
 
 def selectFeatures(values_dictionary, feature_names, feature_selection = None,
-    feature_parameter = None, preprocessPath = None):
+    feature_selection_parameters = None, preprocessPath = None):
     
     feature_selection = normaliseString(feature_selection)
     
@@ -2111,37 +2119,41 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
     
     elif feature_selection == "keep_gini_indices_above":
         gini_indices = loadWeights(values, "gini", preprocessPath)
-        if not feature_parameter:
-            feature_parameter = 0.1
-        indices = gini_indices > feature_parameter
+        if feature_selection_parameters:
+            threshold = float(feature_selection_parameters[0])
+        else:
+            threshold = 0.1
+        indices = gini_indices > threshold
 
     elif feature_selection == "keep_highest_gini_indices":
         gini_indices = loadWeights(values, "gini", preprocessPath)
         gini_sorted_indices = numpy.argsort(gini_indices)
-        if feature_parameter:
-            feature_parameter = int(feature_parameter)
+        if feature_selection_parameters:
+            number_to_keep = int(feature_selection_parameters[0])
         else:
-            feature_parameter = int(M/2)
-        indices = numpy.sort(gini_sorted_indices[-feature_parameter:])
+            number_to_keep = int(M/2)
+        indices = numpy.sort(gini_sorted_indices[-number_to_keep:])
         
     elif feature_selection == "keep_variances_above":
         variances = values.var(axis = 0)
         if isinstance(variances, numpy.matrix):
             variances = variances.A.squeeze()
-        if not feature_parameter:
-            feature_parameter = 0.5
-        indices = variances > feature_parameter
+        if feature_selection_parameters:
+            threshold = float(feature_selection_parameters[0])
+        else:
+            threshold = 0.5
+        indices = variances > threshold
 
     elif feature_selection == "keep_highest_variances":
         variances = values.var(axis = 0)
         if isinstance(variances, numpy.matrix):
             variances = variances.A.squeeze()
         variance_sorted_indices = numpy.argsort(variances)
-        if feature_parameter:
-            feature_parameter = int(feature_parameter)
+        if feature_selection_parameters:
+            number_to_keep = int(feature_selection_parameters[0])
         else:
-            feature_parameter = int(M/2)
-        indices = numpy.sort(variance_sorted_indices[-feature_parameter:])
+            number_to_keep = int(M/2)
+        indices = numpy.sort(variance_sorted_indices[-number_to_keep:])
         
     else:
         indices = numpy.arange(N)
@@ -2173,32 +2185,35 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
     
     return feature_selected_values, feature_selected_feature_names
 
-def defaultFeatureParameter(feature_selection, number_of_features):
-    
-    M = number_of_features
+def defaultFeatureParameters(feature_selection = None,
+    number_of_features = None):
     
     if feature_selection:
         feature_selection = normaliseString(feature_selection)
-    
-    if feature_selection == "remove_zeros":
-        feature_parameter = None
-    
-    elif feature_selection == "keep_gini_indices_above":
-        feature_parameter = 0.1
-    
-    elif feature_selection == "keep_highest_gini_indices":
-        feature_parameter = int(M/2)
-    
-    elif feature_selection == "keep_variances_above":
-        feature_parameter = 0.5
-    
-    elif feature_selection == "keep_highest_variances":
-        feature_parameter = int(M/2)
+        M = number_of_features
+        
+        if feature_selection == "remove_zeros":
+            feature_selection_parameters = None
+        
+        elif feature_selection == "keep_gini_indices_above":
+            feature_selection_parameters = [0.1]
+        
+        elif feature_selection == "keep_highest_gini_indices":
+            feature_selection_parameters = [int(M/2)]
+        
+        elif feature_selection == "keep_variances_above":
+            feature_selection_parameters = [0.5]
+        
+        elif feature_selection == "keep_highest_variances":
+            feature_selection_parameters = [int(M/2)]
+        
+        else:
+            feature_selection_parameters = None
     
     else:
-        feature_parameter = None
+        feature_selection_parameters = None
     
-    return feature_parameter
+    return feature_selection_parameters
 
 def filterExamples(values_dictionary, example_names, example_filter = None,
     example_filter_parameters = None, labels = None, excluded_classes = None,
@@ -3621,15 +3636,18 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction,
     
     if data_set.feature_selection:
         feature_selection_part = normaliseString(data_set.feature_selection)
-        if data_set.feature_parameter:
-            feature_selection_part += "_{}".format(data_set.feature_parameter)
+        if data_set.feature_selection_parameters:
+            for parameter in data_set.feature_selection_parameters:
+                feature_selection_part += "_" + normaliseString(str(
+                    parameter))
         preprocessing_directory_parts.append(feature_selection_part)
     
     if data_set.example_filter:
         example_filter_part = normaliseString(data_set.example_filter)
         if data_set.example_filter_parameters:
-            example_filter_part += "_" + "_".join(map(normaliseString,
-                data_set.example_filter_parameters))
+            for parameter in data_set.example_filter_parameters:
+                example_filter_part += "_" + normaliseString(str(
+                    parameter))
         preprocessing_directory_parts.append(example_filter_part)
     
     if preprocessing and data_set.preprocessing_methods:

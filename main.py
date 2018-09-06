@@ -46,8 +46,7 @@ import random
 def main(input_file_or_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     temporary_log_directory = None,
-    map_features = False, feature_selection = [], feature_parameter = None,
-    example_filter = [],
+    map_features = False, feature_selection = [], example_filter = [],
     preprocessing_methods = [], noisy_preprocessing_methods = [],
     splitting_method = "default", splitting_fraction = 0.9,
     model_type = "VAE", latent_size = 50, hidden_sizes = [500],
@@ -146,7 +145,6 @@ def main(input_file_or_name, data_directory = "data",
         directory = data_directory,
         map_features = map_features,
         feature_selection = feature_selection,
-        feature_parameter = feature_parameter,
         example_filter = example_filter,
         preprocessing_methods = preprocessing_methods,
         binarise_values = binarise_values,
@@ -703,16 +701,9 @@ parser.set_defaults(map_features = False)
 parser.add_argument(
     "--feature-selection", "-F",
     type = str,
-    nargs = "?",
+    nargs = "*",
     default = None,
     help = "method for selecting features"
-)
-parser.add_argument(
-    "--feature-parameter",
-    type = float,
-    nargs = "?",
-    default = None,
-    help = "parameter for feature selection"
 )
 parser.add_argument(
     "--example-filter", "-E",
