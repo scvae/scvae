@@ -2522,7 +2522,7 @@ def loadDataDictionary(path):
                             node_title)
                     )
             elif isinstance(node, tables.Array):
-                data_dictionary[node_title] = loadArrayAsOtherType(node)
+                data_dictionary[node_title] = loadArrayOrOtherType(node)
             else:
                 raise NotImplementedError(
                     "Loading node `{}` not implemented.".format(node_title)
@@ -2540,12 +2540,13 @@ def loadDataDictionary(path):
     
     return data_dictionary
 
-def loadArrayAsOtherType(node):
+def loadArrayOrOtherType(node):
     
     value = node.read()
     
     if value.dtype.char == "S":
-        value = value.astype("unicode")
+        decode = numpy.vectorize(lambda s: s.decode("UTF-8"))
+        value = decode(value).astype("U")
     
     elif value.dtype == numpy.uint8:
         value = value.tostring().decode("UTF-8")
@@ -2650,7 +2651,8 @@ def saveArray(array, title, group, tables_file):
         array = numpy.array(array)
         name += "_was_list"
     if array.dtype.char == "U":
-        array = numpy.array([s.encode("UTF-8") for s in array.tolist()])
+        encode = numpy.vectorize(lambda s: s.encode("UTF-8"))
+        array = encode(array).astype("S")
     atom = tables.Atom.from_dtype(array.dtype)
     data_store = tables_file.create_carray(
         group,
