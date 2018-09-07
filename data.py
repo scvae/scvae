@@ -2607,6 +2607,11 @@ def loadFeatureMapping(tables_file, group):
 
 def saveDataDictionary(data_dictionary, path):
     
+    directory, filename = os.path.split(path)
+    
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
     def save(data_dictionary, tables_file, group_title = None):
         
         if group_title:
@@ -3433,7 +3438,7 @@ def applyWeights(data, method, preprocessPath = None):
     
     weights = loadWeights(data, method, preprocessPath)
     
-    return weights * data
+    return data.multiply(weights)
 
 def loadWeights(data, method, preprocessPath):
     
@@ -3446,14 +3451,18 @@ def loadWeights(data, method, preprocessPath):
         print("Loading weights from.")
         weights_dictionary = loadDataDictionary(weights_path)
     else:
+        start_time = time()
+        
         if method == "gini":
             weights = computeGiniIndices(data)
         elif method == "idf":
             weights = computeInverseGlobalFrequencyWeights(data)
         
+        duration = time() - start_time
+        
         weights_dictionary = {"weights": weights}
         
-        if weights_path:
+        if weights_path and duration > maximum_duration_before_saving:
             print("Saving weights.")
             saveDataDictionary(weights_dictionary, weights_path)
     
@@ -3474,18 +3483,18 @@ def computeGiniIndices(data, epsilon = 1e-16, batch_size = 5000):
     # 1-indexing vector for each data element
     index_vector = 2 * numpy.arange(1, M + 1) - M - 1
     
-    # Values cannot be 0
-    data = numpy.clip(data, epsilon, data)
-    
     gini_indices = numpy.zeros(N)
     
     for i in range(0, N, batch_size):
-        batch = data[:, i:(i+batch_size)]
+        batch = data[:, i:(i+batch_size)].A
         
-        # Array should be normalized and sorted frequencies over the examples
+        # Values cannot be 0
+        batch = numpy.clip(batch, epsilon, batch)
+        
+        # Array should be normalised and sorted frequencies over the examples
         batch = numpy.sort(batch / (numpy.sum(batch, axis = 0)), axis = 0)
         
-        #Gini coefficients over the examples for each feature. 
+        # Gini coefficients over the examples for each feature. 
         gini_indices[i:(i+batch_size)] = index_vector @ batch / M
     
     duration = time() - start_time
@@ -3500,7 +3509,7 @@ def computeInverseGlobalFrequencyWeights(data):
     
     M = data.shape[0]
     
-    global_frequencies = numpy.sum(numpy.where(data > 0, 1, 0), axis=0)
+    global_frequencies = data.astype(bool).sum(axis=0).A.squeeze()
     
     idf_weights = numpy.log(M / (global_frequencies + 1))
     
