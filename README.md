@@ -68,15 +68,15 @@ To reproduce the main results from our paper, you can run the following commands
 
 * Purified immune cells data set from 10x Genomics:
 
-		$ ./main.py -i 10x_pbmc -m GMVAE -r negative_binomial -l 100 -H 100 100 -e 500 --decomposition-methods pca tsne
+		$ ./main.py -i 10x-PBMC-PP -m GMVAE -r negative_binomial -l 100 -H 100 100 -e 500 --decomposition-methods pca tsne
 
 * Mouse brain cells data set from 10x Genomics:
 
-		$ ./main.py -i 10x_mbc -m GMVAE -K 10 -r zero_inflated_negative_binomial -l 25 -H 250 250 -e 500 --decomposition-methods pca tsne
+		$ ./main.py -i 10x-MBC -m GMVAE -K 10 -r zero_inflated_negative_binomial -l 25 -H 250 250 -e 500 --decomposition-methods pca tsne
 
 * TCGA data set:
 
-		$ ./main.py -i tcga_rsem --map-features -m GMVAE -r negative_binomial -l 50 -H 500 500 -e 500 --decomposition-methods pca tsne
+		$ ./main.py -i TCGA-RSEM --map-features -m GMVAE -r negative_binomial -l 50 -H 500 500 -e 500 --decomposition-methods pca tsne
 
 You can also model the MNIST data set. Three different versions are supported: [the original][MNIST-original], [the normalised][MNIST-normalised], and [the binarised][MNIST-binarised]. To run the GMVAE model for, e.g., the binarised version, issue the following command:
 

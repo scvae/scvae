@@ -239,7 +239,7 @@ data_sets = {
         "example type": "counts"
     },
     
-    "10x-PBMC-L": {
+    "10x-PBMC-PL": {
         "tags": {
             "example": "cell",
             "feature": "gene",
@@ -248,16 +248,16 @@ data_sets = {
         },
         "URLs": {
             "all": {
-                "CD56+ NK cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd56_nk/cd56_nk_filtered_gene_bc_matrices.tar.gz",
+                "CD56+ natural killer cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd56_nk/cd56_nk_filtered_gene_bc_matrices.tar.gz",
                 "CD19+ B cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/b_cells/b_cells_filtered_gene_bc_matrices.tar.gz",
                 "CD4+/CD25+ regulatory T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/regulatory_t/regulatory_t_filtered_gene_bc_matrices.tar.gz"
             },
         },
-        "loading function": lambda x: loadDIMMSCsCombined10xDataSet(x),
+        "loading function": lambda x: loadAndCombine10xPBMCDataSets(x),
         "example type": "counts"
     },
     
-    "10x-PBMC-T": {
+    "10x-PBMC-PT": {
         "tags": {
             "example": "cell",
             "feature": "gene",
@@ -266,16 +266,16 @@ data_sets = {
         },
         "URLs": {
             "all": {
-                "CD8+/CD45RA+ naive cytotoxic T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_cytotoxic/naive_cytotoxic_filtered_gene_bc_matrices.tar.gz",
+                "CD8+/CD45RA+ naïve cytotoxic T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_cytotoxic/naive_cytotoxic_filtered_gene_bc_matrices.tar.gz",
                 "CD4+/CD25+ regulatory T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/regulatory_t/regulatory_t_filtered_gene_bc_matrices.tar.gz",
-                "CD4+/CD45RA+/CD25- naive T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_t/naive_t_filtered_gene_bc_matrices.tar.gz"
+                "CD4+/CD45RA+/CD25- naïve T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_t/naive_t_filtered_gene_bc_matrices.tar.gz"
             },
         },
-        "loading function": lambda x: loadDIMMSCsCombined10xDataSet(x),
+        "loading function": lambda x: loadAndCombine10xPBMCDataSets(x),
         "example type": "counts"
     },
     
-    "10x-PBMC": {
+    "10x-PBMC-PP": {
         "tags": {
             "example": "cell",
             "feature": "gene",
@@ -284,19 +284,18 @@ data_sets = {
         },
         "URLs": {
             "all": {
-                "CD14+ Monocytes": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd14_monocytes/cd14_monocytes_filtered_gene_bc_matrices.tar.gz",
-                "CD19+ B Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/b_cells/b_cells_filtered_gene_bc_matrices.tar.gz",
-                "CD34+ Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd34/cd34_filtered_gene_bc_matrices.tar.gz",
-                "CD4+ Helper T Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd4_t_helper/cd4_t_helper_filtered_gene_bc_matrices.tar.gz",
-                "CD4+/CD25+ Regulatory T Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/regulatory_t/regulatory_t_filtered_gene_bc_matrices.tar.gz",
-                "CD4+/CD45RA+/CD25- Naive T Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_t/naive_t_filtered_gene_bc_matrices.tar.gz",
-                "CD4+/CD45RO+ Memory T Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/memory_t/memory_t_filtered_gene_bc_matrices.tar.gz",
-                "CD56+ Natural Killer Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd56_nk/cd56_nk_filtered_gene_bc_matrices.tar.gz",
-                "CD8+ Cytotoxic T Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cytotoxic_t/cytotoxic_t_filtered_gene_bc_matrices.tar.gz",
-                "CD8+/CD45RA+ Naive Cytotoxic T Cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_cytotoxic/naive_cytotoxic_filtered_gene_bc_matrices.tar.gz"
+                "CD19+ B cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/b_cells/b_cells_filtered_gene_bc_matrices.tar.gz",
+                "CD34+ cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd34/cd34_filtered_gene_bc_matrices.tar.gz",
+                "CD4+ helper T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd4_t_helper/cd4_t_helper_filtered_gene_bc_matrices.tar.gz",
+                "CD4+/CD25+ regulatory T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/regulatory_t/regulatory_t_filtered_gene_bc_matrices.tar.gz",
+                "CD4+/CD45RA+/CD25- naïve T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_t/naive_t_filtered_gene_bc_matrices.tar.gz",
+                "CD4+/CD45RO+ memory T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/memory_t/memory_t_filtered_gene_bc_matrices.tar.gz",
+                "CD56+ natural killer cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cd56_nk/cd56_nk_filtered_gene_bc_matrices.tar.gz",
+                "CD8+ cytotoxic T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/cytotoxic_t/cytotoxic_t_filtered_gene_bc_matrices.tar.gz",
+                "CD8+/CD45RA+ naïve cytotoxic T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_cytotoxic/naive_cytotoxic_filtered_gene_bc_matrices.tar.gz"
             },
         },
-        "loading function": lambda x: loadDIMMSCsCombined10xDataSet(x),
+        "loading function": lambda x: loadAndCombine10xPBMCDataSets(x),
         "example type": "counts"
     },
     
@@ -586,34 +585,6 @@ data_sets = {
             }
         }
     }
-}
-
-pbmc_class_mapper = {
-    "CD14+ monocytes": ["CD14+ Monocytes"],
-    "CD19+ B cells": [
-        "CD19+ B Cells",
-        "CD19+ B cells"
-    ],
-    "CD34+ cells": ["CD34+ Cells"],
-    "CD4+ helper T cells": ["CD4+ Helper T Cells"],
-    "CD4+/CD25+ regulatory T cells": [
-        "CD4+/CD25+ Regulatory T Cells",
-        "CD4+/CD25+ regulatory T cells"
-    ],
-    "CD4+/CD45RA+/CD25- naïve T cells": [
-        "CD4+/CD45RA+/CD25- Naive T Cells",
-        "CD4+/CD45RA+/CD25- naive T cells"
-    ],
-    "CD4+/CD45RO+ memory T cells": ["CD4+/CD45RO+ Memory T Cells"],
-    "CD56+ natural killer cells": [
-        "CD56+ Natural Killer Cells",
-        "CD56+ NK cells"
-    ],
-    "CD8+ cytotoxic T cells": ["CD8+ Cytotoxic T Cells"],
-    "CD8+/CD45RA+ naïve cytotoxic T cells": [
-        "CD8+/CD45RA+ Naive Cytotoxic T Cells",
-        "CD8+/CD45RA+ naive cytotoxic T cells"
-    ]
 }
 
 class DataSet(object):
@@ -1817,8 +1788,8 @@ def dataSetLiteratureProbabilities(title):
         return None
 
 def dataSetClassMapper(title):
-    if "10x-PBMC" in title:
-        class_mapper = pbmc_class_mapper
+    if "class mapping" in data_sets[title]:
+        class_mapper = data_sets[title]["class mapping"]
     else:
         class_mapper = None
     return class_mapper
@@ -1829,11 +1800,8 @@ def dataSetClassPalette(title):
     elif "MNIST" in title:
         index_palette = seaborn.hls_palette(10)
         class_palette = {i: index_palette[i] for i in range(10)}
-    elif "10x-PBMC" in title:
-        classes = [
-            properString(c, pbmc_class_mapper, normalise = False)
-            for c in data_sets["10x-PBMC"]["URLs"]["all"].keys()
-        ]
+    elif "10x-PBMC-P" in title:
+        classes = data_sets["10x-PBMC-PP"]["URLs"]["all"]
         N = len(classes)
         brewer_palette = seaborn.color_palette("Set3", N)
         class_palette = {c: brewer_palette[i] for i, c in enumerate(classes)}
@@ -2811,7 +2779,7 @@ def load10xDataSet(paths):
     
     return data_dictionary
 
-def loadDIMMSCsCombined10xDataSet(paths):
+def loadAndCombine10xDataSets(paths):
     
     directories = set()
     
