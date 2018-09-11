@@ -253,7 +253,7 @@ data_sets = {
                 "CD4+/CD25+ regulatory T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/regulatory_t/regulatory_t_filtered_gene_bc_matrices.tar.gz"
             },
         },
-        "loading function": lambda x: loadAndCombine10xPBMCDataSets(x),
+        "loading function": lambda x: loadAndCombine10xDataSets(x),
         "example type": "counts"
     },
     
@@ -271,7 +271,7 @@ data_sets = {
                 "CD4+/CD45RA+/CD25- naïve T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_t/naive_t_filtered_gene_bc_matrices.tar.gz"
             },
         },
-        "loading function": lambda x: loadAndCombine10xPBMCDataSets(x),
+        "loading function": lambda x: loadAndCombine10xDataSets(x),
         "example type": "counts"
     },
     
@@ -295,7 +295,26 @@ data_sets = {
                 "CD8+/CD45RA+ naïve cytotoxic T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_cytotoxic/naive_cytotoxic_filtered_gene_bc_matrices.tar.gz"
             },
         },
-        "loading function": lambda x: loadAndCombine10xPBMCDataSets(x),
+        "loading function": lambda x: loadAndCombine10xDataSets(x),
+        "example type": "counts"
+    },
+    
+    "10x-PBMC-68k": {
+        "tags": {
+            "example": "cell",
+            "feature": "gene",
+            "type": "count",
+            "item": "transcript"
+        },
+        "URLs": {
+            "values": {
+                "full": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/fresh_68k_pbmc_donor_a/fresh_68k_pbmc_donor_a_filtered_gene_bc_matrices.tar.gz"
+            },
+            "labels": {
+                "full": "https://raw.githubusercontent.com/10XGenomics/single-cell-3prime-paper/master/pbmc68k_analysis/68k_pbmc_barcodes_annotation.tsv"
+            }
+        },
+        "loading function": lambda x: load10xDataSet(x),
         "example type": "counts"
     },
     
@@ -1714,7 +1733,7 @@ def dataSetFromJSONFile(json_path):
 loading_functions = {
     "default": lambda x: loadMatrixAsDataSet(x, transpose = False),
     "transpose": lambda x: loadMatrixAsDataSet(x, transpose = True),
-    "10x": lambda x: load10xDataSet(x),
+    # "10x": lambda x: load10xDataSet(x),
     "gtex": lambda x: loadGTExDataSet(x)
 }
 
@@ -2748,32 +2767,19 @@ def loadMouseRetinaDataSet(paths):
 
 def load10xDataSet(paths):
     
-    genome = "mm10"
-
-    with tables.open_file(paths["values"]["full"], 'r') as f:
-        table = {}
-        for node in f.walk_nodes('/' + genome, 'Array'):
-            table[node.name] = node.read()
-        values = scipy.sparse.csc_matrix(
-            (table['data'], table['indices'], table['indptr']),
-            shape=table['shape']
-        )
-
-    values = values.T
-    
-    example_names = table["barcodes"].astype("U")
-    feature_names = table["gene_names"].astype("U")
+    data_dictionary = loadValuesFrom10xDataSet(paths["values"]["full"])
+    values = data_dictionary["values"]
+    example_names = data_dictionary["example names"]
+    feature_names = data_dictionary["feature names"]
     
     if paths["labels"]["full"]:
         labels = loadLabelsFromDelimiterSeparetedValues(
             path = paths["labels"]["full"],
-            label_column = "Cell_types_res0.8",
-            example_column = "cell_index",
+            label_column = "celltype",
+            example_column = "barcodes",
             example_names = example_names,
-            delimiter = ",",
             dtype = "U"
         )
-    
     else:
         labels = None
     
@@ -2788,32 +2794,34 @@ def load10xDataSet(paths):
 
 def loadAndCombine10xDataSets(paths):
     
-    directories = set()
+    # Initialisation
     
     value_sets = {}
     example_name_sets = {}
     feature_name_sets = {}
+    genome_names = {}
     
-    for class_name, filename in paths["all"].items():
-        with tarfile.open(filename, "r:gz") as tarball:
-            for member in sorted(tarball, key = lambda member: member.name):
-                if member.isfile():
-                    directory, full_name = os.path.split(member.name)
-                    directories.add(directory)
-                    assert len(directories) == 1, \
-                        "Compressed file includes multiple directories, " \
-                        "expected only one."
-                    name, extension = os.path.splitext(full_name)
-                    with tarball.extractfile(member) as data_file:
-                        if full_name == "matrix.mtx":
-                            value_sets[class_name] = \
-                                scipy.io.mmread(data_file).T
-                        elif extension == ".tsv":
-                            names = numpy.array(data_file.read().splitlines())
-                            if name == "barcodes":
-                                example_name_sets[class_name] = names
-                            elif name == "genes":
-                                feature_name_sets[class_name] = names
+    # Loading values from separate data sets
+    
+    for class_name, path in paths["all"].items():
+        data_dictionary = loadValuesFrom10xDataSet(path)
+        value_sets[class_name] = data_dictionary["values"]
+        example_name_sets[class_name] = data_dictionary["example names"]
+        feature_name_sets[class_name] = data_dictionary["feature names"]
+        genome_names[class_name] = data_dictionary["genome name"]
+    
+    # Check for multiple genomes
+    
+    class_name, genome_name = genome_names.popitem()
+    
+    for other_class_names, other_genome_name in genome_names.items():
+        if not genome_name == other_genome_name:
+            raise ValueError(
+                "The genome names for \"{}\" and \"{}\" do not match."
+                    .format(class_name, other_class_name)
+            )
+    
+    # Infer labels
     
     label_sets = {}
     
@@ -2821,25 +2829,102 @@ def loadAndCombine10xDataSets(paths):
         label_sets[class_name] = numpy.array([class_name] \
             * example_name_sets[class_name].shape[0])
     
+    # Combine data sets
+    
     sorted_values = lambda d: [v for k, v in sorted(d.items())]
     
     values = scipy.sparse.vstack(sorted_values(value_sets))
     example_names = numpy.concatenate(sorted_values(example_name_sets))
     labels = numpy.concatenate(sorted_values(label_sets))
     
+    # Extract feature names and check for differences
+    
     class_name, feature_names = feature_name_sets.popitem()
     
     for other_class_name, other_feature_names in feature_name_sets.items():
         if not all(feature_names == other_feature_names):
             raise ValueError(
-                "The feature names for \"{}\" and \"{}\" do not match.".format(
-                    class_name, other_class_name))
+                "The feature names for \"{}\" and \"{}\" do not match."
+                    .format(class_name, other_class_name)
+            )
+    
+    # Return data
     
     data_dictionary = {
         "values": values,
         "labels": labels,
         "example names": example_names,
         "feature names": feature_names,
+    }
+    
+    return data_dictionary
+
+def loadValuesFrom10xDataSet(path):
+    
+    parent_paths = set()
+    
+    multiple_directories_error = NotImplementedError(
+        "Cannot handle data sets with multiple directories."
+    )
+    
+    if path.endswith(".h5"):
+        with tables.open_file(path, "r") as f:
+            
+            table = {}
+            
+            for node in f.walk_nodes(where="/", classname="Array"):
+                node_path = node._v_pathname
+                parent_path, node_name = os.path.split(node_path)
+                parent_paths.add(parent_path)
+                if len(parent_paths) > 1:
+                    raise multiple_directories_error
+                table[node.name] = node.read()
+            
+            values = scipy.sparse.csc_matrix(
+                (table["data"], table["indices"], table["indptr"]),
+                shape=table["shape"]
+            )
+            
+            example_names = table["barcodes"].astype("U")
+            feature_names = table["gene_names"].astype("U")
+    
+    elif path.endswith(".tar.gz"):
+        with tarfile.open(path, "r:gz") as tarball:
+            for member in sorted(tarball, key = lambda member: member.name):
+                if member.isfile():
+                    
+                    parent_path, filename = os.path.split(member.name)
+                    parent_paths.add(parent_path)
+                    
+                    if len(parent_paths) > 1:
+                        raise multiple_directories_error
+                    
+                    name, extension = os.path.splitext(filename)
+                    
+                    with tarball.extractfile(member) as data_file:
+                        if filename == "matrix.mtx":
+                            values = scipy.io.mmread(data_file)
+                        elif extension == ".tsv":
+                            names = numpy.array(data_file.read().splitlines())
+                            if name == "barcodes":
+                                example_names = names
+                            elif name == "genes":
+                                feature_names = names
+    
+    values = values.T
+    
+    if len(parent_paths) == 1:
+        parent_path = parent_paths.pop()
+    else:
+        raise multiple_directories_error
+    
+    _, genome_name = os.path.split(parent_path)
+    
+    data_dictionary = {
+        "values": values,
+        "example names": example_names,
+        "feature names": feature_names,
+        "genome name": genome_name
     }
     
     return data_dictionary
@@ -3035,8 +3120,14 @@ def loadTabSeparatedMatrix(tsv_path, data_type = None):
     return values, column_headers, row_indices
 
 def loadLabelsFromDelimiterSeparetedValues(path, label_column = 1,
-    example_column = 0, example_names = None, delimiter = "\t",
+    example_column = 0, example_names = None, delimiter = None,
     header = "infer", dtype = None, default_label = "No class"):
+    
+    if not delimiter:
+        if path.endswith(".csv"):
+            delimiter = ","
+        else:
+            delimiter = "\t"
     
     metadata = pandas.read_csv(
         path,
