@@ -821,6 +821,10 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             "adjusted mutual information": {
                 "kind": "supervised",
                 "function": adjusted_mutual_information
+            },
+            "silhouette score": {
+                "kind": "unsupervised",
+                "function": silhouette_score
             }
         }
         
@@ -2392,6 +2396,9 @@ def adjusted_mutual_information(labels, predicted_labels, excluded_classes = [])
         labels, predicted_labels, excluded_classes = excluded_classes)
     return sklearn.metrics.cluster.adjusted_mutual_info_score(labels,
         predicted_labels)
+
+def silhouette_score(values, predicted_labels):
+    return sklearn.metrics.cluster.silhouette_score(values, predicted_labels)
 
 def formatStatistics(statistics_sets, name = "Data set"):
     
