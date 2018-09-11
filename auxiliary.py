@@ -98,17 +98,21 @@ def properString(original_string, translation, normalise = True):
     return original_string
 
 def capitaliseString(original_string):
-    first_word, split_character, rest_of_original_string = re.split(
+    string_parts = re.split(
         pattern=r"(\s)",
         string=original_string,
         maxsplit=1
     )
-    if re.match(pattern=r"[A-Z]", string=first_word):
-        capitalised_first_word = first_word
+    if len(string_parts) == 3:
+        first_word, split_character, rest_of_original_string = string_parts
+        if re.match(pattern=r"[A-Z]", string=first_word):
+            capitalised_first_word = first_word
+        else:
+            capitalised_first_word = first_word.capitalize()
+        capitalised_string = capitalised_first_word + split_character \
+            + rest_of_original_string
     else:
-        capitalised_first_word = first_word.capitalize()
-    capitalised_string = capitalised_first_word + split_character \
-        + rest_of_original_string
+        capitalised_string = original_string.capitalize()
     return capitalised_string
 
 def enumerateListOfStrings(list_of_strings):
