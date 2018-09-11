@@ -817,6 +817,10 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             "adjusted Rand index": {
                 "kind": "supervised",
                 "function": adjusted_rand_index
+            },
+            "adjusted mutual information": {
+                "kind": "supervised",
+                "function": adjusted_mutual_information
             }
         }
         
@@ -2381,6 +2385,12 @@ def adjusted_rand_index(labels, predicted_labels, excluded_classes = []):
     labels, predicted_labels = excludeClassesFromLabelSet(
         labels, predicted_labels, excluded_classes = excluded_classes)
     return sklearn.metrics.cluster.adjusted_rand_score(labels,
+        predicted_labels)
+
+def adjusted_mutual_information(labels, predicted_labels, excluded_classes = []):
+    labels, predicted_labels = excludeClassesFromLabelSet(
+        labels, predicted_labels, excluded_classes = excluded_classes)
+    return sklearn.metrics.cluster.adjusted_mutual_info_score(labels,
         predicted_labels)
 
 def formatStatistics(statistics_sets, name = "Data set"):
