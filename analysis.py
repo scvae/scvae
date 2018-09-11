@@ -781,78 +781,114 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         print("Calculating metrics for results.")
         metrics_time_start = time()
         
+        ### Statistics
         evaluation_set_statistics = [
             statistics(data_set.values, data_set.version, tolerance = 0.5)
                 for data_set in [evaluation_set, reconstructed_evaluation_set]
         ]
         
+        ### Comparison statistics
         if analysis_level == "extensive":
             evaluation_set_statistics.append(statistics(numpy.abs(x_diff),
                 "differences", skip_sparsity = True))
             evaluation_set_statistics.append(statistics(numpy.abs(x_log_ratio),
                 "log-ratios", skip_sparsity = True))
         
-        if evaluation_set.values.max() > 20:
-            count_accuracy_method = "orders of magnitude"
-        else:
-            count_accuracy_method = None
-        
+        ### Count accuracies
         if analysis_level == "extensive":
+            
+            if evaluation_set.values.max() > 20:
+                count_accuracy_method = "orders of magnitude"
+            else:
+                count_accuracy_method = None
+            
             count_accuracies = computeCountAccuracies(
                 evaluation_set.values,
                 reconstructed_evaluation_set.values,
                 method = count_accuracy_method
             )
+        
         else:
             count_accuracies = None
         
-        if evaluation_set.has_labels:
-            
-            if evaluation_set.has_predicted_cluster_ids:
-                ARI_clusters = adjusted_rand_score(
-                    evaluation_set.labels,
-                    evaluation_set.predicted_cluster_ids,
-                    evaluation_set.excluded_classes
-                )
-            else:
-                ARI_clusters = None
-            
-            if evaluation_set.has_predicted_labels:
-                ARI_labels = adjusted_rand_score(
-                    evaluation_set.labels,
-                    evaluation_set.predicted_labels,
-                    evaluation_set.excluded_classes
-                )
-            else:
-                ARI_labels = None
-            
-        else:
-            ARI_clusters = None
-            ARI_labels = None
+        ### Clustering metrics
         
-        if evaluation_set.has_superset_labels:
+        clustering_metrics = {
+            "adjusted Rand index": {
+                "kind": "supervised",
+                "function": adjusted_rand_index
+            }
+        }
+        
+        clustering_metric_values = {
+            metric: {
+                "clusters": None,
+                "clusters; superset": None,
+                "labels": None,
+                "labels; superset": None
+            }
+            for metric in clustering_metrics
+        }
+        
+        for metric_name, metric_attributes in clustering_metrics.items():
             
-            if evaluation_set.has_predicted_cluster_ids:
-                ARI_superset_clusters = adjusted_rand_score(
-                    evaluation_set.superset_labels,
-                    evaluation_set.predicted_cluster_ids,
-                    evaluation_set.excluded_superset_classes
-                )
-            else:
-                ARI_superset_clusters = None
+            metric_values = clustering_metric_values[metric_name]
+            metric_kind = metric_attributes["kind"]
+            metric_function = metric_attributes["function"]
             
-            if evaluation_set.has_predicted_superset_labels:
-                ARI_superset_labels = adjusted_rand_score(
-                    evaluation_set.superset_labels,
-                    evaluation_set.predicted_superset_labels,
-                    evaluation_set.excluded_superset_classes
-                )
-            else:
-                ARI_superset_labels = None
+            if metric_kind == "supervised":
+                
+                if evaluation_set.has_labels:
+                    
+                    if evaluation_set.has_predicted_cluster_ids:
+                        metric_values["clusters"] = metric_function(
+                            evaluation_set.labels,
+                            evaluation_set.predicted_cluster_ids,
+                            evaluation_set.excluded_classes
+                        )
+                    
+                    if evaluation_set.has_predicted_labels:
+                        metric_values["labels"] = metric_function(
+                            evaluation_set.labels,
+                            evaluation_set.predicted_labels,
+                            evaluation_set.excluded_classes
+                        )
+                
+                if evaluation_set.has_superset_labels:
+                    
+                    if evaluation_set.has_predicted_cluster_ids:
+                        metric_values["clusters; superset"] = metric_function(
+                            evaluation_set.superset_labels,
+                            evaluation_set.predicted_cluster_ids,
+                            evaluation_set.excluded_superset_classes
+                        )
+                    
+                    if evaluation_set.has_predicted_superset_labels:
+                        metric_values["labels, superset"] = metric_function(
+                            evaluation_set.superset_labels,
+                            evaluation_set.predicted_superset_labels,
+                            evaluation_set.excluded_superset_classes
+                        )
             
-        else:
-            ARI_superset_clusters = None
-            ARI_superset_labels = None
+            elif metric_kind == "unsupervised":
+                
+                if evaluation_set.has_predicted_cluster_ids:
+                    metric_values["clusters"] = metric_function(
+                        evaluation_set.values,
+                        evaluation_set.predicted_cluster_ids
+                    )
+                
+                if evaluation_set.has_predicted_labels:
+                    metric_values["labels"] = metric_function(
+                        evaluation_set.values,
+                        evaluation_set.predicted_labels
+                    )
+                
+                if evaluation_set.has_predicted_superset_labels:
+                    metric_values["labels, superset"] = metric_function(
+                        evaluation_set.values,
+                        evaluation_set.predicted_superset_labels
+                    )
         
         metrics_duration = time() - metrics_time_start
         print("Metrics calculated ({}).".format(
@@ -946,26 +982,30 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 prediction_string_parts.append(
                     "Number of classes: {}".format(number_of_classes))
             
-            if ARI_clusters is not None or ARI_labels is not None:
-                prediction_string_parts.append("\nEvaluation:")
+            clustering_metrics_title_printed = False
             
-            if ARI_clusters is not None:
-                prediction_string_parts.append(
-                    "    ARI (clusters): {:.5g}.".format(ARI_clusters))
-            
-            if ARI_superset_clusters is not None:
-                prediction_string_parts.append(
-                    "    ARI (clusters; superset): {:.5g}.".format(
-                        ARI_superset_clusters))
-            
-            if ARI_labels is not None:
-                prediction_string_parts.append(
-                    "    ARI (labels): {:.5g}.".format(ARI_labels))
-            
-            if ARI_superset_labels is not None:
-                prediction_string_parts.append(
-                    "    ARI (superset labels): {:.5g}.".format(
-                        ARI_superset_labels))
+            for metric_name, metric_set in clustering_metric_values.items():
+                
+                clustering_metric_name_printed = False
+                
+                for set_name, metric_value in metric_set.items():
+                    if metric_value is not None:
+                        
+                        if not clustering_metrics_title_printed:
+                            prediction_string_parts.append(
+                                "\nClustering metrics:")
+                            clustering_metrics_title_printed = True
+                        
+                        if not clustering_metric_name_printed:
+                            prediction_string_parts.append(
+                                "    {}:".format(metric_name.capitalize()))
+                            clustering_metric_name_printed = True
+                        
+                        prediction_string_parts.append(
+                            "        {}: {:.5g}.".format(
+                                set_name.capitalize(), metric_value
+                            )
+                        )
             
             prediction_string = "\n".join(prediction_string_parts) + "\n"
             
@@ -975,10 +1015,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 "prediction method": properString(
                     prediction_method, prediction_method_names),
                 "number of classes": number_of_classes,
-                "ARI (clusters)": ARI_clusters,
-                "ARI (clusters; superset)": ARI_superset_clusters,
-                "ARI (labels)": ARI_labels,
-                "ARI (superset labels)": ARI_superset_labels,
+                "clustering metric values": clustering_metric_values
             }
             
             with open(prediction_log_path, "w") as prediction_file:
@@ -998,18 +1035,21 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         print(formatStatistics(evaluation_set_statistics))
         print()
         
-        if ARI_clusters is not None or ARI_labels is not None:
-            print("Adjusted rand index:")
-            if ARI_clusters is not None:
-                print("    clusters: {:.5g}".format(ARI_clusters))
-            if ARI_superset_clusters is not None:
-                print("    clusters (superset): {:.5g}".format(
-                    ARI_superset_clusters))
-            if ARI_labels is not None:
-                print("    labels: {:.5g}".format(ARI_labels))
-            if ARI_superset_labels is not None:
-                print("    superset labels: {:.5g}".format(
-                    ARI_superset_labels))
+        for metric_name, metric_set in clustering_metric_values.items():
+            
+            clustering_metric_name_printed = False
+            
+            for set_name, metric_value in metric_set.items():
+                if metric_value is not None:
+                    
+                    if not clustering_metric_name_printed:
+                        print("{}:".format(metric_name.capitalize()))
+                        clustering_metric_name_printed = True
+                    
+                    print("    {}: {:.5g}.".format(
+                        set_name.capitalize(), metric_value
+                    ))
+            
             print()
         
         if count_accuracies:
@@ -2337,7 +2377,7 @@ def accuracy(labels, predicted_labels, excluded_classes = []):
         labels, predicted_labels, excluded_classes = excluded_classes)
     return numpy.mean(predicted_labels == labels)
 
-def adjusted_rand_score(labels, predicted_labels, excluded_classes = []):
+def adjusted_rand_index(labels, predicted_labels, excluded_classes = []):
     labels, predicted_labels = excludeClassesFromLabelSet(
         labels, predicted_labels, excluded_classes = excluded_classes)
     return sklearn.metrics.cluster.adjusted_rand_score(labels,
