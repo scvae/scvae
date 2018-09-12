@@ -274,6 +274,15 @@ def main(log_directory = None, results_directory = None,
                                 continue
                             if key.startswith("ARI") and value is not None:
                                 ARIs[key] = value
+                            if key == "clustering metric values":
+                                if "adjusted Rand index" in value:
+                                    ari_values = value["adjusted Rand index"]
+                                    for ari_key, ari_value in ari_values.items():
+                                        if ari_value is not None:
+                                            ari_label = "ARI ({})".format(
+                                                ari_key
+                                            )
+                                            ARIs[ari_label] = ari_value
                         
                         if ARIs:
                             
