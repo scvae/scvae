@@ -2393,14 +2393,14 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
     
     M = data_dictionary["values"].shape[0]
     
-    numpy.random.seed(42)
+    random_state = numpy.random.RandomState(42)
     
     if method == "random":
         
         M_training_validation = int(fraction * M)
         M_training = int(fraction * M_training_validation)
         
-        shuffled_indices = numpy.random.permutation(M)
+        shuffled_indices = random_state.permutation(M)
         
         training_indices = shuffled_indices[:M_training]
         validation_indices = shuffled_indices[M_training:M_training_validation]
@@ -2440,7 +2440,7 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
             number_of_non_zero_elements <= minimum_number_of_non_zero_elements
         )[0]
         
-        random.shuffle(test_validation_indices)
+        random_state.shuffle(test_validation_indices)
         
         N_test_validation = len(test_validation_indices)
         V = int((1 - fraction) * N_test_validation)
@@ -2504,8 +2504,6 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
     
     duration = time() - start_time
     print("Data set split ({}).".format(formatDuration(duration)))
-    
-    numpy.random.seed()
     
     return split_data_dictionary
 
@@ -3415,8 +3413,8 @@ def loadSampleDataSet(paths):
 def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
     scale = 10, update_probability = 0.0001):
     
-    numpy.random.seed(60)
-        
+    random_state = numpy.random.RandomState(60)
+    
     M = number_of_examples
     N = number_of_features
     
@@ -3427,9 +3425,9 @@ def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
     p = numpy.empty((M, N))
     dropout = numpy.empty((M, N))
     
-    r_draw = lambda: scale * numpy.random.rand(N)
-    p_draw = lambda: numpy.random.rand(N)
-    dropout_draw = lambda: numpy.random.rand(N)
+    r_draw = lambda: scale * random_state.rand(N)
+    p_draw = lambda: random_state.rand(N)
+    dropout_draw = lambda: random_state.rand(N)
     
     r_type = r_draw()
     p_type = p_draw()
@@ -3438,7 +3436,7 @@ def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
     label = 1
     
     for i in range(M):
-        u = numpy.random.rand()
+        u = random_state.rand()
         if u > 1 - update_probability:
             r_type = r_draw()
             p_type = p_draw()
@@ -3449,22 +3447,22 @@ def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
         dropout[i] = dropout_type
         labels[i] = label
     
-    shuffled_indices = numpy.random.permutation(M)
+    shuffled_indices = random_state.permutation(M)
 
     r = r[shuffled_indices]
     p = p[shuffled_indices]
     dropout = dropout[shuffled_indices]
     labels = labels[shuffled_indices]
     
-    no_class_indices = numpy.random.permutation(M)[:int(0.1 * M)]
+    no_class_indices = random_state.permutation(M)[:int(0.1 * M)]
     labels[no_class_indices] = 0
     
     for i in range(M):
         for j in range(N):
-            # value = numpy.random.poisson(r[i, j])
-            value = numpy.random.negative_binomial(r[i, j], p[i, j])
-            value_dropout = numpy.random.binomial(1, dropout[i, j])
-            # value_dropout = numpy.random.poisson(dropout[i, j])
+            # value = random_state.poisson(r[i, j])
+            value = random_state.negative_binomial(r[i, j], p[i, j])
+            value_dropout = random_state.binomial(1, dropout[i, j])
+            # value_dropout = random_state.poisson(dropout[i, j])
             values[i, j] = value_dropout * value
     
     example_names = numpy.array(["example {}".format(i + 1) for i in range(M)])
@@ -3477,8 +3475,6 @@ def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
         "feature names": feature_names
     }
     
-    numpy.random.seed()
-        
     return data_dictionary
 
 def createBagOfWords(documents):

@@ -4216,10 +4216,11 @@ def combineImagesFromDataSet(data_set, number_of_random_examples = 100, indices 
     
     image_name = figureName("random_image_examples", name)
     
-    numpy.random.seed(60)
+    random_state = numpy.random.RandomState(13)
+    
     if not isinstance(indices, (list, tuple)):
         M = number_of_random_examples
-        indices = numpy.random.permutation(data_set.number_of_examples)[:M]
+        indices = random_state.permutation(data_set.number_of_examples)[:M]
         if M == 1:
             image_name = figureName("image_example", name)
         else:
@@ -4230,9 +4231,6 @@ def combineImagesFromDataSet(data_set, number_of_random_examples = 100, indices 
             image_name = figureName("image_example", name)
         else:
             image_name = figureName("image_examples", name)
-
-
-    numpy.random.seed()
     
     W, H = data_set.feature_dimensions
     
