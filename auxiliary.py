@@ -166,17 +166,33 @@ def loadNumberOfEpochsTrained(model, run_id = None, early_stopping = False,
     
     # Losses for every epochs
     scalar_sets = summary_reader(log_directory, data_set_kind, loss)
-    scalars = scalar_sets[data_set_kind][loss]
     
-    # First estimate of number of epochs
-    E_1 = len(scalars)
+    if scalar_sets and data_set_kind in scalar_sets:
+        data_set_scalars = scalar_sets[data_set_kind]
+    else:
+        data_set_scalars = None
     
-    # Second estimate of number of epochs
-    E_2 = max([scalar.step for scalar in scalars])
+    if data_set_scalars and loss in data_set_scalars:
+        scalars = data_set_scalars[loss]
+    else:
+        scalars = None
     
-    assert E_1 == E_2
+    if scalars:
+        
+        # First estimate of number of epochs
+        E_1 = len(scalars)
+        
+        # Second estimate of number of epochs
+        E_2 = max([scalar.step for scalar in scalars])
+        
+        assert E_1 == E_2
+        
+        E = E_1
     
-    return E_1
+    else:
+        E = None
+    
+    return E
 
 def loadLearningCurves(model, data_set_kinds = "all", run_id = None,
     early_stopping = False, best_model = False, log_directory = None):
@@ -227,15 +243,30 @@ def loadLearningCurves(model, data_set_kinds = "all", run_id = None,
         
         for loss in losses:
             
-            scalars = scalar_sets[data_set_kind][loss_prefix + loss]
+            loss_tag = loss_prefix + loss
             
-            learning_curve = numpy.empty(len(scalars))
-            
-            if len(scalars) == 1:
-                learning_curve[0] = scalars[0].value
+            if scalar_sets and data_set_kind in scalar_sets:
+                data_set_scalars = scalar_sets[data_set_kind]
             else:
-                for scalar in scalars:
-                    learning_curve[scalar.step - 1] = scalar.value
+                data_set_scalars = None
+            
+            if data_set_scalars and loss_tag in data_set_scalars:
+                scalars = data_set_scalars[loss_tag]
+            else:
+                scalars = None
+            
+            if scalars:
+                
+                learning_curve = numpy.empty(len(scalars))
+                
+                if len(scalars) == 1:
+                    learning_curve[0] = scalars[0].value
+                else:
+                    for scalar in scalars:
+                        learning_curve[scalar.step - 1] = scalar.value
+            
+            else:
+                learning_curve = None
             
             learning_curve_set[loss] = learning_curve
         
@@ -275,7 +306,7 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False,
     
     # Loading
     
-    accuracy_scalar_sets = summary_reader(
+    scalar_sets = summary_reader(
         log_directory=log_directory,
         data_set_kinds=data_set_kinds,
         tag_searches=[accuracy_tag]
@@ -287,22 +318,31 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False,
     
     for data_set_kind in data_set_kinds:
         
-        try:
-            scalars = accuracy_scalar_sets[data_set_kind][accuracy_tag]
-        except KeyError:
+        if scalar_sets and data_set_kind in scalar_sets:
+            data_set_scalars = scalar_sets[data_set_kind]
+        else:
+            data_set_scalars = None
+        
+        if data_set_scalars and accuracy_tag in data_set_scalars:
+            scalars = data_set_scalars[accuracy_tag]
+        else:
+            scalars = None
+        
+        if scalars:
+            
+            data_set_accuracies = numpy.empty(len(scalars))
+            
+            if len(scalars) == 1:
+                data_set_accuracies[0] = scalars[0].value
+            else:
+                for scalar in scalars:
+                    data_set_accuracies[scalar.step - 1] = scalar.value
+            
+            accuracies[data_set_kind] = data_set_accuracies
+        
+        else:
             accuracies[data_set_kind] = None
             empty_scalar_sets += 1
-            continue
-        
-        accuracies_kind = numpy.empty(len(scalars))
-        
-        if len(scalars) == 1:
-            accuracies_kind[0] = scalars[0].value
-        else:
-            for scalar in scalars:
-                accuracies_kind[scalar.step - 1] = scalar.value
-        
-        accuracies[data_set_kind] = accuracies_kind
     
     if len(data_set_kinds) == 1:
         accuracies = accuracies[data_set_kinds[0]]
@@ -340,7 +380,7 @@ def loadCentroids(model, data_set_kinds = "all", run_id = None,
     
     # Loading
     
-    centroid_scalar_sets = summary_reader(
+    scalar_sets = summary_reader(
         log_directory=log_directory,
         data_set_kinds=data_set_kinds,
         tag_searches=[centroid_tag]
@@ -356,10 +396,19 @@ def loadCentroids(model, data_set_kinds = "all", run_id = None,
         
         for distribution in ["prior", "posterior"]:
             
-            try:
-                scalars = centroid_scalar_sets[data_set_kind]\
-                    [distribution + "/cluster_0/probability"]
-            except KeyError:
+            cluster_tag = distribution + "/cluster_0/probability"
+            
+            if scalar_sets and data_set_kind in scalar_sets:
+                data_set_scalars = scalar_sets[data_set_kind]
+            else:
+                data_set_scalars = None
+            
+            if data_set_scalars and cluster_tag in data_set_scalars:
+                scalars = data_set_scalars[cluster_tag]
+            else:
+                scalars = None
+            
+            if not scalars:
                 centroids_set[distribution] = None
                 continue
             
@@ -384,7 +433,7 @@ def loadCentroids(model, data_set_kinds = "all", run_id = None,
             # Looping
             for k in range(K):
                 
-                probability_scalars = centroid_scalar_sets[data_set_kind]\
+                probability_scalars = data_set_scalars\
                     [distribution + "/cluster_{}/probability".format(k)]
                 
                 if len(probability_scalars) == 1:
@@ -395,7 +444,7 @@ def loadCentroids(model, data_set_kinds = "all", run_id = None,
                 
                 for l in range(L):
                     
-                    mean_scalars = centroid_scalar_sets[data_set_kind]\
+                    mean_scalars = data_set_scalars\
                         [distribution + "/cluster_{}/mean/dimension_{}"
                             .format(k, l)]
                     
@@ -405,7 +454,7 @@ def loadCentroids(model, data_set_kinds = "all", run_id = None,
                         for scalar in mean_scalars:
                             z_means[scalar.step - 1][k][l] = scalar.value
                     
-                    variance_scalars = centroid_scalar_sets[data_set_kind]\
+                    variance_scalars = data_set_scalars\
                         [distribution + "/cluster_{}/variance/dimension_{}"
                             .format(k, l)]
                     
@@ -454,34 +503,60 @@ def loadKLDivergences(model, run_id = None, early_stopping = False,
     )
     
     ## Tag search
-    kl_divergence_neurons_tag = "kl_divergence_neurons/"
+    kl_divergence_neurons_tag_prefix = "kl_divergence_neurons/"
     
     # Loading
     
     scalar_sets = summary_reader(
         log_directory=log_directory,
         data_set_kinds=data_set_kind,
-        tag_searches=[kl_divergence_neurons_tag]
+        tag_searches=[kl_divergence_neurons_tag_prefix]
     )
+    
+    if scalar_sets and data_set_kind in scalar_sets:
+        data_set_scalars = scalar_sets[data_set_kind]
+    else:
+        data_set_scalars = None
     
     # Additional setup
     
-    N_epochs = len(scalar_sets[data_set_kind][kl_divergence_neurons_tag + "0"])
+    kl_divergence_neuron_0_tag = kl_divergence_neurons_tag_prefix + "0"
     
-    if "mixture" in model.latent_distribution_name:
-        latent_size = 1
+    if data_set_scalars and kl_divergence_neuron_0_tag in data_set_scalars:
+        scalars = data_set_scalars[kl_divergence_neuron_0_tag]
     else:
-        latent_size = model.latent_size
-
-    KL_neurons = numpy.empty([N_epochs, latent_size])
+        scalars = None
     
-    # Organising
-    
-    for i in range(latent_size):
-        scalars = scalar_sets[data_set_kind][kl_divergence_neurons_tag + str(i)]
+    if scalars:
         
-        for scalar in scalars:
-            KL_neurons[scalar.step - 1][i] = scalar.value
+        N_epochs = len(scalars)
+        
+        if "mixture" in model.latent_distribution_name:
+            latent_size = 1
+        else:
+            latent_size = model.latent_size
+        
+        KL_neurons = numpy.empty([N_epochs, latent_size])
+        
+        # Organising
+        
+        for i in range(latent_size):
+            kl_divergence_neuron_i_tag = kl_divergence_neurons_tag_prefix \
+                + str(i)
+            
+            if kl_divergence_neuron_i_tag in data_set_scalars:
+                scalars = data_set_scalars[kl_divergence_neuron_i_tag]
+            else:
+                scalars = None
+            
+            if scalars:
+                for scalar in scalars:
+                    KL_neurons[scalar.step - 1, i] = scalar.value
+            else:
+                KL_neurons[:, i] = numpy.full(N_epochs, numpy.nan)
+    
+    else:
+        KL_neurons = None
     
     return KL_neurons
 
@@ -495,27 +570,45 @@ def summary_reader(log_directory, data_set_kinds, tag_searches):
     if not isinstance(tag_searches, list):
         tag_searches = [tag_searches]
 
-    scalars = {}
+    if os.path.exists(log_directory):
 
-    for data_set_kind in data_set_kinds:
-        data_set_log_directory = os.path.join(log_directory, data_set_kind)
-        data_set_scalars = {}
-        for event_filename in sorted(os.listdir(data_set_log_directory)):
-            event_path = os.path.join(data_set_log_directory, event_filename)
-            for event in tensorflow.train.summary_iterator(event_path):
-                for value in event.summary.value:
-                    for tag_search in tag_searches:
-                        if tag_search in value.tag:
-                            tag = value.tag
-                            scalar = ScalarEvent(
-                                wall_time=event.wall_time,
-                                step=event.step,
-                                value=value.simple_value
-                            )
-                            if tag not in data_set_scalars:
-                                data_set_scalars[tag] = []
-                            data_set_scalars[tag].append(scalar)
-        scalars[data_set_kind] = data_set_scalars
+        scalars = {}
+
+        for data_set_kind in data_set_kinds:
+            data_set_log_directory = os.path.join(log_directory, data_set_kind)
+
+            if os.path.exists(data_set_log_directory):
+
+                data_set_scalars = {}
+
+                for filename in sorted(os.listdir(data_set_log_directory)):
+                    if filename.startswith("event"):
+                        events_path = os.path.join(
+                            data_set_log_directory,
+                            filename
+                        )
+                        events = tensorflow.train.summary_iterator(
+                            events_path)
+                        for event in events:
+                            for value in event.summary.value:
+                                for tag_search in tag_searches:
+                                    if tag_search in value.tag:
+                                        tag = value.tag
+                                        scalar = ScalarEvent(
+                                            wall_time=event.wall_time,
+                                            step=event.step,
+                                            value=value.simple_value
+                                        )
+                                        if tag not in data_set_scalars:
+                                            data_set_scalars[tag] = []
+                                        data_set_scalars[tag].append(scalar)
+            else:
+                data_set_scalars = None
+
+            scalars[data_set_kind] = data_set_scalars
+    
+    else:
+        scalars = None
 
     return scalars
 
@@ -524,7 +617,11 @@ def betterModelExists(model, run_id = None):
         best_model = False)
     E_best = loadNumberOfEpochsTrained(model, run_id = run_id,
         best_model = True)
-    return E_best < E_current
+    if E_best:
+        better_model_exists = E_best < E_current
+    else:
+        better_model_exists = False
+    return better_model_exists
 
 def modelStoppedEarly(model, run_id = None):
     stopped_early, _ = model.earlyStoppingStatus(run_id = run_id)

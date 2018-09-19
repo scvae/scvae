@@ -80,6 +80,13 @@ class VariationalAutoencoder(object):
         self.hidden_sizes = hidden_sizes
         
         self.inference_architecture = inference_architecture.upper()
+        
+        if "mixture" in latent_distribution:
+            raise NotImplementedError(
+                "The VariationalAutoencoder class does not fully support "
+                "mixture models yet."
+            )
+        
         self.latent_distribution_name = latent_distribution
         self.latent_distribution = copy.deepcopy(
             latent_distributions[latent_distribution]
@@ -960,14 +967,13 @@ class VariationalAutoencoder(object):
         
         if os.path.exists(log_directory):
             
-            validation_losses = loadLearningCurves(
-                model = self,
-                data_set_kinds = "validation",
-                run_id = run_id,
-                log_directory = log_directory
-            )["lower_bound"]
-        
             if os.path.exists(early_stopping_log_directory):
+                validation_losses = loadLearningCurves(
+                    model = self,
+                    data_set_kinds = "validation",
+                    run_id = run_id,
+                    log_directory = log_directory
+                )["lower_bound"]
                 stopped_early, epochs_with_no_improvement = \
                     earlyStoppingStatus(
                         validation_losses,
@@ -976,7 +982,7 @@ class VariationalAutoencoder(object):
         
         return stopped_early, epochs_with_no_improvement
     
-    def train(self, training_set, validation_set,
+    def train(self, training_set, validation_set = None,
         number_of_epochs = 100, batch_size = 100, learning_rate = 1e-3,
         plotting_interval = None,
         run_id = None, new_run = False, reset_training = False,
@@ -1139,16 +1145,19 @@ class VariationalAutoencoder(object):
         ### Count sum for distributions
         if self.count_sum:
             n_train = training_set.count_sum
-            n_valid = validation_set.count_sum
+            if validation_set:
+                n_valid = validation_set.count_sum
         
         ### Normalised count sum as a feature to the decoder
         if self.count_sum_feature:
             n_feature_train = training_set.normalised_count_sum
-            n_feature_valid = validation_set.normalised_count_sum
+            if validation_set:
+                n_feature_valid = validation_set.normalised_count_sum
         
         ### Numbers of examples for data subsets
         M_train = training_set.number_of_examples
-        M_valid = validation_set.number_of_examples
+        if validation_set:
+            M_valid = validation_set.number_of_examples
         
         ### Preprocessing function at every epoch
         noisy_preprocess = training_set.noisy_preprocess
@@ -1158,17 +1167,21 @@ class VariationalAutoencoder(object):
             
             if training_set.has_preprocessed_values:
                 x_train = training_set.preprocessed_values
-                x_valid = validation_set.preprocessed_values
+                if validation_set:
+                    x_valid = validation_set.preprocessed_values
             else:
                 x_train = training_set.values
-                x_valid = validation_set.values
+                if validation_set:
+                    x_valid = validation_set.values
             
             if self.reconstruction_distribution_name == "bernoulli":
                 t_train = training_set.binarised_values
-                t_valid = validation_set.binarised_values
+                if validation_set:
+                    t_valid = validation_set.binarised_values
             else:
                 t_train = training_set.values
-                t_valid = validation_set.values
+                if validation_set:
+                    t_valid = validation_set.values
         
         preparing_data_duration = time() - preparing_data_time_start
         print("Data prepared ({}).".format(formatDuration(
@@ -1185,13 +1198,14 @@ class VariationalAutoencoder(object):
                 "lower_bound": [],
                 "reconstruction_error": [],
                 "kl_divergence": [],
-            },
-            "validation": {
+            }
+        }
+        if validation_set:
+            learning_curves["validation"] = {
                 "lower_bound": [],
                 "reconstruction_error": [],
                 "kl_divergence": [],
             }
-        }
         
         with tf.Session(graph = self.graph) as session:
             
@@ -1199,8 +1213,9 @@ class VariationalAutoencoder(object):
                 log_directory)
             training_summary_writer = tf.summary.FileWriter(
                 os.path.join(log_directory, "training"))
-            validation_summary_writer = tf.summary.FileWriter(
-                os.path.join(log_directory, "validation"))
+            if validation_set:
+                validation_summary_writer = tf.summary.FileWriter(
+                    os.path.join(log_directory, "validation"))
             
             # Initialisation
             
@@ -1218,20 +1233,21 @@ class VariationalAutoencoder(object):
                 epoch_start = int(os.path.split(model_checkpoint_path)[-1]
                     .split('-')[-1])
                 
-                ELBO_valid_learning_curve = loadLearningCurves(
-                    model = self,
-                    data_set_kinds = "validation",
-                    run_id = run_id,
-                    log_directory = log_directory
-                )["lower_bound"]
+                if validation_set:
+                    ELBO_valid_learning_curve = loadLearningCurves(
+                        model = self,
+                        data_set_kinds = "validation",
+                        run_id = run_id,
+                        log_directory = log_directory
+                    )["lower_bound"]
                 
-                ELBO_valid_maximum = ELBO_valid_learning_curve.max()
-                ELBO_valid_prev = ELBO_valid_learning_curve[-1]
+                    ELBO_valid_maximum = ELBO_valid_learning_curve.max()
+                    ELBO_valid_prev = ELBO_valid_learning_curve[-1]
                 
-                self.stopped_early, epochs_with_no_improvement = \
-                    self.earlyStoppingStatus(run_id = run_id)
-                ELBO_valid_early_stopping = ELBO_valid_learning_curve[
-                    -1 - epochs_with_no_improvement]
+                    self.stopped_early, epochs_with_no_improvement = \
+                        self.earlyStoppingStatus(run_id = run_id)
+                    ELBO_valid_early_stopping = ELBO_valid_learning_curve[
+                        -1 - epochs_with_no_improvement]
                 
                 restoring_duration = time() - restoring_time_start
                 print("Earlier model parameters restored ({}).".format(
@@ -1245,12 +1261,12 @@ class VariationalAutoencoder(object):
                 parameter_summary_writer.add_graph(session.graph)
                 epoch_start = 0
                 
-                ELBO_valid_maximum = - numpy.inf
-                ELBO_valid_prev = - numpy.inf
-                epochs_with_no_improvement = 0
-                ELBO_valid_early_stopping = - numpy.inf
-                
-                self.stopped_early = False
+                if validation_set:
+                    ELBO_valid_maximum = - numpy.inf
+                    ELBO_valid_prev = - numpy.inf
+                    epochs_with_no_improvement = 0
+                    ELBO_valid_early_stopping = - numpy.inf
+                    self.stopped_early = False
                 
                 initialising_duration = time() - initialising_time_start
                 print("Model parameters initialised ({}).".format(
@@ -1270,12 +1286,16 @@ class VariationalAutoencoder(object):
                 if noisy_preprocess:
                     print("Noisily preprocess values.")
                     noisy_time_start = time()
+                    
                     x_train = noisy_preprocess(
                         training_set.values)
                     t_train = x_train
-                    x_valid = noisy_preprocess(
-                        validation_set.values)
-                    t_valid = x_valid
+                    
+                    if validation_set:
+                        x_valid = noisy_preprocess(
+                            validation_set.values)
+                        t_valid = x_valid
+                    
                     noisy_duration = time() - noisy_time_start
                     print("Values noisily preprocessed ({}).".format(
                         formatDuration(noisy_duration)))
@@ -1374,6 +1394,14 @@ class VariationalAutoencoder(object):
                 # Evaluation
                 print('    Evaluating model.')
                 
+                ## Centroids
+                
+                p_z_probabilities, p_z_means, p_z_variances = \
+                    session.run(
+                    [self.p_z_probabilities, self.p_z_means,
+                        self.p_z_variances]
+                )
+                
                 ## Training
                 
                 evaluating_time_start = time()
@@ -1382,8 +1410,11 @@ class VariationalAutoencoder(object):
                 KL_train = 0
                 ENRE_train = 0
                 
+                q_z_mean_train = numpy.empty([M_train, self.latent_size],
+                    numpy.float32)
+                
                 if "mixture" in self.latent_distribution_name: 
-                    z_KL = numpy.zeros(1)                
+                    z_KL = numpy.zeros(1)
                 else:    
                     z_KL = numpy.zeros(self.latent_size)
                 
@@ -1409,14 +1440,17 @@ class VariationalAutoencoder(object):
                         feed_dict_batch[self.n_feature] = \
                             n_feature_train[subset]
                     
-                    ELBO_i, KL_i, ENRE_i, z_KL_i = session.run(
-                        [self.ELBO, self.KL, self.ENRE, self.KL_all],
+                    ELBO_i, KL_i, ENRE_i, q_z_mean_i, z_KL_i = session.run(
+                        [self.ELBO, self.KL, self.ENRE, self.q_z_mean,
+                            self.KL_all],
                         feed_dict = feed_dict_batch
                     )
                     
                     ELBO_train += ELBO_i
                     KL_train += KL_i
                     ENRE_train += ENRE_i
+                    
+                    q_z_mean_train[subset] = q_z_mean_i
                     
                     z_KL += z_KL_i
                 
@@ -1433,143 +1467,181 @@ class VariationalAutoencoder(object):
                 
                 evaluating_duration = time() - evaluating_time_start
                 
-                ## Summaries
+                ### Summaries
                 
-                ### Losses
-                summary = tf.Summary()
-                summary.value.add(tag="losses/lower_bound",
+                training_summary = tf.Summary()
+                
+                #### Losses
+                training_summary.value.add(tag="losses/lower_bound",
                     simple_value = ELBO_train)
-                summary.value.add(tag="losses/reconstruction_error",
+                training_summary.value.add(tag="losses/reconstruction_error",
                     simple_value = ENRE_train)
-                summary.value.add(tag="losses/kl_divergence",
+                training_summary.value.add(tag="losses/kl_divergence",
                     simple_value = KL_train)
                 
-                ### KL divergence
+                #### KL divergence
                 for i in range(z_KL.size):
-                    summary.value.add(tag="kl_divergence_neurons/{}".format(i),
-                        simple_value = z_KL[i])
+                    training_summary.value.add(
+                        tag="kl_divergence_neurons/{}".format(i),
+                        simple_value = z_KL[i]
+                    )
                 
-                ### Writing
-                training_summary_writer.add_summary(summary,
+                #### Centroids
+                if not validation_set:
+                    for k in range(len(p_z_probabilities)):
+                        training_summary.value.add(
+                            tag="prior/cluster_{}/probability".format(k),
+                            simple_value = p_z_probabilities[k]
+                        )
+                        for l in range(self.latent_size):
+                            # The same Gaussian for all
+                            if not p_z_means[k].shape:
+                                p_z_mean_k_l = p_z_means[k]
+                                p_z_variances_k_l = p_z_variances[k]
+                            # Different Gaussians for all
+                            else:
+                                p_z_mean_k_l = p_z_means[k][l]
+                                p_z_variances_k_l = p_z_variances[k][l]
+                            training_summary.value.add(
+                                tag="prior/cluster_{}/mean/dimension_{}".format(
+                                    k, l),
+                                simple_value = p_z_mean_k_l
+                            )
+                            training_summary.value.add(
+                                tag="prior/cluster_{}/variance/dimension_{}"\
+                                    .format(k, l),
+                                simple_value = p_z_variances_k_l
+                            )
+                
+                #### Writing
+                training_summary_writer.add_summary(training_summary,
                     global_step = epoch + 1)
                 training_summary_writer.flush()
                 
-                print("    Training set ({}): ".format(
-                    formatDuration(evaluating_duration)) + \
+                ### Printing
+                print(
+                    "    {} set ({}):".format(
+                        training_set.kind.capitalize(),
+                        formatDuration(evaluating_duration)
+                    ),
                     "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
-                    ELBO_train, ENRE_train, KL_train))
+                        ELBO_train, ENRE_train, KL_train
+                    )
+                )
                 
                 ## Validation
                 
-                evaluating_time_start = time()
-                
-                ELBO_valid = 0
-                KL_valid = 0
-                ENRE_valid = 0
-                
-                q_z_mean_valid = numpy.empty([M_valid, self.latent_size],
-                    numpy.float32)
-                
-                for i in range(0, M_valid, batch_size):
-                    subset = slice(i, min(i + batch_size, M_valid))
-                    x_batch = x_valid[subset].toarray()
-                    t_batch = t_valid[subset].toarray()
-                    feed_dict_batch = {
-                        self.x: x_batch,
-                        self.t: t_batch,
-                        self.is_training: False,
-                        self.use_deterministic_z: False,
-                        self.warm_up_weight: 1.0,
-                        self.number_of_iw_samples:
-                            self.number_of_importance_samples["training"],
-                        self.number_of_mc_samples:
-                            self.number_of_monte_carlo_samples["training"]
-                    }
-                    if self.count_sum:
-                        feed_dict_batch[self.n] = n_valid[subset]
+                if validation_set:
                     
-                    if self.count_sum_feature:
-                        feed_dict_batch[self.n_feature] = \
-                            n_feature_valid[subset]
+                    evaluating_time_start = time()
                     
-                    ELBO_i, KL_i, ENRE_i, q_z_mean_i = session.run(
-                        [self.ELBO, self.KL, self.ENRE, self.q_z_mean],
-                        feed_dict = feed_dict_batch
-                    )
+                    ELBO_valid = 0
+                    KL_valid = 0
+                    ENRE_valid = 0
                     
-                    ELBO_valid += ELBO_i
-                    KL_valid += KL_i
-                    ENRE_valid += ENRE_i
+                    q_z_mean_valid = numpy.empty([M_valid, self.latent_size],
+                        numpy.float32)
                     
-                    q_z_mean_valid[subset] = q_z_mean_i
-                
-                ELBO_valid /= M_valid / batch_size
-                KL_valid /= M_valid / batch_size
-                ENRE_valid /= M_valid / batch_size
-                
-                learning_curves["validation"]["lower_bound"].append(ELBO_valid)
-                learning_curves["validation"]["reconstruction_error"].append(
-                    ENRE_valid)
-                learning_curves["validation"]["kl_divergence"].append(KL_valid)
-                
-                ## Centroids
-            
-                p_z_probabilities, p_z_means, p_z_variances = \
-                    session.run(
-                    [self.p_z_probabilities, self.p_z_means,
-                        self.p_z_variances]
-                )
-                
-                ## Summaries
-                
-                ### Losses
-                summary = tf.Summary()
-                summary.value.add(tag="losses/lower_bound",
-                    simple_value = ELBO_valid)
-                summary.value.add(tag="losses/reconstruction_error",
-                    simple_value = ENRE_valid)
-                summary.value.add(tag="losses/kl_divergence",
-                    simple_value = KL_valid)
-                
-                ### Centroids
-                for k in range(len(p_z_probabilities)):
-                    summary.value.add(
-                        tag="prior/cluster_{}/probability".format(k),
-                        simple_value = p_z_probabilities[k]
-                    )
-                    for l in range(self.latent_size):
-                        # The same Gaussian for all
-                        if not p_z_means[k].shape:
-                            p_z_mean_k_l = p_z_means[k]
-                            p_z_variances_k_l = p_z_variances[k]
-                        # Different Gaussians for all
-                        else:
-                            p_z_mean_k_l = p_z_means[k][l]
-                            p_z_variances_k_l = p_z_variances[k][l]
-                        summary.value.add(
-                            tag="prior/cluster_{}/mean/dimension_{}".format(
-                                k, l),
-                            simple_value = p_z_mean_k_l
+                    for i in range(0, M_valid, batch_size):
+                        subset = slice(i, min(i + batch_size, M_valid))
+                        x_batch = x_valid[subset].toarray()
+                        t_batch = t_valid[subset].toarray()
+                        feed_dict_batch = {
+                            self.x: x_batch,
+                            self.t: t_batch,
+                            self.is_training: False,
+                            self.use_deterministic_z: False,
+                            self.warm_up_weight: 1.0,
+                            self.number_of_iw_samples:
+                                self.number_of_importance_samples["training"],
+                            self.number_of_mc_samples:
+                                self.number_of_monte_carlo_samples["training"]
+                        }
+                        if self.count_sum:
+                            feed_dict_batch[self.n] = n_valid[subset]
+                    
+                        if self.count_sum_feature:
+                            feed_dict_batch[self.n_feature] = \
+                                n_feature_valid[subset]
+                    
+                        ELBO_i, KL_i, ENRE_i, q_z_mean_i = session.run(
+                            [self.ELBO, self.KL, self.ENRE, self.q_z_mean],
+                            feed_dict = feed_dict_batch
                         )
+                    
+                        ELBO_valid += ELBO_i
+                        KL_valid += KL_i
+                        ENRE_valid += ENRE_i
+                    
+                        q_z_mean_valid[subset] = q_z_mean_i
+                
+                    ELBO_valid /= M_valid / batch_size
+                    KL_valid /= M_valid / batch_size
+                    ENRE_valid /= M_valid / batch_size
+                
+                    learning_curves["validation"]["lower_bound"]\
+                        .append(ELBO_valid)
+                    learning_curves["validation"]["reconstruction_error"]\
+                        .append(ENRE_valid)
+                    learning_curves["validation"]["kl_divergence"]\
+                        .append(KL_valid)
+                    
+                    ### Summaries
+                    
+                    summary = tf.Summary()
+                    
+                    #### Losses
+                    summary.value.add(tag="losses/lower_bound",
+                        simple_value = ELBO_valid)
+                    summary.value.add(tag="losses/reconstruction_error",
+                        simple_value = ENRE_valid)
+                    summary.value.add(tag="losses/kl_divergence",
+                        simple_value = KL_valid)
+                    
+                    #### Centroids
+                    for k in range(len(p_z_probabilities)):
                         summary.value.add(
-                            tag="prior/cluster_{}/variance/dimension_{}"\
-                                .format(k, l),
-                            simple_value = p_z_variances_k_l
+                            tag="prior/cluster_{}/probability".format(k),
+                            simple_value = p_z_probabilities[k]
                         )
-                
-                ### Writing
-                validation_summary_writer.add_summary(summary,
-                    global_step = epoch + 1)
-                validation_summary_writer.flush()
-                
-                evaluating_duration = time() - evaluating_time_start
-                print("    Validation set ({}): ".format(
-                    formatDuration(evaluating_duration)) + \
-                    "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
-                    ELBO_valid, ENRE_valid, KL_valid))
+                        for l in range(self.latent_size):
+                            # The same Gaussian for all
+                            if not p_z_means[k].shape:
+                                p_z_mean_k_l = p_z_means[k]
+                                p_z_variances_k_l = p_z_variances[k]
+                            # Different Gaussians for all
+                            else:
+                                p_z_mean_k_l = p_z_means[k][l]
+                                p_z_variances_k_l = p_z_variances[k][l]
+                            summary.value.add(
+                                tag="prior/cluster_{}/mean/dimension_{}".format(
+                                    k, l),
+                                simple_value = p_z_mean_k_l
+                            )
+                            summary.value.add(
+                                tag="prior/cluster_{}/variance/dimension_{}"\
+                                    .format(k, l),
+                                simple_value = p_z_variances_k_l
+                            )
+                    
+                    #### Writing
+                    validation_summary_writer.add_summary(summary,
+                        global_step = epoch + 1)
+                    validation_summary_writer.flush()
+                    
+                    ### Printing
+                    print(
+                        "    {} set ({}):".format(
+                            validation_set.kind.capitalize(),
+                            formatDuration(evaluating_duration)
+                        ),
+                        "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
+                            ELBO_valid, ENRE_valid, KL_valid
+                        )
+                    )
                 
                 # Early stopping
-                if not self.stopped_early:
+                if validation_set and not self.stopped_early:
                     
                     if ELBO_valid < ELBO_valid_early_stopping:
                         if epochs_with_no_improvement == 0:
@@ -1622,7 +1694,7 @@ class VariationalAutoencoder(object):
                     formatDuration(saving_duration)))
                 
                 # Saving best model parameters yet
-                if ELBO_valid > ELBO_valid_maximum:
+                if validation_set and ELBO_valid > ELBO_valid_maximum:
                     print("    Best validation ELBO yet.",
                         "Saving model parameters as best model parameters.")
                     saving_time_start = time()
@@ -1656,6 +1728,7 @@ class VariationalAutoencoder(object):
                         epoch % plotting_interval == 0
 
                 if plot_intermediate_results:
+                    
                     if "mixture" in self.latent_distribution_name:
                         K = len(p_z_probabilities)
                         L = self.latent_size
@@ -1673,12 +1746,20 @@ class VariationalAutoencoder(object):
                         }
                     else:
                         centroids = None
+                    
+                    if validation_set:
+                        intermediate_latent_values = q_z_mean_valid
+                        intermediate_data_set = validation_set
+                    else:
+                        intermediate_latent_values = q_z_mean_train
+                        intermediate_data_set = training_set
+                    
                     analyseIntermediateResults(
                         learning_curves = learning_curves,
                         epoch_start = epoch_start,
                         epoch = epoch,
-                        latent_values = q_z_mean_valid,
-                        data_set = validation_set,
+                        latent_values = intermediate_latent_values,
+                        data_set = intermediate_data_set,
                         centroids = centroids,
                         model_name = self.name,
                         run_id = run_id,
@@ -1698,7 +1779,8 @@ class VariationalAutoencoder(object):
                     print()
                 
                 # Update variables for previous iteration
-                ELBO_valid_prev = ELBO_valid
+                if validation_set:
+                    ELBO_valid_prev = ELBO_valid
             
             training_duration = time() - training_time_start
             

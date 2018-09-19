@@ -1061,7 +1061,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         
         return stopped_early, epochs_with_no_improvement
     
-    def train(self, training_set, validation_set,
+    def train(self, training_set, validation_set = None,
         number_of_epochs = 100, batch_size = 100, learning_rate = 1e-3,
         plotting_interval = None,
         run_id = None, new_run = False, reset_training = False,
@@ -1221,16 +1221,19 @@ class GaussianMixtureVariationalAutoencoder(object):
         ### Count sum for distributions
         if self.count_sum:
             n_train = training_set.count_sum
-            n_valid = validation_set.count_sum
+            if validation_set:
+                n_valid = validation_set.count_sum
         
         ### Normalised count sum as a feature to the decoder
         if self.count_sum_feature:
             n_feature_train = training_set.normalised_count_sum
-            n_feature_valid = validation_set.normalised_count_sum
+            if validation_set:
+                n_feature_valid = validation_set.normalised_count_sum
         
         ### Numbers of examples for data subsets
         M_train = training_set.number_of_examples
-        M_valid = validation_set.number_of_examples
+        if validation_set:
+            M_valid = validation_set.number_of_examples
         
         ### Preprocessing function at every epoch
         noisy_preprocess = training_set.noisy_preprocess
@@ -1240,17 +1243,21 @@ class GaussianMixtureVariationalAutoencoder(object):
             
             if training_set.has_preprocessed_values:
                 x_train = training_set.preprocessed_values
-                x_valid = validation_set.preprocessed_values
+                if validation_set:
+                    x_valid = validation_set.preprocessed_values
             else:
                 x_train = training_set.values
-                x_valid = validation_set.values
+                if validation_set:
+                    x_valid = validation_set.values
             
             if self.reconstruction_distribution_name == "bernoulli":
                 t_train = training_set.binarised_values
-                t_valid = validation_set.binarised_values
+                if validation_set:
+                    t_valid = validation_set.binarised_values
             else:
                 t_train = training_set.values
-                t_valid = validation_set.values
+                if validation_set:
+                    t_valid = validation_set.values
         
         ### Labels
         
@@ -1260,8 +1267,9 @@ class GaussianMixtureVariationalAutoencoder(object):
                 training_set.class_name_to_class_id[class_name])
         
             training_label_ids = class_names_to_class_ids(training_set.labels)
-            validation_label_ids = class_names_to_class_ids(
-                validation_set.labels)
+            if validation_set:
+                validation_label_ids = class_names_to_class_ids(
+                    validation_set.labels)
         
             if training_set.excluded_classes:
                 excluded_class_ids = \
@@ -1282,9 +1290,10 @@ class GaussianMixtureVariationalAutoencoder(object):
             training_superset_label_ids = \
                 superset_class_names_to_superset_class_ids(
                     training_set.superset_labels)
-            validation_superset_label_ids =  \
-                superset_class_names_to_superset_class_ids(
-                    validation_set.superset_labels)
+            if validation_set:
+                validation_superset_label_ids =  \
+                    superset_class_names_to_superset_class_ids(
+                        validation_set.superset_labels)
             
             if training_set.excluded_superset_classes:
                 excluded_superset_class_ids = \
@@ -1310,14 +1319,15 @@ class GaussianMixtureVariationalAutoencoder(object):
                 "reconstruction_error": [],
                 "kl_divergence_z": [],
                 "kl_divergence_y": []
-            },
-            "validation": {
+            }
+        }
+        if validation_set:
+            learning_curves["validation"] = {
                 "lower_bound": [],
                 "reconstruction_error": [],
                 "kl_divergence_z": [],
                 "kl_divergence_y": []
             }
-        }
         
         with tf.Session(graph = self.graph) as session:
             
@@ -1325,8 +1335,9 @@ class GaussianMixtureVariationalAutoencoder(object):
                 log_directory)
             training_summary_writer = tf.summary.FileWriter(
                 os.path.join(log_directory, "training"))
-            validation_summary_writer = tf.summary.FileWriter(
-                os.path.join(log_directory, "validation"))
+            if validation_set:
+                validation_summary_writer = tf.summary.FileWriter(
+                    os.path.join(log_directory, "validation"))
             
             # Initialisation
             
@@ -1344,20 +1355,21 @@ class GaussianMixtureVariationalAutoencoder(object):
                 epoch_start = int(os.path.split(model_checkpoint_path)[-1]
                     .split('-')[-1])
                 
-                ELBO_valid_learning_curve = loadLearningCurves(
-                    model = self,
-                    data_set_kinds = "validation",
-                    run_id = run_id,
-                    log_directory = log_directory
-                )["lower_bound"]
+                if validation_set:
+                    ELBO_valid_learning_curve = loadLearningCurves(
+                        model = self,
+                        data_set_kinds = "validation",
+                        run_id = run_id,
+                        log_directory = log_directory
+                    )["lower_bound"]
                 
-                ELBO_valid_maximum = ELBO_valid_learning_curve.max()
-                ELBO_valid_prev = ELBO_valid_learning_curve[-1]
+                    ELBO_valid_maximum = ELBO_valid_learning_curve.max()
+                    ELBO_valid_prev = ELBO_valid_learning_curve[-1]
                 
-                self.stopped_early, epochs_with_no_improvement = \
-                    self.earlyStoppingStatus(run_id = run_id)
-                ELBO_valid_early_stopping = ELBO_valid_learning_curve[
-                    -1 - epochs_with_no_improvement]
+                    self.stopped_early, epochs_with_no_improvement = \
+                        self.earlyStoppingStatus(run_id = run_id)
+                    ELBO_valid_early_stopping = ELBO_valid_learning_curve[
+                        -1 - epochs_with_no_improvement]
                 
                 restoring_duration = time() - restoring_time_start
                 print("Earlier model parameters restored ({}).".format(
@@ -1371,12 +1383,12 @@ class GaussianMixtureVariationalAutoencoder(object):
                 parameter_summary_writer.add_graph(session.graph)
                 epoch_start = 0
                 
-                ELBO_valid_maximum = - numpy.inf
-                ELBO_valid_prev = - numpy.inf
-                epochs_with_no_improvement = 0
-                ELBO_valid_early_stopping = - numpy.inf
-                
-                self.stopped_early = False
+                if validation_set:
+                    ELBO_valid_maximum = - numpy.inf
+                    ELBO_valid_prev = - numpy.inf
+                    epochs_with_no_improvement = 0
+                    ELBO_valid_early_stopping = - numpy.inf
+                    self.stopped_early = False
                 
                 initialising_duration = time() - initialising_time_start
                 print("Model parameters initialised ({}).".format(
@@ -1396,12 +1408,16 @@ class GaussianMixtureVariationalAutoencoder(object):
                 if noisy_preprocess:
                     print("Noisily preprocess values.")
                     noisy_time_start = time()
+                    
                     x_train = noisy_preprocess(
                         training_set.values)
                     t_train = x_train
-                    x_valid = noisy_preprocess(
-                        validation_set.values)
-                    t_valid = x_valid
+                    
+                    if validation_set:
+                        x_valid = noisy_preprocess(
+                            validation_set.values)
+                        t_valid = x_valid
+                    
                     noisy_duration = time() - noisy_time_start
                     print("Values noisily preprocessed ({}).".format(
                         formatDuration(noisy_duration)))
@@ -1507,12 +1523,23 @@ class GaussianMixtureVariationalAutoencoder(object):
                 KL_z_train = 0
                 KL_y_train = 0
                 ENRE_train = 0
+                
+                q_y_probabilities = numpy.zeros(self.K)
+                q_z_means = numpy.zeros((self.K, self.latent_size))
+                q_z_variances = numpy.zeros((self.K, self.latent_size))
+                
+                p_y_probabilities = numpy.zeros(self.K)
+                p_z_means = numpy.zeros((self.K, self.latent_size))
+                p_z_variances = numpy.zeros((self.K, self.latent_size))
+                
                 q_y_logits_train = numpy.zeros((M_train, self.K),
+                    numpy.float32)
+                z_mean_train = numpy.zeros((M_train, self.latent_size),
                     numpy.float32)
                 
                 if "mixture" in self.latent_distribution_name: 
                     z_KL = numpy.zeros(1)                
-                else:    
+                else:
                     z_KL = numpy.zeros(self.latent_size)
                 
                 for i in range(0, M_train, batch_size):
@@ -1537,9 +1564,14 @@ class GaussianMixtureVariationalAutoencoder(object):
                             n_feature_train[subset]
                     
                     (ELBO_i, ENRE_i, KL_z_i, KL_y_i, z_KL_i,
-                        q_y_logits_train_i) = session.run(
+                        q_y_probabilities_i, q_z_means_i, q_z_variances_i,
+                        p_y_probabilities_i, p_z_means_i, p_z_variances_i,
+                        q_y_logits_train_i, z_mean_i) = session.run(
                         [self.ELBO, self.ENRE,  self.KL_z, self.KL_y,
-                            self.KL_all, self.q_y_logits],
+                            self.KL_all, self.q_y_probabilities,
+                             self.q_z_means, self.q_z_variances,
+                            self.p_y_probabilities, self.p_z_means,
+                            self.p_z_variances, self.q_y_logits, self.z_mean],
                         feed_dict = feed_dict_batch
                     )
                     
@@ -1549,8 +1581,17 @@ class GaussianMixtureVariationalAutoencoder(object):
                     ENRE_train += ENRE_i
                     
                     z_KL += z_KL_i
-
+                    
+                    q_y_probabilities += numpy.array(q_y_probabilities_i)
+                    q_z_means += numpy.array(q_z_means_i)
+                    q_z_variances += numpy.array(q_z_variances_i)
+                    
+                    p_y_probabilities += numpy.array(p_y_probabilities_i)
+                    p_z_means += numpy.array(p_z_means_i)
+                    p_z_variances += numpy.array(p_z_variances_i)
+                    
                     q_y_logits_train[subset] = q_y_logits_train_i
+                    z_mean_train[subset] = z_mean_i 
                 
                 ELBO_train /= M_train / batch_size
                 KL_z_train /= M_train / batch_size
@@ -1559,6 +1600,14 @@ class GaussianMixtureVariationalAutoencoder(object):
                 
                 z_KL /= M_train / batch_size
                 
+                q_y_probabilities /= M_train / batch_size
+                q_z_means /= M_train / batch_size
+                q_z_variances /= M_train / batch_size
+                
+                p_y_probabilities /= M_train / batch_size
+                p_z_means /= M_train / batch_size
+                p_z_variances /= M_train / batch_size
+                
                 learning_curves["training"]["lower_bound"].append(ELBO_train)
                 learning_curves["training"]["reconstruction_error"].append(
                     ENRE_train)
@@ -1566,6 +1615,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                     KL_z_train)
                 learning_curves["training"]["kl_divergence_y"].append(
                     KL_y_train)
+                
+                ### Accuracies
                 
                 training_cluster_ids = q_y_logits_train.argmax(axis = 1)
                 
@@ -1599,10 +1650,14 @@ class GaussianMixtureVariationalAutoencoder(object):
                 else:
                     accuracy_superset_train = None
                     accuracy_display = accuracy_train
-
+                
                 evaluating_duration = time() - evaluating_time_start
                 
+                ### Summaries
+                
                 summary = tf.Summary()
+                
+                #### Losses and accuracies
                 summary.value.add(tag="losses/lower_bound",
                     simple_value = ELBO_train)
                 summary.value.add(tag="losses/reconstruction_error",
@@ -1616,17 +1671,55 @@ class GaussianMixtureVariationalAutoencoder(object):
                 if accuracy_superset_train:
                     summary.value.add(tag="superset_accuracy",
                         simple_value = accuracy_superset_train)
-
+                
+                #### KL divergence
                 for i in range(z_KL.size):
                     summary.value.add(tag="kl_divergence_neurons/{}".format(i),
                         simple_value = z_KL[i])
                 
+                #### Centroids
+                if validation_set:
+                    for k in range(self.K):
+                        summary.value.add(
+                            tag="prior/cluster_{}/probability".format(k),
+                            simple_value = p_y_probabilities[k]
+                        )
+                        summary.value.add(
+                            tag="posterior/cluster_{}/probability".format(k),
+                            simple_value = q_y_probabilities[k]
+                        )
+                        for l in range(self.latent_size):
+                            summary.value.add(
+                                tag="prior/cluster_{}/mean/dimension_{}".format(
+                                    k, l),
+                                simple_value = p_z_means[k][l]
+                            )
+                            summary.value.add(
+                                tag="posterior/cluster_{}/mean/dimension_{}"
+                                    .format(k, l),
+                                simple_value = q_z_means[k, l]
+                            )
+                            summary.value.add(
+                                tag="prior/cluster_{}/variance/dimension_{}"\
+                                    .format(k, l),
+                                simple_value = p_z_variances[k][l]
+                            )
+                            summary.value.add(
+                                tag="posterior/cluster_{}/variance/dimension_{}"\
+                                    .format(k, l),
+                                simple_value = q_z_variances[k, l]
+                            )
+                
+                #### Writing
                 training_summary_writer.add_summary(summary,
                     global_step = epoch + 1)
                 training_summary_writer.flush()
                 
-                evaluation_string = "    Training set ({}): ".format(
-                    formatDuration(evaluating_duration))
+                ### Printing
+                evaluation_string = "    {} set ({}): ".format(
+                    training_set.kind.capitalize(),
+                    formatDuration(evaluating_duration)
+                )
                 evaluation_metrics = [
                     "ELBO: {:.5g}".format(ELBO_train),
                     "ENRE: {:.5g}".format(ENRE_train),
@@ -1644,193 +1737,213 @@ class GaussianMixtureVariationalAutoencoder(object):
                 
                 ## Validation
                 
-                evaluating_time_start = time()
-                
-                ELBO_valid = 0
-                KL_z_valid = 0
-                KL_y_valid = 0
-                ENRE_valid = 0
-                q_y_probabilities = numpy.zeros(self.K)
-                q_z_means = numpy.zeros((self.K, self.latent_size))
-                q_z_variances = numpy.zeros((self.K, self.latent_size))
-                p_y_probabilities = numpy.zeros(self.K)
-                p_z_means = numpy.zeros((self.K, self.latent_size))
-                p_z_variances = numpy.zeros((self.K, self.latent_size))
-                q_y_logits_valid = numpy.zeros((M_valid, self.K),
-                    numpy.float32)
-                z_mean_valid = numpy.zeros((M_valid, self.latent_size),
-                    numpy.float32)
-
-                for i in range(0, M_valid, batch_size):
-                    subset = slice(i, min(i + batch_size, M_valid))
-                    x_batch = x_valid[subset].toarray()
-                    t_batch = t_valid[subset].toarray()
-                    feed_dict_batch = {
-                        self.x: x_batch,
-                        self.t: t_batch,
-                        self.is_training: False,
-                        self.warm_up_weight: 1.0,
-                        self.S_iw:
-                            self.number_of_importance_samples["training"],
-                        self.S_mc:
-                            self.number_of_monte_carlo_samples["training"]
-                    }
-                    if self.count_sum:
-                        feed_dict_batch[self.n] = n_valid[subset]
+                if validation_set:
                     
-                    if self.count_sum_feature:
-                        feed_dict_batch[self.n_feature] = \
-                            n_feature_valid[subset]
-
+                    evaluating_time_start = time()
                     
-                    (ELBO_i, ENRE_i, KL_z_i, KL_y_i,
-                        q_y_probabilities_i, q_z_means_i, q_z_variances_i,
-                        p_y_probabilities_i, p_z_means_i, p_z_variances_i,
-                        q_y_logits_i, z_mean_i) = session.run(
-                        [self.ELBO, self.ENRE, self.KL_z, self.KL_y,
-                            self.q_y_probabilities, self.q_z_means,
-                            self.q_z_variances, self.p_y_probabilities,
-                            self.p_z_means, self.p_z_variances,
-                            self.q_y_logits, self.z_mean],
-                        feed_dict = feed_dict_batch
-                    )
+                    ELBO_valid = 0
+                    KL_z_valid = 0
+                    KL_y_valid = 0
+                    ENRE_valid = 0
                     
-                    ELBO_valid += ELBO_i
-                    KL_z_valid += KL_z_i
-                    KL_y_valid += KL_y_i
-                    ENRE_valid += ENRE_i
-                    q_y_probabilities += numpy.array(q_y_probabilities_i)
-                    q_z_means += numpy.array(q_z_means_i)
-                    q_z_variances += numpy.array(q_z_variances_i)
-                    p_y_probabilities += numpy.array(p_y_probabilities_i)
-                    p_z_means += numpy.array(p_z_means_i)
-                    p_z_variances += numpy.array(p_z_variances_i)
-                    q_y_logits_valid[subset] = q_y_logits_i
-                    z_mean_valid[subset] = z_mean_i 
-
-                ELBO_valid /= M_valid / batch_size
-                KL_z_valid /= M_valid / batch_size
-                KL_y_valid /= M_valid / batch_size
-                ENRE_valid /= M_valid / batch_size
-                q_y_probabilities /= M_valid / batch_size
-                q_z_means /= M_valid / batch_size
-                q_z_variances /= M_valid / batch_size
-                p_y_probabilities /= M_valid / batch_size
-                p_z_means /= M_valid / batch_size
-                p_z_variances /= M_valid / batch_size
-                
-                learning_curves["validation"]["lower_bound"].append(ELBO_valid)
-                learning_curves["validation"]["reconstruction_error"].append(
-                    ENRE_valid)
-                learning_curves["validation"]["kl_divergence_z"].append(
-                    KL_z_valid)
-                learning_curves["validation"]["kl_divergence_y"].append(
-                    KL_y_valid)
-                
-                validation_cluster_ids = q_y_logits_valid.argmax(axis = 1)
-                
-                if validation_set.has_labels:
-                    predicted_validation_label_ids = mapClusterIDsToLabelIDs(
-                        validation_label_ids,
-                        validation_cluster_ids,
-                        excluded_class_ids
-                    )
-                    accuracy_valid = accuracy(
-                        validation_label_ids,
-                        predicted_validation_label_ids,
-                        excluded_class_ids
-                    )
-                else:
-                    accuracy_valid = None
-                
-                if validation_set.label_superset:
-                    predicted_validation_superset_label_ids = \
-                        mapClusterIDsToLabelIDs(
-                        validation_superset_label_ids,
-                        validation_cluster_ids,
-                        excluded_superset_class_ids
-                    )
-                    accuracy_superset_valid = accuracy(
-                        validation_superset_label_ids,
-                        predicted_validation_superset_label_ids,
-                        excluded_superset_class_ids
-                    )
-                    accuracy_display = accuracy_superset_valid
-                else:
-                    accuracy_superset_valid = None
-                    accuracy_display = accuracy_valid
-
-                summary = tf.Summary()
-                summary.value.add(tag="losses/lower_bound",
-                    simple_value = ELBO_valid)
-                summary.value.add(tag="losses/reconstruction_error",
-                    simple_value = ENRE_valid)
-                summary.value.add(tag="losses/kl_divergence_z",
-                    simple_value = KL_z_valid)
-                summary.value.add(tag="losses/kl_divergence_y",
-                    simple_value = KL_y_valid)
-                summary.value.add(tag="accuracy",
-                    simple_value = accuracy_valid)
-                if accuracy_superset_valid:
-                    summary.value.add(tag="superset_accuracy",
-                        simple_value = accuracy_superset_valid)
-
-                for k in range(self.K):
-                    summary.value.add(
-                        tag="prior/cluster_{}/probability".format(k),
-                        simple_value = p_y_probabilities[k]
-                    )
-                    summary.value.add(
-                        tag="posterior/cluster_{}/probability".format(k),
-                        simple_value = q_y_probabilities[k]
-                    )
-                    for l in range(self.latent_size):
+                    q_y_probabilities = numpy.zeros(self.K)
+                    q_z_means = numpy.zeros((self.K, self.latent_size))
+                    q_z_variances = numpy.zeros((self.K, self.latent_size))
+                    
+                    p_y_probabilities = numpy.zeros(self.K)
+                    p_z_means = numpy.zeros((self.K, self.latent_size))
+                    p_z_variances = numpy.zeros((self.K, self.latent_size))
+                    
+                    q_y_logits_valid = numpy.zeros((M_valid, self.K),
+                        numpy.float32)
+                    z_mean_valid = numpy.zeros((M_valid, self.latent_size),
+                        numpy.float32)
+                    
+                    for i in range(0, M_valid, batch_size):
+                        subset = slice(i, min(i + batch_size, M_valid))
+                        x_batch = x_valid[subset].toarray()
+                        t_batch = t_valid[subset].toarray()
+                        feed_dict_batch = {
+                            self.x: x_batch,
+                            self.t: t_batch,
+                            self.is_training: False,
+                            self.warm_up_weight: 1.0,
+                            self.S_iw:
+                                self.number_of_importance_samples["training"],
+                            self.S_mc:
+                                self.number_of_monte_carlo_samples["training"]
+                        }
+                        if self.count_sum:
+                            feed_dict_batch[self.n] = n_valid[subset]
+                        
+                        if self.count_sum_feature:
+                            feed_dict_batch[self.n_feature] = \
+                                n_feature_valid[subset]
+                        
+                        (ELBO_i, ENRE_i, KL_z_i, KL_y_i,
+                            q_y_probabilities_i, q_z_means_i, q_z_variances_i,
+                            p_y_probabilities_i, p_z_means_i, p_z_variances_i,
+                            q_y_logits_i, z_mean_i) = session.run(
+                            [self.ELBO, self.ENRE, self.KL_z, self.KL_y,
+                                self.q_y_probabilities, self.q_z_means,
+                                self.q_z_variances, self.p_y_probabilities,
+                                self.p_z_means, self.p_z_variances,
+                                self.q_y_logits, self.z_mean],
+                            feed_dict = feed_dict_batch
+                        )
+                        
+                        ELBO_valid += ELBO_i
+                        KL_z_valid += KL_z_i
+                        KL_y_valid += KL_y_i
+                        ENRE_valid += ENRE_i
+                        
+                        q_y_probabilities += numpy.array(q_y_probabilities_i)
+                        q_z_means += numpy.array(q_z_means_i)
+                        q_z_variances += numpy.array(q_z_variances_i)
+                        
+                        p_y_probabilities += numpy.array(p_y_probabilities_i)
+                        p_z_means += numpy.array(p_z_means_i)
+                        p_z_variances += numpy.array(p_z_variances_i)
+                        
+                        q_y_logits_valid[subset] = q_y_logits_i
+                        z_mean_valid[subset] = z_mean_i 
+                    
+                    ELBO_valid /= M_valid / batch_size
+                    KL_z_valid /= M_valid / batch_size
+                    KL_y_valid /= M_valid / batch_size
+                    ENRE_valid /= M_valid / batch_size
+                    
+                    q_y_probabilities /= M_valid / batch_size
+                    q_z_means /= M_valid / batch_size
+                    q_z_variances /= M_valid / batch_size
+                    
+                    p_y_probabilities /= M_valid / batch_size
+                    p_z_means /= M_valid / batch_size
+                    p_z_variances /= M_valid / batch_size
+                    
+                    learning_curves["validation"]["lower_bound"].append(ELBO_valid)
+                    learning_curves["validation"]["reconstruction_error"].append(
+                        ENRE_valid)
+                    learning_curves["validation"]["kl_divergence_z"].append(
+                        KL_z_valid)
+                    learning_curves["validation"]["kl_divergence_y"].append(
+                        KL_y_valid)
+                    
+                    ### Accuracies
+                    
+                    validation_cluster_ids = q_y_logits_valid.argmax(axis = 1)
+                    
+                    if validation_set.has_labels:
+                        predicted_validation_label_ids = mapClusterIDsToLabelIDs(
+                            validation_label_ids,
+                            validation_cluster_ids,
+                            excluded_class_ids
+                        )
+                        accuracy_valid = accuracy(
+                            validation_label_ids,
+                            predicted_validation_label_ids,
+                            excluded_class_ids
+                        )
+                    else:
+                        accuracy_valid = None
+                    
+                    if validation_set.label_superset:
+                        predicted_validation_superset_label_ids = \
+                            mapClusterIDsToLabelIDs(
+                            validation_superset_label_ids,
+                            validation_cluster_ids,
+                            excluded_superset_class_ids
+                        )
+                        accuracy_superset_valid = accuracy(
+                            validation_superset_label_ids,
+                            predicted_validation_superset_label_ids,
+                            excluded_superset_class_ids
+                        )
+                        accuracy_display = accuracy_superset_valid
+                    else:
+                        accuracy_superset_valid = None
+                        accuracy_display = accuracy_valid
+                    
+                    evaluating_duration = time() - evaluating_time_start
+                    
+                    ### Summaries
+                    
+                    summary = tf.Summary()
+                    
+                    #### Losses and accuracies
+                    summary.value.add(tag="losses/lower_bound",
+                        simple_value = ELBO_valid)
+                    summary.value.add(tag="losses/reconstruction_error",
+                        simple_value = ENRE_valid)
+                    summary.value.add(tag="losses/kl_divergence_z",
+                        simple_value = KL_z_valid)
+                    summary.value.add(tag="losses/kl_divergence_y",
+                        simple_value = KL_y_valid)
+                    summary.value.add(tag="accuracy",
+                        simple_value = accuracy_valid)
+                    if accuracy_superset_valid:
+                        summary.value.add(tag="superset_accuracy",
+                            simple_value = accuracy_superset_valid)
+                    
+                    #### Centroids
+                    for k in range(self.K):
                         summary.value.add(
-                            tag="prior/cluster_{}/mean/dimension_{}".format(
-                                k, l),
-                            simple_value = p_z_means[k][l]
+                            tag="prior/cluster_{}/probability".format(k),
+                            simple_value = p_y_probabilities[k]
                         )
                         summary.value.add(
-                            tag="posterior/cluster_{}/mean/dimension_{}"
-                                .format(k, l),
-                            simple_value = q_z_means[k, l]
+                            tag="posterior/cluster_{}/probability".format(k),
+                            simple_value = q_y_probabilities[k]
                         )
-                        summary.value.add(
-                            tag="prior/cluster_{}/variance/dimension_{}"\
-                                .format(k, l),
-                            simple_value = p_z_variances[k][l]
-                        )
-                        summary.value.add(
-                            tag="posterior/cluster_{}/variance/dimension_{}"\
-                                .format(k, l),
-                            simple_value = q_z_variances[k, l]
-                        )
-
-                validation_summary_writer.add_summary(summary,
-                    global_step = epoch + 1)
-                validation_summary_writer.flush()
-                
-                evaluating_duration = time() - evaluating_time_start
-                
-                evaluation_string = "    Validation set ({}): ".format(
-                    formatDuration(evaluating_duration))
-                evaluation_metrics = [
-                    "ELBO: {:.5g}".format(ELBO_valid),
-                    "ENRE: {:.5g}".format(ENRE_valid),
-                    "KL_z: {:.5g}".format(KL_z_valid),
-                    "KL_y: {:.5g}".format(KL_y_valid)
-                ]
-                if accuracy_display:
-                    evaluation_metrics.append(
-                        "Acc: {:.5g}".format(accuracy_display)
+                        for l in range(self.latent_size):
+                            summary.value.add(
+                                tag="prior/cluster_{}/mean/dimension_{}".format(
+                                    k, l),
+                                simple_value = p_z_means[k][l]
+                            )
+                            summary.value.add(
+                                tag="posterior/cluster_{}/mean/dimension_{}"
+                                    .format(k, l),
+                                simple_value = q_z_means[k, l]
+                            )
+                            summary.value.add(
+                                tag="prior/cluster_{}/variance/dimension_{}"\
+                                    .format(k, l),
+                                simple_value = p_z_variances[k][l]
+                            )
+                            summary.value.add(
+                                tag="posterior/cluster_{}/variance/dimension_{}"\
+                                    .format(k, l),
+                                simple_value = q_z_variances[k, l]
+                            )
+                    
+                    #### Writing
+                    validation_summary_writer.add_summary(summary,
+                        global_step = epoch + 1)
+                    validation_summary_writer.flush()
+                    
+                    ### Printing
+                    evaluation_string = "    {} set ({}): ".format(
+                        validation_set.kind.capitalize(),
+                        formatDuration(evaluating_duration)
                     )
-                evaluation_string += ", ".join(evaluation_metrics)
-                evaluation_string += "."
-                
-                print(evaluation_string)
+                    evaluation_metrics = [
+                        "ELBO: {:.5g}".format(ELBO_valid),
+                        "ENRE: {:.5g}".format(ENRE_valid),
+                        "KL_z: {:.5g}".format(KL_z_valid),
+                        "KL_y: {:.5g}".format(KL_y_valid)
+                    ]
+                    if accuracy_display:
+                        evaluation_metrics.append(
+                            "Acc: {:.5g}".format(accuracy_display)
+                        )
+                    evaluation_string += ", ".join(evaluation_metrics)
+                    evaluation_string += "."
+                    
+                    print(evaluation_string)
                 
                 # Early stopping
-                if not self.stopped_early:
+                if validation_set and not self.stopped_early:
                     
                     if ELBO_valid < ELBO_valid_early_stopping:
                         if epochs_with_no_improvement == 0:
@@ -1884,7 +1997,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     formatDuration(saving_duration)))
                 
                 # Saving best model parameters yet
-                if ELBO_valid > ELBO_valid_maximum:
+                if validation_set and ELBO_valid > ELBO_valid_maximum:
                     print("    Best validation ELBO yet.",
                         "Saving model parameters as best model parameters.")
                     saving_time_start = time()
@@ -1918,6 +2031,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                         epoch % plotting_interval == 0
 
                 if plot_intermediate_results:
+                    
                     if "mixture" in self.latent_distribution_name:
                         K = self.K
                         L = self.latent_size
@@ -1942,12 +2056,20 @@ class GaussianMixtureVariationalAutoencoder(object):
                         }
                     else:
                         centroids = None
+                    
+                    if validation_set:
+                        intermediate_latent_values = z_mean_valid
+                        intermediate_data_set = validation_set
+                    else:
+                        intermediate_latent_values = z_mean_train
+                        intermediate_data_set = training_set
+                    
                     analyseIntermediateResults(
                         learning_curves = learning_curves,
                         epoch_start = epoch_start,
                         epoch = epoch,
-                        latent_values = z_mean_valid,
-                        data_set = validation_set,
+                        latent_values = intermediate_latent_values,
+                        data_set = intermediate_data_set,
                         centroids = centroids,
                         model_name = self.name,
                         run_id = run_id,
@@ -1967,7 +2089,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                     print()
                 
                 # Update variables for previous iteration
-                ELBO_valid_prev = ELBO_valid
+                if validation_set:
+                    ELBO_valid_prev = ELBO_valid
             
             training_duration = time() - training_time_start
             

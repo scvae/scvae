@@ -48,6 +48,7 @@ def main(input_file_or_name, data_directory = "data",
     temporary_log_directory = None,
     map_features = False, feature_selection = [], example_filter = [],
     preprocessing_methods = [], noisy_preprocessing_methods = [],
+    split_data_set = True,
     splitting_method = "default", splitting_fraction = 0.9,
     model_type = "VAE", latent_size = 50, hidden_sizes = [500],
     number_of_importance_samples = [5],
@@ -131,7 +132,7 @@ def main(input_file_or_name, data_directory = "data",
     
     ## Data sets
     
-    if evaluation_set_name == "full" or analyse_data:
+    if not split_data_set or evaluation_set_name == "full" or analyse_data:
         full_data_set_needed = True
     else:
         full_data_set_needed = False
@@ -154,10 +155,17 @@ def main(input_file_or_name, data_directory = "data",
     if full_data_set_needed:
         data_set.load()
     
-    training_set, validation_set, test_set = data_set.split(
-        splitting_method, splitting_fraction)
-    
-    all_data_sets = [data_set, training_set, validation_set, test_set]
+    if split_data_set:
+        training_set, validation_set, test_set = data_set.split(
+            splitting_method, splitting_fraction)
+        all_data_sets = [data_set, training_set, validation_set, test_set]
+    else:
+        splitting_method = None
+        training_set = data_set
+        validation_set = None
+        test_set = data_set
+        all_data_sets = [data_set]
+        evaluation_set_name = "full"
     
     ## Setup of log and results directories
     
@@ -727,9 +735,21 @@ parser.add_argument(
     help = "methods for noisily preprocessing data at every epoch (applied in order)"
 )
 parser.add_argument(
+    "--split-data-set",
+    action = "store_true",
+    help = "split data set"
+)
+parser.add_argument(
+    "--skip-splitting-data-set",
+    dest = "split_data_set",
+    action = "store_false",
+    help = "do not split data set"
+)
+parser.set_defaults(split_data_set = True)
+parser.add_argument(
     "--splitting-method",
     type = str,
-    default = "random",
+    default = "default",
     help = "method for splitting data into training, validation, and test sets"
 )
 parser.add_argument(

@@ -806,7 +806,7 @@ class DataSet(object):
         else:
             self.noisy_preprocess = None
         
-        if self.kind == "full":
+        if self.kind == "full" and self.values is None:
             
             print("Data set:")
             print("    title:", self.title)
@@ -3678,20 +3678,27 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction,
     
     # Splitting directory
     
-    splitting_directory_parts = ["split"]
-    
-    if splitting_method == "default":
-        splitting_method = data_set.defaultSplittingMethod()
-    
-    if splitting_method == "indices" and len(data_set.split_indices) == 3 \
-        or not splitting_fraction:
+    if splitting_method:
         
-        splitting_directory_parts.append(splitting_method)
-    else:
-        splitting_directory_parts.append("{}_{}".format(splitting_method,
-        splitting_fraction))
+        splitting_directory_parts = ["split"]
     
-    splitting_directory = "-".join(splitting_directory_parts)
+        if splitting_method == "default":
+            splitting_method = data_set.defaultSplittingMethod()
+    
+        if splitting_method == "indices" and len(data_set.split_indices) == 3 \
+            or not splitting_fraction:
+        
+            splitting_directory_parts.append(splitting_method)
+        else:
+            splitting_directory_parts.append("{}_{}".format(splitting_method,
+            splitting_fraction))
+        
+        splitting_directory = "-".join(splitting_directory_parts)
+    
+    else:
+        splitting_directory = "no_split"
+    
+    
     
     # Preprocessing directory
     
@@ -3728,7 +3735,7 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction,
     if preprocessing_directory_parts:
         preprocessing_directory = "-".join(preprocessing_directory_parts)
     else:
-        preprocessing_directory = "none"
+        preprocessing_directory = "no_preprocessing"
     
     # Complete path
     

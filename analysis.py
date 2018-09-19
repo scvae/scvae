@@ -2950,6 +2950,9 @@ def plotLearningCurves(curves, model_type, epoch_offset = 0, epoch_slice = slice
             + colour_index_offset]
         
         for curve_name, curve in sorted(curve_set.items()):
+            if curve is None:
+                continue
+            
             if curve_name == "lower_bound":
                 curve_name = "$\\mathcal{L}$"
                 colour = curve_colour(0)
@@ -3093,7 +3096,7 @@ def plotSeparateLearningCurves(curves, loss, name = None):
             + colour_index_offset]
         
         for curve_name, curve in sorted(curve_set.items()):
-            if curve_name not in losses:
+            if curve is None or curve_name not in losses:
                 continue
             if curve_name == "lower_bound":
                 curve_name = "$\\mathcal{L}$"
@@ -3143,6 +3146,9 @@ def plotAccuracies(accuracies, name = None):
     axis = figure.add_subplot(1, 1, 1)
     
     for accuracies_kind, accuracies in sorted(accuracies.items()):
+        
+        if accuracies is None:
+            continue
         
         if accuracies_kind == "training":
             line_style = "solid"
