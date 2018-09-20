@@ -2883,8 +2883,8 @@ def loadValuesFrom10xDataSet(path):
                 shape=table["shape"]
             )
             
-            example_names = table["barcodes"].astype("U")
-            feature_names = table["gene_names"].astype("U")
+            example_names = table["barcodes"]
+            feature_names = table["gene_names"]
     
     elif path.endswith(".tar.gz"):
         with tarfile.open(path, "r:gz") as tarball:
@@ -2910,6 +2910,8 @@ def loadValuesFrom10xDataSet(path):
                                 feature_names = names
     
     values = values.T
+    example_names = example_names.astype("U")
+    feature_names = feature_names.astype("U")
     
     if len(parent_paths) == 1:
         parent_path = parent_paths.pop()
