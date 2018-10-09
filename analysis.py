@@ -118,7 +118,8 @@ analysis_groups = {
     "simple": ["metrics", "images", "learning_curves", "accuracies"],
     "default": ["kl_heat_maps", "profile_comparisons", "distributions",
         "decompositions", "latent_space"],
-    "complete": ["heat_maps", "latent_distributions", "latent_correlations"]
+    "complete": ["heat_maps", "latent_distributions", "latent_correlations",
+        "feature_value_standard_deviations"]
 }
 analysis_groups["default"] += analysis_groups["simple"]
 analysis_groups["complete"] += analysis_groups["default"]
@@ -293,6 +294,76 @@ def analyseData(data_sets,
                 export_options = export_options,
                 results_directory = results_directory
             )
+        
+        # Feature value standard deviations
+        
+        if "feature_value_standard_deviations" in analyses:
+            
+            print("Computing and plotting feature value standard deviations:")
+            
+            feature_value_standard_deviations_directory = os.path.join(
+                results_directory,
+                "feature_value_standard_deviations"
+            )
+            
+            time_start = time()
+            
+            feature_value_standard_deviations = data_set.values.std(axis=0)
+            
+            if isinstance(feature_value_standard_deviations, numpy.matrix):
+                feature_value_standard_deviations = \
+                    feature_value_standard_deviations.A
+            
+            feature_value_standard_deviations = \
+                feature_value_standard_deviations.squeeze()
+            
+            duration = time() - time_start
+            print("    Feature value standard deviations computed",
+                      "({}).".format(formatDuration(duration)))
+            
+            ## Feature value standard_deviations
+            
+            time_start = time()
+            
+            figure, figure_name = plotSeries(
+                series = feature_value_standard_deviations,
+                x_label = data_set.tags["feature"] + "s",
+                y_label = "{} standard deviations".format(
+                    data_set.tags["type"]),
+                sort = True,
+                scale = "log",
+                name = ["feature value standard deviations", data_set.kind]
+            )
+            saveFigure(figure, figure_name, export_options,
+                feature_value_standard_deviations_directory)
+            
+            duration = time() - time_start
+            print("    Feature value standard deviations plotted and saved",
+                      "({}).".format(formatDuration(duration)))
+            
+            ## Distribution of feature value standard deviations
+            
+            time_start = time()
+            
+            figure, figure_name = plotHistogram(
+                series = feature_value_standard_deviations,
+                label = "{} {} standard deviations".format(
+                    data_set.tags["feature"], data_set.tags["type"]
+                ),
+                normed = True,
+                x_scale = "linear",
+                y_scale = "log",
+                name = ["feature value standard deviations", data_set.kind]
+            )
+            saveFigure(figure, figure_name, export_options,
+                feature_value_standard_deviations_directory)
+            
+            duration = time() - time_start
+            print("    Feature value standard deviation distribution",
+                      "plotted and saved ({}).".format(
+                          formatDuration(duration)))
+            
+            print()
 
 def analyseModel(model, run_id = None, analyses = ["default"],
     analysis_level = "normal", export_options = [],
@@ -1699,7 +1770,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
             .format(formatDuration(distribution_duration)))
     
     print()
-    
+
 def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
     highlight_feature_indices = [],
@@ -2873,27 +2944,37 @@ def plotCutOffCountHistogram(series, excess_zero_count = 0, cutoff = None,
     
     return figure, figure_name
     
-def plotSeries(series, x_label, y_label, scale = "linear", bar = False,
-    name = None):
+def plotSeries(series, x_label, y_label, sort = False, scale = "linear",
+    bar = False, colour = None, name = None):
     
     figure_name = figureName("series", name)
     
+    if not colour:
+        colour = standard_palette[0]
+    
     D = series.shape[0]
+    
+    x = numpy.linspace(0, D, D)
+    
+    y_log = scale == "log"
+    
+    if sort:
+        # Sort descending
+        series = numpy.sort(series)[::-1]
+        x_label = "sorted " + x_label
+        figure_name += "-sorted"
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
     
-    x = linspace(0, D, D)
-    
     if bar:
-        axis.bar(x, series)
+        axis.bar(x, series, log = y_log, color = colour, alpha = 0.4)
     else:
-        axis.plot(x, series)
+        axis.plot(x, series, color = colour)
+        axis.set_yscale(scale)
     
-    axis.set_yscale(scale)
-    
-    axis.set_xlabel(x_label)
-    axis.set_ylabel(y_label)
+    axis.set_xlabel(x_label.capitalize())
+    axis.set_ylabel(y_label.capitalize())
     
     seaborn.despine()
     
