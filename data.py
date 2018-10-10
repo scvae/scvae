@@ -2715,7 +2715,7 @@ def saveArray(array, title, group, tables_file):
     data_store[:] = array
 
 def saveString(string, title, group, tables_file):
-    encoded_string = numpy.fromstring(string.encode('UTF-8'), numpy.uint8)
+    encoded_string = numpy.frombuffer(string.encode('UTF-8'), numpy.uint8)
     saveArray(encoded_string, title, group, tables_file)
 
 def saveSparseMatrix(sparse_matrix, title, group, tables_file):
