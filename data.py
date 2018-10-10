@@ -322,6 +322,7 @@ data_sets = {
         "tags": {
             "example": "sample",
             "feature": "gene ID",
+            "mapped feature": "gene",
             "type": "count",
             "item": "transcript"
         },
@@ -613,7 +614,8 @@ class DataSet(object):
         explained_standard_deviations = None,
         preprocessed_values = None, binarised_values = None,
         labels = None, class_names = None,
-        example_names = None, feature_names = None, map_features = False,
+        example_names = None, feature_names = None,
+        map_features = False, features_mapped = False,
         feature_selection = [], example_filter = [],
         preprocessing_methods = [], preprocessed = None,
         binarise_values = False,
@@ -736,6 +738,10 @@ class DataSet(object):
         # Feature mapping
         self.map_features = map_features
         self.feature_mapping = None
+        self.features_mapped = features_mapped
+        
+        if self.features_mapped:
+            self.tags = updateTagForMappedFeatures(self.tags)
         
         # Feature selection
         if feature_selection:
@@ -1169,6 +1175,9 @@ class DataSet(object):
             data_dictionary = loadDataDictionary(sparse_path)
             if "preprocessed values" not in data_dictionary:
                 data_dictionary["preprocessed values"] = None
+            if self.map_features:
+                self.features_mapped = True
+                self.tags = updateTagForMappedFeatures(self.tags)
             print()
         else:
             
@@ -1178,7 +1187,7 @@ class DataSet(object):
             example_names = self.example_names
             feature_names = self.feature_names
             
-            if self.map_features:
+            if self.map_features and not self.features_mapped:
                 
                 print("Mapping {} original features to {} new features."
                     .format(self.number_of_features, len(self.feature_mapping))
@@ -1188,13 +1197,16 @@ class DataSet(object):
                 values, feature_names = mapFeatures(
                     values, feature_names, self.feature_mapping)
                 
+                self.features_mapped = True
+                self.tags = updateTagForMappedFeatures(self.tags)
+                
                 duration = time() - start_time
                 print("Features mapped ({}).".format(formatDuration(duration)))
                 
                 print()
             
             if not self.preprocessed and self.preprocessing_methods:
-                    
+                
                 print("Preprocessing values.")
                 start_time = time()
                 
@@ -1252,7 +1264,7 @@ class DataSet(object):
                 "preprocessed values": preprocessed_values,
             }
             
-            if self.map_features or self.feature_selection:
+            if self.features_mapped or self.feature_selection:
                 data_dictionary["feature names"] = feature_names
             
             if self.example_filter:
@@ -1275,7 +1287,7 @@ class DataSet(object):
         if preprocessed_values is None:
             preprocessed_values = values
         
-        if self.map_features or self.feature_selection:
+        if self.features_mapped or self.feature_selection:
             feature_names = data_dictionary["feature names"]
         else:
             feature_names = self.feature_names
@@ -1393,6 +1405,9 @@ class DataSet(object):
         if os.path.isfile(sparse_path):
             print("Loading split data sets.")
             split_data_dictionary = loadDataDictionary(sparse_path)
+            if self.map_features:
+                self.features_mapped = True
+                self.tags = updateTagForMappedFeatures(self.tags)
             print()
         else:
             
@@ -1445,6 +1460,7 @@ class DataSet(object):
             labels = split_data_dictionary["training set"]["labels"],
             example_names = split_data_dictionary["training set"]["example names"],
             feature_names = split_data_dictionary["feature names"],
+            features_mapped = self.features_mapped,
             class_names = split_data_dictionary["class names"],
             feature_selection = self.feature_selection,
             example_filter = self.example_filter,
@@ -1463,6 +1479,7 @@ class DataSet(object):
             labels = split_data_dictionary["validation set"]["labels"],
             example_names = split_data_dictionary["validation set"]["example names"],
             feature_names = split_data_dictionary["feature names"],
+            features_mapped = self.features_mapped,
             class_names = split_data_dictionary["class names"],
             feature_selection = self.feature_selection,
             example_filter = self.example_filter,
@@ -1481,6 +1498,7 @@ class DataSet(object):
             labels = split_data_dictionary["test set"]["labels"],
             example_names = split_data_dictionary["test set"]["example names"],
             feature_names = split_data_dictionary["feature names"],
+            features_mapped = self.features_mapped,
             class_names = split_data_dictionary["class names"],
             feature_selection = self.feature_selection,
             example_filter = self.example_filter,
@@ -1733,7 +1751,8 @@ def dataSetFromJSONFile(json_path):
 loading_functions = {
     "default": lambda x: loadMatrixAsDataSet(x, transpose = False),
     "transpose": lambda x: loadMatrixAsDataSet(x, transpose = True),
-    # "10x": lambda x: load10xDataSet(x),
+    "10x": lambda x: load10xDataSet(x),
+    "10x-combine": lambda x: loadAndCombine10xDataSets(x),
     "gtex": lambda x: loadGTExDataSet(x)
 }
 
@@ -1759,6 +1778,7 @@ def dataSetTags(title):
         tags = {
             "example": "example",
             "feature": "feature",
+            "mapped feature": "mapped feature",
             "type": "value",
             "item": "item"
         }
@@ -2025,6 +2045,15 @@ def preprocessedPathFunction(preprocess_directory = "", name = ""):
         return path
     
     return preprocessedPath
+
+def updateTagForMappedFeatures(tags):
+    
+    mapped_feature_tag = tags.pop("mapped feature", None)
+    
+    if mapped_feature_tag:
+        tags["feature"] = mapped_feature_tag
+    
+    return tags
 
 def mapFeatures(values, feature_IDs, feature_mapping):
     
@@ -3468,13 +3497,23 @@ def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
             values[i, j] = value_dropout * value
     
     example_names = numpy.array(["example {}".format(i + 1) for i in range(M)])
-    feature_names = numpy.array(["feature {}".format(j + 1) for j in range(N)])
+    feature_IDs = numpy.array(["feature {}".format(j + 1) for j in range(N)])
+    
+    feature_names = ["feature " + n for n in "ABCDE"]
+    feature_ID_groups = numpy.split(feature_IDs, len(feature_names))
+    
+    feature_mapping = {
+        feature_name: feature_ID_group.tolist()
+        for feature_name, feature_ID_group in
+        zip(feature_names, feature_ID_groups)
+    }
     
     data_dictionary = {
         "values": values,
         "labels": labels,
         "example names": example_names,
-        "feature names": feature_names
+        "feature names": feature_IDs,
+        "feature mapping": feature_mapping
     }
     
     return data_dictionary
