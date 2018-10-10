@@ -345,6 +345,7 @@ data_sets = {
         "tags": {
             "example": "sample",
             "feature": "gene ID",
+            "mapped feature": "gene",
             "type": "count",
             "item": "transcript"
         },

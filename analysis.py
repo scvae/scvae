@@ -54,7 +54,7 @@ from auxiliary import (
     loadCentroids, loadKLDivergences,
     checkRunID,
     formatTime, formatDuration,
-    normaliseString, properString, subheading
+    normaliseString, properString, capitaliseString, subheading
 )
 from miscellaneous.prediction import prediction_method_names
 import warnings
@@ -185,9 +185,11 @@ def analyseData(data_sets,
                 + "\n" \
                 + "Features: {}\n".format(number_of_features) \
                 + "Examples: {}\n".format(number_of_examples["full"]) \
-                + "\n".join(["{} examples: {}".format(kind.capitalize(), number)
-                             for kind, number in number_of_examples.items()
-                             if kind != "full"]) + "\n" \
+                + "\n".join([
+                    "{} examples: {}".format(capitaliseString(kind), number)
+                    for kind, number in number_of_examples.items()
+                    if kind != "full"
+                ]) + "\n" \
                 + "\n" \
                 + "Metrics:\n" \
                 + formatStatistics(data_set_statistics) \
@@ -265,9 +267,9 @@ def analyseData(data_sets,
                 labels = labels,
                 normalisation = data_set.heat_map_normalisation,
                 normalisation_constants = data_set.count_sum,
-                x_name = data_set.tags["feature"].capitalize() + "s",
-                y_name = data_set.tags["example"].capitalize() + "s",
-                z_name = data_set.tags["value"].capitalize() + "s",
+                x_name = capitaliseString(data_set.tags["feature"]) + "s",
+                y_name = capitaliseString(data_set.tags["example"]) + "s",
+                z_name = capitaliseString(data_set.tags["value"]) + "s",
                 z_symbol = "x",
                 name = data_set.kind
             )
@@ -664,7 +666,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
 
             decompose_duration = time() - decompose_time_start
             print("{} decomposed ({}).".format(
-                latent_set_name.capitalize(),
+                capitaliseString(latent_set_name),
                 formatDuration(decompose_duration))
             )
         
@@ -732,7 +734,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
     
         plot_duration = time() - plot_time_start
         print("{} plotted and saved ({}).".format(
-            latent_set_name.capitalize(), formatDuration(plot_duration)))
+            capitaliseString(latent_set_name), formatDuration(plot_duration)))
 
 def analyseResults(evaluation_set, reconstructed_evaluation_set,
     latent_evaluation_sets, model, run_id = None,
@@ -1077,12 +1079,15 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                         
                         if not clustering_metric_name_printed:
                             prediction_string_parts.append(
-                                "    {}:".format(metric_name.capitalize()))
+                                "    {}:".format(
+                                    capitaliseString(metric_name)
+                                )
+                            )
                             clustering_metric_name_printed = True
                         
                         prediction_string_parts.append(
                             "        {}: {:.5g}.".format(
-                                set_name.capitalize(), metric_value
+                                capitaliseString(set_name), metric_value
                             )
                         )
             
@@ -1122,11 +1127,11 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 if metric_value is not None:
                     
                     if not clustering_metric_name_printed:
-                        print("{}:".format(metric_name.capitalize()))
+                        print("{}:".format(capitaliseString(metric_name)))
                         clustering_metric_name_printed = True
                     
                     print("    {}: {:.5g}.".format(
-                        set_name.capitalize(), metric_value
+                        capitaliseString(set_name), metric_value
                     ))
             
             print()
@@ -1897,7 +1902,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         
                         decompose_duration = time() - decompose_time_start
                         print("{} pre-decomposed ({}).".format(
-                            title_with_ID.capitalize(),
+                            capitaliseString(title_with_ID),
                             formatDuration(decompose_duration)
                         ))
                     
@@ -1922,7 +1927,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                 
                 decompose_duration = time() - decompose_time_start
                 print("{} decomposed ({}).".format(
-                    title_with_ID.capitalize(),
+                    capitaliseString(title_with_ID),
                     formatDuration(decompose_duration)
                 ))
                 
@@ -2066,7 +2071,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
             
                 plot_duration = time() - plot_time_start
                 print("    {} plotted and saved ({}).".format(
-                    title_with_ID.capitalize(),
+                    capitaliseString(title_with_ID),
                     formatDuration(plot_duration)
                 ))
         
@@ -2090,7 +2095,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
         
                     plot_duration = time() - plot_time_start
                     print("    {} (with labels) plotted and saved ({}).".format(
-                        title_with_ID.capitalize(), formatDuration(plot_duration)))
+                        capitaliseString(title_with_ID), formatDuration(plot_duration)))
                 
                     if colouring_data_set.superset_labels is not None:
                         plot_time_start = time()
@@ -2112,7 +2117,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         print("    " +
                             "{} (with superset labels) plotted and saved ({})."\
                                 .format(
-                                    title_with_ID.capitalize(),
+                                    capitaliseString(title_with_ID),
                                     formatDuration(plot_duration)
                             )
                         )
@@ -2140,7 +2145,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             plot_duration = time() - plot_time_start
                             print("    {} (for each class) plotted and saved ({})."\
                                 .format(
-                                    title_with_ID.capitalize(),
+                                    capitaliseString(title_with_ID),
                                     formatDuration(plot_duration)
                             ))
                         
@@ -2169,7 +2174,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                             print("    " +
                                 "{} (for each superset class) plotted and saved ({})."\
                                     .format(
-                                        title_with_ID.capitalize(),
+                                        capitaliseString(title_with_ID),
                                         formatDuration(plot_duration)
                             ))
                 
@@ -2197,7 +2202,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     print("    " +
                         "{} (with predicted cluster IDs) plotted and saved ({})."\
                             .format(
-                                title_with_ID.capitalize(),
+                                capitaliseString(title_with_ID),
                                 formatDuration(plot_duration)
                         )
                     )
@@ -2224,7 +2229,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     print("    " +
                         "{} (with predicted labels) plotted and saved ({})."\
                             .format(
-                                title_with_ID.capitalize(),
+                                capitaliseString(title_with_ID),
                                 formatDuration(plot_duration)
                         )
                     )
@@ -2251,7 +2256,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     print("    " +
                         "{} (with predicted superset labels) plotted and saved ({})."\
                             .format(
-                                title_with_ID.capitalize(),
+                                capitaliseString(title_with_ID),
                                 formatDuration(plot_duration)
                         )
                     )
@@ -2275,7 +2280,9 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
         
                 plot_duration = time() - plot_time_start
                 print("    {} (with count sum) plotted and saved ({}).".format(
-                    title_with_ID.capitalize(), formatDuration(plot_duration)))
+                    capitaliseString(title_with_ID),
+                    formatDuration(plot_duration)
+                ))
                 
                 # Features
                 
@@ -2299,7 +2306,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
             
                     plot_duration = time() - plot_time_start
                     print("    {} (with {}) plotted and saved ({}).".format(
-                        title_with_ID.capitalize(),
+                        capitaliseString(title_with_ID),
                         data_set.feature_names[feature_index],
                         formatDuration(plot_duration)
                     ))
@@ -2874,7 +2881,7 @@ def plotHistogram(series, excess_zero_count = 0, label = None,
     
     axis.set_xscale(x_scale)
     
-    axis.set_xlabel(label.capitalize())
+    axis.set_xlabel(capitaliseString(label))
     
     if normed:
         axis.set_ylabel("Frequency")
@@ -2973,8 +2980,8 @@ def plotSeries(series, x_label, y_label, sort = False, scale = "linear",
         axis.plot(x, series, color = colour)
         axis.set_yscale(scale)
     
-    axis.set_xlabel(x_label.capitalize())
-    axis.set_ylabel(y_label.capitalize())
+    axis.set_xlabel(capitaliseString(x_label))
+    axis.set_ylabel(capitaliseString(y_label))
     
     seaborn.despine()
     
@@ -3238,7 +3245,7 @@ def plotAccuracies(accuracies, name = None):
             line_style = "dashed"
             colour = standard_palette[1]
         
-        label = "{} set".format(accuracies_kind.capitalize())
+        label = "{} set".format(capitaliseString(accuracies_kind))
         
         epochs = numpy.arange(len(accuracies)) + 1
         axis.plot(epochs, 100 * accuracies, color = colour,
@@ -3516,10 +3523,10 @@ def plotProfileComparison(observed_series, expected_series,
     
     if sort:
         x_label = "{}s sorted {} by {} {}s [sort index]".format(
-            x_name.capitalize(), sort_direction, sort_by, y_name.lower())
+            capitaliseString(x_name), sort_direction, sort_by, y_name.lower())
     else:
-        x_label = "{}s [original index]".format(x_name.capitalize())
-    y_label = y_name.capitalize() + "s"
+        x_label = "{}s [original index]".format(capitaliseString(x_name))
+    y_label = capitaliseString(y_name) + "s"
     
     observed_label = "Observed"
     expected_label = "Expected"
