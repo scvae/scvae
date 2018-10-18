@@ -22,6 +22,7 @@ import os
 
 import pickle
 import gzip
+import numpy
 import pandas
 
 import re
@@ -37,7 +38,11 @@ from analysis import (
     formatStatistics, saveFigure,
     plotCorrelations, plotELBOHeatMap
 )
-from auxiliary import formatTime, title, subtitle, prod
+from auxiliary import (
+    formatTime, capitaliseString,
+    title, subtitle, heading, subheading,
+    prod
+)
 
 test_metrics_basename = "test-metrics"
 test_prediction_basename = "test-prediction"
@@ -150,190 +155,87 @@ def main(log_directory = None, results_directory = None,
         
         for data_set_name, models in test_metrics_set.items():
             
-            data_set_title = titleFromDataSetName(data_set_name)
+            data_set_title = dataSetTitleFromDataSetName(data_set_name)
             
             print(title(data_set_title))
             
             if log_summary:
                 log_string_parts.append(title(data_set_title, plain = True))
             
-            comparisons = {}
+            summary_metrics_sets = {}
             correlation_sets = {}
             
-            for model_name, test_metrics in models.items():
+            for model_name, runs in models.items():
                 
-                model_title = titleFromModelName(model_name)
+                # Setup
                 
-                metrics_string_parts = []
-                
-                # ID
-                
+                model_title = modelTitleFromModelName(model_name)
                 model_ID = next(model_IDs)
-                metrics_string_parts.append(
-                    "ID: {}".format(model_ID)
-                )
-                
-                # Time
-                
-                timestamp = test_metrics["timestamp"]
-                metrics_string_parts.append(
-                    "Timestamp: {}".format(formatTime(timestamp))
-                )
-                
-                # Epochs
-                
-                E = test_metrics["number of epochs trained"]
-                metrics_string_parts.append("Epochs trained: {}".format(E))
-                
-                metrics_string_parts.append("")
-                
-                # Evaluation
-                
-                evaluation = test_metrics["evaluation"]
-                
-                losses = [
-                    "log_likelihood",
-                    "lower_bound",
-                    "reconstruction_error",
-                    "kl_divergence",
-                    "kl_divergence_z",
-                    "kl_divergence_z1",
-                    "kl_divergence_z2",
-                    "kl_divergence_y"
-                ]
-                
-                for loss in losses:
-                    if loss in evaluation:
-                        metrics_string_parts.append(
-                            "{}: {:-.6g}".format(loss, evaluation[loss][-1])
-                        )
-                
-                if "lower_bound" in evaluation:
-                    model_lower_bound = evaluation["lower_bound"][-1]
-                else:
-                    model_lower_bound = None
-                
-                # Accuracies
-                
-                accuracies = ["accuracy", "superset_accuracy"]
-                
-                for accuracy in accuracies:
-                    if accuracy in test_metrics and test_metrics[accuracy]:
-                        metrics_string_parts.append("{}: {:6.2f} %".format(
-                            accuracy, 100 * test_metrics[accuracy][-1]))
-                
-                metrics_string_parts.append("")
-                
-                # Statistics
-                
-                if isinstance(test_metrics["statistics"], list):
-                    statistics_sets = test_metrics["statistics"]
-                else:
-                    statistics_sets = None
-                
-                reconstructed_statistics = None
-                
-                if statistics_sets:
-                    for statistics_set in statistics_sets:
-                        if "reconstructed" in statistics_set["name"]:
-                            reconstructed_statistics = statistics_set
-                
-                if reconstructed_statistics:
-                    metrics_string_parts.append(
-                        formatStatistics(reconstructed_statistics)
-                    )
-                
-                metrics_string_parts.append("")
-                
-                # Predictions
-                
-                model_ARIs = []
-                
-                if "predictions" in test_metrics:
-                    
-                    for prediction in test_metrics["predictions"].values():
-                        
-                        ARIs = {}
-                        
-                        method = prediction["prediction method"]
-                        number_of_classes = prediction["number of classes"]
-                        
-                        if not method:
-                            method = "model"
-                        
-                        prediction_string = "{} ({} classes)".format(
-                            method, number_of_classes)
-                        
-                        for key, value in prediction.items():
-                            key_match = matchString(
-                                "; ".join([prediction_string, key]),
-                                prediction_included_strings,
-                                prediction_excluded_strings
-                            )
-                            if not key_match:
-                                continue
-                            if key.startswith("ARI") and value is not None:
-                                ARIs[key] = value
-                            if key == "clustering metric values":
-                                if "adjusted Rand index" in value:
-                                    ari_values = value["adjusted Rand index"]
-                                    for ari_key, ari_value in ari_values.items():
-                                        if ari_value is not None:
-                                            ari_label = "ARI ({})".format(
-                                                ari_key
-                                            )
-                                            ARIs[ari_label] = ari_value
-                        
-                        if ARIs:
-                            
-                            metrics_string_parts.append(prediction_string + ":")
-                            
-                            for ARI_name, ARI_value in ARIs.items():
-                                metrics_string_parts.append(
-                                    "    {}: {:.6g}".format(
-                                        ARI_name,
-                                        ARI_value
-                                    )
-                                )
-                                
-                                if "clusters" in ARI_name and ARI_value > 0:
-                                    correlation_set_name = "; ".join([
-                                        prediction_string, ARI_name
-                                    ])
-                                    if correlation_set_name not in correlation_sets:
-                                        correlation_sets[correlation_set_name] = {
-                                            "ELBO": [],
-                                            "ARI": []
-                                        }
-                                    correlation_sets[correlation_set_name]["ELBO"]\
-                                        .append(model_lower_bound)
-                                    correlation_sets[correlation_set_name]["ARI"]\
-                                        .append(ARI_value)
-                            
-                            metrics_string_parts.append("")
-                        
-                        model_ARIs.extend([
-                            v for k, v in ARIs.items() if "clusters" in k
-                        ])
-                
-                comparisons[model_title] = {
-                    "ID": model_ID,
-                    "ELBO": model_lower_bound,
-                    "ARI": model_ARIs
-                }
-                
-                metrics_string = "\n".join(metrics_string_parts)
+                model_ID_string = "ID: {}\n".format(model_ID)
                 
                 print(subtitle(model_title))
-                print(metrics_string)
+                print(model_ID_string)
                 
                 if log_summary:
                     log_string_parts.append(
                         subtitle(model_title, plain = True)
                     )
-                    log_string_parts.append(metrics_string)
+                    log_string_parts.append(model_ID_string)
+                
+                # Parse metrics for runs and versions of model
+                
+                metrics_results = parseMetricsForRunsAndVersionsOfModel(
+                    runs = runs,
+                    log_summary = log_summary,
+                    prediction_included_strings = prediction_included_strings,
+                    prediction_excluded_strings = prediction_excluded_strings,
+                    epoch_cut_off = epoch_cut_off
+                )
+                
+                if log_summary and "log_string_parts" in metrics_results:
+                    log_string_parts.extend(
+                        metrics_results["log_string_parts"]
+                    )
+                
+                # Update summary metrics sets
+                
+                model_summary_metrics_sets = metrics_results.get(
+                    "summary_metrics_sets", [])
+                
+                for model_summary_metrics_set in model_summary_metrics_sets:
+                    
+                    set_title = "; ".join([
+                        model_title,
+                        model_summary_metrics_set["runs"],
+                        model_summary_metrics_set["version"]
+                    ])
+                    
+                    summary_metrics_set = {"ID": model_ID}
+                    
+                    for set_key, set_value in \
+                        model_summary_metrics_set.items():
+                            summary_metrics_set[set_key] = set_value
+                    
+                    summary_metrics_set.setdefault("ARI", None) # TODO Remove
+                    summary_metrics_sets[set_title] = summary_metrics_set
+                
+                # Update correlation sets
+                
+                model_correlation_sets = metrics_results.get(
+                    "correlation_sets", [])
+                
+                for set_name, set_metrics in model_correlation_sets.items():
+                    if set_name in correlation_sets:
+                        for metric_name, metric_values in set_metrics.items():
+                            correlation_sets[set_name][metric_name].extend(
+                                metric_values)
+                    else:
+                        correlation_sets[set_name] = {}
+                        for metric_name, metric_values in set_metrics.items():
+                            correlation_sets[set_name][metric_name] = \
+                                metric_values
             
-            if len(comparisons) <= 1:
+            if len(summary_metrics_sets) <= 1:
                 continue
             
             # Correlations
@@ -383,18 +285,22 @@ def main(log_directory = None, results_directory = None,
             model_spec_names = [
                 "ID",
                 "type",
-                "distribution",
+                "likelihood",
                 "sizes",
                 "other",
+                "runs",
+                "version",
                 "epochs"
             ]
             
             model_spec_short_names = {
                 "ID": "#",
                 "type": "T",
-                "distribution": "LD",
+                "likelihood": "L",
                 "sizes": "S",
                 "other": "O",
+                "runs": "R",
+                "version": "V",
                 "epochs": "E"
             }
             
@@ -403,54 +309,50 @@ def main(log_directory = None, results_directory = None,
                 "ARI"
             ]
             
+            model_version_names = {
+                "end of training": "EOT",
+                "optimal parameters": "OP",
+                "early stopping": "ES"
+            }
+            
             model_field_names = model_spec_names + model_metric_names
             
-            for model_title in comparisons:
+            for model_title in summary_metrics_sets:
                 model_title_parts = model_title.split("; ")
-                comparisons[model_title].update({
+                summary_metrics_sets[model_title].update({
                     "type": model_title_parts.pop(0),
-                    "distribution": model_title_parts.pop(0),
+                    "likelihood": model_title_parts.pop(0),
                     "sizes": model_title_parts.pop(0),
-                    "epochs": model_title_parts.pop(-1).replace(" epochs", ""),
+                    "version": model_version_names[model_title_parts.pop(-1)],
+                    "runs": model_title_parts.pop(-1)
+                        .replace("default run", "D")
+                        .replace(" runs", ""),
                     "other": "; ".join(model_title_parts)
                 })
             
-            sorted_comparison_items = sorted(
-                comparisons.items(),
-                key = lambda key_value_pair: key_value_pair[-1]["ELBO"],
-                reverse = True
-            )
-            
             network_architecture_ELBOs = {}
-            network_architecture_epochs = {}
             
-            for model_title, model_fields in comparisons.items():
+            for model_title, model_fields in summary_metrics_sets.items():
                 if model_fields["type"] == "VAE(G)" \
-                    and model_fields["distribution"] == "NB" \
-                    and model_fields["other"] == "BN":
-                    
+                    and model_fields["likelihood"] == "NB" \
+                    and model_fields["other"] == "BN" \
+                    and model_fields["runs"] == "D":
+
                     epochs = model_fields["epochs"]
+                    version = model_fields["version"]
                     architecture = model_fields["sizes"]
                     ELBO = model_fields["ELBO"]
-                    
-                    if int(epochs.split()[0]) > epoch_cut_off:
-                        continue
-                    
+
                     h, l = architecture.rsplit("×", maxsplit = 1)
-                    
-                    if l not in network_architecture_ELBOs:
-                        network_architecture_ELBOs[l] = {}
-                        network_architecture_epochs[l] = {}
-                    
+
+                    network_architecture_ELBOs.setdefault(l, {})
+
                     if h not in network_architecture_ELBOs[l]:
                         network_architecture_ELBOs[l][h] = ELBO
-                        network_architecture_epochs[l][h] = epochs
                     else:
-                        best_model_version = bestModelVersion(
-                            network_architecture_epochs[l][h], epochs)
-                        if epochs == best_model_version:
+                        current_ELBO = network_architecture_ELBOs[l][h]
+                        if ELBO > current_ELBO:
                             network_architecture_ELBOs[l][h] = ELBO
-                            network_architecture_epochs[l][h] = epochs
             
             if network_architecture_ELBOs:
                 network_architecture_ELBOs = pandas.DataFrame(
@@ -481,10 +383,20 @@ def main(log_directory = None, results_directory = None,
                     )
                     saveFigure(figure, figure_name, export_options,
                         cross_analysis_directory)
-                    print()
             
-            for model_title, model_fields in comparisons.items():
+            sorted_summary_metrics_set_items = sorted(
+                summary_metrics_sets.items(),
+                key = lambda key_value_pair:
+                    numpy.mean(key_value_pair[-1]["ELBO"]),
+                reverse = True
+            )
+            
+            for model_title, model_fields in summary_metrics_sets.items():
                 for field_name, field_value in model_fields.items():
+                    
+                    if isinstance(field_value, list) \
+                        and len(field_value) == 1:
+                            field_value == field_value.pop()
                     
                     if isinstance(field_value, str):
                         continue
@@ -500,14 +412,15 @@ def main(log_directory = None, results_directory = None,
                     
                     elif isinstance(field_value, list):
                         
-                        minimum = min(field_value)
-                        maximum = max(field_value)
+                        field_values = numpy.array(field_value)
                         
-                        if minimum == maximum:
-                            string = "{:.6g}".format(maximum)
-                        else:
-                            string = "{:5.3f}–{:5.3f}".format(
-                                minimum, maximum)
+                        mean = field_values.mean()
+                        sd = field_values.std()
+                        
+                        if field_values.dtype == int:
+                            string = "{:.0f}±{:.3g}".format(mean, sd)
+                        else: 
+                            string = "{:-.6g}±{:.6g}".format(mean, sd)
                     
                     else:
                         raise TypeError(
@@ -515,7 +428,29 @@ def main(log_directory = None, results_directory = None,
                                 .format(type(field_value))
                         )
                     
-                    comparisons[model_title][field_name] = string
+                    summary_metrics_sets[model_title][field_name] = string
+            
+            common_model_fields = {}
+            
+            for spec_name in model_spec_names:
+                spec_values = set()
+                for model_fields in summary_metrics_sets.values():
+                    spec_values.add(model_fields.get(spec_name, None))
+                if len(spec_values) == 1:
+                    for model_fields in summary_metrics_sets.values():
+                        model_fields.pop(spec_name, None)
+                    model_field_names.remove(spec_name)
+                    common_model_fields[spec_name] = spec_values.pop()
+            
+            common_model_fields_string_parts = []
+            
+            for field_name, field_value in common_model_fields.items():
+                common_model_fields_string_parts.append(
+                    "{}: {}".format(field_name.capitalize(), field_value)
+                )
+            
+            common_model_fields_string = "\n".join(
+                common_model_fields_string_parts)
             
             comparison_table_rows = []
             table_column_spacing = "  "
@@ -524,8 +459,8 @@ def main(log_directory = None, results_directory = None,
             
             for field_name in model_field_names:
                 comparison_table_column_widths[field_name] = max(
-                    [len(metrics[field_name]) for metrics in
-                        comparisons.values()]
+                    [len(model_fields[field_name]) for model_fields in
+                        summary_metrics_sets.values()]
                 )
             
             comparison_table_heading_parts = []
@@ -555,7 +490,7 @@ def main(log_directory = None, results_directory = None,
             comparison_table_rows.append(comparison_table_heading)
             comparison_table_rows.append(comparison_table_toprule)
             
-            for model_title, model_fields in sorted_comparison_items:
+            for model_title, model_fields in sorted_summary_metrics_set_items:
                 
                 sorted_model_field_items = sorted(
                     model_fields.items(),
@@ -580,10 +515,12 @@ def main(log_directory = None, results_directory = None,
             
             print(subtitle("Comparison"))
             print(comparison_table + "\n")
+            print(common_model_fields_string + "\n")
             
             if log_summary:
                 log_string_parts.append(subtitle("Comparison", plain = True))
                 log_string_parts.append(comparison_table + "\n")
+                log_string_parts.append(common_model_fields_string + "\n")
         
         if log_summary:
             
@@ -633,8 +570,25 @@ def testMetricsInResultsDirectory(results_directory,
         
         if test_metrics_filename in filenames:
             
+            model_parts = model.split(os.sep)
+            
+            model = os.sep.join(model_parts[:3])
+            
+            if len(model_parts) == 4:
+                run = "default"
+                version = model_parts[3]
+            elif len(model_parts) == 5:
+                run = model_parts[3]
+                version = model_parts[4]
+            
             if not data_set in test_metrics_set:
                 test_metrics_set[data_set] = {}
+            
+            if not model in test_metrics_set[data_set]:
+                test_metrics_set[data_set][model] = {}
+            
+            if not run in test_metrics_set[data_set][model]:
+                test_metrics_set[data_set][model][run] = {}
             
             test_metrics_path = os.path.join(path, test_metrics_filename)
             
@@ -665,9 +619,331 @@ def testMetricsInResultsDirectory(results_directory,
             if predictions:
                 test_metrics_data["predictions"] = predictions
             
-            test_metrics_set[data_set][model] = test_metrics_data
+            test_metrics_set[data_set][model][run][version] = \
+                test_metrics_data
     
     return test_metrics_set
+
+def parseMetricsForRunsAndVersionsOfModel(
+        runs,
+        log_summary = False,
+        prediction_included_strings = None,
+        prediction_excluded_strings = None,
+        epoch_cut_off = inf
+    ):
+    
+    version_summary_metrics = {
+        key: {} for key in ["default", "multiple"]
+    }
+    correlation_sets = {}
+    
+    if log_summary:
+        log_string_parts = []
+    
+    for run_name, versions in sorted(runs.items()):
+        
+        if run_name == "default":
+            run_title = "default run"
+            run_key = run_name
+        else:
+            run_title = run_name.replace("_", " ", 1)
+            run_key = "multiple"
+        
+        if len(runs) > 1:
+            print(heading(capitaliseString(run_title)))
+            
+            if log_summary:
+                log_string_parts.append(
+                    heading(capitaliseString(run_title), plain = True)
+                )
+        
+        number_of_epochs_for_current_run_and_version = {}
+        
+        for version_name, metrics in versions.items():
+            
+            epochs = "0 epochs"
+            version = "end of training"
+            
+            samples = []
+            
+            for version_field in version_name.split("-"):
+                field_name, field_value = version_field.split(
+                    "_", maxsplit=1)
+                if field_name == "e" and field_value.isdigit():
+                    number_of_epochs = int(field_value)
+                    epochs = field_value + " epochs"
+                elif field_name in ["mc", "iw"]:
+                    if field_value.isdigit() and int(field_value) > 1:
+                        samples_parts += "{} {} samples".format(
+                            field_value, field_name.upper())
+                else:
+                    version = version_field.replace("_", " ")\
+                        .replace("best model", "optimal parameters")
+            
+            if number_of_epochs > epoch_cut_off:
+                continue
+
+            version_title = "; ".join([epochs, version] + samples)
+            
+            metrics_string_parts = []
+            summary_metrics = {}
+            
+            # Time
+            
+            timestamp = metrics["timestamp"]
+            metrics_string_parts.append(
+                "Timestamp: {}".format(formatTime(timestamp))
+            )
+            
+            # Epochs
+            
+            E = metrics["number of epochs trained"]
+            metrics_string_parts.append(
+                "Epochs trained: {}".format(E)
+            )
+            summary_metrics["epochs"] = E
+            
+            metrics_string_parts.append("")
+            
+            # Evaluation
+            
+            evaluation = metrics["evaluation"]
+            
+            losses = [
+                "log_likelihood",
+                "lower_bound",
+                "reconstruction_error",
+                "kl_divergence",
+                "kl_divergence_z",
+                "kl_divergence_z1",
+                "kl_divergence_z2",
+                "kl_divergence_y"
+            ]
+            
+            for loss in losses:
+                if loss in evaluation:
+                    metrics_string_parts.append(
+                        "{}: {:-.6g}".format(
+                            loss, evaluation[loss][-1]
+                        )
+                    )
+            
+            if "lower_bound" in evaluation:
+                ELBO = evaluation["lower_bound"][-1]
+            else:
+                ELBO = None
+            
+            summary_metrics["ELBO"] = ELBO
+            
+            # Accuracies
+            
+            accuracies = ["accuracy", "superset_accuracy"]
+            
+            for accuracy in accuracies:
+                if accuracy in metrics \
+                    and metrics[accuracy]:
+                    metrics_string_parts.append("{}: {:6.2f} %".format(
+                        accuracy, 100 * metrics[accuracy][-1]
+                    ))
+            
+            metrics_string_parts.append("")
+            
+            # Statistics
+            
+            if isinstance(metrics["statistics"], list):
+                statistics_sets = metrics["statistics"]
+            else:
+                statistics_sets = None
+            
+            reconstructed_statistics = None
+            
+            if statistics_sets:
+                for statistics_set in statistics_sets:
+                    if "reconstructed" in statistics_set["name"]:
+                        reconstructed_statistics = statistics_set
+            
+            if reconstructed_statistics:
+                metrics_string_parts.append(
+                    formatStatistics(reconstructed_statistics)
+                )
+            
+            metrics_string_parts.append("")
+            
+            # Predictions
+            
+            model_ARIs = []
+            
+            if "predictions" in metrics:
+                
+                for predictions in \
+                    metrics["predictions"].values():
+                    
+                    method = predictions["prediction method"]
+                    number_of_classes = predictions["number of classes"]
+                    
+                    if not method:
+                        method = "model"
+                    
+                    prediction_string = "{} ({} classes)".format(
+                        method, number_of_classes)
+                    
+                    prediction_match = matchString(
+                        prediction_string,
+                        prediction_included_strings,
+                        prediction_excluded_strings
+                    )
+                    
+                    if not prediction_match:
+                        continue
+                    
+                    clustering_metrics = predictions.get(
+                        "clustering metric values", None
+                    )
+                    
+                    if not clustering_metrics:
+                        
+                        old_ARIs = {}
+                        
+                        for key, value in predictions.items():
+                            if key.startswith("ARI") and value:
+                                label = re.sub(
+                                    r"ARI \((.+)\)",
+                                    r"\1",
+                                    key
+                                )
+                                old_ARIs[label] = value
+                        
+                        if old_ARIs:
+                            clustering_metrics = {
+                                "adjusted Rand index": old_ARIs
+                            }
+                    
+                    if clustering_metrics:
+                        
+                        metrics_string_parts.append(
+                            prediction_string + ":")
+                        
+                        for metric_name, set_metrics in \
+                            clustering_metrics.items():
+                            
+                            metrics_string_parts.append(
+                                "    {}:".format(
+                                    capitaliseString(metric_name)
+                                )
+                            )
+                            
+                            for set_name, set_value in \
+                                set_metrics.items():
+                                
+                                if set_value:
+                                    metrics_string_parts.append(
+                                        "        {}: {:.6g}".format(
+                                            set_name,
+                                            set_value
+                                        )
+                                    )
+                            
+                                if metric_name == "adjusted Rand index" \
+                                    and "clusters" in set_name \
+                                    and set_value and set_value > 0:
+                                    
+                                    correlation_set_name = "; ".join([
+                                        prediction_string,
+                                        # metric_name,
+                                        set_name
+                                    ])
+                                    
+                                    correlation_sets.setdefault(
+                                        correlation_set_name,
+                                        {
+                                            "ELBO": [],
+                                            "ARI": []
+                                        }
+                                    )
+                                    
+                                    correlation_sets[correlation_set_name]\
+                                        ["ELBO"].append(ELBO)
+                                    correlation_sets[correlation_set_name]\
+                                        ["ARI"].append(set_value)
+                        
+                        metrics_string_parts.append("")
+                    
+                    # model_ARIs.extend([
+                    #     v for k, v in ARIs.items() if "clusters" in k
+                    # ])
+            
+            metrics_string = "\n".join(metrics_string_parts)
+            
+            if len(versions) > 1:
+                print(subheading(capitaliseString(version_title)))
+            
+            print(metrics_string)
+            
+            if log_summary:
+                if len(versions) > 1:
+                    log_string_parts.append(
+                        subheading(capitaliseString(version_title),
+                            plain = True)
+                    )
+                log_string_parts.append(metrics_string)
+            
+            # Summary metrics
+            
+            version_key = "; ".join([version] + samples)
+            update_summary_metrics = True
+            
+            if version_key in number_of_epochs_for_current_run_and_version:
+                if number_of_epochs > \
+                    number_of_epochs_for_current_run_and_version[version_key]:
+                    
+                    number_of_epochs_for_current_run_and_version[version_key]\
+                        = number_of_epochs
+                else:
+                    update_summary_metrics = False
+            else:
+                number_of_epochs_for_current_run_and_version[version_key] \
+                    = number_of_epochs
+            
+            if update_summary_metrics:
+                if version_key not in version_summary_metrics[run_key]:
+                    version_summary_metrics[run_key][version_key] = {
+                        "runs": 1,
+                        "version": version_key
+                    }
+                else:
+                    version_summary_metrics[run_key][version_key]["runs"] += 1
+                for metric_key, metric_value in summary_metrics.items():
+                    if run_key == "default":
+                        version_summary_metrics[run_key][version_key]\
+                            [metric_key] = metric_value
+                    else:
+                        version_summary_metrics[run_key][version_key]\
+                            .setdefault(metric_key, [])
+                        version_summary_metrics[run_key][version_key]\
+                            [metric_key].append(metric_value)
+    
+    results = {
+        "summary_metrics_sets": [],
+        "correlation_sets": correlation_sets
+    }
+    
+    for run_key in version_summary_metrics:
+        for version_key in version_summary_metrics[run_key]:
+            if run_key == "default":
+                runs = "default run"
+            else:
+                runs = version_summary_metrics[run_key][version_key]["runs"]
+                if isinstance(runs, int):
+                    runs = "{} runs".format(runs)
+            version_summary_metrics[run_key][version_key]["runs"] = runs
+            results["summary_metrics_sets"].append(
+                version_summary_metrics[run_key][version_key]
+            )
+    
+    if log_summary:
+        results["log_string_parts"] = log_string_parts
+    
+    return results
 
 def matchString(string, included_strings, excluded_strings):
     
@@ -768,7 +1044,7 @@ preprocessing_replacements = {
     "idf": "IDF"
 }
 
-def titleFromDataSetName(name):
+def dataSetTitleFromDataSetName(name):
     
     replacement_dictionaries = [
         data_set_name_replacements,
@@ -833,17 +1109,6 @@ sample_replacements = {
         "-{} IW samples".format(match.groups(1))
 }
 
-model_version_replacements = {
-    r"e_(\d+)-?(\w+)?": lambda match: "{} epochs".format(match.group(1))
-        if not match.group(2)
-        else "{} epochs ({})".format(
-            match.group(1),
-            match.group(2)
-        ),
-    "best_model": "*",
-    "early_stopping": "ES"
-}
-
 miscellaneous_replacements = {
     "sum": "CS",
     "-kl": "",
@@ -853,7 +1118,7 @@ miscellaneous_replacements = {
     r"wu_(\d+)": lambda match: "WU({})".format(match.group(1))
 }
 
-def titleFromModelName(name):
+def modelTitleFromModelName(name):
     
     replacement_dictionaries = [
         reorder_replacements,
@@ -863,7 +1128,6 @@ def titleFromModelName(name):
         distribution_replacements,
         network_replacements,
         sample_replacements,
-        model_version_replacements,
         miscellaneous_replacements
     ]
     
