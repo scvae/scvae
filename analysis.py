@@ -4545,7 +4545,10 @@ def buildPathForResultDirectory(base_directory, model_name,
     
     if run_id:
         run_id = checkRunID(run_id)
-        results_directory = os.path.join(results_directory, run_id)
+        results_directory = os.path.join(
+            results_directory,
+            "run_{}".format(run_id)
+        )
     
     if subdirectories:
         

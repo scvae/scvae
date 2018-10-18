@@ -308,7 +308,7 @@ def main(input_file_or_name, data_directory = "data",
             count_sum = count_sum,
             number_of_warm_up_epochs = number_of_warm_up_epochs,
             log_directory = log_directory,
-            results_directory= results_directory
+            results_directory = results_directory
         )
     
     else:
