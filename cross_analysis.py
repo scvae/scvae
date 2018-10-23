@@ -19,6 +19,7 @@
 # ======================================================================== #
 
 import os
+import copy
 
 import pickle
 import gzip
@@ -57,6 +58,7 @@ SORTED_COMPARISON_TABLE_COLUMN_NAMES = [
     "likelihood",
     "sizes",
     "other",
+    "clustering method",
     "runs",
     "version",
     "epochs",
@@ -73,6 +75,7 @@ ABBREVIATIONS = {
     "likelihood": "L",
     "sizes": "S",
     "other": "O",
+    "clustering method": "CM",
     "runs": "R",
     "version": "V",
     "epochs": "E",
@@ -243,8 +246,21 @@ def main(log_directory = None, results_directory = None,
                 
                 for model_summary_metrics_set in model_summary_metrics_sets:
                     
+                    clustering_method = model_summary_metrics_set.get(
+                        "clustering method", None
+                    )
+                    
+                    if clustering_method:
+                        clustering_method_title = \
+                            clusteringMethodTitleFromClusteringMethodName(
+                            model_summary_metrics_set["clustering method"]
+                        )
+                    else:
+                        clustering_method_title = "---"
+                    
                     set_title = "; ".join([
                         model_title,
+                        clustering_method_title,
                         model_summary_metrics_set["runs"],
                         model_summary_metrics_set["version"]
                     ])
@@ -290,7 +306,9 @@ def main(log_directory = None, results_directory = None,
                         correlation_sets[set_name]["ELBO"],
                         correlation_sets[set_name]["clustering metric"]
                     )
-                    correlation_table[set_name] = {"r": correlation_coefficient}
+                    correlation_table[set_name] = {
+                        "r": correlation_coefficient
+                    }
                 
                 if correlation_table:
                     correlation_table = pandas.DataFrame(correlation_table).T
@@ -333,6 +351,7 @@ def main(log_directory = None, results_directory = None,
                     "runs": model_title_parts.pop(-1)
                         .replace("default run", "D")
                         .replace(" runs", ""),
+                    "clustering method": model_title_parts.pop(-1),
                     "other": "; ".join(model_title_parts)
                 })
                 model_field_names.update(
@@ -659,7 +678,7 @@ def parseMetricsForRunsAndVersionsOfModel(
         epoch_cut_off = inf
     ):
     
-    version_summary_metrics = {
+    run_version_summary_metrics = {
         key: {} for key in ["default", "multiple"]
     }
     correlation_sets = {}
@@ -870,17 +889,21 @@ def parseMetricsForRunsAndVersionsOfModel(
                                 else:
                                     continue
                                 
-                                if set_name == "clusters":
-                                    summary_metrics[metric_name] = set_value
-                                
-                                elif set_name == "clusters; superset":
-                                    superset_metric_name = metric_name \
-                                        + " (superset)"
-                                    summary_metrics[superset_metric_name] = \
-                                        set_value
-                                
-                                if "clusters" in set_name \
-                                    and set_value and set_value > 0:
+                                if "clusters" in set_name and set_value:
+                                    
+                                    metric_key = "; ".join([
+                                        "clustering",
+                                        prediction_string,
+                                        metric_name
+                                    ])
+                                    if "superset" in set_name:
+                                        metric_key += " (superset)"
+                                    summary_metrics[metric_key] = set_value
+                                    
+                                    # Correlation sets
+                                    
+                                    if set_value == 0:
+                                        continue
                                     
                                     correlation_set_name = "; ".join([
                                         prediction_string,
@@ -937,21 +960,22 @@ def parseMetricsForRunsAndVersionsOfModel(
                     = number_of_epochs
             
             if update_summary_metrics:
-                if version_key not in version_summary_metrics[run_key]:
-                    version_summary_metrics[run_key][version_key] = {
+                if version_key not in run_version_summary_metrics[run_key]:
+                    run_version_summary_metrics[run_key][version_key] = {
                         "runs": 1,
                         "version": version_key
                     }
                 else:
-                    version_summary_metrics[run_key][version_key]["runs"] += 1
+                    run_version_summary_metrics[run_key][version_key]["runs"]\
+                        += 1
                 for metric_key, metric_value in summary_metrics.items():
                     if run_key == "default":
-                        version_summary_metrics[run_key][version_key]\
+                        run_version_summary_metrics[run_key][version_key]\
                             [metric_key] = metric_value
                     else:
-                        version_summary_metrics[run_key][version_key]\
+                        run_version_summary_metrics[run_key][version_key]\
                             .setdefault(metric_key, [])
-                        version_summary_metrics[run_key][version_key]\
+                        run_version_summary_metrics[run_key][version_key]\
                             [metric_key].append(metric_value)
     
     results = {
@@ -959,18 +983,55 @@ def parseMetricsForRunsAndVersionsOfModel(
         "correlation_sets": correlation_sets
     }
     
-    for run_key in version_summary_metrics:
-        for version_key in version_summary_metrics[run_key]:
+    for run_key, version_summary_metrics in \
+        run_version_summary_metrics.items():
+        
+        for version_key, summary_metrics in version_summary_metrics.items():
+            
+            # Runs
+            
             if run_key == "default":
                 runs = "default run"
             else:
-                runs = version_summary_metrics[run_key][version_key]["runs"]
+                runs = summary_metrics["runs"]
                 if isinstance(runs, int):
                     runs = "{} runs".format(runs)
-            version_summary_metrics[run_key][version_key]["runs"] = runs
-            results["summary_metrics_sets"].append(
-                version_summary_metrics[run_key][version_key]
-            )
+            
+            summary_metrics["runs"] = runs
+            
+            # Clustering
+            
+            clustering_field_names = []
+            
+            for field_name in summary_metrics:
+                if field_name.startswith("clustering"):
+                    clustering_field_names.append(field_name)
+            
+            clustering_metrics = {}
+            
+            for field_name in clustering_field_names:
+                metric_value = summary_metrics.pop(field_name, None)
+                if metric_value:
+                    field_name_parts = field_name.split("; ")
+                    method = field_name_parts[1]
+                    name = field_name_parts[2]
+                    clustering_metrics.setdefault(method, {})
+                    clustering_metrics[method][name] = metric_value
+            
+            if clustering_metrics:
+                original_summary_metrics = summary_metrics
+                
+                for method in clustering_metrics:
+                    summary_metrics = copy.deepcopy(
+                        original_summary_metrics
+                    )
+                    summary_metrics.update(clustering_metrics[method])
+                    summary_metrics["clustering method"] = method
+                    results["summary_metrics_sets"].append(summary_metrics)
+            else:
+                results["summary_metrics_sets"].append(
+                    summary_metrics
+                )
     
     if log_summary:
         results["log_string_parts"] = log_string_parts
@@ -1161,6 +1222,20 @@ def modelTitleFromModelName(name):
         network_replacements,
         sample_replacements,
         miscellaneous_replacements
+    ]
+    
+    return titleFromName(name, replacement_dictionaries)
+
+def clusteringMethodTitleFromClusteringMethodName(name):
+    
+    replacement_dictionaries = [
+        {
+            r"model \(\d+ classes\)": "M"
+        },
+        {
+            r"(\w+) \((\d+) classes\)": r"\1(\2)",
+            "k-means": "kM"
+        }
     ]
     
     return titleFromName(name, replacement_dictionaries)
