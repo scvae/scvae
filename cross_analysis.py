@@ -26,6 +26,7 @@ import numpy
 import pandas
 
 import re
+import textwrap
 
 from itertools import product
 from string import ascii_uppercase
@@ -49,6 +50,44 @@ test_prediction_basename = "test-prediction"
 
 zipped_pickle_extension = ".pkl.gz"
 log_extension = ".log"
+
+SORTED_COMPARISON_TABLE_COLUMN_NAMES = [
+    "ID",
+    "type",
+    "likelihood",
+    "sizes",
+    "other",
+    "runs",
+    "version",
+    "epochs",
+    "ELBO",
+    "adjusted Rand index",
+    "adjusted mutual information",
+    "silhouette score"
+]
+
+ABBREVIATIONS = {
+    # Model specifications
+    "ID": "#",
+    "type": "T",
+    "likelihood": "L",
+    "sizes": "S",
+    "other": "O",
+    "runs": "R",
+    "version": "V",
+    "epochs": "E",
+    # Model versions
+    "end of training": "EOT",
+    "optimal parameters": "OP",
+    "early stopping": "ES",
+    # Clustering metrics
+    "adjusted Rand index": "ARI",
+    "adjusted mutual information": "AMI",
+    "silhouette score": "SS",
+    # Data sets
+    "superset": "sup"
+}
+
 
 def main(log_directory = None, results_directory = None,
     data_set_included_strings = [], 
@@ -216,7 +255,6 @@ def main(log_directory = None, results_directory = None,
                         model_summary_metrics_set.items():
                             summary_metrics_set[set_key] = set_value
                     
-                    summary_metrics_set.setdefault("ARI", None) # TODO Remove
                     summary_metrics_sets[set_title] = summary_metrics_set
                 
                 # Update correlation sets
@@ -250,7 +288,7 @@ def main(log_directory = None, results_directory = None,
                         continue
                     correlation_coefficient, _ = pearsonr(
                         correlation_sets[set_name]["ELBO"],
-                        correlation_sets[set_name]["ARI"]
+                        correlation_sets[set_name]["clustering metric"]
                     )
                     correlation_table[set_name] = {"r": correlation_coefficient}
                 
@@ -263,9 +301,9 @@ def main(log_directory = None, results_directory = None,
                 figure, figure_name = plotCorrelations(
                     correlation_sets,
                     x_key = "ELBO",
-                    y_key = "ARI",
+                    y_key = "clustering metric",
                     x_label = r"$\mathcal{L}$",
-                    y_label = r"$R_{\mathrm{adj}}$",
+                    y_label = "",
                     name = data_set_name.replace(os.sep, "-")
                 )
                 saveFigure(figure, figure_name, export_options,
@@ -282,40 +320,8 @@ def main(log_directory = None, results_directory = None,
             
             # Comparison
             
-            model_spec_names = [
-                "ID",
-                "type",
-                "likelihood",
-                "sizes",
-                "other",
-                "runs",
-                "version",
-                "epochs"
-            ]
-            
-            model_spec_short_names = {
-                "ID": "#",
-                "type": "T",
-                "likelihood": "L",
-                "sizes": "S",
-                "other": "O",
-                "runs": "R",
-                "version": "V",
-                "epochs": "E"
-            }
-            
-            model_metric_names = [
-                "ELBO",
-                "ARI"
-            ]
-            
-            model_version_names = {
-                "end of training": "EOT",
-                "optimal parameters": "OP",
-                "early stopping": "ES"
-            }
-            
-            model_field_names = model_spec_names + model_metric_names
+            model_field_names = set()
+            # model_field_names = model_spec_names + model_metric_names
             
             for model_title in summary_metrics_sets:
                 model_title_parts = model_title.split("; ")
@@ -323,16 +329,26 @@ def main(log_directory = None, results_directory = None,
                     "type": model_title_parts.pop(0),
                     "likelihood": model_title_parts.pop(0),
                     "sizes": model_title_parts.pop(0),
-                    "version": model_version_names[model_title_parts.pop(-1)],
+                    "version": ABBREVIATIONS[model_title_parts.pop(-1)],
                     "runs": model_title_parts.pop(-1)
                         .replace("default run", "D")
                         .replace(" runs", ""),
                     "other": "; ".join(model_title_parts)
                 })
+                model_field_names.update(
+                    summary_metrics_sets[model_title].keys()
+                )
+            
+            model_field_names = sorted(list(model_field_names),
+                key = comparisonTableColumnSorter)
+            
+            for summary_metrics_set in summary_metrics_sets.values():
+                for field_name in model_field_names:
+                    summary_metrics_set.setdefault(field_name, None)
             
             network_architecture_ELBOs = {}
             
-            for model_title, model_fields in summary_metrics_sets.items():
+            for model_fields in summary_metrics_sets.values():
                 if model_fields["type"] == "VAE(G)" \
                     and model_fields["likelihood"] == "NB" \
                     and model_fields["other"] == "BN" \
@@ -420,7 +436,7 @@ def main(log_directory = None, results_directory = None,
                         if field_values.dtype == int:
                             string = "{:.0f}±{:.3g}".format(mean, sd)
                         else: 
-                            string = "{:-.6g}±{:.6g}".format(mean, sd)
+                            string = "{:-.6g}±{:.3g}".format(mean, sd)
                     
                     else:
                         raise TypeError(
@@ -431,22 +447,28 @@ def main(log_directory = None, results_directory = None,
                     summary_metrics_sets[model_title][field_name] = string
             
             common_model_fields = {}
+            model_fields_to_remove = []
             
-            for spec_name in model_spec_names:
-                spec_values = set()
+            for field_name in model_field_names:
+                field_values = set()
                 for model_fields in summary_metrics_sets.values():
-                    spec_values.add(model_fields.get(spec_name, None))
-                if len(spec_values) == 1:
+                    field_values.add(model_fields.get(field_name, None))
+                if len(field_values) == 1:
                     for model_fields in summary_metrics_sets.values():
-                        model_fields.pop(spec_name, None)
-                    model_field_names.remove(spec_name)
-                    common_model_fields[spec_name] = spec_values.pop()
+                        model_fields.pop(field_name, None)
+                    model_fields_to_remove.append(field_name)
+                    field_value = field_values.pop()
+                    if field_value:
+                        common_model_fields[field_name] = field_value
+            
+            for field_name in model_fields_to_remove:
+                model_field_names.remove(field_name)
             
             common_model_fields_string_parts = []
             
             for field_name, field_value in common_model_fields.items():
                 common_model_fields_string_parts.append(
-                    "{}: {}".format(field_name.capitalize(), field_value)
+                    "{}: {}".format(capitaliseString(field_name), field_value)
                 )
             
             common_model_fields_string = "\n".join(
@@ -472,11 +494,16 @@ def main(log_directory = None, results_directory = None,
                 if field_width == 0:
                     continue
                 
-                if field_name in model_spec_names:
-                    if len(field_name) > field_width:
-                        field_name = model_spec_short_names[field_name]
-                    elif field_name == field_name.lower():
-                        field_name = field_name.capitalize()
+                if len(field_name) > field_width:
+                    for full_form, abbreviation in ABBREVIATIONS.items():
+                        field_name = re.sub(full_form, abbreviation, field_name)
+                    field_name = textwrap.shorten(
+                        capitaliseString(field_name),
+                        width = field_width,
+                        placeholder = "…"
+                    )
+                elif field_name == field_name.lower():
+                    field_name = capitaliseString(field_name)
                 
                 comparison_table_heading_parts.append(
                     "{:{}}".format(field_name, field_width)
@@ -771,12 +798,9 @@ def parseMetricsForRunsAndVersionsOfModel(
             
             # Predictions
             
-            model_ARIs = []
-            
             if "predictions" in metrics:
                 
-                for predictions in \
-                    metrics["predictions"].values():
+                for predictions in metrics["predictions"].values():
                     
                     method = predictions["prediction method"]
                     number_of_classes = predictions["number of classes"]
@@ -836,20 +860,31 @@ def parseMetricsForRunsAndVersionsOfModel(
                                 set_metrics.items():
                                 
                                 if set_value:
+                                    set_value = float(set_value)
                                     metrics_string_parts.append(
                                         "        {}: {:.6g}".format(
                                             set_name,
                                             set_value
                                         )
                                     )
-                            
-                                if metric_name == "adjusted Rand index" \
-                                    and "clusters" in set_name \
+                                else:
+                                    continue
+                                
+                                if set_name == "clusters":
+                                    summary_metrics[metric_name] = set_value
+                                
+                                elif set_name == "clusters; superset":
+                                    superset_metric_name = metric_name \
+                                        + " (superset)"
+                                    summary_metrics[superset_metric_name] = \
+                                        set_value
+                                
+                                if "clusters" in set_name \
                                     and set_value and set_value > 0:
                                     
                                     correlation_set_name = "; ".join([
                                         prediction_string,
-                                        # metric_name,
+                                        metric_name,
                                         set_name
                                     ])
                                     
@@ -857,20 +892,17 @@ def parseMetricsForRunsAndVersionsOfModel(
                                         correlation_set_name,
                                         {
                                             "ELBO": [],
-                                            "ARI": []
+                                            "clustering metric": []
                                         }
                                     )
                                     
                                     correlation_sets[correlation_set_name]\
                                         ["ELBO"].append(ELBO)
                                     correlation_sets[correlation_set_name]\
-                                        ["ARI"].append(set_value)
+                                        ["clustering metric"]\
+                                        .append(set_value)
                         
                         metrics_string_parts.append("")
-                    
-                    # model_ARIs.extend([
-                    #     v for k, v in ARIs.items() if "clusters" in k
-                    # ])
             
             metrics_string = "\n".join(metrics_string_parts)
             
@@ -1146,44 +1178,38 @@ def modelID():
             continue
         yield model_id
 
-def parseNumberOfEpochsAndVersion(ev):
-    version_rank = {
-        "default": 0,
-        # "(ES)": 1,
-        "(ES)": -1,
-        "(*)": 2
-    }
-    if ev.isdigit():
-        epochs = int(ev)
-        version = version_rank["default"]
+def comparisonTableColumnSorter(name):
+    name = str(name)
+    
+    column_names = SORTED_COMPARISON_TABLE_COLUMN_NAMES
+    
+    K = len(column_names)
+    index_width = len(str(K))
+    
+    indices = set()
+    
+    for column_index, column_name in enumerate(column_names):
+        if name.startswith(column_name):
+            indices.add(column_index)
+    
+    if len(indices) > 1:
+        if name in SORTED_COMPARISON_TABLE_COLUMN_NAMES:
+            index = SORTED_COMPARISON_TABLE_COLUMN_NAMES.index(name)
+        else:
+            index = indices.pop()
+    elif len(indices) == 1:
+        index = indices.pop()
     else:
-        epochs, version = ev.split()
-        epochs = int(epochs)
-        version = version_rank[version]
-    return epochs, version
-
-def bestModelVersion(ev1, ev2):
+        index = K
     
-    e1, v1 = parseNumberOfEpochsAndVersion(ev1)
-    e2, v2 = parseNumberOfEpochsAndVersion(ev2)
+    name =  "{:{}d} {}".format(index, index_width, name)
     
-    if v1 > v2:
-        return ev1
-    elif v2 > v1:
-        return ev2
-    elif v1 == v2:
-        if e1 > e2:
-            return ev1
-        elif e2 > e1:
-            return ev2
-        elif e1 == e2:
-            return ev1
+    return name
 
 parser = argparse.ArgumentParser(
     description="Cross-analyse models.",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter
 )
-
 parser.add_argument(
     "--log-directory", "-L",
     type = str,
