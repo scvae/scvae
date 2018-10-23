@@ -3690,24 +3690,26 @@ def supersetClassPalette(class_palette, label_superset):
     
     return superset_class_palette
 
+GENERAL_CLASS_NAMES = ["Others", "Unknown", "No class", "Remaining"]
+
 def createLabelSorter(sorted_class_names = []):
     
     def labelSorter(label):
+        
         label = str(label)
         
         K = len(sorted_class_names)
+        L = len(GENERAL_CLASS_NAMES)
+        index_width = len(str(K+L))
         
         if label in sorted_class_names:
             index = sorted_class_names.index(label)
-            label = str(index) + "_" + label
-        elif label == "Others":
-            label = "ZZZ" + str(K) + "_" + label
-        elif label.startswith("Unknown"):
-            label = "ZZZ" + str(K + 1) + "_" + label
-        elif label == "No class":
-            label = "ZZZ" + str(K + 2) + "_" + label
-        elif label == "Remaining":
-            label = "ZZZ" +str(K + 3) + "_" + label
+        elif label in GENERAL_CLASS_NAMES:
+            index = K + GENERAL_CLASS_NAMES.index(label)
+        else:
+            index = K + L
+        
+        label =  "{:{}d} {}".format(index, index_width, label)
         
         return label
     
