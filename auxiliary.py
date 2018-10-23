@@ -112,7 +112,10 @@ def capitaliseString(original_string):
         capitalised_string = capitalised_first_word + split_character \
             + rest_of_original_string
     else:
-        capitalised_string = original_string.capitalize()
+        if re.match(pattern=r"[A-Z]", string=original_string):
+            capitalised_string = original_string
+        else:
+            capitalised_string = original_string.capitalize()
     return capitalised_string
 
 def enumerateListOfStrings(list_of_strings):
