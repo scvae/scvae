@@ -46,8 +46,8 @@ from auxiliary import (
     prod
 )
 
-test_metrics_basename = "test-metrics"
-test_prediction_basename = "test-prediction"
+metrics_basename = "test-metrics"
+prediction_basename = "test-prediction"
 
 zipped_pickle_extension = ".pkl.gz"
 log_extension = ".log"
@@ -103,89 +103,108 @@ def main(log_directory = None, results_directory = None,
     export_options = [],
     log_summary = False):
     
+    search_strings_sets = [
+        {
+            "strings": data_set_included_strings,
+            "kind": "data set",
+            "inclusiveness": True,
+            "abbreviation": "d"
+        },
+        {
+            "strings": data_set_excluded_strings,
+            "kind": "data set",
+            "inclusiveness": False,
+            "abbreviation": "D"
+        },
+        {
+            "strings": model_included_strings,
+            "kind": "model",
+            "inclusiveness": True,
+            "abbreviation": "m"
+        },
+        {
+            "strings": model_excluded_strings,
+            "kind": "model",
+            "inclusiveness": False,
+            "abbreviation": "M"
+        },
+        {
+            "strings": prediction_included_strings,
+            "kind": "prediction method",
+            "inclusiveness": True,
+            "abbreviation": "p"
+        },
+        {
+            "strings": prediction_excluded_strings,
+            "kind": "prediction method",
+            "inclusiveness": False,
+            "abbreviation": "P"
+        }
+    ]
+    
     if log_directory:
         log_directory = os.path.normpath(log_directory) + os.sep
 
     if results_directory:
         
+        # Directory and filenames
+        
         results_directory = os.path.normpath(results_directory) + os.sep
+        
+        cross_analysis_name_parts = []
+        
+        for search_strings_set in search_strings_sets:
+            
+            search_strings = search_strings_set["strings"]
+            search_abbreviation = search_strings_set["abbreviation"]
+            
+            if search_strings:
+                cross_analysis_name_parts.append("{}_{}".format(
+                    search_abbreviation,
+                    "_".join(search_strings)
+                ))
+        
+        if cross_analysis_name_parts:
+            cross_analysis_name = "-".join(cross_analysis_name_parts)
+        else:
+            cross_analysis_name = "all"
+        
         cross_analysis_directory = os.path.join(
-            results_directory + "cross_analysis")
+            results_directory,
+            "cross_analysis",
+            cross_analysis_name
+        )
+        
+        if log_summary:
+            log_filename = cross_analysis_name + log_extension
+            log_path = os.path.join(cross_analysis_directory, log_filename)
+        
+        # Print filtering
         
         explanation_string_parts = []
         
-        def appendExplanationForSearchStrings(search_strings, inclusive, kind):
+        for search_strings_set in search_strings_sets:
+            
+            search_strings = search_strings_set["strings"]
+            search_kind = search_strings_set["kind"]
+            search_inclusiveness = search_strings_set["inclusiveness"]
+            
             if search_strings:
                 explanation_string_parts.append("{} {} with: {}.".format(
-                    "Including" if inclusive else "Excluding",
-                    kind,
+                    "Including" if search_inclusiveness else "Excluding",
+                    search_kind,
                     ", ".join(search_strings)
                 ))
-        
-        appendExplanationForSearchStrings(
-            data_set_included_strings,
-            inclusive = True,
-            kind = "data sets"
-        )
-        appendExplanationForSearchStrings(
-            data_set_excluded_strings,
-            inclusive = False,
-            kind = "data sets"
-        )
-        appendExplanationForSearchStrings(
-            model_included_strings,
-            inclusive = True,
-            kind = "models"
-        )
-        appendExplanationForSearchStrings(
-            model_excluded_strings,
-            inclusive = False,
-            kind = "models"
-        )
-        appendExplanationForSearchStrings(
-            prediction_included_strings,
-            inclusive = True,
-            kind = "prediction methods"
-        )
-        appendExplanationForSearchStrings(
-            prediction_excluded_strings,
-            inclusive = False,
-            kind = "prediction methods"
-        )
         
         explanation_string = "\n".join(explanation_string_parts)
         
         print(explanation_string)
-        
         print()
         
         if log_summary:
-            
-            log_filename_parts = []
-            
-            def appendSearchStrings(search_strings, symbol):
-                if search_strings:
-                    log_filename_parts.append("{}_{}".format(
-                        symbol,
-                        "_".join(search_strings)
-                    ))
-            
-            appendSearchStrings(data_set_included_strings, "d")
-            appendSearchStrings(data_set_excluded_strings, "D")
-            appendSearchStrings(model_included_strings, "m")
-            appendSearchStrings(model_excluded_strings, "M")
-            appendSearchStrings(prediction_included_strings, "p")
-            appendSearchStrings(prediction_excluded_strings, "P")
-            
-            if not log_filename_parts:
-                log_filename_parts.append("all")
-            
-            log_filename = "-".join(log_filename_parts) + log_extension
-            log_path = os.path.join(cross_analysis_directory, log_filename)
-            
             log_string_parts = [explanation_string + "\n"]
         
-        test_metrics_set = testMetricsInResultsDirectory(
+        metrics_sets = metricsSetsInResultsDirectory(
             results_directory,
             data_set_included_strings,
             data_set_excluded_strings,
@@ -195,7 +214,7 @@ def main(log_directory = None, results_directory = None,
         
         model_IDs = modelID()
         
-        for data_set_name, models in test_metrics_set.items():
+        for data_set_name, models in metrics_sets.items():
             
             data_set_title = dataSetTitleFromDataSetName(data_set_name)
             
@@ -575,13 +594,13 @@ def main(log_directory = None, results_directory = None,
             with open(log_path, "w") as log_file:
                 log_file.write(log_string)
 
-def testMetricsInResultsDirectory(results_directory,
+def metricsSetsInResultsDirectory(results_directory,
     data_set_included_strings, data_set_excluded_strings,
     model_included_strings, model_excluded_strings):
     
-    test_metrics_filename = test_metrics_basename + zipped_pickle_extension
+    metrics_filename = metrics_basename + zipped_pickle_extension
     
-    test_metrics_set = {}
+    metrics_set = {}
     
     for path, _, filenames in os.walk(results_directory):
         
@@ -614,7 +633,7 @@ def testMetricsInResultsDirectory(results_directory,
         
         # Verify metrics found
         
-        if test_metrics_filename in filenames:
+        if metrics_filename in filenames:
             
             model_parts = model.split(os.sep)
             
@@ -627,48 +646,48 @@ def testMetricsInResultsDirectory(results_directory,
                 run = model_parts[3]
                 version = model_parts[4]
             
-            if not data_set in test_metrics_set:
-                test_metrics_set[data_set] = {}
+            if not data_set in metrics_set:
+                metrics_set[data_set] = {}
             
-            if not model in test_metrics_set[data_set]:
-                test_metrics_set[data_set][model] = {}
+            if not model in metrics_set[data_set]:
+                metrics_set[data_set][model] = {}
             
-            if not run in test_metrics_set[data_set][model]:
-                test_metrics_set[data_set][model][run] = {}
+            if not run in metrics_set[data_set][model]:
+                metrics_set[data_set][model][run] = {}
             
-            test_metrics_path = os.path.join(path, test_metrics_filename)
+            metrics_path = os.path.join(path, metrics_filename)
             
-            with gzip.open(test_metrics_path, "r") as test_metrics_file:
-                test_metrics_data = pickle.load(test_metrics_file)
+            with gzip.open(metrics_path, "r") as metrics_file:
+                metrics_data = pickle.load(metrics_file)
             
             predictions = {}
             
             for filename in filenames:
-                if filename.startswith(test_prediction_basename) \
+                if filename.startswith(prediction_basename) \
                     and filename.endswith(zipped_pickle_extension):
                     
                     prediction_name = filename\
                         .replace(zipped_pickle_extension, "")\
-                        .replace(test_prediction_basename, "")\
+                        .replace(prediction_basename, "")\
                         .replace("-", "")
                     
-                    test_prediction_path = os.path.join(path, filename)
+                    prediction_path = os.path.join(path, filename)
                     
-                    with gzip.open(test_prediction_path, "r") as \
-                        test_prediction_file:
+                    with gzip.open(prediction_path, "r") as \
+                        prediction_file:
                         
-                        test_prediction_data = pickle.load(
-                            test_prediction_file)
+                        prediction_data = pickle.load(
+                            prediction_file)
                     
-                    predictions[prediction_name] = test_prediction_data
+                    predictions[prediction_name] = prediction_data
             
             if predictions:
-                test_metrics_data["predictions"] = predictions
+                metrics_data["predictions"] = predictions
             
-            test_metrics_set[data_set][model][run][version] = \
-                test_metrics_data
+            metrics_set[data_set][model][run][version] = \
+                metrics_data
     
-    return test_metrics_set
+    return metrics_set
 
 def parseMetricsForRunsAndVersionsOfModel(
         runs,
