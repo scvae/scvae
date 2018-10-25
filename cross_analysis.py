@@ -25,6 +25,7 @@ import pickle
 import gzip
 import numpy
 import pandas
+import statistics
 
 import re
 import textwrap
@@ -355,7 +356,9 @@ def main(log_directory = None, results_directory = None,
                     log_string_parts.append(subtitle("ELBO--ARI correlations", plain = True))
                     log_string_parts.append(correlation_string + "\n")
             
-            # Comparison
+            # Comparisons
+            
+            ## Setup
             
             model_field_names = set()
             # model_field_names = model_spec_names + model_metric_names
@@ -383,6 +386,8 @@ def main(log_directory = None, results_directory = None,
             for summary_metrics_set in summary_metrics_sets.values():
                 for field_name in model_field_names:
                     summary_metrics_set.setdefault(field_name, None)
+            
+            ## Network architecture
             
             network_architecture_ELBOs = {}
             
@@ -438,14 +443,19 @@ def main(log_directory = None, results_directory = None,
                     saveFigure(figure, figure_name, export_options,
                         cross_analysis_directory)
             
-            sorted_summary_metrics_set_items = sorted(
-                summary_metrics_sets.items(),
+            ## Table
+            
+            comparisons = copy.deepcopy(summary_metrics_sets)
+            comparison_field_names = copy.deepcopy(model_field_names)
+            
+            sorted_comparison_items = sorted(
+                comparisons.items(),
                 key = lambda key_value_pair:
                     numpy.mean(key_value_pair[-1]["ELBO"]),
                 reverse = True
             )
             
-            for model_title, model_fields in summary_metrics_sets.items():
+            for model_title, model_fields in comparisons.items():
                 for field_name, field_value in model_fields.items():
                     
                     if isinstance(field_value, list) \
@@ -482,50 +492,50 @@ def main(log_directory = None, results_directory = None,
                                 .format(type(field_value))
                         )
                     
-                    summary_metrics_sets[model_title][field_name] = string
+                    comparisons[model_title][field_name] = string
             
-            common_model_fields = {}
-            model_fields_to_remove = []
+            common_comparison_fields = {}
+            comparison_fields_to_remove = []
             
-            for field_name in model_field_names:
+            for field_name in comparison_field_names:
                 field_values = set()
-                for model_fields in summary_metrics_sets.values():
+                for model_fields in comparisons.values():
                     field_values.add(model_fields.get(field_name, None))
                 if len(field_values) == 1:
-                    for model_fields in summary_metrics_sets.values():
+                    for model_fields in comparisons.values():
                         model_fields.pop(field_name, None)
-                    model_fields_to_remove.append(field_name)
+                    comparison_fields_to_remove.append(field_name)
                     field_value = field_values.pop()
                     if field_value:
-                        common_model_fields[field_name] = field_value
+                        common_comparison_fields[field_name] = field_value
             
-            for field_name in model_fields_to_remove:
-                model_field_names.remove(field_name)
+            for field_name in comparison_fields_to_remove:
+                comparison_field_names.remove(field_name)
             
-            common_model_fields_string_parts = []
+            common_comparison_fields_string_parts = []
             
-            for field_name, field_value in common_model_fields.items():
-                common_model_fields_string_parts.append(
+            for field_name, field_value in common_comparison_fields.items():
+                common_comparison_fields_string_parts.append(
                     "{}: {}".format(capitaliseString(field_name), field_value)
                 )
             
-            common_model_fields_string = "\n".join(
-                common_model_fields_string_parts)
+            common_comparison_fields_string = "\n".join(
+                common_comparison_fields_string_parts)
             
             comparison_table_rows = []
             table_column_spacing = "  "
             
             comparison_table_column_widths = {}
             
-            for field_name in model_field_names:
+            for field_name in comparison_field_names:
                 comparison_table_column_widths[field_name] = max(
                     [len(model_fields[field_name]) for model_fields in
-                        summary_metrics_sets.values()]
+                        comparisons.values()]
                 )
             
             comparison_table_heading_parts = []
             
-            for field_name in model_field_names:
+            for field_name in comparison_field_names:
                 
                 field_width = comparison_table_column_widths[field_name]
                 
@@ -555,12 +565,12 @@ def main(log_directory = None, results_directory = None,
             comparison_table_rows.append(comparison_table_heading)
             comparison_table_rows.append(comparison_table_toprule)
             
-            for model_title, model_fields in sorted_summary_metrics_set_items:
+            for model_title, model_fields in sorted_comparison_items:
                 
                 sorted_model_field_items = sorted(
                     model_fields.items(),
                     key = lambda key_value_pair:
-                        model_field_names.index(key_value_pair[0])
+                        comparison_field_names.index(key_value_pair[0])
                 )
                 
                 comparison_table_row_parts = [
@@ -580,12 +590,14 @@ def main(log_directory = None, results_directory = None,
             
             print(subtitle("Comparison"))
             print(comparison_table + "\n")
-            print(common_model_fields_string + "\n")
+            print(common_comparison_fields_string + "\n")
             
             if log_summary:
                 log_string_parts.append(subtitle("Comparison", plain = True))
                 log_string_parts.append(comparison_table + "\n")
-                log_string_parts.append(common_model_fields_string + "\n")
+                log_string_parts.append(
+                    common_comparison_fields_string + "\n"
+                )
         
         if log_summary:
             
@@ -722,7 +734,7 @@ def parseMetricsForRunsAndVersionsOfModel(
                     heading(capitaliseString(run_title), plain = True)
                 )
         
-        number_of_epochs_for_current_run_and_version = {}
+        version_epoch_summary_metrics = {}
         
         for version_name, metrics in versions.items():
             
@@ -964,38 +976,34 @@ def parseMetricsForRunsAndVersionsOfModel(
             # Summary metrics
             
             version_key = "; ".join([version] + samples)
-            update_summary_metrics = True
             
-            if version_key in number_of_epochs_for_current_run_and_version:
-                if number_of_epochs > \
-                    number_of_epochs_for_current_run_and_version[version_key]:
-                    
-                    number_of_epochs_for_current_run_and_version[version_key]\
-                        = number_of_epochs
-                else:
-                    update_summary_metrics = False
-            else:
-                number_of_epochs_for_current_run_and_version[version_key] \
-                    = number_of_epochs
+            version_epoch_summary_metrics.setdefault(version_key, {})
+            version_epoch_summary_metrics[version_key][number_of_epochs] \
+                = summary_metrics
+        
+        for version_key, epoch_summary_metrics in \
+            version_epoch_summary_metrics.items():
             
-            if update_summary_metrics:
-                if version_key not in run_version_summary_metrics[run_key]:
-                    run_version_summary_metrics[run_key][version_key] = {
-                        "runs": 1,
-                        "version": version_key
-                    }
+            run_version_summary_metrics[run_key].setdefault(
+                version_key, {
+                    "runs": 0,
+                    "version": version_key
+                }
+            )
+            run_version_summary_metrics[run_key][version_key]["runs"] += 1
+            
+            maximum_number_of_epochs = max(epoch_summary_metrics.keys())
+            summary_metrics = epoch_summary_metrics[maximum_number_of_epochs]
+            
+            for metric_key, metric_value in summary_metrics.items():
+                if run_key == "default":
+                    run_version_summary_metrics[run_key][version_key]\
+                        [metric_key] = metric_value
                 else:
-                    run_version_summary_metrics[run_key][version_key]["runs"]\
-                        += 1
-                for metric_key, metric_value in summary_metrics.items():
-                    if run_key == "default":
-                        run_version_summary_metrics[run_key][version_key]\
-                            [metric_key] = metric_value
-                    else:
-                        run_version_summary_metrics[run_key][version_key]\
-                            .setdefault(metric_key, [])
-                        run_version_summary_metrics[run_key][version_key]\
-                            [metric_key].append(metric_value)
+                    run_version_summary_metrics[run_key][version_key]\
+                        .setdefault(metric_key, [])
+                    run_version_summary_metrics[run_key][version_key]\
+                        [metric_key].append(metric_value)
     
     results = {
         "summary_metrics_sets": [],
