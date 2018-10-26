@@ -39,7 +39,7 @@ import argparse
 
 from analysis import (
     formatStatistics, saveFigure,
-    plotCorrelations, plotELBOHeatMap
+    plotCorrelations, plotELBOHeatMap, plotModelMetrics
 )
 from auxiliary import (
     formatTime, capitaliseString,
@@ -92,6 +92,35 @@ ABBREVIATIONS = {
     "superset": "sup"
 }
 
+CLUSTERING_METRICS = {
+    "adjusted Rand index": {
+        "kind": "supervised",
+        "symbol": r"$R_\mathrm{adj}$"
+    },
+    "adjusted mutual information": {
+        "kind": "supervised",
+        "symbol": r"$\mathrm{AMI}$"
+    },
+    "silhouette score": {
+        "kind": "unsupervised",
+        "symbol": r"$s$"
+    },
+}
+
+MODEL_TYPE_ORDER = [
+    "VAE",
+    "GMVAE",
+    "FA"
+]
+
+LIKELIHOOD_DISRIBUTION_ORDER = [
+    "P",
+    "NB",
+    "ZIP",
+    "ZINB",
+    "PCP",
+    "CP"
+]
 
 def main(log_directory = None, results_directory = None,
     data_set_included_strings = [], 
@@ -287,9 +316,9 @@ def main(log_directory = None, results_directory = None,
                     
                     summary_metrics_set = {"ID": model_ID}
                     
-                    for set_key, set_value in \
+                    for field_name, field_value in \
                         model_summary_metrics_set.items():
-                            summary_metrics_set[set_key] = set_value
+                            summary_metrics_set[field_name] = field_value
                     
                     summary_metrics_sets[set_title] = summary_metrics_set
                 
@@ -334,8 +363,17 @@ def main(log_directory = None, results_directory = None,
                     correlation_table = pandas.DataFrame(correlation_table).T
                     correlation_string_parts.append(str(correlation_table))
                 
-                correlation_string_parts.append("")
-                correlation_string_parts.append("Plotting correlations.")
+                correlation_string = "\n".join(correlation_string_parts)
+                
+                print(subtitle("Metric correlations"))
+                print(correlation_string + "\n")
+                
+                if log_summary:
+                    log_string_parts.append(
+                        subtitle("Metric correlations", plain = True))
+                    log_string_parts.append(correlation_string + "\n")
+                
+                print("Plotting correlations.")
                 figure, figure_name = plotCorrelations(
                     correlation_sets,
                     x_key = "ELBO",
@@ -346,15 +384,8 @@ def main(log_directory = None, results_directory = None,
                 )
                 saveFigure(figure, figure_name, export_options,
                     cross_analysis_directory)
+                print()
                 
-                correlation_string = "\n".join(correlation_string_parts)
-                
-                print(subtitle("ELBO--ARI correlations"))
-                print(correlation_string + "\n")
-            
-                if log_summary:
-                    log_string_parts.append(subtitle("ELBO--ARI correlations", plain = True))
-                    log_string_parts.append(correlation_string + "\n")
             
             # Comparisons
             
@@ -390,27 +421,34 @@ def main(log_directory = None, results_directory = None,
             ## Network architecture
             
             network_architecture_ELBOs = {}
+            network_architecture_versions = {}
             
             for model_fields in summary_metrics_sets.values():
                 if model_fields["type"] == "VAE(G)" \
                     and model_fields["likelihood"] == "NB" \
                     and model_fields["other"] == "BN" \
                     and model_fields["runs"] == "D":
-
-                    epochs = model_fields["epochs"]
-                    version = model_fields["version"]
-                    architecture = model_fields["sizes"]
+                    
                     ELBO = model_fields["ELBO"]
-
+                    
+                    architecture = model_fields["sizes"]
                     h, l = architecture.rsplit("×", maxsplit = 1)
-
+                    
+                    version = {
+                        "type": model_fields["version"],
+                        "epoch_number": model_fields["epochs"],
+                    }
+                    
                     network_architecture_ELBOs.setdefault(l, {})
-
+                    network_architecture_versions.setdefault(l, {})
+                    
                     if h not in network_architecture_ELBOs[l]:
                         network_architecture_ELBOs[l][h] = ELBO
+                        network_architecture_versions[l][h] = version
                     else:
-                        current_ELBO = network_architecture_ELBOs[l][h]
-                        if ELBO > current_ELBO:
+                        previous_version = network_architecture_versions[l][h]
+                        best_version = bestVersion(version, previous_version)
+                        if version == best_version:
                             network_architecture_ELBOs[l][h] = ELBO
             
             if network_architecture_ELBOs:
@@ -598,6 +636,270 @@ def main(log_directory = None, results_directory = None,
                 log_string_parts.append(
                     common_comparison_fields_string + "\n"
                 )
+            
+            ## Plot
+            
+            ### Setup
+            
+            #### Model filter based on the most frequent architecture
+            
+            filter_fields = {
+                "sizes": [],
+                "other": []
+            }
+            
+            for model_fields in summary_metrics_sets.values():
+                for filter_name, filter_values in filter_fields.items():
+                    field_value = model_fields.get(filter_name, None)
+                    if field_value:
+                        filter_values.append(field_value)
+            
+            for filter_name, filter_values in filter_fields.items():
+                filter_fields[filter_name] = statistics.mode(filter_values)
+            
+            #### Metric names
+            
+            optimised_metric_name = "ELBO"
+            optimised_metric_symbol = r"$\mathcal{L}$"
+            
+            supervised_clustering_metric_names = [
+                n for n, d in CLUSTERING_METRICS.items()
+                if d["kind"] == "supervised"
+            ]
+            unsupervised_clustering_metric_names = [
+                n for n, d in CLUSTERING_METRICS.items()
+                if d["kind"] == "unsupervised"
+            ]
+            
+            ### Collect metrics from relevant models
+            
+            set_method_likelihood_metrics = {
+                "standard": {},
+                "superset": {},
+                "unsupervised": {}
+            }
+            method_likelihood_versions = {}
+            
+            for model_title, model_fields in summary_metrics_sets.items():
+                
+                # Filter models
+                
+                discard_model = False
+                
+                for filter_name, filter_value in filter_fields.items():
+                    field_value = model_fields.get(filter_name, None)
+                    if field_value != filter_value:
+                        discard_model = True
+                        break
+                
+                runs = model_fields["runs"]
+                
+                if runs == "D":
+                    discard_model = True
+                
+                if discard_model:
+                    continue
+                
+                # Extract method
+                
+                model_type = model_fields.get("type", None)
+                clustering_method = model_fields.get(
+                    "clustering method", None)
+                
+                method_parts = []
+                
+                if model_type:
+                    method_parts.append(model_type)
+                
+                if clustering_method \
+                    and clustering_method not in ["M", "---"]:
+                        method_parts.append(clustering_method)
+                
+                if method_parts:
+                    method = "-".join(method_parts)
+                else:
+                    method = "---"
+                
+                # Extract likelihood distribution
+                
+                likelihood = model_fields.get("likelihood")
+                
+                # Determine whether to update metrics if other version of
+                # model exist and is worse than current version
+                
+                version = {
+                    "type": model_fields["version"],
+                    "epoch_number": model_fields["epochs"],
+                }
+                
+                likelihood_previous_versions = method_likelihood_versions.get(
+                    method, None
+                )
+                if likelihood_previous_versions:
+                    previous_version = likelihood_previous_versions.get(
+                        likelihood, None
+                    )
+                else:
+                    previous_version = None
+                
+                if previous_version:
+                    best_version = bestVersion(version, previous_version)
+                else:
+                    best_version = version
+                
+                if version != best_version:
+                    continue
+                
+                # Extract metrics
+                
+                metrics = {}
+                
+                for field_name, field_value in model_fields.items():
+                    
+                    field_name_parts = re.split(
+                        pattern = r" \((.+)\)",
+                        string = field_name,
+                        maxsplit = 1
+                    )
+                    
+                    field_name = field_name_parts[0]
+                    
+                    if field_name in supervised_clustering_metric_names:
+                        if len(field_name_parts) == 3:
+                            set_name = field_name_parts[1]
+                        else:
+                            set_name = "standard"
+                    elif field_name in unsupervised_clustering_metric_names:
+                        set_name = "unsupervised"
+                    else:
+                        continue
+                    
+                    metrics.setdefault(set_name, {})
+                    metrics[set_name][field_name] = field_value
+                
+                for set_name, set_metrics in metrics.items():
+                    set_metrics["ELBO"] = model_fields["ELBO"]
+                
+                # Save metrics
+                
+                for set_name in metrics:
+                    set_method_likelihood_metrics[set_name].setdefault(
+                        method, {}
+                    )
+                    set_method_likelihood_metrics[set_name][method]\
+                        [likelihood] = metrics[set_name]
+            
+            print("Plotting model metrics.")
+            
+            for set_name, method_likelihood_metrics in \
+                set_method_likelihood_metrics.items():
+                
+                if not method_likelihood_metrics:
+                    continue
+                
+                if set_name == "unsupervised":
+                    clustering_metric_names = \
+                        unsupervised_clustering_metric_names
+                else:
+                    clustering_metric_names = \
+                        supervised_clustering_metric_names
+                
+                for clustering_metric_name in clustering_metric_names:
+                    
+                    # Clean up method and likelihood names
+                    
+                    methods = set()
+                    likelihoods = set()
+                    
+                    for method in method_likelihood_metrics:
+                        methods.add(method)
+                        for likelihood in method_likelihood_metrics[method]:
+                            likelihoods.add(likelihood)
+                    
+                    method_replacements = \
+                        replacementsForCleanedUpSpecifications(
+                            methods,
+                            detail_separator = r"\((.+)\)", 
+                            specification_separator = "-"
+                        )
+                    
+                    likelihood_replacements = \
+                        replacementsForCleanedUpSpecifications(
+                            likelihoods,
+                            detail_separator = r"\((.+)\)", 
+                            specification_separator = "-"
+                        )
+                    
+                    # Rearrange data
+                    
+                    metrics_sets = []
+                    methods = set()
+                    likelihoods = set()
+                    
+                    for method, likelihood_metrics in \
+                        method_likelihood_metrics.items():
+                        
+                        method = method_replacements[method]
+                        methods.add(method)
+                        
+                        for likelihood, metrics in likelihood_metrics.items():
+                            
+                            likelihood = likelihood_replacements[likelihood]
+                            likelihoods.add(likelihood)
+                            
+                            metrics_set = copy.deepcopy(metrics)
+                            metrics_set["method"] = method
+                            metrics_set["likelihood"] = likelihood
+                            
+                            metrics_sets.append(metrics_set)
+                    
+                    # Determine order for methods and likelihoods
+                    
+                    likelihood_order = sorted(
+                        likelihoods,
+                        key = createSpecificationsSorter(
+                            order = LIKELIHOOD_DISRIBUTION_ORDER,
+                            detail_separator = r"\((.+)\)", 
+                            specification_separator = "-"
+                        )
+                    )
+                    
+                    method_order = sorted(
+                        methods,
+                        key = createSpecificationsSorter(
+                            order = MODEL_TYPE_ORDER,
+                            detail_separator = r"\((.+)\)", 
+                            specification_separator = "-"
+                        )
+                    )
+                    
+                    # Figure
+                    
+                    clustering_metric_symbol = CLUSTERING_METRICS[
+                        clustering_metric_name
+                    ]["symbol"]
+                    
+                    figure, figure_name = plotModelMetrics(
+                        metrics_sets,
+                        x_key = optimised_metric_name,
+                        y_key = clustering_metric_name,
+                        primary_differentiator_key = "likelihood",
+                        primary_differentiator_order =
+                            likelihood_order,
+                        secondary_differentiator_key = "method",
+                        secondary_differentiator_order = method_order,
+                        x_label = optimised_metric_symbol,
+                        y_label = clustering_metric_symbol,
+                        name = [
+                            data_set_name.replace(os.sep, "-"),
+                            set_name,
+                            clustering_metric_name
+                        ]
+                    )
+                    saveFigure(figure, figure_name, export_options,
+                        cross_analysis_directory)
+                    
+            print()
         
         if log_summary:
             
@@ -1280,6 +1582,29 @@ def modelID():
             continue
         yield model_id
 
+def bestVersion(*versions):
+    
+    sorted_versions = sorted(versions, key = versionSortKey)
+    best_version = sorted_versions[-1]
+    
+    return best_version
+    
+def versionSortKey(version):
+    
+    version_type_rankings = {
+        "end of training": 0,
+        "early stopping": 1,
+        "optimal parameters": 2
+    }
+    
+    type = version.get("type", None)
+    ranking = version_type_rankings.get(type, -1)
+    epoch_number = version.get("epoch_number", -1)
+    
+    version_sort_key = [ranking, epoch_number]
+    
+    return version_sort_key
+
 def comparisonTableColumnSorter(name):
     name = str(name)
     
@@ -1307,6 +1632,82 @@ def comparisonTableColumnSorter(name):
     name =  "{:{}d} {}".format(index, index_width, name)
     
     return name
+
+def replacementsForCleanedUpSpecifications(
+        specification_sets = set(),
+        detail_separator = "", 
+        specification_separator = ""
+    ):
+    
+    # Categorise specification variations
+    
+    specification_types = {}
+    
+    for specification_set in specification_sets:
+        specifications = re.split(specification_separator, specification_set)
+        
+        for i, specification in enumerate(specifications):
+            specification_parts = re.split(detail_separator, specification,
+                maxsplit = 1)
+            specification_types.setdefault(i, {})
+            specification_type = specification_parts[0]
+            if len(specification_parts) > 1:
+                specification_details = " ".join(specification_parts[1:])
+            else:
+                specification_details = None
+            specification_types[i].setdefault(specification_type, set())
+            specification_types[i][specification_type].add(
+                specification_details)
+    
+    # Simplify specification variations
+    
+    replacements = {}
+    
+    for specification_set in specification_sets:
+        specifications = re.split(specification_separator, specification_set)
+        
+        replacement_parts = []
+        
+        for i, specification in enumerate(specifications):
+            specification_parts = re.split(detail_separator, specification,
+                maxsplit = 1)
+            specification_type = specification_parts[0]
+            
+            if len(specification_types[i][specification_type]) <= 1:
+                replacement = specification_type
+            else:
+                replacement = specification
+            
+            replacement_parts.append(replacement)
+        
+        replacements[specification_set] = specification_separator.join(
+            replacement_parts)
+    
+    return replacements
+
+def createSpecificationsSorter(order = [], detail_separator = "",
+    specification_separator = ""):
+    
+    def specificationsSorter(specifications):
+        specifications = re.split(specification_separator, specifications)
+        
+        key = []
+        
+        for specification in specifications:
+            specification_parts = re.split(detail_separator, specification,
+                maxsplit = 1)
+            specification_type = specification_parts[0]
+            if specification_type in order:
+                specification_ranking = order.index(specification_type)
+            else:
+                specification_ranking = -1
+            key.append(specification_ranking)
+            if len(specification_parts) > 1:
+                key.extend(specification_parts[1:])
+        
+        return key
+    
+    return specificationsSorter
 
 parser = argparse.ArgumentParser(
     description="Cross-analyse models.",

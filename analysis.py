@@ -945,7 +945,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                         )
                     
                     if evaluation_set.has_predicted_superset_labels:
-                        metric_values["labels, superset"] = metric_function(
+                        metric_values["labels; superset"] = metric_function(
                             evaluation_set.superset_labels,
                             evaluation_set.predicted_superset_labels,
                             evaluation_set.excluded_superset_classes
@@ -966,7 +966,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                     )
                 
                 if evaluation_set.has_predicted_superset_labels:
-                    metric_values["labels, superset"] = metric_function(
+                    metric_values["labels; superset"] = metric_function(
                         evaluation_set.values,
                         evaluation_set.predicted_superset_labels
                     )
@@ -3902,6 +3902,110 @@ def plotCorrelations(correlation_sets, x_key, y_key,
     
     if len(correlation_sets) > 1:
         axis.legend(loc = "best")
+    
+    return figure, figure_name
+
+def plotModelMetrics(
+        metrics_sets,
+        x_key, y_key,
+        x_label = None, y_label = None,
+        primary_differentiator_key = None,
+        primary_differentiator_order = None,
+        secondary_differentiator_key = None,
+        secondary_differentiator_order = None,
+        palette = None,
+        marker_styles = None,
+        name = None
+    ):
+    
+    # Setup
+    
+    figure_name = figureName("model_metrics", name)
+    
+    if not isinstance(metrics_sets, list):
+        metrics_sets = [metrics_sets]
+    
+    if not palette:
+        palette = standard_palette.copy()
+    
+    if not marker_styles:
+        marker_styles = [
+            "x",  # cross
+            "s", # square
+            "D", # diamond
+            "o", # circle
+        ]
+    
+    # Figure
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    seaborn.despine()
+    
+    axis.set_xlabel(x_label)
+    axis.set_ylabel(y_label)
+    
+    colours = {}
+    markers = {}
+    
+    for metrics_set in metrics_sets:
+        
+        x = numpy.array(metrics_set[x_key])
+        x_mean = x.mean()
+        x_sd = x.std()
+        
+        y = numpy.array(metrics_set[y_key])
+        y_mean = y.mean()
+        y_sd = y.std()
+        
+        colour_key = metrics_set[primary_differentiator_key]
+        if colour_key in colours:
+            colour = colours[colour_key]
+        else:
+            try:
+                index = primary_differentiator_order.index(colour_key)
+                colour = palette[index]
+            except (ValueError, IndexError):
+                colour = "black"
+            colours[colour_key] = colour
+            axis.plot(x_mean, y_mean, color = colour, label = colour_key)
+        
+        marker_key = metrics_set[secondary_differentiator_key]
+        if marker_key in markers:
+            marker = markers[marker_key]
+        else:
+            try:
+                index = secondary_differentiator_order.index(marker_key)
+                marker = marker_styles[index]
+            except (ValueError, IndexError):
+                marker = None
+            markers[marker_key] = marker
+            axis.plot(
+                x_mean, y_mean,
+                color = "black", marker = marker, linestyle = "none",
+                label = marker_key
+            )
+        
+        axis.errorbar(
+            x = x_mean,
+            y = y_mean,
+            yerr = y_sd,
+            xerr = x_sd,
+            ecolor = colour,
+            color = colour,
+            marker = marker,
+            markersize = 7
+        )
+    
+    if len(metrics_sets) > 1:
+        order = primary_differentiator_order + secondary_differentiator_order
+        handles, labels = axis.get_legend_handles_labels()
+        labels, handles = zip(*sorted(
+            zip(labels, handles),
+            key = lambda l: order.index(l[0]) if l[0] in order else -1
+        ))
+        axis.legend(handles, labels, loc = "best")
     
     return figure, figure_name
 
