@@ -410,10 +410,10 @@ def main(input_file_or_name, data_directory = "data",
     
     model_parameter_set_names = ["end of epoch"]
     
-    if betterModelExists(model):
+    if betterModelExists(model, run_id = run_id):
         model_parameter_set_names.append("best model")
     
-    if modelStoppedEarly(model):
+    if modelStoppedEarly(model, run_id = run_id):
         model_parameter_set_names.append("early stopping")
     
     print("Model parameter sets: {}.".format(enumerateListOfStrings(
