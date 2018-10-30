@@ -774,8 +774,9 @@ def main(log_directory = None, results_directory = None,
                     else:
                         continue
                     
-                    metrics.setdefault(set_name, {})
-                    metrics[set_name][field_name] = field_value
+                    if field_value:
+                        metrics.setdefault(set_name, {})
+                        metrics[set_name][field_name] = field_value
                 
                 for set_name, set_metrics in metrics.items():
                     set_metrics["ELBO"] = model_fields["ELBO"]
