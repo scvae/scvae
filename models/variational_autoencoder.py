@@ -1586,6 +1586,8 @@ class VariationalAutoencoder(object):
                     learning_curves["validation"]["kl_divergence"]\
                         .append(KL_valid)
                     
+                    evaluating_duration = time() - evaluating_time_start
+                    
                     ### Summaries
                     
                     summary = tf.Summary()
