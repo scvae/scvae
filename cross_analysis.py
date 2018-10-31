@@ -449,6 +449,7 @@ def main(log_directory = None, results_directory = None,
                         previous_version = network_architecture_versions[l][h]
                         best_version = bestVersion(version, previous_version)
                         if version == best_version:
+                            network_architecture_versions[l][h] = version
                             network_architecture_ELBOs[l][h] = ELBO
             
             if network_architecture_ELBOs:
@@ -749,6 +750,9 @@ def main(log_directory = None, results_directory = None,
                 
                 if version != best_version:
                     continue
+                
+                method_likelihood_versions.setdefault(method, {})
+                method_likelihood_versions[method][likelihood] = version
                 
                 # Extract metrics
                 
@@ -1593,14 +1597,17 @@ def bestVersion(*versions):
 def versionSortKey(version):
     
     version_type_rankings = {
-        "end of training": 0,
-        "early stopping": 1,
-        "optimal parameters": 2
+        "EOT": 0, # end of training
+        "ES": 1,  # early stopping
+        "OP": 2   # optimal parameters
     }
     
     type = version.get("type", None)
     ranking = version_type_rankings.get(type, -1)
     epoch_number = version.get("epoch_number", -1)
+    
+    if isinstance(epoch_number, list):
+        epoch_number = statistics.mean(epoch_number)
     
     version_sort_key = [ranking, epoch_number]
     
