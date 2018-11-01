@@ -1101,6 +1101,22 @@ class DataSet(object):
                 self.predicted_superset_label_sorter = \
                     self.superset_label_sorter
     
+    def resetPredictions(self):
+        
+        self.predicted_cluster_ids = None
+        
+        self.predicted_labels = None
+        self.predicted_class_names = None
+        self.number_of_predicted_classes = None
+        self.predicted_class_palette = None
+        self.predicted_label_sorter = None
+        
+        self.predicted_superset_labels = None
+        self.predicted_superset_class_names = None
+        self.number_of_predicted_superset_classes = None
+        self.predicted_superset_class_palette = None
+        self.predicted_superset_label_sorter = None
+    
     def load(self):
         
         sparse_path = self.preprocessedPath()

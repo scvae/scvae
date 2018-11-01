@@ -552,6 +552,11 @@ def main(input_file_or_name, data_directory = "data",
                 export_options = export_options,
                 results_directory = results_directory
             )
+        
+        # Clean up
+        
+        if transformed_evaluation_set.version == "original":
+            transformed_evaluation_set.resetPredictions()
 
 def parseDistribution(distribution):
     distribution = normaliseString(distribution)
