@@ -72,11 +72,14 @@ def main(input_file_or_name, data_directory = "data",
     prediction_method = None,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
+    model_versions = ["all"],
     analyse = True, evaluation_set_name = "test", analyse_data = False,
     analyses = ["default"], analysis_level = "normal", fast_analysis = False,
     export_options = []):
     
     # Setup
+    
+    model_versions = parseModelVersions(model_versions)
     
     ## Analyses
     
@@ -408,13 +411,18 @@ def main(input_file_or_name, data_directory = "data",
     
     ### Model parameter sets
     
-    model_parameter_set_names = ["end of epoch"]
+    model_parameter_set_names = []
     
-    if betterModelExists(model, run_id = run_id):
-        model_parameter_set_names.append("best model")
+    if "end_of_training" in model_versions:
+        model_parameter_set_names.append("end of training")
     
-    if modelStoppedEarly(model, run_id = run_id):
-        model_parameter_set_names.append("early stopping")
+    if "best_model" in model_versions \
+        and betterModelExists(model, run_id = run_id):
+            model_parameter_set_names.append("best model")
+    
+    if "early_stopping" in model_versions \
+        and modelStoppedEarly(model, run_id = run_id):
+            model_parameter_set_names.append("early stopping")
     
     print("Model parameter sets: {}.".format(enumerateListOfStrings(
         model_parameter_set_names)))
@@ -557,6 +565,45 @@ def main(input_file_or_name, data_directory = "data",
         
         if transformed_evaluation_set.version == "original":
             transformed_evaluation_set.resetPredictions()
+
+def parseModelVersions(proposed_versions):
+    
+    version_alias_sets = {
+        "end_of_training": ["eot", "end", "finish", "finished"],
+        "best_model": ["bm", "best", "optimal", "optimal_parameters", "op"],
+        "early_stopping": ["es", "early", "stop", "stopped"]
+    }
+    
+    parsed_versions = []
+    
+    if not isinstance(proposed_versions, list):
+        proposed_versions = [proposed_versions]
+    
+    if proposed_versions == ["all"]:
+        parsed_versions = list(version_alias_sets.keys())
+    
+    else:
+        for proposed_version in proposed_versions:
+            
+            normalised_proposed_version = normaliseString(proposed_version)
+            parsed_version = None
+            
+            for version, version_aliases in version_alias_sets.items():
+                if normalised_proposed_version == version \
+                    or normalised_proposed_version in version_aliases:
+                        parsed_version = version
+                        break
+            
+            if parsed_version:
+                parsed_versions.append(parsed_version)
+            else:
+                raise ValueError(
+                    "`{}` is not a model version.".format(
+                        proposed_version
+                    )
+                )
+    
+    return parsed_versions
 
 def parseDistribution(distribution):
     distribution = normaliseString(distribution)
@@ -968,6 +1015,13 @@ parser.add_argument(
     help = "skip modelling"
 )
 parser.set_defaults(skip_modelling = False)
+parser.add_argument(
+    "--model-versions",
+    type = str,
+    nargs = "+",
+    default = ["all"],
+    help = "model versions to evaluate: end-of-training, best model, early-stopping"
+)
 parser.add_argument(
     "--analyse",
     action = "store_true",
