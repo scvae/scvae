@@ -194,6 +194,9 @@ def main(log_directory = None, results_directory = None,
                     "_".join(search_strings)
                 ))
         
+        if epoch_cut_off:
+            cross_analysis_name_parts.append("e_{}".format(epoch_cut_off))
+        
         if cross_analysis_name_parts:
             cross_analysis_name = "-".join(cross_analysis_name_parts)
         else:
@@ -1774,7 +1777,7 @@ parser.add_argument(
     help = "strings to exclude in prediction methods"
 )
 parser.add_argument(
-    "--epoch-cut-off",
+    "--epoch-cut-off", "-e",
     type = int,
     default = inf
 )
