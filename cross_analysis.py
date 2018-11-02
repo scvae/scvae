@@ -194,7 +194,7 @@ def main(log_directory = None, results_directory = None,
                     "_".join(search_strings)
                 ))
         
-        if epoch_cut_off:
+        if epoch_cut_off and epoch_cut_off != inf:
             cross_analysis_name_parts.append("e_{}".format(epoch_cut_off))
         
         if cross_analysis_name_parts:
@@ -223,11 +223,18 @@ def main(log_directory = None, results_directory = None,
             search_inclusiveness = search_strings_set["inclusiveness"]
             
             if search_strings:
-                explanation_string_parts.append("{} {} with: {}.".format(
+                explanation_string_parts.append("{} {}s with: {}.".format(
                     "Including" if search_inclusiveness else "Excluding",
                     search_kind,
                     ", ".join(search_strings)
                 ))
+        
+        if epoch_cut_off and epoch_cut_off != inf:
+            explanation_string_parts.append(
+                "Excluding models trained for longer than {} epochs".format(
+                    epoch_cut_off
+                )
+            )
         
         explanation_string = "\n".join(explanation_string_parts)
         
@@ -1777,7 +1784,7 @@ parser.add_argument(
     help = "strings to exclude in prediction methods"
 )
 parser.add_argument(
-    "--epoch-cut-off", "-e",
+    "--epoch-cut-off", "-e",    
     type = int,
     default = inf
 )
