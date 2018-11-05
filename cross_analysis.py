@@ -122,6 +122,9 @@ LIKELIHOOD_DISRIBUTION_ORDER = [
     "CP"
 ]
 
+FACTOR_ANALYSIS_MODEL_TYPE = "VAE(G, g: LFM)"
+FACTOR_ANALYSIS_MODEL_TYPE_ALIAS = "FA"
+
 def main(log_directory = None, results_directory = None,
     data_set_included_strings = [], 
     data_set_excluded_strings = [], 
@@ -654,19 +657,30 @@ def main(log_directory = None, results_directory = None,
             
             #### Model filter based on the most frequent architecture
             
-            filter_fields = {
-                "sizes": [],
-                "other": []
-            }
+            filter_field_names = ["sizes", "other"]
+            
+            model_filter_fields = {}
             
             for model_fields in summary_metrics_sets.values():
-                for filter_name, filter_values in filter_fields.items():
-                    field_value = model_fields.get(filter_name, None)
-                    if field_value:
-                        filter_values.append(field_value)
+                runs = model_fields.get("runs", None)
+                if not runs.isdigit():
+                    continue
+                model_type = model_fields.get("type", None)
+                if model_type:
+                    for filter_name in filter_field_names:
+                        field_value = model_fields.get(filter_name, None)
+                        if field_value:
+                            model_filter_fields.setdefault(model_type, {})
+                            model_filter_fields[model_type].setdefault(
+                                filter_name, []
+                            )
+                            model_filter_fields[model_type][filter_name].append(
+                                field_value)
             
-            for filter_name, filter_values in filter_fields.items():
-                filter_fields[filter_name] = statistics.mode(filter_values)
+            for model_type, filter_fields in model_filter_fields.items():
+                for filter_name, filter_values in filter_fields.items():
+                    model_filter_fields[model_type][filter_name] \
+                        = statistics.mode(filter_values)
             
             #### Metric names
             
@@ -693,15 +707,28 @@ def main(log_directory = None, results_directory = None,
             
             for model_title, model_fields in summary_metrics_sets.items():
                 
+                model_type = model_fields.get("type", None)
+                
+                if not model_type:
+                    print("No model type for model: {}".format(model_title))
+                    continue
+                
                 # Filter models
                 
                 discard_model = False
                 
-                for filter_name, filter_value in filter_fields.items():
-                    field_value = model_fields.get(filter_name, None)
-                    if field_value != filter_value:
-                        discard_model = True
-                        break
+                if model_type in model_filter_fields:
+                    
+                    filter_fields = model_filter_fields[model_type]
+                    
+                    for filter_name, filter_value in filter_fields.items():
+                        field_value = model_fields.get(filter_name, None)
+                        if field_value != filter_value:
+                            discard_model = True
+                            break
+                
+                else:
+                    discard_model = True
                 
                 runs = model_fields["runs"]
                 
@@ -713,14 +740,13 @@ def main(log_directory = None, results_directory = None,
                 
                 # Extract method
                 
-                model_type = model_fields.get("type", None)
+                if model_type == FACTOR_ANALYSIS_MODEL_TYPE:
+                    model_type = FACTOR_ANALYSIS_MODEL_TYPE_ALIAS
+                
+                method_parts = [model_type]
+                
                 clustering_method = model_fields.get(
                     "clustering method", None)
-                
-                method_parts = []
-                
-                if model_type:
-                    method_parts.append(model_type)
                 
                 if clustering_method \
                     and clustering_method not in ["M", "---"]:
