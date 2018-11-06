@@ -914,6 +914,19 @@ def main(log_directory = None, results_directory = None,
                         )
                     )
                     
+                    # Special cases
+                    
+                    special_cases = {}
+                    
+                    for method in method_order:
+                        for other_method in method_order:
+                            if other_method == method:
+                                continue
+                            elif other_method.startswith(method):
+                                special_cases[method] = {
+                                    "errorbar_colour": "darken"
+                                }
+                    
                     # Figure
                     
                     clustering_metric_symbol = CLUSTERING_METRICS[
@@ -929,6 +942,7 @@ def main(log_directory = None, results_directory = None,
                             likelihood_order,
                         secondary_differentiator_key = "method",
                         secondary_differentiator_order = method_order,
+                        special_cases = special_cases,
                         x_label = optimised_metric_symbol,
                         y_label = clustering_metric_symbol,
                         name = [

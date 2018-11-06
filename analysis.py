@@ -71,7 +71,10 @@ reset_plot_look = lambda: seaborn.set(
     style = "ticks",
     palette = standard_palette,
     color_codes = False,
-    rc = {"lines.markersize": 3}
+    rc = {
+        "lines.markersize": 3,
+        "figure.dpi": 200
+    }
 )
 reset_plot_look()
 
@@ -3913,6 +3916,7 @@ def plotModelMetrics(
         primary_differentiator_order = None,
         secondary_differentiator_key = None,
         secondary_differentiator_order = None,
+        special_cases = None,
         palette = None,
         marker_styles = None,
         name = None
@@ -3930,10 +3934,12 @@ def plotModelMetrics(
     
     if not marker_styles:
         marker_styles = [
-            "x",  # cross
+            "X", # cross
             "s", # square
             "D", # diamond
             "o", # circle
+            "+", # plus
+            "*", # star
         ]
     
     # Figure
@@ -3987,14 +3993,30 @@ def plotModelMetrics(
                 label = marker_key
             )
         
+        errorbar_colour = colour
+        darker_colour = seaborn.dark_palette(colour, n_colors = 4)[2]
+        
+        special_case_changes = special_cases.get(colour_key, {})
+        special_case_changes.update(
+            special_cases.get(marker_key, {})
+        )
+        
+        for object_name, object_change in special_case_changes.items():
+            
+            if object_name == "errorbar_colour":
+                if object_change == "darken":
+                    errorbar_colour = darker_colour
+        
         axis.errorbar(
             x = x_mean,
             y = y_mean,
             yerr = y_sd,
             xerr = x_sd,
-            ecolor = colour,
+            ecolor = errorbar_colour,
+            capsize = 2,
             color = colour,
             marker = marker,
+            markeredgecolor = darker_colour,
             markersize = 7
         )
     
