@@ -1612,23 +1612,20 @@ class SparseRowMatrix(scipy.sparse.csr_matrix):
         return self_mean
     
     def std(self, axis = None, ddof = 0):
-        return numpy.sqrt(self.var(axis))
+        return numpy.sqrt(self.var(axis = axis, ddof = ddof))
     
     def var(self, axis = None, ddof = 0):
         
-        self_squared = self.power(2)
-        self_squared_mean = self_squared.mean(axis)
-        self_squared = None
-        
-        self_mean_squared = numpy.square(self.mean(axis))
+        self_squared_mean = self.power(2).mean(axis)
+        self_mean_squared = numpy.power(self.mean(axis), 2)
         
         var = self_squared_mean - self_mean_squared
         
-        if ddof == 0:
-            return var
-        elif ddof > 0:
+        if ddof > 0:
             N = numpy.prod(self.shape)
-            return var * N / (N - ddof)
+            var = var * N / (N - ddof)
+        
+        return var
 
 def parseInput(input_file_or_name):
     
