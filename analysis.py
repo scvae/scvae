@@ -21,16 +21,14 @@ from numpy import nan
 
 import scipy.sparse
 
-from sklearn.decomposition import PCA, FastICA, TruncatedSVD
-from sklearn.manifold import TSNE
-from miscellaneous.incremental_pca import IncrementalPCA
+from miscellaneous.decomposition import decompose, DECOMPOSITION_METHOD_NAMES
+
 import sklearn.metrics.cluster
 
 from matplotlib import pyplot
 import matplotlib.patches
 import matplotlib.lines
 import matplotlib.gridspec
-from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
 from matplotlib.ticker import LogFormatterSciNotation
 
 import seaborn
@@ -94,8 +92,6 @@ publication_copies = {
         "figure_width": 8.6 / 2.54
     }
 }
-
-maximum_feature_size_for_analyses = 2000
 
 maximum_number_of_bins_for_histograms = 20000
 
@@ -664,7 +660,7 @@ def analyseIntermediateResults(learning_curves = None, epoch_start = None,
                 latent_values,
                 centroids = centroids,
                 method = "PCA",
-                components = 2
+                number_of_components = 2
             )
 
             decompose_duration = time() - decompose_time_start
@@ -1333,23 +1329,24 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             results_directory = results_directory,
         )
         
-        ## Reconstructions plotted in original decomposed space
-        
-        analyseDecompositions(
-            evaluation_set,
-            reconstructed_evaluation_set,
-            colouring_data_set = evaluation_set,
-            decomposition_methods = decomposition_methods,
-            highlight_feature_indices = highlight_feature_indices,
-            prediction_method = prediction_method,
-            number_of_classes = number_of_classes,
-            symbol = "x",
-            pca_limits = evaluation_set.pca_limits,
-            title = "original space",
-            analysis_level = analysis_level,
-            export_options = export_options,
-            results_directory = results_directory,
-        )
+        if analysis_level == "extensive":
+            
+            ## Reconstructions plotted in original decomposed space
+            analyseDecompositions(
+                evaluation_set,
+                reconstructed_evaluation_set,
+                colouring_data_set = evaluation_set,
+                decomposition_methods = decomposition_methods,
+                highlight_feature_indices = highlight_feature_indices,
+                prediction_method = prediction_method,
+                number_of_classes = number_of_classes,
+                symbol = "x",
+                pca_limits = evaluation_set.pca_limits,
+                title = "original space",
+                analysis_level = analysis_level,
+                export_options = export_options,
+                results_directory = results_directory,
+            )
     
     # Heat maps
     
@@ -1861,7 +1858,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     continue
             else:    
                 decomposition_method = properString(decomposition_method,
-                    decomposition_method_names)
+                    DECOMPOSITION_METHOD_NAMES)
                 
                 values_decomposed = data_set.values
                 other_values_decomposed = other_values
@@ -1900,7 +1897,8 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                                 other_value_sets = other_values_decomposed,
                                 centroids = centroids_decomposed,
                                 method = "pca",
-                                components = number_of_pca_components_before_tsne
+                                number_of_components = 
+                                    number_of_pca_components_before_tsne
                             )
                         
                         decompose_duration = time() - decompose_time_start
@@ -1925,7 +1923,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         other_value_sets = other_values_decomposed,
                         centroids = centroids_decomposed,
                         method = decomposition_method,
-                        components = 2
+                        number_of_components = 2
                     )
                 
                 decompose_duration = time() - decompose_time_start
@@ -2629,104 +2627,6 @@ def formatCountAccuracies(count_accuracies):
     table = "\n".join(table_rows)
     
     return table
-
-decomposition_method_names = {
-    "PCA": ["pca"],
-    "SVD": ["svd"],
-    "ICA": ["ica"],
-    "t-SNE": ["t_sne", "tsne"], 
-}
-
-def decompose(values, other_value_sets = [], centroids = {}, method = "PCA",
-    components = 2, random = False):
-    
-    method = normaliseString(method)
-    
-    if other_value_sets is not None \
-        and not isinstance(other_value_sets, (list, tuple)):
-        other_value_sets = [other_value_sets]
-    
-    if random:
-        random_state = None
-    else:
-        random_state = 42
-    
-    if method == "pca":
-        if values.shape[1] <= maximum_feature_size_for_analyses \
-            and not scipy.sparse.issparse(values):
-            model = PCA(n_components = components)
-        else:
-            model = IncrementalPCA(n_components = components, batch_size = 100)
-    elif method == "svd":
-        model = TruncatedSVD(n_components = components)
-    elif method == "ica":
-        model = FastICA(n_components = components)
-    elif method == "t_sne":
-        model = TSNE(n_components = components, random_state = random_state)
-    else:
-        raise ValueError("Method `{}` not found.".format(method))
-    
-    values_decomposed = model.fit_transform(values)
-    
-    if other_value_sets and method != "t_sne":
-        other_value_sets_decomposed = []
-        for other_values in other_value_sets:
-            other_value_decomposed = model.transform(other_values)
-            other_value_sets_decomposed.append(other_value_decomposed)
-    else:
-        other_value_sets_decomposed = None
-    
-    if other_value_sets_decomposed and len(other_value_sets_decomposed) == 1:
-        other_value_sets_decomposed = other_value_sets_decomposed[0]
-    
-    # Only supports centroids without data sets as top levels
-    if centroids and method == "pca":
-        if "means" in centroids:
-            centroids = {"unknown": centroids}
-        W = model.components_
-        centroids_decomposed = {}
-        for distribution, distribution_centroids in centroids.items():
-            if distribution_centroids:
-                centroids_distribution_decomposed = {}
-                for parameter, values in distribution_centroids.items():
-                    if parameter == "means":
-                        shape = numpy.array(values.shape)
-                        L = shape[-1]
-                        reshaped_values = values.reshape(-1, L)
-                        decomposed_values = model.transform(reshaped_values)
-                        shape[-1] = components
-                        new_values = decomposed_values.reshape(shape)
-                    elif parameter == "covariance_matrices":
-                        shape = numpy.array(values.shape)
-                        L = shape[-1]
-                        reshaped_values = values.reshape(-1, L, L)
-                        B = reshaped_values.shape[0]
-                        decomposed_values = numpy.empty((B, 2, 2))
-                        for i in range(B):
-                            decomposed_values[i] = W @ reshaped_values[i] @ W.T
-                        shape[-2:] = components
-                        new_values = decomposed_values.reshape(shape)
-                    else:
-                        new_values = values
-                    centroids_distribution_decomposed[parameter] = new_values
-                centroids_decomposed[distribution] = \
-                    centroids_distribution_decomposed
-            else:
-                centroids_decomposed[distribution] = None
-        if "unknown" in centroids_decomposed:
-            centroids_decomposed = centroids_decomposed["unknown"]
-    else:
-        centroids_decomposed = None
-    
-    if other_value_sets != [] and centroids != {}:
-        return values_decomposed, other_value_sets_decomposed, \
-            centroids_decomposed
-    elif other_value_sets != []:
-        return values_decomposed, other_value_sets_decomposed
-    elif centroids != {}:
-        return values_decomposed, centroids_decomposed
-    else:
-        return values_decomposed
 
 def plotClassHistogram(labels, class_names = None, class_palette = None,
     normed = False, scale = "linear", label_sorter = None, name = None):
