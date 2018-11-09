@@ -28,11 +28,14 @@ from models import (
 
 from distributions import distributions, latent_distributions
 
-from miscellaneous.prediction import predict
+from miscellaneous.decomposition import (
+    DECOMPOSITION_METHOD_NAMES, DEFAULT_DECOMPOSITION_DIMENSIONALITY
+)
+from miscellaneous.prediction import predict, PREDICTION_METHOD_NAMES
 
 from auxiliary import (
     title, subtitle, heading,
-    normaliseString, enumerateListOfStrings,
+    normaliseString, properString, enumerateListOfStrings,
     checkRunID,
     betterModelExists, modelStoppedEarly,
     removeEmptyDirectories
@@ -69,7 +72,9 @@ def main(input_file_or_name, data_directory = "data",
     number_of_epochs = 200, plotting_interval_during_training = None, 
     batch_size = 100, learning_rate = 1e-4,
     run_id = None, new_run = False,
-    prediction_method = None,
+    prediction_method = None, prediction_training_set_name = "training",
+    prediction_decomposition_method = None,
+    prediction_decomposition_dimensionality = None,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
     model_versions = ["all"],
@@ -135,8 +140,9 @@ def main(input_file_or_name, data_directory = "data",
     
     ## Data sets
     
-    if not split_data_set or evaluation_set_name == "full" or analyse_data:
-        full_data_set_needed = True
+    if not split_data_set or analyse_data or evaluation_set_name == "full" \
+        or prediction_training_set_name == "full":
+            full_data_set_needed = True
     else:
         full_data_set_needed = False
     
@@ -169,6 +175,7 @@ def main(input_file_or_name, data_directory = "data",
         test_set = data_set
         all_data_sets = [data_set]
         evaluation_set_name = "full"
+        prediction_training_set_name = "full"
     
     ## Setup of log and results directories
     
@@ -395,6 +402,9 @@ def main(input_file_or_name, data_directory = "data",
     for data_subset in all_data_sets:
         if data_subset.kind == evaluation_set_name:
             evaluation_set = data_subset
+        elif prediction_method \
+            and data_subset.kind == prediction_training_set_name:
+                prediction_training_set = data_subset
         elif not (prediction_method != "model"
                   and data_subset.kind == "training"):
             data_subset.clear()
@@ -406,8 +416,65 @@ def main(input_file_or_name, data_directory = "data",
     ### Prediction method
     
     if prediction_method:
-        print("Prediction method: {} with {} clusters.".format(
+        
+        prediction_method = properString(
+            prediction_method,
+            PREDICTION_METHOD_NAMES
+        )
+        
+        prediction_details = {
+            "method": prediction_method,
+            "number_of_classes": number_of_classes,
+            "training_set_name": prediction_training_set.kind
+        }
+        
+        print("Prediction method: {} with {} classes.".format(
             prediction_method, number_of_classes))
+        print("Prediction training set: {} set.".format(
+            prediction_training_set.kind))
+        
+        prediction_id_parts = []
+        
+        if prediction_decomposition_method:
+            
+            prediction_decomposition_method = properString(
+                prediction_decomposition_method,
+                DECOMPOSITION_METHOD_NAMES
+            )
+            
+            if not prediction_decomposition_dimensionality:
+                prediction_decomposition_dimensionality \
+                    = DEFAULT_DECOMPOSITION_DIMENSIONALITY
+            
+            prediction_id_parts += [
+                prediction_decomposition_method,
+                prediction_decomposition_dimensionality
+            ]
+            
+            prediction_details.update({
+                "decomposition_method": prediction_decomposition_method,
+                "decomposition_dimensionality":
+                    prediction_decomposition_dimensionality
+            })
+            
+            print("Decomposition method before prediction: {}-d {}.".format(
+                prediction_decomposition_dimensionality,
+                prediction_decomposition_method
+            ))
+        
+        prediction_id_parts.append(prediction_method)
+        
+        if number_of_classes:
+            prediction_id_parts.append(number_of_classes)
+        
+        if prediction_training_set.kind != "training":
+            prediction_id_parts.append(prediction_training_set.kind)
+        
+        prediction_id = "_".join(map(
+            lambda s: normaliseString(str(s)).replace("_", ""),
+            prediction_id_parts
+        ))
+        prediction_details["id"] = prediction_id
     
     ### Model parameter sets
     
@@ -498,8 +565,8 @@ def main(input_file_or_name, data_directory = "data",
             
             print(heading("{} prediction".format(model_parameter_set_name)))
             
-            latent_training_sets = model.evaluate(
-                evaluation_set = training_set,
+            latent_prediction_training_sets = model.evaluate(
+                evaluation_set = prediction_training_set,
                 batch_size = batch_size,
                 run_id = run_id,
                 use_best_model = use_best_model,
@@ -507,15 +574,37 @@ def main(input_file_or_name, data_directory = "data",
                 output_versions = "latent",
                 log_results = False
             )
+            latent_prediction_training_set \
+                = latent_prediction_training_sets["z"]
+            latent_prediction_evaluation_set = latent_evaluation_sets["z"]
             
             print()
             
-            cluster_ids, predicted_labels, predicted_superset_labels = predict(
-                latent_training_sets["z"],
-                latent_evaluation_sets["z"],
-                prediction_method,
-                number_of_classes
-            )
+            if prediction_decomposition_method:
+                
+                if prediction_decomposition_dimensionality is None:
+                    prediction_decomposition_dimensionality = 2
+                
+                latent_prediction_training_set, \
+                    latent_prediction_evaluation_set \
+                    = data.decomposeDataSubsets(
+                        latent_prediction_training_set,
+                        latent_prediction_evaluation_set,
+                        method = prediction_decomposition_method,
+                        number_of_components = 
+                            prediction_decomposition_dimensionality,
+                        random = True
+                    )
+                
+                print()
+            
+            cluster_ids, predicted_labels, predicted_superset_labels \
+                = predict(
+                    latent_prediction_training_set,
+                    latent_prediction_evaluation_set,
+                    prediction_method,
+                    number_of_classes
+                )
             
             transformed_evaluation_set.updatePredictions(
                 predicted_cluster_ids = cluster_ids,
@@ -552,8 +641,7 @@ def main(input_file_or_name, data_directory = "data",
                 decomposition_methods = decomposition_methods,
                 evaluation_subset_indices = evaluation_subset_indices,
                 highlight_feature_indices = highlight_feature_indices,
-                prediction_method = prediction_method,
-                number_of_classes = number_of_classes,
+                prediction_details = prediction_details,
                 best_model = use_best_model,
                 early_stopping = use_early_stopping_model,
                 analyses = analyses, analysis_level = analysis_level,
@@ -893,7 +981,6 @@ parser.add_argument(
 parser.add_argument(
     "--prior-probabilities-method",
     type = str,
-    nargs = "?",
     default = "uniform",
     help = "method to set prior probabilities"
 )
@@ -985,6 +1072,26 @@ parser.add_argument(
     help = "method for predicting labels"
 )
 parser.add_argument(
+    "--prediction-training-set-name",
+    type = str,
+    default = "training",
+    help = "name of the subset on which to train prediction method: training (default), validation, test, or full"
+)
+parser.add_argument(
+    "--prediction-decomposition-method",
+    type = str,
+    nargs = "?",
+    default = None,
+    help = "method for decomposing values before predicting labels"
+)
+parser.add_argument(
+    "--prediction-decomposition-dimensionality",
+    type = int,
+    nargs = "?",
+    default = None,
+    help = "dimensionality of decomposition of values before predicting labels"
+)
+parser.add_argument(
     "--decomposition-methods",
     type = str,
     nargs = "*",
@@ -1037,9 +1144,8 @@ parser.set_defaults(analyse = True)
 parser.add_argument(
     "--evaluation-set-name",
     type = str,
-    nargs = "?",
     default = "test",
-    help = "name of the subset to evaluate and analyse: training, validation, or test (default)"
+    help = "name of the subset to evaluate and analyse: training, validation, test (default), or full"
 )
 parser.add_argument(
     "--analyse-data",

@@ -44,8 +44,15 @@ from time import time
 
 from auxiliary import (
     formatDuration,
-    normaliseString, properString, isfloat,
+    normaliseString, properString, enumerateListOfStrings,
+    isfloat,
     downloadFile, copyFile
+)
+
+from miscellaneous.decomposition import (
+    decompose,
+    DECOMPOSITION_METHOD_NAMES,
+    DECOMPOSITION_METHOD_LABEL
 )
 
 preprocess_suffix = "preprocessed"
@@ -53,6 +60,8 @@ original_suffix = "original"
 preprocessed_extension = ".sparse.h5"
 
 maximum_duration_before_saving = 30 # seconds
+
+subset_kinds = ["full", "training", "validation", "test"]
 
 data_sets = {
     "Macosko-MRC": {
@@ -1544,6 +1553,14 @@ class DataSet(object):
         
         return training_set, validation_set, test_set
     
+    def indicesForExampleNames(self, example_names):
+        indices = []
+        for example_name in example_names:
+            index = (self.example_names == example_name).nonzero()[0][0]
+            indices.append(index)
+        indices = numpy.array(indices)
+        return indices
+    
     def applyIndices(self, indices):
         filter_indices = numpy.arange(self.number_of_examples)
         filter_indices = filter_indices[indices]
@@ -2549,6 +2566,173 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
     print("Data set split ({}).".format(formatDuration(duration)))
     
     return split_data_dictionary
+
+def decomposeDataSubsets(*subsets, method=None, number_of_components=None,
+                      random=False):
+    
+    # Check input
+    
+    titles = set()
+    versions = set()
+    kinds = {}
+    
+    for subset in subsets:
+        titles.add(subset.title)
+        versions.add(subset.version)
+        kinds.setdefault(subset.kind, [])
+        kinds[subset.kind].append(subset)
+    
+    if len(titles) > 1:
+        raise ValueError(
+            "Data subsets are not from the same data set. " +
+            "Subsets provided are from: " +
+            ", ".join(titles) + "."
+        )
+    
+    if len(versions) > 1:
+        raise ValueError(
+            "Data subsets does not have the same version. " +
+            "Subsets provided are: " +
+            ", ".join(versions) + "."
+        )
+    
+    for kind, kind_subsets in kinds.items():
+        
+        if kind not in subset_kinds:
+            raise ValueError(
+                "Subset of unknown kind provided: {}".format(kind)
+            )
+        
+        if len(kind_subsets) > 1:
+            
+            kind_subset = kind_subsets.pop()
+            kind_values = kind_subset.values
+            
+            for other_kind_subset in kind_subsets:
+                other_kind_values = other_kind_subset.values
+                if any(other_kind_values != kind_values):
+                    raise ValueError(
+                        "Multiple {} subsets represented with ".format(kind) +
+                        "different values."
+                    )
+    
+    version = versions.pop()
+    
+    # Setup
+    
+    if method is None:
+        method = "pca"
+    else:
+        method = normaliseString(method)
+    
+    method = properString(method, DECOMPOSITION_METHOD_NAMES)
+    unique_subset_names = set(s.kind for s in subsets)
+    
+    print(
+        "Decomposing {} values for {} set{} using {}-d {}.".format(
+            version,
+            enumerateListOfStrings(list(unique_subset_names))
+                if "full" not in unique_subset_names
+                else "full",
+            "s" if len(unique_subset_names) > 1
+                and "full" not in unique_subset_names
+                else "",
+            number_of_components,
+            method
+        )
+    )
+    time_start = time()
+    
+    # Extract values
+    
+    full_set = None
+    unique_subsets = []
+    
+    for subset in subsets:
+        if not full_set and subset.kind == "full":
+            full_set = subset
+        else:
+            unique_subsets.append(subset)
+    
+    if full_set:
+        values = full_set.values.copy()
+        
+        kind_indices = {}
+        
+        for subset in unique_subsets:
+            subset_indices = full_set.indicesForExampleNames(
+                subset.example_names)
+            kind_indices[subset.kind] = subset_indices
+            values[subset_indices] = subset.values
+        
+    else:
+        values = numpy.vstack([s.values for s in unique_subsets])
+    
+    # Decompose values
+    
+    decomposed_values = decompose(
+        values=values,
+        method=method,
+        number_of_components=number_of_components,
+        random=random
+    )
+    
+    # Package results
+    
+    decomposed_value_sets = {}
+    
+    if full_set:
+        decomposed_value_sets["full"] = decomposed_values
+    
+        for subset in unique_subsets:
+            subset_indices = kind_indices[subset.kind]
+            decomposed_value_sets[subset.kind] \
+                = decomposed_values[subset_indices]
+    
+    else:
+        cursor = 0
+        
+        for subset in unique_subsets:
+            M = len(subset.values)
+            subset_indices = numpy.arange(M) + cursor
+            decomposed_value_sets[subset.kind] \
+                = decomposed_values[subset_indices]
+            cursor += M
+    
+    decomposition_label = DECOMPOSITION_METHOD_LABEL[method]
+    feature_names = numpy.array([
+        "{}{}".format(decomposition_label, j + 1)
+        for j in range(number_of_components)
+    ])
+    
+    decomposed_subsets = []
+    
+    for subset in subsets:
+        decomposed_subset = DataSet(
+            subset.name,
+            values = decomposed_value_sets[subset.kind],
+            preprocessed_values = None,
+            binarised_values = None,
+            labels = subset.labels,
+            example_names = subset.example_names,
+            feature_names = feature_names,
+            features_mapped = subset.features_mapped,
+            class_names = subset.class_names,
+            feature_selection = subset.feature_selection,
+            example_filter = subset.example_filter,
+            preprocessing_methods = method,
+            noisy_preprocessing_methods = None,
+            kind = subset.kind
+        )
+        decomposed_subsets.append(decomposed_subset)
+    
+    if len(subsets) == 1:
+        decomposed_subsets = decomposed_subsets.pop()
+    
+    duration = time() - time_start
+    print("Values decomposed ({}).".format(formatDuration(duration)))
+    
+    return decomposed_subsets
 
 def loadDataDictionary(path):
     

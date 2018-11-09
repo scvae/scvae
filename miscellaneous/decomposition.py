@@ -3,33 +3,61 @@ import scipy
 from sklearn.decomposition import PCA, FastICA, TruncatedSVD
 from sklearn.manifold import TSNE
 
-from auxiliary import normaliseString
+from auxiliary import normaliseString, properString
 from miscellaneous.incremental_pca import IncrementalPCA
-
-MAXIMUM_FEATURE_SIZE_FOR_NORMAL_PCA = 2000
 
 DECOMPOSITION_METHOD_NAMES = {
     "PCA": ["pca"],
     "SVD": ["svd"],
     "ICA": ["ica"],
-    "t-SNE": ["t_sne", "tsne"], 
+    "t-SNE": ["t_sne", "tsne"]
 }
 
-def decompose(values, other_value_sets=[], centroids={}, method="PCA",
-              number_of_components=2, random=False):
+DECOMPOSITION_METHOD_LABEL = {
+    "PCA": "PC",
+    "SVD": "SVD",
+    "ICA": "IC",
+    "t-SNE": "tSNE"
+}
+
+DEFAULT_DECOMPOSITION_METHOD = "PCA"
+DEFAULT_DECOMPOSITION_DIMENSIONALITY = 2
+
+MAXIMUM_FEATURE_SIZE_FOR_NORMAL_PCA = 2000
+
+def decompose(values, other_value_sets=[], centroids={}, method=None,
+              number_of_components=None, random=False):
     
-    method = normaliseString(method)
+    # Setup
+    
+    ## Method
+    
+    if method is None:
+        method = DEFAULT_DECOMPOSITION_METHOD
+    
+    method = properString(normaliseString(method), DECOMPOSITION_METHOD_NAMES)
+    
+    ## Number of components
+    
+    if number_of_components is None:
+        number_of_components = DEFAULT_DECOMPOSITION_DIMENSIONALITY
+    
+    ## Other value sets
     
     if other_value_sets is not None \
         and not isinstance(other_value_sets, (list, tuple)):
         other_value_sets = [other_value_sets]
+    
+    ## Randomness
     
     if random:
         random_state = None
     else:
         random_state = 42
     
-    if method == "pca":
+    # Method
+    
+    if method == "PCA":
         if values.shape[1] <= MAXIMUM_FEATURE_SIZE_FOR_NORMAL_PCA \
             and not scipy.sparse.issparse(values):
             model = PCA(n_components=number_of_components)
@@ -38,17 +66,19 @@ def decompose(values, other_value_sets=[], centroids={}, method="PCA",
                 n_components=number_of_components,
                 batch_size=100
             )
-    elif method == "svd":
+    elif method == "SVD":
         model = TruncatedSVD(n_components=number_of_components)
-    elif method == "ica":
+    elif method == "ICA":
         model = FastICA(n_components=number_of_components)
-    elif method == "t_sne":
+    elif method == "t-SNE":
         model = TSNE(
             n_components=number_of_components,
             random_state=random_state
         )
     else:
         raise ValueError("Method `{}` not found.".format(method))
+    
+    # Fit and transform
     
     values_decomposed = model.fit_transform(values)
     

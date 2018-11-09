@@ -21,7 +21,11 @@ from numpy import nan
 
 import scipy.sparse
 
-from miscellaneous.decomposition import decompose, DECOMPOSITION_METHOD_NAMES
+from miscellaneous.decomposition import (
+    decompose,
+    DECOMPOSITION_METHOD_NAMES,
+    DECOMPOSITION_METHOD_LABEL
+)
 
 import sklearn.metrics.cluster
 
@@ -54,7 +58,7 @@ from auxiliary import (
     formatTime, formatDuration,
     normaliseString, properString, capitaliseString, subheading
 )
-from miscellaneous.prediction import prediction_method_names
+from miscellaneous.prediction import PREDICTION_METHOD_NAMES
 import warnings
 
 standard_palette = seaborn.color_palette('Set2', 8)
@@ -739,8 +743,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     latent_evaluation_sets, model, run_id = None,
     decomposition_methods = ["PCA"], evaluation_subset_indices = set(),
     highlight_feature_indices = [],
-    prediction_method = None,
-    number_of_classes = None,
+    prediction_details = None,
     early_stopping = False, best_model = False,
     analyses = ["default"], analysis_level = "normal",
     export_options = [], results_directory = "results"):
@@ -1038,12 +1041,10 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             }
             pickle.dump(metrics_dictionary, metrics_file)
         
-        if prediction_method:
+        if prediction_details:
             
             prediction_log_filename = "{}-prediction-{}".format(
-                evaluation_set.kind, prediction_method)
-            if number_of_classes:
-                prediction_log_filename += "_{}".format(number_of_classes)
+                evaluation_set.kind, prediction_details["id"])
             prediction_log_path = os.path.join(results_directory,
                 prediction_log_filename + ".log")
             prediction_dictionary_path = os.path.join(results_directory,
@@ -1054,13 +1055,30 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                     metrics_saving_time_start)),
                 "Number of epochs trained: {}".format(
                     number_of_epochs_trained),
-                "Prediction method: {}".format(properString(
-                    prediction_method, prediction_method_names))
+                "Prediction method: {}".format(prediction_details["method"])
             ]
             
-            if number_of_classes:
+            if prediction_details["number_of_classes"]:
                 prediction_string_parts.append(
-                    "Number of classes: {}".format(number_of_classes))
+                    "Number of classes: {}".format(
+                        prediction_details["number_of_classes"]
+                    )
+                )
+            
+            if prediction_details["training_set_name"]:
+                prediction_string_parts.append(
+                    "Training set: {}".format(
+                        prediction_details["training_set_name"]
+                    )
+                )
+            
+            if prediction_details["decomposition_method"]:
+                prediction_string_parts.append(
+                    "Decomposition method: {}-d {}".format(
+                        prediction_details["decomposition_dimensionality"],
+                        prediction_details["decomposition_method"]
+                    )
+                )
             
             clustering_metrics_title_printed = False
             
@@ -1095,9 +1113,12 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             prediction_dictionary = {
                 "timestamp": metrics_saving_time_start,
                 "number of epochs trained": number_of_epochs_trained,
-                "prediction method": properString(
-                    prediction_method, prediction_method_names),
-                "number of classes": number_of_classes,
+                "prediction method": prediction_details["method"],
+                "number of classes": prediction_details["number_of_classes"],
+                "training set": prediction_details["training_set_name"],
+                "decomposition method": prediction_details["decomposition_method"],
+                "decomposition dimensionality":
+                    prediction_details["decomposition_dimensionality"],
                 "clustering metric values": clustering_metric_values
             }
             
@@ -1319,8 +1340,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             colouring_data_set = evaluation_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
-            prediction_method = prediction_method,
-            number_of_classes = number_of_classes,
+            prediction_details = prediction_details,
             symbol = "\\tilde{{x}}",
             pca_limits = evaluation_set.pca_limits,
             title = "reconstruction space",
@@ -1338,8 +1358,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 colouring_data_set = evaluation_set,
                 decomposition_methods = decomposition_methods,
                 highlight_feature_indices = highlight_feature_indices,
-                prediction_method = prediction_method,
-                number_of_classes = number_of_classes,
+                prediction_details = prediction_details,
                 symbol = "x",
                 pca_limits = evaluation_set.pca_limits,
                 title = "original space",
@@ -1457,8 +1476,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             colouring_data_set = evaluation_set,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
-            prediction_method = prediction_method,
-            number_of_classes = number_of_classes,
+            prediction_details = prediction_details,
             title = "latent space",
             specifier = lambda data_set: data_set.version,
             analysis_level = analysis_level,
@@ -1779,7 +1797,7 @@ def analyseDistributions(data_set, colouring_data_set = None,
 def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
     highlight_feature_indices = [],
-    prediction_method = None, number_of_classes = None,
+    prediction_details = None,
     symbol = None, pca_limits = None,
     title = "data set", specifier = None,
     analysis_level = "normal", export_options = [],
@@ -2190,8 +2208,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         colouring_data_set = colouring_data_set,
                         centroids = centroids_decomposed,
                         figure_labels = figure_labels,
-                        prediction_method = prediction_method,
-                        number_of_classes = number_of_classes,
+                        prediction_details = prediction_details,
                         axis_limits = axis_limits,
                         example_tag = data_set.tags["example"],
                         name = plot_name,
@@ -2217,8 +2234,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         colouring_data_set = colouring_data_set,
                         centroids = centroids_decomposed,
                         figure_labels = figure_labels,
-                        prediction_method = prediction_method,
-                        number_of_classes = number_of_classes,
+                        prediction_details = prediction_details,
                         axis_limits = axis_limits,
                         example_tag = data_set.tags["example"],
                         name = plot_name,
@@ -2244,8 +2260,7 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                         colouring_data_set = colouring_data_set,
                         centroids = centroids_decomposed,
                         figure_labels = figure_labels,
-                        prediction_method = prediction_method,
-                        number_of_classes = number_of_classes,
+                        prediction_details = prediction_details,
                         axis_limits = axis_limits,
                         example_tag = data_set.tags["example"],
                         name = plot_name,
@@ -3933,7 +3948,7 @@ def plotModelMetrics(
 
 def plotValues(values, colour_coding = None, colouring_data_set = None,
     centroids = None, class_name = None, feature_index = None,
-    figure_labels = None, prediction_method = None, number_of_classes = None,
+    figure_labels = None, prediction_details = None,
     axis_limits = None, example_tag = None, name = "scatter"):
     
     # Setup
@@ -3958,10 +3973,8 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         colour_coding = normaliseString(colour_coding)
         figure_name += "-" + colour_coding
         if "predicted" in colour_coding:
-            if prediction_method:
-                figure_name += "-" + prediction_method
-            if number_of_classes:
-                figure_name += "_" + str(number_of_classes)
+            if prediction_details:
+                figure_name += "-" + prediction_details["id"]
         if colouring_data_set is None:
             raise ValueError("Colouring data set not given.")
     
@@ -4502,16 +4515,11 @@ def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
     distribution = None, prefix = "", suffix = ""):
     
     if decomposition_method:
-        decomposition_method = normaliseString(decomposition_method)
-    
-    if decomposition_method == "pca":
-        decomposition_label = "PC"
-    elif decomposition_method == "ica":
-        decomposition_label = "IC"
-    elif decomposition_method == "t_sne":
-        decomposition_label = "tSNE"
-    else:
-        decomposition_label = ""
+        decomposition_method = properString(
+            normaliseString(decomposition_method),
+            DECOMPOSITION_METHOD_NAMES
+        )
+        decomposition_label = DECOMPOSITION_METHOD_LABEL[decomposition_method]
     
     if decomposition_label:
         decomposition_label = "\\mathrm{{{}}}".format(decomposition_label)

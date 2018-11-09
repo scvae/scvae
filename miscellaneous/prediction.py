@@ -24,21 +24,22 @@ from time import time
 
 from auxiliary import properString, formatDuration
 
-prediction_method_names = {
+PREDICTION_METHOD_NAMES = {
     "k-means": ["k_means", "kmeans"],
     "model": ["model"],
     "test": ["test"],
     "copy": ["copy"]
 }
 
-def predict(training_set, evaluation_set, prediction_method = "copy",
+def predict(training_set, evaluation_set, method = "copy",
     number_of_classes = 1):
     
-    prediction_method = properString(prediction_method,
-        prediction_method_names)
+    method = properString(method, PREDICTION_METHOD_NAMES)
     
-    print("Predicting labels for evaluation set using {} on {} training set.".format(
-        prediction_method, training_set.version))
+    print(
+        "Predicting labels for evaluation set using {}".format(method),
+        "on {} prediction training set.".format(training_set.version)
+    )
     prediction_time_start = time()
     
     if evaluation_set.has_labels:
@@ -79,21 +80,14 @@ def predict(training_set, evaluation_set, prediction_method = "copy",
         else:
             excluded_superset_class_ids = []
     
-    if prediction_method == "copy":
+    if method == "copy":
         cluster_ids = None
         predicted_labels = evaluation_set.labels
         predicted_superset_labels = evaluation_set.superset_labels
     
-    elif prediction_method == "test":
-        model = KMeans(n_clusters = number_of_classes, random_state = 0)
-        model.fit(evaluation_set.values)
-        cluster_ids = model.labels_
-        predicted_labels = None
-        predicted_superset_labels = None
-    
-    elif prediction_method == "k-means":
+    elif method == "k-means":
         
-        model = KMeans(n_clusters = number_of_classes, random_state = 0)
+        model = KMeans(n_clusters = number_of_classes, random_state = None)
         model.fit(training_set.values)
         cluster_ids = model.predict(evaluation_set.values)
         
@@ -120,8 +114,7 @@ def predict(training_set, evaluation_set, prediction_method = "copy",
             predicted_superset_labels = None
     
     else:
-        raise ValueError("Prediction method not found: `{}`.".format(
-            prediction_method))
+        raise ValueError("Prediction method not found: `{}`.".format(method))
     
     prediction_duration = time() - prediction_time_start
     print("Labels predicted ({}).".format(
