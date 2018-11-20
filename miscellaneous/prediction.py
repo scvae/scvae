@@ -18,7 +18,7 @@
 
 import numpy
 import scipy.stats
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, MiniBatchKMeans
 
 from time import time
 
@@ -30,6 +30,8 @@ PREDICTION_METHOD_NAMES = {
     "test": ["test"],
     "copy": ["copy"]
 }
+
+MAXIMUM_SAMPLE_SIZE_FOR_NORMAL_KMEANS = 10000
 
 def predict(training_set, evaluation_set, method = "copy",
     number_of_classes = 1):
@@ -87,7 +89,19 @@ def predict(training_set, evaluation_set, method = "copy",
     
     elif method == "k-means":
         
-        model = KMeans(n_clusters = number_of_classes, random_state = None)
+        if training_set.number_of_examples \
+            <= MAXIMUM_SAMPLE_SIZE_FOR_NORMAL_KMEANS:
+                model = KMeans(
+                    n_clusters=number_of_classes,
+                    random_state=None
+                )
+        else:
+            model = MiniBatchKMeans(
+                n_clusters=number_of_classes,
+                random_state=None,
+                batch_size=100
+            )
+        
         model.fit(training_set.values)
         cluster_ids = model.predict(evaluation_set.values)
         
