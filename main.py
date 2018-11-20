@@ -397,19 +397,28 @@ def main(input_file_or_name, data_directory = "data",
     
     print(title(evaluation_title.capitalize()))
     
-    ### Evaluation set
+    ### Set selection
     
     for data_subset in all_data_sets:
+        
+        clear_subset = True
+        
         if data_subset.kind == evaluation_set_name:
             evaluation_set = data_subset
-        elif prediction_method \
+            clear_subset = False
+            
+        if prediction_method \
             and data_subset.kind == prediction_training_set_name:
                 prediction_training_set = data_subset
-        elif not (prediction_method != "model"
-                  and data_subset.kind == "training"):
+                clear_subset = False
+        
+        if clear_subset:
             data_subset.clear()
     
-    evaluation_subset_indices = analysis.evaluationSubsetIndices(evaluation_set)
+    ### Evaluation set
+    
+    evaluation_subset_indices = analysis.evaluationSubsetIndices(
+        evaluation_set)
     
     print("Evaluation set: {} set.".format(evaluation_set.kind))
     
