@@ -476,6 +476,9 @@ def main(input_file_or_name, data_directory = "data",
         ))
         prediction_details["id"] = prediction_id
     
+    else:
+        prediction_details = {}
+    
     ### Model parameter sets
     
     model_parameter_set_names = []
