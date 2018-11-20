@@ -679,8 +679,12 @@ def main(log_directory = None, results_directory = None,
             
             for model_type, filter_fields in model_filter_fields.items():
                 for filter_name, filter_values in filter_fields.items():
-                    model_filter_fields[model_type][filter_name] \
-                        = statistics.mode(filter_values)
+                    try:
+                        mode = statistics.mode(filter_values)
+                    except statistics.StatisticsError as exception:
+                        if "no unique mode" in str(exception):
+                            mode = filter_values[0]
+                    model_filter_fields[model_type][filter_name] = mode
             
             #### Metric names
             
@@ -748,8 +752,10 @@ def main(log_directory = None, results_directory = None,
                 clustering_method = model_fields.get(
                     "clustering method", None)
                 
-                if clustering_method \
-                    and clustering_method not in ["M", "---"]:
+                if clustering_method:
+                    if clustering_method not in ["M", "---"]:
+                        clustering_method = clustering_method\
+                            .replace(", ", "-")
                         method_parts.append(clustering_method)
                 
                 if method_parts:
@@ -1209,14 +1215,45 @@ def parseMetricsForRunsAndVersionsOfModel(
                 
                 for predictions in metrics["predictions"].values():
                     
-                    method = predictions["prediction method"]
-                    number_of_classes = predictions["number of classes"]
+                    prediction_string_parts = []
+                    
+                    decomposition_method = predictions.get(
+                        "decomposition method",
+                        None
+                    )
+                    
+                    if decomposition_method:
+                        decomposition_dimensionality = predictions.get(
+                            "decomposition dimensionality",
+                            None
+                        )
+                        
+                        decomposition_string = "{} ({} components)".format(
+                            decomposition_method,
+                            decomposition_dimensionality
+                        )
+                        
+                        prediction_string_parts.append(decomposition_string)
+                    
+                    method = predictions.get(
+                        "prediction method",
+                        None
+                    )
                     
                     if not method:
                         method = "model"
                     
-                    prediction_string = "{} ({} classes)".format(
+                    number_of_classes = predictions.get(
+                        "number of classes",
+                        None
+                    )
+                    
+                    clustering_string = "{} ({} classes)".format(
                         method, number_of_classes)
+                    
+                    prediction_string_parts.append(clustering_string)
+                    
+                    prediction_string = ", ".join(prediction_string_parts)
                     
                     prediction_match = matchString(
                         prediction_string,
@@ -1618,7 +1655,9 @@ def clusteringMethodTitleFromClusteringMethodName(name):
         },
         {
             r"(\w+) \((\d+) classes\)": r"\1(\2)",
-            "k-means": "kM"
+            r"(\w+) \((\d+) components\)": r"\1(\2)",
+            "k-means": "kM",
+            "t-SNE": "tSNE"
         }
     ]
     

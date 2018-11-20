@@ -3853,7 +3853,9 @@ def plotModelMetrics(
             "s", # square
             "D", # diamond
             "o", # circle
-            "+", # plus
+            "P", # plus
+            "^", # upright triangle
+            "p", # pentagon
             "*", # star
         ]
     
