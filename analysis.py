@@ -4520,6 +4520,8 @@ def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
             DECOMPOSITION_METHOD_NAMES
         )
         decomposition_label = DECOMPOSITION_METHOD_LABEL[decomposition_method]
+    else:
+        decomposition_label = ""
     
     if decomposition_label:
         decomposition_label = "\\mathrm{{{}}}".format(decomposition_label)

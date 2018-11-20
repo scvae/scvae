@@ -71,8 +71,13 @@ def decompose(values, other_value_sets=[], centroids={}, method=None,
     elif method == "ICA":
         model = FastICA(n_components=number_of_components)
     elif method == "t-SNE":
+        if number_of_components < 4:
+            tsne_method = "barnes_hut"
+        else:
+            tsne_method = "exact"
         model = TSNE(
             n_components=number_of_components,
+            method=tsne_method,
             random_state=random_state
         )
     else:
