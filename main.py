@@ -434,7 +434,10 @@ def main(input_file_or_name, data_directory = "data",
         prediction_details = {
             "method": prediction_method,
             "number_of_classes": number_of_classes,
-            "training_set_name": prediction_training_set.kind
+            "training_set_name": prediction_training_set.kind,
+            "decomposition_method": prediction_decomposition_method,
+            "decomposition_dimensionality":
+                prediction_decomposition_dimensionality
         }
         
         print("Prediction method: {} with {} classes.".format(
@@ -593,9 +596,6 @@ def main(input_file_or_name, data_directory = "data",
             print()
             
             if prediction_decomposition_method:
-                
-                if prediction_decomposition_dimensionality is None:
-                    prediction_decomposition_dimensionality = 2
                 
                 latent_prediction_training_set, \
                     latent_prediction_evaluation_set \
