@@ -1639,10 +1639,72 @@ class SparseRowMatrix(scipy.sparse.csr_matrix):
         var = self_squared_mean - self_mean_squared
         
         if ddof > 0:
-            N = numpy.prod(self.shape)
-            var = var * N / (N - ddof)
+            size = numpy.prod(self.shape)
+            var = var * size / (size - ddof)
         
         return var
+
+def standard_deviation(a, axis=None, ddof=0, batch_size=None):
+    if not isinstance(a, numpy.ndarray) or axis is not None \
+        or batch_size is None:
+            return a.std(axis=axis, ddof=ddof)
+    return numpy.sqrt(variance(
+        a=a,
+        axis=axis,
+        ddof=ddof,
+        batch_size=batch_size
+    ))
+
+def variance(a, axis=None, ddof=0, batch_size=None):
+    
+    if not isinstance(a, numpy.ndarray) or axis is not None \
+        or batch_size is None:
+            return a.var(axis=axis, ddof=ddof)
+    
+    number_of_rows = a.shape[0]
+    
+    mean_squared = numpy.power(a.mean(axis=None), 2)
+    
+    squared_sum = 0
+    
+    for i in range(0, number_of_rows, batch_size):
+        squared_sum += numpy.power(a[i:i+batch_size], 2).sum()
+    
+    squared_mean = squared_sum / a.size
+    
+    var = squared_mean - mean_squared
+    
+    if ddof > 0:
+        size = a.size
+        var = var * size / (size - ddof)
+    
+    return var
+
+def sparsity(a, tolerance = 1e-3, batch_size=None):
+
+    def count_nonzero_values(b):
+        return (b >= tolerance).sum()
+
+    if scipy.sparse.issparse(a):
+        size = numpy.prod(a.shape)
+    else:
+        size = a.size
+
+    if batch_size:
+
+        number_of_rows = a.shape[0]
+
+        nonzero_count = 0
+
+        for i in range(0, number_of_rows, batch_size):
+            nonzero_count += count_nonzero_values(a[i:i+batch_size])
+
+    else:
+        nonzero_count = count_nonzero_values(a)
+
+    a_sparsity = 1 - nonzero_count / size
+
+    return a_sparsity
 
 def parseInput(input_file_or_name):
     

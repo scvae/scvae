@@ -41,7 +41,7 @@ from PIL import Image
 
 from pandas import DataFrame
 
-from data import createLabelSorter
+from data import createLabelSorter, standard_deviation, sparsity
 
 import os
 import gzip
@@ -96,6 +96,9 @@ publication_copies = {
         "figure_width": 8.6 / 2.54
     }
 }
+
+maximum_size_for_normal_statistics_computation = 5e8
+maximum_number_of_examples_before_sampling_silhouette_score = 20000
 
 maximum_number_of_bins_for_histograms = 20000
 
@@ -2428,23 +2431,25 @@ def evaluationSubsetIndices(evaluation_set,
     
     return subset
 
-def statistics(data_set, name = "", tolerance = 1e-3, skip_sparsity = False):
+def statistics(x, name = "", tolerance = 1e-3, skip_sparsity = False):
     
-    x_mean = data_set.mean()
-    x_std  = data_set.std(ddof = 1)
-    x_min  = data_set.min()
-    x_max  = data_set.max()
+    batch_size = None
+    
+    if x.size > maximum_size_for_normal_statistics_computation:
+        batch_size = 1000
+    
+    x_mean = x.mean()
+    x_std = standard_deviation(x, ddof=1, batch_size=batch_size)
+    
+    x_min  = x.min()
+    x_max  = x.max()
     
     x_dispersion = x_std**2 / x_mean
     
     if skip_sparsity:
         x_sparsity = nan
     else:
-        if scipy.sparse.issparse(data_set):
-            x_sparsity = 1 - (data_set >= tolerance).sum() \
-                / numpy.prod(data_set.shape)
-        else:
-            x_sparsity = (data_set < tolerance).sum() / data_set.size
+        x_sparsity = sparsity(x, tolerance=tolerance, batch_size=batch_size)
     
     statistics = {
         "name": name,
@@ -2492,7 +2497,23 @@ def adjusted_mutual_information(labels, predicted_labels, excluded_classes = [])
         predicted_labels)
 
 def silhouette_score(values, predicted_labels):
-    return sklearn.metrics.cluster.silhouette_score(values, predicted_labels)
+    
+    sample_size = None
+    
+    number_of_examples = values.shape[0]
+    
+    if number_of_examples \
+        > maximum_number_of_examples_before_sampling_silhouette_score:
+            sample_size \
+                = maximum_number_of_examples_before_sampling_silhouette_score
+    
+    score = sklearn.metrics.silhouette_score(
+        X=values,
+        labels=predicted_labels,
+        sample_size=sample_size
+    )
+    
+    return score
 
 def formatStatistics(statistics_sets, name = "Data set"):
     
