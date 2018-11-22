@@ -1541,11 +1541,11 @@ class DataSet(object):
                 " ({} superset classes)".format(self.number_of_superset_classes)
                     if self.number_of_superset_classes else ""
                 ) +
-            "    Training sets: {} examples.\n".format(
+            "    Training set: {} examples.\n".format(
                 training_set.number_of_examples) +
-            "    Validation sets: {} examples.\n".format(
+            "    Validation set: {} examples.\n".format(
                 validation_set.number_of_examples) +
-            "    Test sets: {} examples.".format(
+            "    Test set: {} examples.".format(
                 test_set.number_of_examples)
         )
         
