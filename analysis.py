@@ -891,90 +891,7 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         ### Clustering metrics
         
-        clustering_metrics = {
-            "adjusted Rand index": {
-                "kind": "supervised",
-                "function": adjusted_rand_index
-            },
-            "adjusted mutual information": {
-                "kind": "supervised",
-                "function": adjusted_mutual_information
-            },
-            "silhouette score": {
-                "kind": "unsupervised",
-                "function": silhouette_score
-            }
-        }
-        
-        clustering_metric_values = {
-            metric: {
-                "clusters": None,
-                "clusters; superset": None,
-                "labels": None,
-                "labels; superset": None
-            }
-            for metric in clustering_metrics
-        }
-        
-        for metric_name, metric_attributes in clustering_metrics.items():
-            
-            metric_values = clustering_metric_values[metric_name]
-            metric_kind = metric_attributes["kind"]
-            metric_function = metric_attributes["function"]
-            
-            if metric_kind == "supervised":
-                
-                if evaluation_set.has_labels:
-                    
-                    if evaluation_set.has_predicted_cluster_ids:
-                        metric_values["clusters"] = metric_function(
-                            evaluation_set.labels,
-                            evaluation_set.predicted_cluster_ids,
-                            evaluation_set.excluded_classes
-                        )
-                    
-                    if evaluation_set.has_predicted_labels:
-                        metric_values["labels"] = metric_function(
-                            evaluation_set.labels,
-                            evaluation_set.predicted_labels,
-                            evaluation_set.excluded_classes
-                        )
-                
-                if evaluation_set.has_superset_labels:
-                    
-                    if evaluation_set.has_predicted_cluster_ids:
-                        metric_values["clusters; superset"] = metric_function(
-                            evaluation_set.superset_labels,
-                            evaluation_set.predicted_cluster_ids,
-                            evaluation_set.excluded_superset_classes
-                        )
-                    
-                    if evaluation_set.has_predicted_superset_labels:
-                        metric_values["labels; superset"] = metric_function(
-                            evaluation_set.superset_labels,
-                            evaluation_set.predicted_superset_labels,
-                            evaluation_set.excluded_superset_classes
-                        )
-            
-            elif metric_kind == "unsupervised":
-                
-                if evaluation_set.has_predicted_cluster_ids:
-                    metric_values["clusters"] = metric_function(
-                        evaluation_set.values,
-                        evaluation_set.predicted_cluster_ids
-                    )
-                
-                if evaluation_set.has_predicted_labels:
-                    metric_values["labels"] = metric_function(
-                        evaluation_set.values,
-                        evaluation_set.predicted_labels
-                    )
-                
-                if evaluation_set.has_predicted_superset_labels:
-                    metric_values["labels; superset"] = metric_function(
-                        evaluation_set.values,
-                        evaluation_set.predicted_superset_labels
-                    )
+        clustering_metric_values = computeClusteringMetrics(evaluation_set)
         
         metrics_duration = time() - metrics_time_start
         print("Metrics calculated ({}).".format(
@@ -2663,6 +2580,96 @@ def formatCountAccuracies(count_accuracies):
     table = "\n".join(table_rows)
     
     return table
+
+clustering_metrics = {
+    "adjusted Rand index": {
+        "kind": "supervised",
+        "function": adjusted_rand_index
+    },
+    "adjusted mutual information": {
+        "kind": "supervised",
+        "function": adjusted_mutual_information
+    },
+    "silhouette score": {
+        "kind": "unsupervised",
+        "function": silhouette_score
+    }
+}
+
+def computeClusteringMetrics(evaluation_set):
+    
+    clustering_metric_values = {
+        metric: {
+            "clusters": None,
+            "clusters; superset": None,
+            "labels": None,
+            "labels; superset": None
+        }
+        for metric in clustering_metrics
+    }
+    
+    for metric_name, metric_attributes in clustering_metrics.items():
+        
+        metric_values = clustering_metric_values[metric_name]
+        metric_kind = metric_attributes["kind"]
+        metric_function = metric_attributes["function"]
+        
+        if metric_kind == "supervised":
+            
+            if evaluation_set.has_labels:
+                
+                if evaluation_set.has_predicted_cluster_ids:
+                    metric_values["clusters"] = metric_function(
+                        evaluation_set.labels,
+                        evaluation_set.predicted_cluster_ids,
+                        evaluation_set.excluded_classes
+                    )
+                
+                if evaluation_set.has_predicted_labels:
+                    metric_values["labels"] = metric_function(
+                        evaluation_set.labels,
+                        evaluation_set.predicted_labels,
+                        evaluation_set.excluded_classes
+                    )
+            
+            if evaluation_set.has_superset_labels:
+                
+                if evaluation_set.has_predicted_cluster_ids:
+                    metric_values["clusters; superset"] = metric_function(
+                        evaluation_set.superset_labels,
+                        evaluation_set.predicted_cluster_ids,
+                        evaluation_set.excluded_superset_classes
+                    )
+                
+                if evaluation_set.has_predicted_superset_labels:
+                    metric_values["labels; superset"] = metric_function(
+                        evaluation_set.superset_labels,
+                        evaluation_set.predicted_superset_labels,
+                        evaluation_set.excluded_superset_classes
+                    )
+        
+        elif metric_kind == "unsupervised":
+            
+            if evaluation_set.has_predicted_cluster_ids:
+                metric_values["clusters"] = metric_function(
+                    evaluation_set.values,
+                    evaluation_set.predicted_cluster_ids
+                )
+            
+            if evaluation_set.has_predicted_labels:
+                metric_values["labels"] = metric_function(
+                    evaluation_set.values,
+                    evaluation_set.predicted_labels
+                )
+            
+            if evaluation_set.has_predicted_superset_labels:
+                metric_values["labels; superset"] = metric_function(
+                    evaluation_set.values,
+                    evaluation_set.predicted_superset_labels
+                )
+    
+    return clustering_metric_values
+
 
 def plotClassHistogram(labels, class_names = None, class_palette = None,
     normed = False, scale = "linear", label_sorter = None, name = None):
