@@ -39,7 +39,8 @@ import argparse
 
 from analysis import (
     formatStatistics, saveFigure,
-    plotCorrelations, plotELBOHeatMap, plotModelMetrics
+    plotCorrelations, plotELBOHeatMap, plotModelMetrics,
+    clustering_metrics
 )
 from auxiliary import (
     formatTime, capitaliseString,
@@ -134,6 +135,7 @@ def main(log_directory = None, results_directory = None,
     prediction_excluded_strings = [],
     epoch_cut_off = inf,
     export_options = [],
+    show_baselines = True,
     log_summary = False):
     
     search_strings_sets = [
@@ -257,9 +259,9 @@ def main(log_directory = None, results_directory = None,
         
         model_IDs = modelID()
         
-        for data_set_name, models in metrics_sets.items():
+        for data_set_path, models in metrics_sets.items():
             
-            data_set_title = dataSetTitleFromDataSetName(data_set_name)
+            data_set_title = dataSetTitleFromDataSetName(data_set_path)
             
             print(title(data_set_title))
             
@@ -393,14 +395,25 @@ def main(log_directory = None, results_directory = None,
                     y_key = "clustering metric",
                     x_label = r"$\mathcal{L}$",
                     y_label = "",
-                    name = data_set_name.replace(os.sep, "-")
+                    name = data_set_path.replace(os.sep, "-")
                 )
                 saveFigure(figure, figure_name, export_options,
                     cross_analysis_directory)
                 print()
-                
             
             # Comparisons
+            
+            if show_baselines:
+                set_baselines = baselinesForDataSet(
+                    data_set_directory = os.path.join(
+                        results_directory,
+                        data_set_path
+                    ),
+                    prediction_included_strings = prediction_included_strings,
+                    prediction_excluded_strings = prediction_excluded_strings
+                )
+            else:
+                set_baselines = None
             
             ## Setup
             
@@ -490,7 +503,7 @@ def main(log_directory = None, results_directory = None,
                         x_label = "Latent dimension",
                         y_label = "Number of hidden units",
                         z_symbol = "\mathcal{L}",
-                        name = data_set_name.replace(os.sep, "-")
+                        name = data_set_path.replace(os.sep, "-")
                     )
                     saveFigure(figure, figure_name, export_options,
                         cross_analysis_directory)
@@ -644,12 +657,46 @@ def main(log_directory = None, results_directory = None,
             print(comparison_table + "\n")
             print(common_comparison_fields_string + "\n")
             
+            if set_baselines:
+                baseline_string_parts = ["Baselines:"]
+                
+                baseline_metric_values = {}
+                for set_name, method_baselines in set_baselines.items():
+                    for method, metric_baselines in method_baselines.items():
+                        for metric_name, baselines in metric_baselines.items():
+                            
+                            set_metric_name = metric_name
+                            
+                            if set_name == "superset":
+                                set_metric_name += " (superset)"
+                            
+                            baseline_metric_values.setdefault(method, {})
+                            baseline_metric_values[method].setdefault(
+                                set_metric_name, baselines
+                            )
+                
+                for method, metric_values in baseline_metric_values.items():
+                    baseline_string_parts.append("    {}:".format(method))
+                    for metric_name, values in metric_values.items():
+                        baseline_string_parts.append(
+                            "        {}: {:.6g}±{:.6g}".format(
+                                metric_name,
+                                statistics.mean(values),
+                                statistics.stdev(values)
+                            )
+                        )
+                
+                baseline_string = "\n".join(baseline_string_parts)
+                print(baseline_string + "\n")
+            
             if log_summary:
                 log_string_parts.append(subtitle("Comparison", plain = True))
                 log_string_parts.append(comparison_table + "\n")
                 log_string_parts.append(
                     common_comparison_fields_string + "\n"
                 )
+                if set_baselines:
+                    log_string_parts.append(baseline_string + "\n")
             
             ## Plot
             
@@ -844,6 +891,11 @@ def main(log_directory = None, results_directory = None,
                 if not method_likelihood_metrics:
                     continue
                 
+                if set_baselines:
+                    baselines = set_baselines.get(set_name, None)
+                else:
+                    baselines = None
+                
                 if set_name == "unsupervised":
                     clustering_metric_names = \
                         unsupervised_clustering_metric_names
@@ -949,10 +1001,11 @@ def main(log_directory = None, results_directory = None,
                         secondary_differentiator_key = "method",
                         secondary_differentiator_order = method_order,
                         special_cases = special_cases,
+                        baselines = baselines,
                         x_label = optimised_metric_symbol,
                         y_label = clustering_metric_symbol,
                         name = [
-                            data_set_name.replace(os.sep, "-"),
+                            data_set_path.replace(os.sep, "-"),
                             set_name,
                             clustering_metric_name
                         ]
@@ -1063,6 +1116,82 @@ def metricsSetsInResultsDirectory(results_directory,
                 metrics_data
     
     return metrics_set
+
+def baselinesForDataSet(data_set_directory,
+                        prediction_included_strings = None,
+                        prediction_excluded_strings = None):
+    
+    baseline_directory = os.path.join(data_set_directory, "baseline")
+    
+    if not os.path.exists(baseline_directory):
+        return None
+    
+    baselines = {}
+    
+    for path, directory_names, filenames in os.walk(baseline_directory):
+        for filename in filenames:
+            if filename.startswith(prediction_basename) \
+                and filename.endswith(zipped_pickle_extension):
+                
+                prediction_match = matchString(
+                    filename,
+                    prediction_included_strings,
+                    prediction_excluded_strings
+                )
+                
+                if not prediction_match:
+                    continue
+                
+                baseline_path = os.path.join(path, filename)
+                
+                with gzip.open(baseline_path, "r") as baseline_file:
+                    baseline = pickle.load(baseline_file)
+                
+                method = baseline.get("prediction method", None)
+                clustering_metric_values = baseline.get(
+                    "clustering metric values", [])
+                
+                for metric_name, metric_set \
+                    in clustering_metric_values.items():
+                    
+                    for metric_set_name, metric_value in metric_set.items():
+                        if metric_value is None:
+                            continue
+                        elif metric_set_name.startswith("clusters"):
+                            
+                            metric_details = clustering_metrics.get(
+                                metric_name, dict())
+                            metric_kind = metric_details.get("kind", None)
+                            
+                            if metric_kind and metric_kind == "supervised":
+                                
+                                set_name = "standard"
+                                
+                                if metric_set_name.endswith("superset"):
+                                    set_name = "superset"
+                            
+                            elif metric_kind \
+                                and metric_kind == "unsupervised":
+                                
+                                set_name = "unsupervised"
+                            
+                            else:
+                                set_name = "unknown"
+                            
+                            baselines.setdefault(set_name, {})
+                            baselines[set_name].setdefault(method, {})
+                            baselines[set_name][method].setdefault(
+                                metric_name, []
+                            )
+                            baselines[set_name][method][metric_name].append(
+                                float(metric_value)
+                            )
+                    
+                    metric_value = metric_set.get("clusters", None)
+                    metric_value_superset = metric_set.get(
+                        "clusters; superset", None)
+    
+    return baselines
 
 def parseMetricsForRunsAndVersionsOfModel(
         runs,
@@ -1264,11 +1393,11 @@ def parseMetricsForRunsAndVersionsOfModel(
                     if not prediction_match:
                         continue
                     
-                    clustering_metrics = predictions.get(
+                    clustering_metric_values = predictions.get(
                         "clustering metric values", None
                     )
                     
-                    if not clustering_metrics:
+                    if not clustering_metric_values:
                         
                         old_ARIs = {}
                         
@@ -1282,17 +1411,17 @@ def parseMetricsForRunsAndVersionsOfModel(
                                 old_ARIs[label] = value
                         
                         if old_ARIs:
-                            clustering_metrics = {
+                            clustering_metric_values = {
                                 "adjusted Rand index": old_ARIs
                             }
                     
-                    if clustering_metrics:
+                    if clustering_metric_values:
                         
                         metrics_string_parts.append(
                             prediction_string + ":")
                         
                         for metric_name, set_metrics in \
-                            clustering_metrics.items():
+                            clustering_metric_values.items():
                             
                             metrics_string_parts.append(
                                 "    {}:".format(
@@ -1428,7 +1557,7 @@ def parseMetricsForRunsAndVersionsOfModel(
                 if field_name.startswith("clustering"):
                     clustering_field_names.append(field_name)
             
-            clustering_metrics = {}
+            clustering_metric_values = {}
             
             for field_name in clustering_field_names:
                 metric_value = summary_metrics.pop(field_name, None)
@@ -1436,17 +1565,17 @@ def parseMetricsForRunsAndVersionsOfModel(
                     field_name_parts = field_name.split("; ")
                     method = field_name_parts[1]
                     name = field_name_parts[2]
-                    clustering_metrics.setdefault(method, {})
-                    clustering_metrics[method][name] = metric_value
+                    clustering_metric_values.setdefault(method, {})
+                    clustering_metric_values[method][name] = metric_value
             
-            if clustering_metrics:
+            if clustering_metric_values:
                 original_summary_metrics = summary_metrics
                 
-                for method in clustering_metrics:
+                for method in clustering_metric_values:
                     summary_metrics = copy.deepcopy(
                         original_summary_metrics
                     )
-                    summary_metrics.update(clustering_metrics[method])
+                    summary_metrics.update(clustering_metric_values[method])
                     summary_metrics["clustering method"] = method
                     results["summary_metrics_sets"].append(summary_metrics)
             else:
@@ -1868,6 +1997,25 @@ parser.add_argument(
     default = inf
 )
 parser.add_argument(
+    "--export-options",
+    type = str,
+    nargs = "?",
+    default = [],
+    help = "analyse model evolution for video"
+)
+parser.add_argument(
+    "--show-baselines", "-b",
+    action = "store_true",
+    help = "show baselines, if available"
+)
+parser.add_argument(
+    "--hide-baselines", "-B",
+    dest = "show_baselines",
+    action = "store_false",
+    help = "hide baselines"
+)
+parser.set_defaults(show_baselines = True)
+parser.add_argument(
     "--log-summary", "-s",
     action = "store_true",
     help = "log summary (saved in results directory)"
@@ -1879,13 +2027,6 @@ parser.add_argument(
     help = "do not log summary"
 )
 parser.set_defaults(log_summary = False)
-parser.add_argument(
-    "--export-options",
-    type = str,
-    nargs = "?",
-    default = [],
-    help = "analyse model evolution for video"
-)
 
 if __name__ == '__main__':
     arguments = parser.parse_args()

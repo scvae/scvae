@@ -3860,6 +3860,7 @@ def plotModelMetrics(
         secondary_differentiator_key = None,
         secondary_differentiator_order = None,
         special_cases = None,
+        baselines = None,
         palette = None,
         marker_styles = None,
         name = None
@@ -3868,6 +3869,9 @@ def plotModelMetrics(
     # Setup
     
     figure_name = figureName("model_metrics", name)
+    
+    if baselines:
+        figure_name += "-baselines"
     
     if not isinstance(metrics_sets, list):
         metrics_sets = [metrics_sets]
@@ -3904,11 +3908,13 @@ def plotModelMetrics(
         
         x = numpy.array(metrics_set[x_key])
         x_mean = x.mean()
-        x_sd = x.std()
+        x_ddof = 1 if x.size > 1 else 0
+        x_sd = x.std(ddof=x_ddof)
         
         y = numpy.array(metrics_set[y_key])
         y_mean = y.mean()
-        y_sd = y.std()
+        y_ddof = 1 if y.size > 1 else 0
+        y_sd = y.std(ddof=y_ddof)
         
         colour_key = metrics_set[primary_differentiator_key]
         if colour_key in colours:
@@ -3920,7 +3926,16 @@ def plotModelMetrics(
             except (ValueError, IndexError):
                 colour = "black"
             colours[colour_key] = colour
-            axis.plot(x_mean, y_mean, color = colour, label = colour_key)
+            axis.errorbar(
+                x = x_mean,
+                y = y_mean,
+                yerr = y_sd,
+                xerr = x_sd,
+                capsize = 2,
+                linestyle = "",
+                color = colour,
+                label = colour_key
+            )
         
         marker_key = metrics_set[secondary_differentiator_key]
         if marker_key in markers:
@@ -3932,7 +3947,7 @@ def plotModelMetrics(
             except (ValueError, IndexError):
                 marker = None
             markers[marker_key] = marker
-            axis.plot(
+            axis.errorbar(
                 x_mean, y_mean,
                 color = "black", marker = marker, linestyle = "none",
                 label = marker_key
@@ -3965,13 +3980,63 @@ def plotModelMetrics(
             markersize = 7
         )
     
+    baseline_line_styles = [
+        "dashed",
+        "dotted",
+        "dashdotted"
+    ]
+    
+    if baselines:
+        for baseline_kind, baseline_values in baselines.items():
+
+            y = numpy.array(baseline_values[y_key])
+            y_mean = y.mean()
+            y_sd = y.std(ddof=1)
+            
+            line_style = baseline_line_styles.pop(0)
+            
+            axis.axhline(
+                y = y_mean,
+                color = standard_palette[-1],
+                linestyle = line_style,
+                label = baseline_kind,
+                zorder = -1
+            )
+            
+            axis.axhspan(
+                ymin = y_mean - y_sd,
+                ymax = y_mean + y_sd,
+                facecolor = standard_palette[-1],
+                alpha = 0.4,
+                edgecolor = None,
+                label = baseline_kind,
+                zorder = -2
+            )
+    
     if len(metrics_sets) > 1:
+        
         order = primary_differentiator_order + secondary_differentiator_order
         handles, labels = axis.get_legend_handles_labels()
+        
+        label_handles = {}
+        
+        for label, handle in zip(labels, handles):
+            label_handles.setdefault(label, [])
+            label_handles[label].append(handle)
+        
+        labels, handles = [], []
+        
+        for label, handle_set in label_handles.items():
+            labels.append(label)
+            handles.append(tuple(handle_set))
+        
         labels, handles = zip(*sorted(
             zip(labels, handles),
-            key = lambda l: order.index(l[0]) if l[0] in order else -1
+            key = lambda l:
+                [order.index(l[0]), l[0]] if l[0] in order
+                else [len(order), l[0]]
         ))
+        
         axis.legend(handles, labels, loc = "best")
     
     return figure, figure_name
