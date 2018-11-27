@@ -544,7 +544,7 @@ def main(log_directory = None, results_directory = None,
                         field_values = numpy.array(field_value)
                         
                         mean = field_values.mean()
-                        sd = field_values.std()
+                        sd = field_values.std(ddof=1)
                         
                         if field_values.dtype == int:
                             string = "{:.0f}±{:.3g}".format(mean, sd)
