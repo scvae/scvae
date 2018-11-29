@@ -510,8 +510,18 @@ def main(log_directory = None, results_directory = None,
             
             ## Table
             
-            comparisons = copy.deepcopy(summary_metrics_sets)
-            comparison_field_names = copy.deepcopy(model_field_names)
+            comparisons = {
+                model_title: {
+                    field_name: copy.deepcopy(field_value)
+                    for field_name, field_value in model_fields.items()
+                    if field_name in SORTED_COMPARISON_TABLE_COLUMN_NAMES
+                }
+                for model_title, model_fields in summary_metrics_sets.items()
+            }
+            comparison_field_names = [
+                field_name for field_name in model_field_names
+                if field_name in SORTED_COMPARISON_TABLE_COLUMN_NAMES
+            ]
             
             sorted_comparison_items = sorted(
                 comparisons.items(),
@@ -541,15 +551,19 @@ def main(log_directory = None, results_directory = None,
                     
                     elif isinstance(field_value, list):
                         
-                        field_values = numpy.array(field_value)
+                        if field_value[0] is None:
+                            string = "---"
                         
-                        mean = field_values.mean()
-                        sd = field_values.std(ddof=1)
+                        else:
+                            field_values = numpy.array(field_value)
                         
-                        if field_values.dtype == int:
-                            string = "{:.0f}±{:.3g}".format(mean, sd)
-                        else: 
-                            string = "{:-.6g}±{:.3g}".format(mean, sd)
+                            mean = field_values.mean()
+                            sd = field_values.std(ddof=1)
+                        
+                            if field_values.dtype == int:
+                                string = "{:.0f}±{:.3g}".format(mean, sd)
+                            else: 
+                                string = "{:-.6g}±{:.3g}".format(mean, sd)
                     
                     else:
                         raise TypeError(
@@ -735,8 +749,13 @@ def main(log_directory = None, results_directory = None,
             
             #### Metric names
             
-            optimised_metric_name = "ELBO"
-            optimised_metric_symbol = r"$\mathcal{L}$"
+            optimised_metric_names = ["ELBO", "ENRE", "KL_z", "KL_y"]
+            optimised_metric_symbols = {
+                "ELBO": r"$\mathcal{L}$",
+                "ENRE": r"$\log p(x|z)$",
+                "KL_z": r"KL$_z(q||p)$",
+                "KL_y": r"KL$_y(q||p)$",
+            }
             
             supervised_clustering_metric_names = [
                 n for n, d in CLUSTERING_METRICS.items()
@@ -872,7 +891,8 @@ def main(log_directory = None, results_directory = None,
                         metrics[set_name][field_name] = field_value
                 
                 for set_name, set_metrics in metrics.items():
-                    set_metrics["ELBO"] = model_fields["ELBO"]
+                    for field_name in ["ELBO", "ENRE", "KL_z", "KL_y"]:
+                        set_metrics[field_name] = model_fields[field_name]
                 
                 # Save metrics
                 
@@ -891,10 +911,94 @@ def main(log_directory = None, results_directory = None,
                 if not method_likelihood_metrics:
                     continue
                 
+                # Clean up method and likelihood names
+                
+                methods = set()
+                likelihoods = set()
+                
+                for method in method_likelihood_metrics:
+                    methods.add(method)
+                    for likelihood in method_likelihood_metrics[method]:
+                        likelihoods.add(likelihood)
+                
+                method_replacements = \
+                    replacementsForCleanedUpSpecifications(
+                        methods,
+                        detail_separator = r"\((.+)\)", 
+                        specification_separator = "-"
+                    )
+                
+                likelihood_replacements = \
+                    replacementsForCleanedUpSpecifications(
+                        likelihoods,
+                        detail_separator = r"\((.+)\)", 
+                        specification_separator = "-"
+                    )
+                
+                # Rearrange data
+                
+                metrics_sets = []
+                methods = set()
+                likelihoods = set()
+                
+                for method, likelihood_metrics in \
+                    method_likelihood_metrics.items():
+                    
+                    method = method_replacements[method]
+                    methods.add(method)
+                    
+                    for likelihood, metrics in likelihood_metrics.items():
+                        
+                        likelihood = likelihood_replacements[likelihood]
+                        likelihoods.add(likelihood)
+                        
+                        metrics_set = copy.deepcopy(metrics)
+                        metrics_set["method"] = method
+                        metrics_set["likelihood"] = likelihood
+                        
+                        metrics_sets.append(metrics_set)
+                
+                # Determine order for methods and likelihoods
+                
+                likelihood_order = sorted(
+                    likelihoods,
+                    key = createSpecificationsSorter(
+                        order = LIKELIHOOD_DISRIBUTION_ORDER,
+                        detail_separator = r"\((.+)\)", 
+                        specification_separator = "-"
+                    )
+                )
+                
+                method_order = sorted(
+                    methods,
+                    key = createSpecificationsSorter(
+                        order = MODEL_TYPE_ORDER,
+                        detail_separator = r"\((.+)\)", 
+                        specification_separator = "-"
+                    )
+                )
+                
+                # Special cases
+                
+                special_cases = {}
+                
+                for method in method_order:
+                    for other_method in method_order:
+                        if other_method == method:
+                            continue
+                        elif other_method.startswith(method):
+                            special_cases[method] = {
+                                "errorbar_colour": "darken"
+                            }
+                
+                # Baselines
+                
                 if set_baselines:
                     baselines = set_baselines.get(set_name, None)
                 else:
                     baselines = None
+                
+                # Clustering metrics
                 
                 if set_name == "unsupervised":
                     clustering_metric_names = \
@@ -903,93 +1007,19 @@ def main(log_directory = None, results_directory = None,
                     clustering_metric_names = \
                         supervised_clustering_metric_names
                 
-                for clustering_metric_name in clustering_metric_names:
-                    
-                    # Clean up method and likelihood names
-                    
-                    methods = set()
-                    likelihoods = set()
-                    
-                    for method in method_likelihood_metrics:
-                        methods.add(method)
-                        for likelihood in method_likelihood_metrics[method]:
-                            likelihoods.add(likelihood)
-                    
-                    method_replacements = \
-                        replacementsForCleanedUpSpecifications(
-                            methods,
-                            detail_separator = r"\((.+)\)", 
-                            specification_separator = "-"
-                        )
-                    
-                    likelihood_replacements = \
-                        replacementsForCleanedUpSpecifications(
-                            likelihoods,
-                            detail_separator = r"\((.+)\)", 
-                            specification_separator = "-"
-                        )
-                    
-                    # Rearrange data
-                    
-                    metrics_sets = []
-                    methods = set()
-                    likelihoods = set()
-                    
-                    for method, likelihood_metrics in \
-                        method_likelihood_metrics.items():
-                        
-                        method = method_replacements[method]
-                        methods.add(method)
-                        
-                        for likelihood, metrics in likelihood_metrics.items():
-                            
-                            likelihood = likelihood_replacements[likelihood]
-                            likelihoods.add(likelihood)
-                            
-                            metrics_set = copy.deepcopy(metrics)
-                            metrics_set["method"] = method
-                            metrics_set["likelihood"] = likelihood
-                            
-                            metrics_sets.append(metrics_set)
-                    
-                    # Determine order for methods and likelihoods
-                    
-                    likelihood_order = sorted(
-                        likelihoods,
-                        key = createSpecificationsSorter(
-                            order = LIKELIHOOD_DISRIBUTION_ORDER,
-                            detail_separator = r"\((.+)\)", 
-                            specification_separator = "-"
-                        )
-                    )
-                    
-                    method_order = sorted(
-                        methods,
-                        key = createSpecificationsSorter(
-                            order = MODEL_TYPE_ORDER,
-                            detail_separator = r"\((.+)\)", 
-                            specification_separator = "-"
-                        )
-                    )
-                    
-                    # Special cases
-                    
-                    special_cases = {}
-                    
-                    for method in method_order:
-                        for other_method in method_order:
-                            if other_method == method:
-                                continue
-                            elif other_method.startswith(method):
-                                special_cases[method] = {
-                                    "errorbar_colour": "darken"
-                                }
+                # Loop over metrics
+                
+                for optimised_metric_name, clustering_metric_name in \
+                    product(optimised_metric_names, clustering_metric_names):
                     
                     # Figure
                     
                     clustering_metric_symbol = CLUSTERING_METRICS[
                         clustering_metric_name
                     ]["symbol"]
+                    optimised_metric_symbol = optimised_metric_symbols[
+                        optimised_metric_name
+                    ]
                     
                     figure, figure_name = plotModelMetrics(
                         metrics_sets,
@@ -1007,7 +1037,8 @@ def main(log_directory = None, results_directory = None,
                         name = [
                             data_set_path.replace(os.sep, "-"),
                             set_name,
-                            clustering_metric_name
+                            clustering_metric_name,
+                            optimised_metric_name
                         ]
                     )
                     saveFigure(figure, figure_name, export_options,
@@ -1297,12 +1328,23 @@ def parseMetricsForRunsAndVersionsOfModel(
                         )
                     )
             
-            if "lower_bound" in evaluation:
-                ELBO = evaluation["lower_bound"][-1]
-            else:
-                ELBO = None
+            ELBO = evaluation.get("lower_bound", [None])[-1]
+            ENRE = evaluation.get("reconstruction_error", [None])[-1]
+            KL_y = evaluation.get("kl_divergence_y", [None])[-1]
+            KL_z = None
             
-            summary_metrics["ELBO"] = ELBO
+            if "kl_divergence" in evaluation:
+                KL_z = evaluation["kl_divergence"][-1]
+            elif "kl_divergence_z" in evaluation:
+                KL_z = evaluation["kl_divergence_z"][-1]
+            
+            
+            summary_metrics.update({
+                "ELBO": ELBO,
+                "ENRE": ENRE,
+                "KL_z": KL_z,
+                "KL_y": KL_y
+            })
             
             # Accuracies
             

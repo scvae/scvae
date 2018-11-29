@@ -3907,11 +3907,15 @@ def plotModelMetrics(
     for metrics_set in metrics_sets:
         
         x = numpy.array(metrics_set[x_key])
+        y = numpy.array(metrics_set[y_key])
+        
+        if x.dtype == "object" or y.dtype == "object":
+            continue
+        
         x_mean = x.mean()
         x_ddof = 1 if x.size > 1 else 0
         x_sd = x.std(ddof=x_ddof)
         
-        y = numpy.array(metrics_set[y_key])
         y_mean = y.mean()
         y_ddof = 1 if y.size > 1 else 0
         y_sd = y.std(ddof=y_ddof)
