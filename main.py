@@ -31,7 +31,9 @@ from distributions import distributions, latent_distributions
 from miscellaneous.decomposition import (
     DECOMPOSITION_METHOD_NAMES, DEFAULT_DECOMPOSITION_DIMENSIONALITY
 )
-from miscellaneous.prediction import predict, PREDICTION_METHOD_NAMES
+from miscellaneous.prediction import (
+    predict, PREDICTION_METHOD_NAMES, PREDICTION_METHOD_SPECIFICATIONS
+)
 
 from auxiliary import (
     title, subtitle, heading,
@@ -431,19 +433,47 @@ def main(input_file_or_name, data_directory = "data",
             PREDICTION_METHOD_NAMES
         )
         
+        prediction_method_specifications = PREDICTION_METHOD_SPECIFICATIONS\
+            .get(prediction_method, {})
+        prediction_method_inference = prediction_method_specifications.get(
+            "inference", None)
+        prediction_method_fixed_number_of_clusters \
+            = prediction_method_specifications.get(
+                "fixed number of clusters", None)
+        prediction_method_cluster_kind = prediction_method_specifications.get(
+            "cluster kind", None)
+        
+        if prediction_method_fixed_number_of_clusters:
+            number_of_clusters = number_of_classes
+        else:
+            number_of_clusters = None
+        
+        if prediction_method_inference \
+            and prediction_method_inference == "transductive":
+            
+            prediction_training_set = None
+            prediction_training_set_name = None
+        
+        else:
+            prediction_training_set_name = prediction_training_set.kind
+        
         prediction_details = {
             "method": prediction_method,
-            "number_of_classes": number_of_classes,
-            "training_set_name": prediction_training_set.kind,
+            "number_of_classes": number_of_clusters,
+            "training_set_name": prediction_training_set_name,
             "decomposition_method": prediction_decomposition_method,
             "decomposition_dimensionality":
                 prediction_decomposition_dimensionality
         }
         
-        print("Prediction method: {} with {} classes.".format(
-            prediction_method, number_of_classes))
-        print("Prediction training set: {} set.".format(
-            prediction_training_set.kind))
+        print("Prediction method: {}.".format(prediction_method))
+        
+        if number_of_clusters:
+            print("Number of clusters: {}.".format(number_of_clusters))
+        
+        if prediction_training_set:
+            print("Prediction training set: {} set.".format(
+                prediction_training_set.kind))
         
         prediction_id_parts = []
         
@@ -476,11 +506,12 @@ def main(input_file_or_name, data_directory = "data",
         
         prediction_id_parts.append(prediction_method)
         
-        if number_of_classes:
-            prediction_id_parts.append(number_of_classes)
+        if number_of_clusters:
+            prediction_id_parts.append(number_of_clusters)
         
-        if prediction_training_set.kind != "training":
-            prediction_id_parts.append(prediction_training_set.kind)
+        if prediction_training_set \
+            and prediction_training_set.kind != "training":
+                prediction_id_parts.append(prediction_training_set.kind)
         
         prediction_id = "_".join(map(
             lambda s: normaliseString(str(s)).replace("_", ""),
@@ -580,33 +611,50 @@ def main(input_file_or_name, data_directory = "data",
             
             print(heading("{} prediction".format(model_parameter_set_name)))
             
-            latent_prediction_training_sets = model.evaluate(
-                evaluation_set = prediction_training_set,
-                batch_size = batch_size,
-                run_id = run_id,
-                use_best_model = use_best_model,
-                use_early_stopping_model = use_early_stopping_model,
-                output_versions = "latent",
-                log_results = False
-            )
-            latent_prediction_training_set \
-                = latent_prediction_training_sets["z"]
             latent_prediction_evaluation_set = latent_evaluation_sets["z"]
             
-            print()
+            if prediction_method_inference \
+                and prediction_method_inference == "inductive":
+                
+                latent_prediction_training_sets = model.evaluate(
+                    evaluation_set = prediction_training_set,
+                    batch_size = batch_size,
+                    run_id = run_id,
+                    use_best_model = use_best_model,
+                    use_early_stopping_model = use_early_stopping_model,
+                    output_versions = "latent",
+                    log_results = False
+                )
+                latent_prediction_training_set \
+                    = latent_prediction_training_sets["z"]
+                
+                print()
+            
+            else:
+                latent_prediction_training_set = None
             
             if prediction_decomposition_method:
                 
-                latent_prediction_training_set, \
+                if latent_prediction_training_set:
+                    latent_prediction_training_set, \
+                        latent_prediction_evaluation_set \
+                        = data.decomposeDataSubsets(
+                            latent_prediction_training_set,
+                            latent_prediction_evaluation_set,
+                            method = prediction_decomposition_method,
+                            number_of_components = 
+                                prediction_decomposition_dimensionality,
+                            random = True
+                        )
+                else:
                     latent_prediction_evaluation_set \
-                    = data.decomposeDataSubsets(
-                        latent_prediction_training_set,
-                        latent_prediction_evaluation_set,
-                        method = prediction_decomposition_method,
-                        number_of_components = 
-                            prediction_decomposition_dimensionality,
-                        random = True
-                    )
+                        = data.decomposeDataSubsets(
+                            latent_prediction_evaluation_set,
+                            method = prediction_decomposition_method,
+                            number_of_components = 
+                                prediction_decomposition_dimensionality,
+                            random = True
+                        )
                 
                 print()
             
@@ -615,7 +663,7 @@ def main(input_file_or_name, data_directory = "data",
                     latent_prediction_training_set,
                     latent_prediction_evaluation_set,
                     prediction_method,
-                    number_of_classes
+                    number_of_clusters
                 )
             
             transformed_evaluation_set.updatePredictions(

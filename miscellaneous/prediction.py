@@ -18,7 +18,10 @@
 
 import numpy
 import scipy.stats
-from sklearn.cluster import KMeans, MiniBatchKMeans
+from kneed import KneeLocator
+from sklearn.cluster import KMeans, MiniBatchKMeans, DBSCAN
+from sklearn.neighbors import NearestNeighbors
+from scipy.signal import savgol_filter, convolve, windows
 
 from time import time
 
@@ -26,22 +29,63 @@ from auxiliary import properString, formatDuration
 
 PREDICTION_METHOD_NAMES = {
     "k-means": ["k_means", "kmeans"],
+    "DBSCAN": ["dbscan"],
     "model": ["model"],
     "test": ["test"],
     "copy": ["copy"]
 }
 
+PREDICTION_METHOD_SPECIFICATIONS = {
+    "k-means": {
+        "inference": "inductive",
+        "base": "centroids",
+        "fixed number of clusters": True,
+        "cluster kind": "centroid"
+    },
+    "DBSCAN": {
+        "inference": "transductive",
+        "base": "density",
+        "fixed number of clusters": False
+    },
+    "model": {
+        "inference": "inductive",
+        "base": "distribution",
+        "fixed number of clusters": True,
+        "cluster kind": "component"
+    }
+}
+
 MAXIMUM_SAMPLE_SIZE_FOR_NORMAL_KMEANS = 10000
 
 def predict(training_set, evaluation_set, method = "copy",
-    number_of_classes = 1):
+    number_of_clusters = 2):
     
     method = properString(method, PREDICTION_METHOD_NAMES)
     
-    print(
-        "Predicting labels for evaluation set using {}".format(method),
-        "on {} prediction training set.".format(training_set.version)
-    )
+    specifications = PREDICTION_METHOD_SPECIFICATIONS.get(method, {})
+    inference = specifications.get("inference", None)
+    fixed_number_of_clusters = specifications.get(
+        "fixed number of clusters", None)
+    cluster_kind = specifications.get("cluster kind", None)
+    
+    prediction_string_parts = [
+        "Predicting labels for evaluation set using {}".format(method)
+    ]
+    
+    if fixed_number_of_clusters is not None and fixed_number_of_clusters:
+        prediction_string_parts.append(
+            "with {} {}s".format(number_of_clusters, cluster_kind)
+        )
+    
+    if inference and inference == "inductive":
+        prediction_string_parts.append(
+            "on {} values for prediction training set"
+                .format(training_set.version)
+        )
+    
+    prediction_string = " ".join(prediction_string_parts) + "."
+    
+    print(prediction_string)
     prediction_time_start = time()
     
     if evaluation_set.has_labels:
@@ -70,7 +114,7 @@ def predict(training_set, evaluation_set, method = "copy",
             lambda superset_class_id: evaluation_set\
                 .superset_class_id_to_superset_class_name[superset_class_id]
         )
-            
+        
         evaluation_superset_label_ids = \
             superset_class_names_to_superset_class_ids(
                 evaluation_set.superset_labels)
@@ -82,8 +126,9 @@ def predict(training_set, evaluation_set, method = "copy",
         else:
             excluded_superset_class_ids = []
     
+    cluster_ids = predicted_labels = predicted_superset_labels = None
+    
     if method == "copy":
-        cluster_ids = None
         predicted_labels = evaluation_set.labels
         predicted_superset_labels = evaluation_set.superset_labels
     
@@ -92,30 +137,64 @@ def predict(training_set, evaluation_set, method = "copy",
         if training_set.number_of_examples \
             <= MAXIMUM_SAMPLE_SIZE_FOR_NORMAL_KMEANS:
                 model = KMeans(
-                    n_clusters=number_of_classes,
+                    n_clusters=number_of_clusters,
                     random_state=None
                 )
         else:
             model = MiniBatchKMeans(
-                n_clusters=number_of_classes,
+                n_clusters=number_of_clusters,
                 random_state=None,
                 batch_size=100
             )
         
         model.fit(training_set.values)
         cluster_ids = model.predict(evaluation_set.values)
+    
+    elif method == "DBSCAN":
         
-        if evaluation_set.has_labels:
+        minimum_neighbourhood_size = 2 * evaluation_set.number_of_features
+        
+        knn_model = NearestNeighbors(
+            n_neighbors=minimum_neighbourhood_size - 1
+        )
+        knn_model.fit(evaluation_set.values)
+        knn_distance_matrix, knn_index_matrix = knn_model.kneighbors(evaluation_set.values)
+        knn_distances = knn_distance_matrix[:, -1]
+        knn_distances_sorted = numpy.sort(knn_distances)[::-1]
+        
+        cut_off = int(0.5 * len(knn_distances))
+        knee_locator = KneeLocator(
+            x=numpy.arange(cut_off),
+            y=knn_distances_sorted[:cut_off],
+            # S=1.0,
+            curve="convex",
+            direction="decreasing"
+        )
+        index_knee = knee_locator.knee
+        maximum_neighbour_distance = knn_distances_sorted[index_knee]
+        
+        model = DBSCAN(
+            eps=maximum_neighbour_distance,
+            min_samples=minimum_neighbourhood_size
+        )
+        cluster_ids = model.fit_predict(evaluation_set.values)
+    
+    else:
+        raise ValueError("Prediction method not found: `{}`.".format(method))
+    
+    if cluster_ids is not None:
+        
+        if predicted_labels is None and evaluation_set.has_labels:
             predicted_label_ids = mapClusterIDsToLabelIDs(
                 evaluation_label_ids,
                 cluster_ids,
                 excluded_class_ids
             )
             predicted_labels = class_ids_to_class_names(predicted_label_ids)
-        else:
-            predicted_labels = None
         
-        if evaluation_set.has_superset_labels:
+        if predicted_superset_labels is None \
+            and evaluation_set.has_superset_labels:
+            
             predicted_superset_label_ids = mapClusterIDsToLabelIDs(
                 evaluation_superset_label_ids,
                 cluster_ids,
@@ -124,11 +203,6 @@ def predict(training_set, evaluation_set, method = "copy",
             predicted_superset_labels = \
                 superset_class_ids_to_superset_class_names(
                     predicted_superset_label_ids)
-        else:
-            predicted_superset_labels = None
-    
-    else:
-        raise ValueError("Prediction method not found: `{}`.".format(method))
     
     prediction_duration = time() - prediction_time_start
     print("Labels predicted ({}).".format(

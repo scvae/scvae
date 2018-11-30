@@ -44,7 +44,7 @@ All included data sets are downloaded and processed automatically as needed.
 
 This tool is not available as a Python module yet. In the meantime you will first need to install all other modules which it is dependent upon by yourself. This can be done by running
 
-	$ pip install numpy scipy scikit-learn tensorflow-gpu tensorflow-probability-gpu pandas tables beautifulsoup4 stemming matplotlib seaborn pillow
+	$ pip install numpy scipy scikit-learn kneed tensorflow-gpu tensorflow-probability-gpu pandas tables beautifulsoup4 stemming matplotlib seaborn pillow
 
 (If you do not have a GPU to use with TensorFlow, install the standard version by replacing `tensorflow-gpu` with `tensorflow`.)
 

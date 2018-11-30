@@ -2415,9 +2415,14 @@ def adjusted_mutual_information(labels, predicted_labels, excluded_classes = [])
 
 def silhouette_score(values, predicted_labels):
     
-    sample_size = None
-    
+    number_of_predicted_classes = numpy.unique(predicted_labels).shape[0]
     number_of_examples = values.shape[0]
+    
+    if number_of_predicted_classes < 2 \
+        or number_of_predicted_classes > number_of_examples - 1:
+            return nan
+    
+    sample_size = None
     
     if number_of_examples \
         > maximum_number_of_examples_before_sampling_silhouette_score:

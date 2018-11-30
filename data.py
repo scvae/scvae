@@ -2672,7 +2672,7 @@ def decomposeDataSubsets(*subsets, method=None, number_of_components=None,
             
             for other_kind_subset in kind_subsets:
                 other_kind_values = other_kind_subset.values
-                if any(other_kind_values != kind_values):
+                if (other_kind_values != kind_values).any():
                     raise ValueError(
                         "Multiple {} subsets represented with ".format(kind) +
                         "different values."
