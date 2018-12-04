@@ -39,7 +39,8 @@ import argparse
 
 from analysis import (
     formatStatistics, saveFigure,
-    plotCorrelations, plotELBOHeatMap, plotModelMetrics,
+    plotCorrelations, plotELBOHeatMap,
+    plotModelMetrics, plotModelMetricSets,
     clustering_metrics
 )
 from auxiliary import (
@@ -768,6 +769,7 @@ def main(log_directory = None, results_directory = None,
             
             ### Collect metrics from relevant models
             
+            model_likelihood_metrics = {}
             set_method_likelihood_metrics = {
                 "standard": {},
                 "superset": {},
@@ -891,10 +893,16 @@ def main(log_directory = None, results_directory = None,
                         metrics[set_name][field_name] = field_value
                 
                 for set_name, set_metrics in metrics.items():
-                    for field_name in ["ELBO", "ENRE", "KL_z", "KL_y"]:
+                    for field_name in optimised_metric_names:
                         set_metrics[field_name] = model_fields[field_name]
                 
                 # Save metrics
+                
+                model_likelihood_metrics.setdefault(model_type, {})
+                model_likelihood_metrics[model_type][likelihood] = {
+                    field_name: model_fields[field_name]
+                    for field_name in optimised_metric_names
+                }
                 
                 for set_name in metrics:
                     set_method_likelihood_metrics[set_name].setdefault(
@@ -904,6 +912,99 @@ def main(log_directory = None, results_directory = None,
                         [likelihood] = metrics[set_name]
             
             print("Plotting model metrics.")
+            
+            # Only optimised metrics
+            
+            # Clean up likelihood names
+            
+            models = set()
+            likelihoods = set()
+            
+            for model in model_likelihood_metrics:
+                models.add(model)
+                for likelihood in model_likelihood_metrics[model]:
+                    likelihoods.add(likelihood)
+            
+            model_replacements = \
+                replacementsForCleanedUpSpecifications(
+                    models,
+                    detail_separator = r"\((.+)\)", 
+                    specification_separator = "-"
+                )
+            
+            likelihood_replacements = \
+                replacementsForCleanedUpSpecifications(
+                    likelihoods,
+                    detail_separator = r"\((.+)\)", 
+                    specification_separator = "-"
+                )
+            
+            # Rearrange data
+            
+            metrics_sets = []
+            models = set()
+            likelihoods = set()
+            
+            for model, likelihood_metrics in \
+                model_likelihood_metrics.items():
+                
+                model = model_replacements[model]
+                models.add(model)
+                
+                for likelihood, metrics in likelihood_metrics.items():
+                    
+                    likelihood = likelihood_replacements[likelihood]
+                    likelihoods.add(likelihood)
+                    
+                    metrics_set = copy.deepcopy(metrics)
+                    metrics_set["model"] = model
+                    metrics_set["likelihood"] = likelihood
+                    
+                    metrics_sets.append(metrics_set)
+            
+            # Determine order for methods and likelihoods
+            
+            likelihood_order = sorted(
+                likelihoods,
+                key = createSpecificationsSorter(
+                    order = LIKELIHOOD_DISRIBUTION_ORDER,
+                    detail_separator = r"\((.+)\)", 
+                    specification_separator = "-"
+                )
+            )
+            
+            model_order = sorted(
+                models,
+                key = createSpecificationsSorter(
+                    order = MODEL_TYPE_ORDER,
+                    detail_separator = r"\((.+)\)", 
+                    specification_separator = "-"
+                )
+            )
+            
+            for optimised_metric_name in optimised_metric_names:
+                
+                optimised_metric_symbol = optimised_metric_symbols[
+                    optimised_metric_name
+                ]
+                
+                figure, figure_name = plotModelMetrics(
+                    metrics_sets,
+                    key = optimised_metric_name,
+                    primary_differentiator_key = "likelihood",
+                    primary_differentiator_order = likelihood_order,
+                    secondary_differentiator_key = "model",
+                    secondary_differentiator_order = model_order,
+                    label = optimised_metric_symbol,
+                    name = [
+                        data_set_path.replace(os.sep, "-"),
+                        optimised_metric_name
+                    ]
+                )
+                saveFigure(figure, figure_name, export_options,
+                    cross_analysis_directory)
+            
+            # Optimised metrics and clustering metrics
             
             for set_name, method_likelihood_metrics in \
                 set_method_likelihood_metrics.items():
@@ -1021,7 +1122,7 @@ def main(log_directory = None, results_directory = None,
                         optimised_metric_name
                     ]
                     
-                    figure, figure_name = plotModelMetrics(
+                    figure, figure_name = plotModelMetricSets(
                         metrics_sets,
                         x_key = optimised_metric_name,
                         y_key = clustering_metric_name,

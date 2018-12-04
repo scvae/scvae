@@ -3858,6 +3858,151 @@ def plotCorrelations(correlation_sets, x_key, y_key,
 
 def plotModelMetrics(
         metrics_sets,
+        key,
+        label = None,
+        primary_differentiator_key = None,
+        primary_differentiator_order = None,
+        secondary_differentiator_key = None,
+        secondary_differentiator_order = None,
+        palette = None,
+        marker_styles = None,
+        name = None
+    ):
+    
+    # Setup
+    
+    figure_name = figureName("model_metrics", name)
+    
+    if not isinstance(metrics_sets, list):
+        metrics_sets = [metrics_sets]
+    
+    if not palette:
+        palette = standard_palette.copy()
+    
+    # Figure
+    
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    
+    seaborn.despine()
+    
+    axis.set_xlabel(primary_differentiator_key.capitalize() + "s")
+    axis.set_ylabel(label)
+    
+    x_positions = {}
+    x_offsets = {}
+    colours = {}
+    
+    x_gap = 3
+    x_scale = len(secondary_differentiator_order) - 1 + 2 * x_gap
+    
+    for metrics_set in metrics_sets:
+        
+        y = numpy.array(metrics_set[key])
+        
+        if y.dtype == "object":
+            continue
+        
+        y_mean = y.mean()
+        y_ddof = 1 if y.size > 1 else 0
+        y_sd = y.std(ddof=y_ddof)
+        
+        x_position_key = metrics_set[primary_differentiator_key]
+        if x_position_key in x_positions:
+            x_position = x_positions[x_position_key]
+        else:
+            try:
+                index = primary_differentiator_order.index(x_position_key)
+                x_position = index
+            except (ValueError, IndexError):
+                x_position = 0
+            x_positions[x_position_key] = x_position
+        
+        x_offset_key = metrics_set[secondary_differentiator_key]
+        if x_offset_key in x_offsets:
+            x_offset = x_offsets[x_offset_key]
+        else:
+            try:
+                index = secondary_differentiator_order.index(x_offset_key)
+                x_offset = (index + x_gap - x_scale / 2) / x_scale
+            except (ValueError, IndexError):
+                x_offset = 0
+            x_offsets[x_offset_key] = x_offset
+        
+        x = x_position + x_offset
+        
+        colour_key = x_offset_key
+        if colour_key in colours:
+            colour = colours[colour_key]
+        else:
+            try:
+                index = secondary_differentiator_order.index(colour_key)
+                colour = palette[index]
+            except (ValueError, IndexError):
+                colour = "black"
+            colours[colour_key] = colour
+            axis.errorbar(
+                x = x,
+                y = y_mean,
+                yerr = y_sd,
+                capsize = 2,
+                linestyle = "",
+                color = colour,
+                label = colour_key
+            )
+        
+        axis.errorbar(
+            x = x,
+            y = y_mean,
+            yerr = y_sd,
+            ecolor = colour,
+            capsize = 2,
+            color = colour,
+            marker = "_",
+            # markeredgecolor = darker_colour,
+            # markersize = 7
+        )
+    
+    x_ticks = []
+    x_tick_labels = []
+    
+    for model, x_position in x_positions.items():
+        x_ticks.append(x_position)
+        x_tick_labels.append(model)
+    
+    axis.set_xticks(x_ticks)
+    axis.set_xticklabels(x_tick_labels)
+    
+    if len(metrics_sets) > 1:
+        
+        order = primary_differentiator_order + secondary_differentiator_order
+        handles, labels = axis.get_legend_handles_labels()
+        
+        label_handles = {}
+        
+        for label, handle in zip(labels, handles):
+            label_handles.setdefault(label, [])
+            label_handles[label].append(handle)
+        
+        labels, handles = [], []
+        
+        for label, handle_set in label_handles.items():
+            labels.append(label)
+            handles.append(tuple(handle_set))
+        
+        labels, handles = zip(*sorted(
+            zip(labels, handles),
+            key = lambda l:
+                [order.index(l[0]), l[0]] if l[0] in order
+                else [len(order), l[0]]
+        ))
+        
+        axis.legend(handles, labels, loc = "best")
+    
+    return figure, figure_name
+
+def plotModelMetricSets(
+        metrics_sets,
         x_key, y_key,
         x_label = None, y_label = None,
         primary_differentiator_key = None,
@@ -3873,7 +4018,7 @@ def plotModelMetrics(
     
     # Setup
     
-    figure_name = figureName("model_metrics", name)
+    figure_name = figureName("model_metric_sets", name)
     
     if baselines:
         figure_name += "-baselines"
