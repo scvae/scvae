@@ -66,7 +66,8 @@ def main(input_file_or_name, data_directory = "data",
     reconstruction_distribution = "poisson",
     number_of_reconstruction_classes = 0,
     prior_probabilities_method = "uniform",
-    number_of_warm_up_epochs = 50,
+    number_of_warm_up_epochs = 0,
+    kl_weight = 1,
     proportion_of_free_KL_nats = 0.0,
     batch_normalisation = True,
     dropout_keep_probabilities = [],
@@ -277,6 +278,7 @@ def main(input_file_or_name, data_directory = "data",
             dropout_keep_probabilities = dropout_keep_probabilities,
             count_sum = count_sum,
             number_of_warm_up_epochs = number_of_warm_up_epochs,
+            kl_weight = kl_weight,
             log_directory = log_directory,
             results_directory = results_directory
         )
@@ -319,6 +321,7 @@ def main(input_file_or_name, data_directory = "data",
             dropout_keep_probabilities = dropout_keep_probabilities,
             count_sum = count_sum,
             number_of_warm_up_epochs = number_of_warm_up_epochs,
+            kl_weight = kl_weight,
             log_directory = log_directory,
             results_directory = results_directory
         )
@@ -1072,7 +1075,13 @@ parser.add_argument(
     "--number-of-warm-up-epochs", "-w",
     type = int,
     default = 0,
-    help = "number of epochs with a linear weight on the KL-term"
+    help = "number of epochs with a linear weight on the KL divergence"
+)
+parser.add_argument(
+    "--kl-weight",
+    type = float,
+    default = 1,
+    help = "weighting of KL divergence"
 )
 parser.add_argument(
     "--proportion-of-free-KL-nats",

@@ -68,7 +68,9 @@ class GaussianMixtureVariationalAutoencoder(object):
         batch_normalisation = True, 
         dropout_keep_probabilities = [],
         count_sum = True,
-        number_of_warm_up_epochs = 0, epsilon = 1e-6,
+        number_of_warm_up_epochs = 0,
+        kl_weight = 1,
+        epsilon = 1e-6,
         log_directory = "log",
         results_directory = "results"):
         
@@ -159,6 +161,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             self.reconstruction_distribution_name \
             or "multinomial" in self.reconstruction_distribution_name
 
+        self.kl_weight_value = kl_weight
         self.number_of_warm_up_epochs = number_of_warm_up_epochs
 
         self.epsilon = epsilon
@@ -184,11 +187,26 @@ class GaussianMixtureVariationalAutoencoder(object):
             self.learning_rate = tf.placeholder(tf.float32, [],
                 'learning_rate')
             
+            self.kl_weight = tf.constant(
+                self.kl_weight_value,
+                dtype=tf.float32,
+                name='kl_weight'
+            )
+            
             self.warm_up_weight = tf.placeholder(tf.float32, [],
                 'warm_up_weight')
             parameter_summary = tf.summary.scalar('warm_up_weight',
                 self.warm_up_weight)
             self.parameter_summary_list.append(parameter_summary)
+            
+            self.total_kl_weight = tf.multiply(
+                self.warm_up_weight,
+                self.kl_weight, 
+                name='total_kl_weight'
+            )
+            total_kl_weight_summary = tf.summary.scalar('total_kl_weight',
+                self.total_kl_weight)
+            self.parameter_summary_list.append(total_kl_weight_summary)
             
             self.is_training = tf.placeholder(tf.bool, [], 'is_training')
             
@@ -202,6 +220,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 [],
                 'number_of_mc_samples'
             )
+            
             # Sum up counts in replicated_n feature if needed
             if self.count_sum_feature:
                 self.n_feature = tf.placeholder(tf.float32, [None, 1],
@@ -264,6 +283,10 @@ class GaussianMixtureVariationalAutoencoder(object):
         if len(self.dropout_parts) > 0:
             reconstruction_parts.append(
                 "dropout_" + "_".join(self.dropout_parts))
+        
+        if self.kl_weight_value != 1:
+            reconstruction_parts.append("klw_{}".format(
+                self.kl_weight_value))
         
         if self.number_of_warm_up_epochs:
             reconstruction_parts.append("wu_{}".format(
@@ -329,6 +352,10 @@ class GaussianMixtureVariationalAutoencoder(object):
         if self.batch_normalisation:
             configuration.append("BN")
         
+        if self.kl_weight_value != 1:
+            configuration.append(r"$w_\mathrm{KL} = {}$".format(
+                self.kl_weight))
+        
         if self.number_of_warm_up_epochs:
             configuration.append("$W = {}$".format(
                 self.number_of_warm_up_epochs))
@@ -381,6 +408,11 @@ class GaussianMixtureVariationalAutoencoder(object):
             if iw_eval != iw_train:
                 iw += " (training), {} (evaluation)".format(iw_eval)
             description_parts.append(iw)
+        
+        if self.kl_weight_value != 1:
+            description_parts.append("KL weigth: {}".format(
+                self.kl_weight_value
+            ))
         
         if self.analytical_kl_term:
             description_parts.append("using analytical KL term")
@@ -985,10 +1017,13 @@ class GaussianMixtureVariationalAutoencoder(object):
         self.KL = self.KL_z + self.KL_y
         self.KL_all = tf.expand_dims(self.KL, -1)
         self.ENRE = tf.reduce_mean(tf.add_n(log_p_x_given_z_mean))
-        self.ELBO_train_modified = self.ENRE - self.warm_up_weight * (
+        self.ELBO = self.ENRE - self.warm_up_weight * self.kl_weight * (
             self.KL_z + KL_y_modified
         )
-        self.ELBO = self.ENRE - self.KL
+        # self.ELBO_train_modified = self.ENRE - self.warm_up_weight * (
+        #     self.KL_z + KL_y_modified
+        # )
+        # self.ELBO = self.ENRE - self.KL
         tf.add_to_collection('losses', self.ELBO)
         
     
@@ -1012,7 +1047,8 @@ class GaussianMixtureVariationalAutoencoder(object):
             #     global_step = self.global_step
             # )
         
-            gradients = optimiser.compute_gradients(-self.ELBO_train_modified)
+            gradients = optimiser.compute_gradients(-self.ELBO)
+            # gradients = optimiser.compute_gradients(-self.ELBO_train_modified)
             clipped_gradients = [
                 (tf.clip_by_value(gradient, -1., 1.), variable)
                 for gradient, variable in gradients

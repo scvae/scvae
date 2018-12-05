@@ -66,9 +66,11 @@ class VariationalAutoencoder(object):
         batch_normalisation = True, 
         dropout_keep_probabilities = [],
         count_sum = True,
-        number_of_warm_up_epochs = 0, 
+        number_of_warm_up_epochs = 0,
+        kl_weight = 1,
         epsilon = 1e-6,
-        log_directory = "log", results_directory = "results"):
+        log_directory = "log",
+        results_directory = "results"):
         
         # Class setup
         super(VariationalAutoencoder, self).__init__()
@@ -145,6 +147,7 @@ class VariationalAutoencoder(object):
             self.reconstruction_distribution_name or "multinomial" in \
             self.reconstruction_distribution_name
 
+        self.kl_weight_value = kl_weight
         self.number_of_warm_up_epochs = number_of_warm_up_epochs
 
         self.epsilon = epsilon
@@ -180,11 +183,26 @@ class VariationalAutoencoder(object):
             self.learning_rate = tf.placeholder(tf.float32, [],
                 'learning_rate')
             
+            self.kl_weight = tf.constant(
+                self.kl_weight_value,
+                dtype=tf.float32,
+                name='kl_weight'
+            )
+            
             self.warm_up_weight = tf.placeholder(tf.float32, [],
                 'warm_up_weight')
             warm_up_weight_summary = tf.summary.scalar('warm_up_weight',
                 self.warm_up_weight)
             self.parameter_summary_list.append(warm_up_weight_summary)
+            
+            self.total_kl_weight = tf.multiply(
+                self.warm_up_weight,
+                self.kl_weight, 
+                name='total_kl_weight'
+            )
+            total_kl_weight_summary = tf.summary.scalar('total_kl_weight',
+                self.total_kl_weight)
+            self.parameter_summary_list.append(total_kl_weight_summary)
             
             self.is_training = tf.placeholder(tf.bool, [], 'is_training')
             self.use_deterministic_z = tf.placeholder(tf.bool, [],
@@ -255,6 +273,10 @@ class VariationalAutoencoder(object):
             minor_parts.append(
                 "dropout_" + "_".join(self.dropout_parts))
         
+        if self.kl_weight_value != 1:
+            minor_parts.append("klw_{}".format(
+                self.kl_weight_value))
+        
         if self.number_of_warm_up_epochs:
             minor_parts.append("wu_{}".format(
                 self.number_of_warm_up_epochs))
@@ -297,7 +319,7 @@ class VariationalAutoencoder(object):
     @property
     def title(self):
         
-        title = model.type
+        title = self.type
         
         configuration = [
             self.reconstruction_distribution_name.capitalize(),
@@ -314,6 +336,10 @@ class VariationalAutoencoder(object):
         
         if self.batch_normalisation:
             configuration.append("BN")
+        
+        if self.kl_weight_value != 1:
+            configuration.append(r"$w_\mathrm{KL} = {}$".format(
+                self.kl_weight))
         
         if self.number_of_warm_up_epochs:
             configuration.append("$W = {}$".format(
@@ -367,11 +393,20 @@ class VariationalAutoencoder(object):
             iw += " (training), {} (evaluation)".format(iw_eval)
         description_parts.append(iw)
         
+        if self.kl_weight_value != 1:
+            description_parts.append("KL weigth: {}".format(
+                self.kl_weight_value
+            ))
+        
         if self.analytical_kl_term:
             description_parts.append("using analytical KL term")
         
         if self.batch_normalisation:
             description_parts.append("using batch normalisation")
+
+        if self.number_of_warm_up_epochs:
+            description_parts.append("using linear warm-up weighting for " + \
+                "the first {} epochs".format(self.number_of_warm_up_epochs))
 
         if len(self.dropout_parts) > 0:
             description_parts.append("dropout keep probability: {}".format(
@@ -899,15 +934,22 @@ class VariationalAutoencoder(object):
 
         # log-mean-exp (to avoid over- and underflow) over iw_samples dimension
         ## -> shape: (L, batch_size)
-        LL = log_reduce_exp(log_p_x_given_z - self.warm_up_weight * KL,
-            reduction_function = tf.reduce_mean, axis = 0)
+        LL = log_reduce_exp(
+            log_p_x_given_z - self.warm_up_weight * self.kl_weight * KL,
+            reduction_function = tf.reduce_mean,
+            axis = 0
+        )
 
         # average over eq_samples, batch_size dimensions    -> shape: ()
         self.lower_bound = tf.reduce_mean(LL) # scalar
 
         # # Averaging over samples.
         # self.lower_bound = tf.subtract(log_p_x_given_z, 
-        #   tf.where(self.is_training, self.warm_up_weight * KL_qp, KL_qp),
+        #   tf.where(
+        #         self.is_training,
+        #         self.warm_up_weight * self.kl_weight * KL_qp,
+        #         KL_qp
+        #     ),
         #   name = 'lower_bound')
         tf.add_to_collection('losses', self.lower_bound)
         self.ELBO = self.lower_bound
