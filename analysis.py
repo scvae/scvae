@@ -1770,8 +1770,18 @@ def analyseDistances(data_set, name=None, export_options=[],
         number_of_examples = maximum_number_of_examples
         indices = shuffled_indices[:number_of_examples]
         values = values[indices]
-        labels = labels[indices]
+        labels = labels[indices] if labels is not None else None
         shuffled_indices = random_state.permutation(number_of_examples)
+    
+    class_palette = data_set.class_palette
+    
+    if labels is not None and not class_palette:
+        index_palette = lighter_palette(data_set.number_of_classes)
+        class_palette = {
+            class_name: tuple(index_palette[i]) for i, class_name in
+            enumerate(sorted(data_set.class_names,
+                             key = data_set.label_sorter))
+        }
     
     for metric in ["Euclidean", "cosine"]:
         
@@ -1796,7 +1806,12 @@ def analyseDistances(data_set, name=None, export_options=[],
             metric, data_set.version
         ))
         
-        for sort_method in ["labels", "hierarchical_clustering"]:
+        sort_methods = ["hierarchical_clustering"]
+        
+        if labels is not None:
+            sort_methods.append("labels")
+        
+        for sort_method in sort_methods:
             
             start_time = time()
             
@@ -1833,9 +1848,9 @@ def analyseDistances(data_set, name=None, export_options=[],
                         else data_set.version
                     ),
                 sort_method=sort_method,
-                labels=labels[indices],
+                labels=labels[indices] if labels is not None else None,
                 label_kind=data_set.tags["class"],
-                class_palette=data_set.class_palette,
+                class_palette=class_palette,
                 name=name + [data_set.version, metric, sort_method]
             )
             saveFigure(figure, figure_name, export_options, distances_directory)
