@@ -19,7 +19,7 @@
 import numpy
 from numpy import nan
 
-import scipy.sparse
+import scipy
 
 from miscellaneous.decomposition import (
     decompose,
@@ -33,7 +33,9 @@ from matplotlib import pyplot
 import matplotlib.patches
 import matplotlib.lines
 import matplotlib.gridspec
+import matplotlib.colors
 from matplotlib.ticker import LogFormatterSciNotation
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import seaborn
 
@@ -59,6 +61,7 @@ from auxiliary import (
     normaliseString, properString, capitaliseString, subheading
 )
 from miscellaneous.prediction import PREDICTION_METHOD_NAMES
+
 import warnings
 
 standard_palette = seaborn.color_palette('Set2', 8)
@@ -103,6 +106,8 @@ maximum_number_of_examples_before_sampling_silhouette_score = 20000
 maximum_number_of_bins_for_histograms = 20000
 
 maximum_number_of_values_for_heat_maps = 5000 * 25000
+maximum_number_of_examples_for_square_heat_maps = 10000
+maximum_number_of_examples_for_dendrogram = 1000
 
 maximum_number_of_features_for_t_sne = 100
 maximum_number_of_examples_for_t_sne = 200000
@@ -123,7 +128,7 @@ default_cutoffs = range(1, 10)
 analysis_groups = {
     "simple": ["metrics", "images", "learning_curves", "accuracies"],
     "default": ["kl_heat_maps", "profile_comparisons", "distributions",
-        "decompositions", "latent_space"],
+        "distances", "decompositions", "latent_space"],
     "complete": ["heat_maps", "latent_distributions", "latent_correlations",
         "feature_value_standard_deviations"]
 }
@@ -286,6 +291,15 @@ def analyseData(data_sets,
                 .format(data_set.kind, formatDuration(heat_maps_duration)))
             
             print()
+        
+        # Distance matrices
+    
+        if "distances" in analyses:
+            analyseDistances(
+                data_set,
+                name=[data_set.kind],
+                results_directory=results_directory
+            )
         
         # Decompositions
         
@@ -1363,6 +1377,22 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     print()
     
+    # Distance matrices
+    
+    if "distances" in analyses:
+        
+        print(subheading("Distances"))
+        
+        analyseDistances(
+            latent_evaluation_sets["z"],
+            results_directory=results_directory
+        )
+        
+        analyseDistances(
+            reconstructed_evaluation_set,
+            results_directory=results_directory
+        )
+    
     # Latent space
     
     if "latent_space" in analyses and "VAE" in model.type:
@@ -1713,6 +1743,114 @@ def analyseDistributions(data_set, colouring_data_set = None,
             .format(formatDuration(distribution_duration)))
     
     print()
+
+def analyseDistances(data_set, name=None, export_options=[],
+    results_directory="results"):
+    
+    distances_directory = os.path.join(results_directory, "distances")
+    
+    if not name:
+        name = []
+    elif not isinstance(name, list):
+        name = [name]
+    
+    random_state = numpy.random.RandomState(57)
+    
+    number_of_examples = data_set.number_of_examples
+    shuffled_indices = random_state.permutation(number_of_examples)
+    values = data_set.values
+    labels = data_set.labels
+    
+    maximum_number_of_examples = max(
+        maximum_number_of_examples_for_square_heat_maps,
+        maximum_number_of_examples_for_dendrogram
+    )
+    
+    if data_set.number_of_examples > maximum_number_of_examples:
+        number_of_examples = maximum_number_of_examples
+        indices = shuffled_indices[:number_of_examples]
+        values = values[indices]
+        labels = labels[indices]
+        shuffled_indices = random_state.permutation(number_of_examples)
+    
+    for metric in ["Euclidean", "cosine"]:
+        
+        print("Computing pairwise {} distances in {} space{}.".format(
+            metric,
+            data_set.version,
+            " for {} randomly sampled examples".format(number_of_examples)
+            if number_of_examples != data_set.number_of_examples else ""
+        ))
+        start_time = time()
+        
+        distances = computePairwiseDistances(
+            values,
+            metric=metric.lower()
+        )
+        
+        duration = time() - start_time
+        print("Distances computed ({}).".format(formatDuration(duration)))
+        print()
+        
+        print("Plotting pairwise {} distances in {} space.".format(
+            metric, data_set.version
+        ))
+        
+        for sort_method in ["labels", "hierarchical_clustering"]:
+            
+            start_time = time()
+            
+            if sort_method == "hierarchical_clustering" \
+                and data_set.number_of_examples \
+                    > maximum_number_of_examples_for_dendrogram:
+                    
+                    sample_size = maximum_number_of_examples_for_dendrogram
+            
+            elif data_set.number_of_examples \
+                > maximum_number_of_examples_for_square_heat_maps:
+                
+                sample_size = maximum_number_of_examples_for_square_heat_maps
+            
+            else:
+                sample_size = None
+            
+            indices = numpy.arange(number_of_examples)
+            axis_label = data_set.tags["example"].capitalize() + "s"
+            
+            if sample_size:
+                indices = shuffled_indices[:sample_size]
+                axis_label = "{} randomly sampled {}".format(
+                    sample_size, data_set.tags["example"] + "s"
+                )
+            
+            figure, figure_name = plotDistanceMatrix(
+                distances=distances[indices][:, indices],
+                axis_label=axis_label,
+                colour_bar_label="Pairwise cosine distances in {} space"
+                    .format(
+                        "${}$".format(data_set.version)
+                        if len(data_set.version) == 1
+                        else data_set.version
+                    ),
+                sort_method=sort_method,
+                labels=labels[indices],
+                label_kind=data_set.tags["class"],
+                class_palette=data_set.class_palette,
+                name=name + [data_set.version, metric, sort_method]
+            )
+            saveFigure(figure, figure_name, export_options, distances_directory)
+            
+            duration = time() - start_time
+            print(
+                "    Distances{} sorted using {} plotted and saved ({}).".format(
+                    " for {} randomly sampled examples".format(sample_size)
+                    if sample_size else "",
+                    sort_method.replace("_", " "),
+                    formatDuration(duration)
+                )
+            )
+        
+        print()
 
 def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
@@ -2675,6 +2813,8 @@ def computeClusteringMetrics(evaluation_set):
     
     return clustering_metric_values
 
+def computePairwiseDistances(values, metric="euclidean"):
+    return sklearn.metrics.pairwise_distances(values, metric=metric)
 
 def plotClassHistogram(labels, class_names = None, class_palette = None,
     normed = False, scale = "linear", label_sorter = None, name = None):
@@ -3664,13 +3804,20 @@ def plotProfileComparison(observed_series, expected_series,
         
     return figure, figure_name
 
-def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
-    z_min = None, z_max = None, labels = None, center = None,
-    normalisation = None, normalisation_constants = None, name = None):
+def plotHeatMap(values, x_name, y_name,
+    z_name=None, z_symbol=None, z_min=None, z_max=None,
+    symmetric=False, labels=None, label_kind=None, center=None,
+    normalisation=None, normalisation_constants=None, name=None):
     
     figure_name = figureName("heat_map", name)
     
     M, N = values.shape
+    
+    if symmetric and M != N:
+        raise ValueError(
+            "Input cannot be symmetric, when it is not given as a 2-d square"
+            "array or matrix."
+        )
     
     figure = pyplot.figure()
     axis = figure.add_subplot(1, 1, 1)
@@ -3696,19 +3843,30 @@ def plotHeatMap(values, x_name, y_name, z_name = None, z_symbol = None,
     if z_name:
         cbar_dict["label"] = z_name
     
-    aspect_ratio = M / N
-    square_cells = 1/5 < aspect_ratio and aspect_ratio < 5
+    if not symmetric:
+        aspect_ratio = M / N
+        square_cells = 1/5 < aspect_ratio and aspect_ratio < 5
+    else:
+        square_cells = True
     
     if labels is not None:
-        indices = numpy.argsort(labels)
-        y_name += " sorted by class"
+        x_indices = numpy.argsort(labels)
+        y_name += " sorted"
+        if label_kind:
+            y_name += " by " + label_kind
     else:
-        indices = numpy.arange(M)
+        x_indices = numpy.arange(M)
+    
+    if symmetric:
+        y_indices = x_indices
+        x_name = y_name
+    else:
+        y_indices = numpy.arange(N)
     
     seaborn.set(style = "white")
     
     seaborn.heatmap(
-        values[indices],
+        values[x_indices][:, y_indices],
         vmin = z_min, vmax = z_max, center = center, 
         xticklabels = False, yticklabels = False,
         cbar = True, cbar_kws = cbar_dict, cmap = standard_colour_map,
@@ -3759,6 +3917,131 @@ def plotELBOHeatMap(data_frame, x_label, y_label, z_label = None, z_symbol = Non
     
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
+    
+    return figure, figure_name
+
+def plotDistanceMatrix(distances, axis_label=None, colour_bar_label=None,
+    sort_method=None, labels=None, label_kind=None, class_palette=None,
+    hide_dendrogram=False, name=None):
+    
+    # Setup
+    
+    figure_name = figureName("distances", name)
+    
+    if sort_method == "labels" and labels is None:
+        raise ValueError("No labels provided to sort after.")
+    
+    M, N = distances.shape
+    
+    if M != N:
+        raise ValueError("`distances` should be a square matrix or array.")
+    
+    # Figure initialisation
+    
+    figure = pyplot.figure()
+    
+    axis_heat_map = figure.add_subplot(1, 1, 1)
+    left_most_axis = axis_heat_map
+    
+    divider = make_axes_locatable(axis_heat_map)
+    axis_colour_map = divider.append_axes("right", size="5%", pad=0.1)
+    
+    axis_labels = None
+    axis_dendrogram = None
+    
+    if labels is not None:
+        axis_labels = divider.append_axes("left", size="5%", pad=0.01)
+        left_most_axis = axis_labels
+    
+    if sort_method is "hierarchical_clustering" and not hide_dendrogram:
+        axis_dendrogram = divider.append_axes("left", size="20%", pad=0.01)
+        left_most_axis = axis_dendrogram
+    
+    # Label colours
+    
+    if labels is not None:
+        label_colours = [class_palette[l] for l in labels]
+        unique_colours = class_palette.values()
+        value_for_colour = {
+            colour: i for i, colour in enumerate(unique_colours)
+        }
+        label_colour_matrix = numpy.array(
+            [value_for_colour[colour] for colour in label_colours]
+        ).reshape(M, 1)
+        label_colour_map = matplotlib.colors.ListedColormap(unique_colours)
+    else:
+        label_colour_matrix = None
+        label_colour_map = None
+    
+    # Axis labels
+    
+    cbar_dict = {}
+    
+    if colour_bar_label:
+        cbar_dict["label"] = colour_bar_label
+    
+    # Plots
+    
+    seaborn.set(style = "white")
+    
+    if sort_method == "labels":
+        indices = numpy.argsort(labels)
+        
+        if not label_kind:
+            label_kind = "labels"
+        
+        if axis_label:
+            axis_label += " sorted by " + label_kind
+    
+    elif sort_method == "hierarchical_clustering":
+        linkage = scipy.cluster.hierarchy.linkage(
+            scipy.spatial.distance.squareform(distances, checks=False),
+            metric="average"
+        )
+        dendrogram = seaborn.matrix.dendrogram(
+            distances,
+            linkage=linkage,
+            metric=None,
+            method="ward",
+            axis=0,
+            label=False,
+            rotate=True,
+            ax=axis_dendrogram
+        )
+        indices = dendrogram.reordered_ind
+        
+        if axis_label:
+            axis_label += " sorted by hierarchical clustering"
+    
+    elif sort_method is None:
+        indices = numpy.arange(M)
+    
+    else:
+        raise ValueError(
+            "`sort_method` should be either \"labels\""
+            " or \"hierarchical clustering\""
+        )
+    
+    seaborn.heatmap(
+        distances[indices][:, indices],
+        xticklabels = False, yticklabels = False,
+        cbar = True, cbar_kws = cbar_dict, cbar_ax = axis_colour_map,
+        #cmap = standard_colour_map,
+        square = True, ax = axis_heat_map
+    )
+    
+    if axis_labels:
+        seaborn.heatmap(
+            label_colour_matrix[indices],
+            xticklabels=False, yticklabels=False,
+            cbar=False,
+            cmap=label_colour_map,
+            ax=axis_labels
+        )
+    
+    reset_plot_look()
+    
+    left_most_axis.set_ylabel(axis_label)
     
     return figure, figure_name
 
@@ -4682,7 +4965,7 @@ def saveFigure(figure, figure_name, export_options, results_directory):
     
     figure_path_base = os.path.join(results_directory, figure_name)
     
-    default_tight_layout = {"pad": 0.1}
+    default_tight_layout = True
     tight_layout = default_tight_layout
     
     figure_width, figure_height = figure.get_size_inches()
@@ -4725,8 +5008,8 @@ def saveFigure(figure, figure_name, export_options, results_directory):
             adjustFigureForLegend(figure)
             
             figure_path = "-".join([
-                figure_path_base, "publication", copy_name]
-            ) + publication_figure_extension
+                figure_path_base, "publication", copy_name
+            ]) + publication_figure_extension
             
             figure.savefig(figure_path)
     

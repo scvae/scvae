@@ -68,6 +68,7 @@ data_sets = {
         "tags": {
             "example": "cell",
             "feature": "gene",
+            "class": "cell type",
             "type": "count",
             "item": "transcript"
         },
@@ -214,6 +215,7 @@ data_sets = {
         "tags": {
             "example": "cell",
             "feature": "gene",
+            "class": "cell type",
             "type": "count",
             "item": "transcript"
         },
@@ -233,6 +235,7 @@ data_sets = {
         "tags": {
             "example": "cell",
             "feature": "gene",
+            "class": "cell type",
             "type": "count",
             "item": "transcript"
         },
@@ -252,6 +255,7 @@ data_sets = {
         "tags": {
             "example": "cell",
             "feature": "gene",
+            "class": "cell type",
             "type": "count",
             "item": "transcript"
         },
@@ -270,6 +274,7 @@ data_sets = {
         "tags": {
             "example": "cell",
             "feature": "gene",
+            "class": "cell type",
             "type": "count",
             "item": "transcript"
         },
@@ -288,6 +293,7 @@ data_sets = {
         "tags": {
             "example": "cell",
             "feature": "gene",
+            "class": "cell type",
             "type": "count",
             "item": "transcript"
         },
@@ -312,6 +318,7 @@ data_sets = {
         "tags": {
             "example": "cell",
             "feature": "gene",
+            "class": "cell type",
             "type": "count",
             "item": "transcript"
         },
@@ -331,6 +338,7 @@ data_sets = {
         "tags": {
             "example": "sample",
             "feature": "gene ID",
+            "class": "tissue site",
             "mapped feature": "gene",
             "type": "count",
             "item": "transcript"
@@ -355,6 +363,7 @@ data_sets = {
             "example": "sample",
             "feature": "gene ID",
             "mapped feature": "gene",
+            "class": "tissue site",
             "type": "count",
             "item": "transcript"
         },
@@ -377,6 +386,7 @@ data_sets = {
         "tags": {
             "example": "digit",
             "feature": "pixel",
+            "class": "value",
             "type": "count",
             "item": "intensity"
         },
@@ -404,6 +414,7 @@ data_sets = {
         "tags": {
             "example": "digit",
             "feature": "pixel",
+            "class": "value",
             "type": "value",
             "item": "intensity"
         },
@@ -422,6 +433,7 @@ data_sets = {
         "tags": {
             "example": "digit",
             "feature": "pixel",
+            "class": "value",
             "type": "value",
             "item": "intensity"
         },
@@ -451,6 +463,7 @@ data_sets = {
         "tags": {
             "example": "document",
             "feature": "word",
+            "class": "topic",
             "type": "count",
             "item": "word"
         },
@@ -466,6 +479,7 @@ data_sets = {
         "tags": {
             "example": "document",
             "feature": "word",
+            "class": "topic",
             "type": "count",
             "item": "word"
         },
@@ -1872,6 +1886,7 @@ def dataSetTags(title):
             "example": "example",
             "feature": "feature",
             "mapped feature": "mapped feature",
+            "class": "class",
             "type": "value",
             "item": "item"
         }
