@@ -1017,14 +1017,14 @@ class GaussianMixtureVariationalAutoencoder(object):
         self.KL = self.KL_z + self.KL_y
         self.KL_all = tf.expand_dims(self.KL, -1)
         self.ENRE = tf.reduce_mean(tf.add_n(log_p_x_given_z_mean))
-        self.ELBO = self.ENRE - self.warm_up_weight * self.kl_weight * (
+        self.ELBO = self.ENRE - self.KL
+        self.ELBO_weighted = self.ENRE - self.warm_up_weight * self.kl_weight * (
             self.KL_z + KL_y_modified
         )
         # self.ELBO_train_modified = self.ENRE - self.warm_up_weight * (
         #     self.KL_z + KL_y_modified
         # )
-        # self.ELBO = self.ENRE - self.KL
-        tf.add_to_collection('losses', self.ELBO)
+        # tf.add_to_collection('losses', self.ELBO)
         
     
     def training(self):
@@ -1047,7 +1047,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             #     global_step = self.global_step
             # )
         
-            gradients = optimiser.compute_gradients(-self.ELBO)
+            gradients = optimiser.compute_gradients(-self.ELBO_weighted)
             # gradients = optimiser.compute_gradients(-self.ELBO_train_modified)
             clipped_gradients = [
                 (tf.clip_by_value(gradient, -1., 1.), variable)

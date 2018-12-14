@@ -935,6 +935,11 @@ class VariationalAutoencoder(object):
         # log-mean-exp (to avoid over- and underflow) over iw_samples dimension
         ## -> shape: (L, batch_size)
         LL = log_reduce_exp(
+            log_p_x_given_z - KL,
+            reduction_function = tf.reduce_mean,
+            axis = 0
+        )
+        LL_weighted = log_reduce_exp(
             log_p_x_given_z - self.warm_up_weight * self.kl_weight * KL,
             reduction_function = tf.reduce_mean,
             axis = 0
@@ -942,6 +947,7 @@ class VariationalAutoencoder(object):
 
         # average over eq_samples, batch_size dimensions    -> shape: ()
         self.lower_bound = tf.reduce_mean(LL) # scalar
+        self.lower_bound_weighted = tf.reduce_mean(LL_weighted) # scalar
 
         # # Averaging over samples.
         # self.lower_bound = tf.subtract(log_p_x_given_z, 
@@ -953,6 +959,7 @@ class VariationalAutoencoder(object):
         #   name = 'lower_bound')
         tf.add_to_collection('losses', self.lower_bound)
         self.ELBO = self.lower_bound
+        self.ELBO_weigthed = self.lower_bound_weighted
         
         # Add scalar summaries for the losses
         # for l in tf.get_collection('losses'):
@@ -978,7 +985,7 @@ class VariationalAutoencoder(object):
             #     global_step = self.global_step
             # )
         
-            gradients = optimiser.compute_gradients(-self.lower_bound)
+            gradients = optimiser.compute_gradients(-self.lower_bound_weighted)
             clipped_gradients = [(tf.clip_by_value(gradient, -1., 1.),
                 variable) for gradient, variable in gradients]
             self.train_op = optimiser.apply_gradients(clipped_gradients,
