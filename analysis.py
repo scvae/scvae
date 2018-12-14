@@ -106,7 +106,8 @@ maximum_number_of_examples_before_sampling_silhouette_score = 20000
 maximum_number_of_bins_for_histograms = 20000
 
 maximum_number_of_values_for_heat_maps = 5000 * 25000
-maximum_number_of_examples_for_square_heat_maps = 10000
+maximum_number_of_examples_for_heat_maps = 10000
+maximum_number_of_features_for_heat_maps = 10000
 maximum_number_of_examples_for_dendrogram = 1000
 
 maximum_number_of_features_for_t_sne = 100
@@ -248,7 +249,6 @@ def analyseData(data_sets,
         # Distributions
         
         if "distributions" in analyses:
-            
             analyseDistributions(
                 data_set,
                 cutoffs = default_cutoffs,
@@ -259,52 +259,26 @@ def analyseData(data_sets,
         
         # Heat map for data set
         
-        if "heat_maps" in analyses and \
-            data_set.number_of_values <= maximum_number_of_values_for_heat_maps:
-            
-            print("Plotting heat map for {} set.".format(data_set.kind))
-            
-            heat_maps_directory = os.path.join(results_directory, "heat_maps")
-            
-            heat_maps_time_start = time()
-            
-            if data_set.labels is not None:
-                labels = data_set.labels
-            else:
-                labels = None
-            
-            figure, figure_name = plotHeatMap(
-                data_set.values,
-                labels = labels,
-                normalisation = data_set.heat_map_normalisation,
-                normalisation_constants = data_set.count_sum,
-                x_name = capitaliseString(data_set.tags["feature"]) + "s",
-                y_name = capitaliseString(data_set.tags["example"]) + "s",
-                z_name = capitaliseString(data_set.tags["value"]) + "s",
-                z_symbol = "x",
-                name = data_set.kind
+        if "heat_maps" in analyses:
+            analyseMatrices(
+                data_set,
+                name=[data_set.kind],
+                results_directory=results_directory
             )
-            saveFigure(figure, figure_name, export_options, heat_maps_directory)
-            
-            heat_maps_duration = time() - heat_maps_time_start
-            print("Heat map for {} set plotted and saved ({})."\
-                .format(data_set.kind, formatDuration(heat_maps_duration)))
-            
-            print()
         
         # Distance matrices
     
         if "distances" in analyses:
-            analyseDistances(
+            analyseMatrices(
                 data_set,
                 name=[data_set.kind],
+                plot_distances=True,
                 results_directory=results_directory
             )
         
         # Decompositions
         
         if "decompositions" in analyses:
-            
             analyseDecompositions(
                 data_set,
                 decomposition_methods = decomposition_methods,
@@ -1255,6 +1229,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     if "distributions" in analyses:
         
+        print(subheading("Distributions"))
+        
         analyseDistributions(
             reconstructed_evaluation_set,
             colouring_data_set = evaluation_set,
@@ -1268,6 +1244,8 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     ## Reconstructions decomposed
     
     if "decompositions" in analyses:
+        
+        print(subheading("Decompositions"))
         
         analyseDecompositions(
             reconstructed_evaluation_set,
@@ -1303,39 +1281,34 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
     
     # Heat maps
     
-    if "heat_maps" in analyses and \
-        reconstructed_evaluation_set.number_of_values \
-        <= maximum_number_of_values_for_heat_maps:
+    if "heat_maps" in analyses:
         
-        print("Plotting heat maps.")
-        
-        heat_maps_directory = os.path.join(results_directory, "heat_maps")
+        print(subheading("Heat maps"))
         
         ## Reconstructions
         
-        heat_maps_time_start = time()
-        
-        figure, figure_name = plotHeatMap(
-            reconstructed_evaluation_set.values,
-            labels = reconstructed_evaluation_set.labels,
-            normalisation =
-                reconstructed_evaluation_set.heat_map_normalisation,
-            normalisation_constants = evaluation_set.count_sum,
-            x_name = evaluation_set.tags["feature"].capitalize() + "s",
-            y_name = evaluation_set.tags["example"].capitalize() + "s",
-            z_name = evaluation_set.tags["value"].capitalize() + "s",
-            z_symbol = "\\tilde{{x}}",
-            name = "reconstruction"
+        analyseMatrices(
+            reconstructed_evaluation_set,
+            plot_distances=False,
+            results_directory=results_directory
         )
-        saveFigure(figure, figure_name, export_options, heat_maps_directory)
         
-        heat_maps_duration = time() - heat_maps_time_start
-        print("    Reconstruction heat map plotted and saved ({})." \
-            .format(formatDuration(heat_maps_duration)))
+        ## Latent
         
-        ## Differences
+        analyseMatrices(
+            latent_evaluation_sets["z"],
+            plot_distances=False,
+            results_directory=results_directory
+        )
         
-        if analysis_level == "extensive":
+        if analysis_level == "extensive" and \
+            reconstructed_evaluation_set.number_of_values \
+            <= maximum_number_of_values_for_heat_maps:
+            
+            print("Plotting comparison heat maps.")
+            
+            ## Differences
+        
             heat_maps_time_start = time()
             
             figure, figure_name = plotHeatMap(
@@ -1353,10 +1326,9 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
             heat_maps_duration = time() - heat_maps_time_start
             print("    Difference heat map plotted and saved ({})." \
                 .format(formatDuration(heat_maps_duration)))
-    
-        ## log-ratios
-        
-        if analysis_level == "extensive":
+            
+            ## log-ratios
+            
             heat_maps_time_start = time()
             
             figure, figure_name = plotHeatMap(
@@ -1383,13 +1355,15 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
         
         print(subheading("Distances"))
         
-        analyseDistances(
-            latent_evaluation_sets["z"],
+        analyseMatrices(
+            reconstructed_evaluation_set,
+            plot_distances=True,
             results_directory=results_directory
         )
         
-        analyseDistances(
-            reconstructed_evaluation_set,
+        analyseMatrices(
+            latent_evaluation_sets["z"],
+            plot_distances=True,
             results_directory=results_directory
         )
     
@@ -1744,38 +1718,51 @@ def analyseDistributions(data_set, colouring_data_set = None,
     
     print()
 
-def analyseDistances(data_set, name=None, export_options=[],
-    results_directory="results"):
+def analyseMatrices(data_set, plot_distances=False,
+    name=None, export_options=[], results_directory="results"):
     
-    distances_directory = os.path.join(results_directory, "distances")
+    # Naming
+    
+    if plot_distances:
+        base_name = "distances"
+    else:
+        base_name = "heat_maps"
+    
+    results_directory = os.path.join(results_directory, base_name)
     
     if not name:
         name = []
     elif not isinstance(name, list):
         name = [name]
     
+    name.insert(0,base_name)
+    
+    # Subsampling indices (if necessary)
+    
     random_state = numpy.random.RandomState(57)
+    shuffled_indices = random_state.permutation(data_set.number_of_examples)
     
-    number_of_examples = data_set.number_of_examples
-    shuffled_indices = random_state.permutation(number_of_examples)
-    values = data_set.values
-    labels = data_set.labels
+    # Feature selection for plotting (if necessary)
     
-    maximum_number_of_examples = max(
-        maximum_number_of_examples_for_square_heat_maps,
-        maximum_number_of_examples_for_dendrogram
-    )
+    feature_indices_for_plotting = None
     
-    if data_set.number_of_examples > maximum_number_of_examples:
-        number_of_examples = maximum_number_of_examples
-        indices = shuffled_indices[:number_of_examples]
-        values = values[indices]
-        labels = labels[indices] if labels is not None else None
-        shuffled_indices = random_state.permutation(number_of_examples)
+    if not plot_distances and data_set.number_of_features \
+        > maximum_number_of_features_for_heat_maps:
+        
+        feature_variances = data_set.values.var(axis=0)
+        
+        if isinstance(feature_variances, numpy.matrix):
+            feature_variances = feature_variances.A.squeeze()
+        
+        feature_indices_for_plotting = numpy.argsort(feature_variances)\
+            [-maximum_number_of_features_for_heat_maps:]
+        feature_indices_for_plotting.sort()
+    
+    # Class palette
     
     class_palette = data_set.class_palette
     
-    if labels is not None and not class_palette:
+    if data_set.labels is not None and not class_palette:
         index_palette = lighter_palette(data_set.number_of_classes)
         class_palette = {
             class_name: tuple(index_palette[i]) for i, class_name in
@@ -1783,89 +1770,141 @@ def analyseDistances(data_set, name=None, export_options=[],
                              key = data_set.label_sorter))
         }
     
-    for metric in ["Euclidean", "cosine"]:
-        
-        print("Computing pairwise {} distances in {} space{}.".format(
-            metric,
-            data_set.version,
-            " for {} randomly sampled examples".format(number_of_examples)
-            if number_of_examples != data_set.number_of_examples else ""
-        ))
-        start_time = time()
-        
-        distances = computePairwiseDistances(
-            values,
-            metric=metric.lower()
+    # Axis labels
+    
+    example_label = data_set.tags["example"].capitalize() + "s"
+    feature_label = data_set.tags["feature"].capitalize() + "s"
+    value_label = data_set.tags["value"].capitalize() + "s"
+    
+    version = data_set.version
+    symbol = None
+    value_name = "values"
+    
+    if version in ["z", "x"]:
+        symbol = "$\\mathbf{{{}}}$".format(version)
+        value_name = "component"
+    elif version in ["y"]:
+        symbol = "${}$".format(version)
+        value_name = "value"
+    
+    if version in ["y", "z"]:
+        feature_label = " ".join([symbol, value_name + "s"])
+    
+    if plot_distances:
+        if version in ["y", "z"]:
+            value_label = symbol
+        else:
+            value_label = version
+    
+    if feature_indices_for_plotting is not None:
+        feature_label = "{} most varying {}".format(
+            len(feature_indices_for_plotting),
+            feature_label.lower()
         )
+    
+    # Loop over sorting methods
+    
+    plot_string = "Plotting heat map for {} values."
+    
+    if plot_distances:
+        plot_string = "Plotting pairwise distances in {} space."
+    
+    print(plot_string.format(data_set.version))
+    
+    sorting_methods = ["hierarchical_clustering"]
+    
+    if data_set.labels is not None:
+        sorting_methods.insert(0, "labels")
+    
+    for sorting_method in sorting_methods:
         
-        duration = time() - start_time
-        print("Distances computed ({}).".format(formatDuration(duration)))
-        print()
+        distance_metrics = [None]
         
-        print("Plotting pairwise {} distances in {} space.".format(
-            metric, data_set.version
-        ))
+        if plot_distances or sorting_method == "hierarchical_clustering":
+            distance_metrics = ["Euclidean", "cosine"]
         
-        sort_methods = ["hierarchical_clustering"]
-        
-        if labels is not None:
-            sort_methods.append("labels")
-        
-        for sort_method in sort_methods:
+        for distance_metric in distance_metrics:
             
             start_time = time()
             
-            if sort_method == "hierarchical_clustering" \
+            if sorting_method == "hierarchical_clustering" \
                 and data_set.number_of_examples \
                     > maximum_number_of_examples_for_dendrogram:
                     
                     sample_size = maximum_number_of_examples_for_dendrogram
             
             elif data_set.number_of_examples \
-                > maximum_number_of_examples_for_square_heat_maps:
+                > maximum_number_of_examples_for_heat_maps:
                 
-                sample_size = maximum_number_of_examples_for_square_heat_maps
+                sample_size = maximum_number_of_examples_for_heat_maps
             
             else:
                 sample_size = None
             
-            indices = numpy.arange(number_of_examples)
-            axis_label = data_set.tags["example"].capitalize() + "s"
+            indices = numpy.arange(data_set.number_of_examples)
             
             if sample_size:
                 indices = shuffled_indices[:sample_size]
-                axis_label = "{} randomly sampled {}".format(
+                example_label = "{} randomly sampled {}".format(
                     sample_size, data_set.tags["example"] + "s"
                 )
             
-            figure, figure_name = plotDistanceMatrix(
-                distances=distances[indices][:, indices],
-                axis_label=axis_label,
-                colour_bar_label="Pairwise cosine distances in {} space"
-                    .format(
-                        "${}$".format(data_set.version)
-                        if len(data_set.version) == 1
-                        else data_set.version
-                    ),
-                sort_method=sort_method,
-                labels=labels[indices] if labels is not None else None,
+            figure, figure_name = plotMatrix(
+                feature_matrix=data_set.values[indices],
+                plot_distances=plot_distances,
+                example_label=example_label,
+                feature_label=feature_label,
+                value_label=value_label,
+                sorting_method=sorting_method,
+                distance_metric=distance_metric,
+                labels=data_set.labels[indices]
+                    if data_set.labels is not None else None,
                 label_kind=data_set.tags["class"],
                 class_palette=class_palette,
-                name=name + [data_set.version, metric, sort_method]
+                feature_indices_for_plotting=feature_indices_for_plotting,
+                name_parts=name + [
+                    data_set.version,
+                    distance_metric,
+                    sorting_method
+                ]
             )
-            saveFigure(figure, figure_name, export_options, distances_directory)
+            saveFigure(figure, figure_name, export_options, results_directory)
             
             duration = time() - start_time
-            print(
-                "    Distances{} sorted using {} plotted and saved ({}).".format(
-                    " for {} randomly sampled examples".format(sample_size)
-                    if sample_size else "",
-                    sort_method.replace("_", " "),
-                    formatDuration(duration)
+            
+            plot_string_parts = []
+            
+            plot_kind_string = "Heat map for {} values".format(data_set.version)
+            
+            if plot_distances:
+                plot_kind_string = "{} distances in {} space".format(
+                    distance_metric.capitalize(),
+                    data_set.version
                 )
+            
+            subsampling_string = ""
+            
+            if sample_size:
+                subsampling_string = "{} {} randomly sampled examples"\
+                    .format("for" if plot_distances else "of", sample_size)
+            
+            sort_string = "sorted using {}".format(
+                sorting_method.replace("_", " ")
             )
+            
+            if not plot_distances \
+                and sorting_method == "hierarchical_clustering":
+                    sort_string += " (with {} distances)".format(distance_metric)
+            
+            print("    " + " ".join([s for s in [
+                plot_kind_string,
+                subsampling_string,
+                sort_string,
+                "plotted and saved",
+                "({})".format(formatDuration(duration))
+            ] if s]) + ".")
         
-        print()
+    print()
 
 def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
     colouring_data_set = None, decomposition_methods = ["PCA"],
@@ -3935,21 +3974,47 @@ def plotELBOHeatMap(data_frame, x_label, y_label, z_label = None, z_symbol = Non
     
     return figure, figure_name
 
-def plotDistanceMatrix(distances, axis_label=None, colour_bar_label=None,
-    sort_method=None, labels=None, label_kind=None, class_palette=None,
-    hide_dendrogram=False, name=None):
+def plotMatrix(feature_matrix, plot_distances=False, center_value=None,
+    example_label=None, feature_label=None, value_label=None,
+    sorting_method=None, distance_metric="Euclidean",
+    labels=None, label_kind=None, class_palette=None,
+    feature_indices_for_plotting=None,
+    hide_dendrogram=False, name_parts=None):
     
     # Setup
     
-    figure_name = figureName("distances", name)
+    figure_name = figureName(name_parts)
     
-    if sort_method == "labels" and labels is None:
+    M, N = feature_matrix.shape
+    
+    if plot_distances:
+        center_value = None
+        feature_label = None
+        value_label = "Pairwise {} distances in {} space".format(
+            distance_metric,
+            value_label
+        )
+    
+    if not plot_distances and feature_indices_for_plotting is None:
+        feature_indices_for_plotting = numpy.arange(N)
+    
+    # Checks
+    
+    if sorting_method == "labels" and labels is None:
         raise ValueError("No labels provided to sort after.")
     
-    M, N = distances.shape
+    if labels is not None and not class_palette:
+        raise ValueError("No class palette provided.")
     
-    if M != N:
-        raise ValueError("`distances` should be a square matrix or array.")
+    # Distances (if needed)
+    
+    distances = None
+    
+    if plot_distances or sorting_method == "hierarchical_clustering":
+        distances = computePairwiseDistances(
+            feature_matrix,
+            metric=distance_metric.lower()
+        )
     
     # Figure initialisation
     
@@ -3968,7 +4033,7 @@ def plotDistanceMatrix(distances, axis_label=None, colour_bar_label=None,
         axis_labels = divider.append_axes("left", size="5%", pad=0.01)
         left_most_axis = axis_labels
     
-    if sort_method is "hierarchical_clustering" and not hide_dendrogram:
+    if sorting_method is "hierarchical_clustering" and not hide_dendrogram:
         axis_dendrogram = divider.append_axes("left", size="20%", pad=0.01)
         left_most_axis = axis_dendrogram
     
@@ -3988,27 +4053,29 @@ def plotDistanceMatrix(distances, axis_label=None, colour_bar_label=None,
         label_colour_matrix = None
         label_colour_map = None
     
-    # Axis labels
+    # Heat map aspect ratio
     
-    cbar_dict = {}
-    
-    if colour_bar_label:
-        cbar_dict["label"] = colour_bar_label
+    if not plot_distances:
+        square_cells = False
+    else:
+        square_cells = True
     
     # Plots
     
     seaborn.set(style = "white")
     
-    if sort_method == "labels":
-        indices = numpy.argsort(labels)
+    ## Sorting and optional dendrogram
+    
+    if sorting_method == "labels":
+        example_indices = numpy.argsort(labels)
         
         if not label_kind:
             label_kind = "labels"
         
-        if axis_label:
-            axis_label += " sorted by " + label_kind
+        if example_label:
+            example_label += " sorted by " + label_kind
     
-    elif sort_method == "hierarchical_clustering":
+    elif sorting_method == "hierarchical_clustering":
         linkage = scipy.cluster.hierarchy.linkage(
             scipy.spatial.distance.squareform(distances, checks=False),
             metric="average"
@@ -4023,31 +4090,48 @@ def plotDistanceMatrix(distances, axis_label=None, colour_bar_label=None,
             rotate=True,
             ax=axis_dendrogram
         )
-        indices = dendrogram.reordered_ind
+        example_indices = dendrogram.reordered_ind
         
-        if axis_label:
-            axis_label += " sorted by hierarchical clustering"
+        if example_label:
+            example_label += " sorted by hierarchical clustering"
     
-    elif sort_method is None:
-        indices = numpy.arange(M)
+    elif sorting_method is None:
+        example_indices = numpy.arange(M)
     
     else:
         raise ValueError(
-            "`sort_method` should be either \"labels\""
+            "`sorting_method` should be either \"labels\""
             " or \"hierarchical clustering\""
         )
     
+    ## Heat map of values
+    
+    if plot_distances:
+        plot_values = distances[example_indices][:, example_indices]
+    else:
+        plot_values = feature_matrix[example_indices]\
+            [:, feature_indices_for_plotting]
+    
+    if scipy.sparse.issparse(plot_values):
+        plot_values = plot_values.A
+    
+    colour_bar_dictionary = {}
+    
+    if value_label:
+        colour_bar_dictionary["label"] = value_label
+    
     seaborn.heatmap(
-        distances[indices][:, indices],
-        xticklabels = False, yticklabels = False,
-        cbar = True, cbar_kws = cbar_dict, cbar_ax = axis_colour_map,
-        #cmap = standard_colour_map,
-        square = True, ax = axis_heat_map
+        plot_values, center = center_value,
+        xticklabels=False, yticklabels=False,
+        cbar=True, cbar_kws=colour_bar_dictionary, cbar_ax=axis_colour_map,
+        square=square_cells, ax=axis_heat_map
     )
+    
+    ## Colour labels
     
     if axis_labels:
         seaborn.heatmap(
-            label_colour_matrix[indices],
+            label_colour_matrix[example_indices],
             xticklabels=False, yticklabels=False,
             cbar=False,
             cmap=label_colour_map,
@@ -4056,7 +4140,13 @@ def plotDistanceMatrix(distances, axis_label=None, colour_bar_label=None,
     
     reset_plot_look()
     
-    left_most_axis.set_ylabel(axis_label)
+    ## Axis labels
+    
+    if example_label:
+        left_most_axis.set_ylabel(example_label)
+    
+    if feature_label:
+        axis_heat_map.set_xlabel(feature_label)
     
     return figure, figure_name
 
