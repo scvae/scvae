@@ -2425,6 +2425,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                 p_z_means /= M_eval / batch_size
                 p_z_variances /= M_eval / batch_size
             
+            if self.number_of_importance_samples["evaluation"] == 1 \
+                and self.number_of_monte_carlo_samples["evaluation"] == 1:
+                    stddev_of_p_x_given_z_mean_eval = None
+            
             evaluation_cluster_ids = q_y_logits.argmax(axis = 1)
             
             if evaluation_set.has_labels:

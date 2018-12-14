@@ -984,7 +984,7 @@ parser.add_argument(
     "--number-of-importance-samples",
     type = int,
     nargs = "+",
-    default = [1, 1000],
+    default = [1],
     help = "the number of importance weighted samples (if two numbers given, the first will be used for training and the second for evaluation)"
 )
 parser.add_argument(
