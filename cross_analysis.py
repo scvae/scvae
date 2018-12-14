@@ -1897,11 +1897,12 @@ sample_replacements = {
 
 miscellaneous_replacements = {
     "sum": "CS",
-    "-kl": "",
+    "-kl-": "-",
     "bn": "BN",
     r"dropout_([\d._]+)": lambda match: "dropout: {}".format(
         match.group(1).replace("_", ", ")),
-    r"wu_(\d+)": lambda match: "WU({})".format(match.group(1))
+    r"wu_(\d+)": lambda match: "WU({})".format(match.group(1)),
+    r"klw_([\d.]+)": lambda match: "KLW: {}".format(match.group(1))
 }
 
 def modelTitleFromModelName(name):
