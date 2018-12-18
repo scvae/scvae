@@ -134,6 +134,7 @@ def main(log_directory = None, results_directory = None,
     model_excluded_strings = [],
     prediction_included_strings = [],
     prediction_excluded_strings = [],
+    model_metrics_override_string = None,
     epoch_cut_off = inf,
     export_options = [],
     show_baselines = True,
@@ -462,7 +463,7 @@ def main(log_directory = None, results_directory = None,
                     h, l = architecture.rsplit("×", maxsplit = 1)
                     
                     version = {
-                        "type": model_fields["version"],
+                        "version": model_fields["version"],
                         "epoch_number": model_fields["epochs"],
                     }
                     
@@ -474,7 +475,7 @@ def main(log_directory = None, results_directory = None,
                         network_architecture_versions[l][h] = version
                     else:
                         previous_version = network_architecture_versions[l][h]
-                        best_version = bestVersion(version, previous_version)
+                        best_version = bestVariants(version, previous_version)
                         if version == best_version:
                             network_architecture_versions[l][h] = version
                             network_architecture_ELBOs[l][h] = ELBO
@@ -775,7 +776,8 @@ def main(log_directory = None, results_directory = None,
                 "superset": {},
                 "unsupervised": {}
             }
-            method_likelihood_versions = {}
+            method_likelihood_variants = {}
+            method_likelihood_miscellaneous = {}
             
             for model_title, model_fields in summary_metrics_sets.items():
                 
@@ -794,7 +796,22 @@ def main(log_directory = None, results_directory = None,
                     filter_fields = model_filter_fields[model_type]
                     
                     for filter_name, filter_value in filter_fields.items():
+                        
                         field_value = model_fields.get(filter_name, None)
+                        
+                        if filter_name == "other":
+                            
+                            filter_values = set(filter_value.split("; "))
+                            field_values = set(field_value.split("; "))
+                            
+                            if model_metrics_override_string:
+                                field_values.discard(
+                                    model_metrics_override_string
+                                )
+                            
+                            filter_value = "; ".join(sorted(filter_values))
+                            field_value = "; ".join(sorted(field_values))
+                        
                         if field_value != filter_value:
                             discard_model = True
                             break
@@ -838,31 +855,35 @@ def main(log_directory = None, results_directory = None,
                 # Determine whether to update metrics if other version of
                 # model exist and is worse than current version
                 
-                version = {
-                    "type": model_fields["version"],
-                    "epoch_number": model_fields["epochs"],
+                variant = {
+                    "other": model_fields.get("other", None),
+                    "version": model_fields.get("version", None),
+                    "epoch_number": model_fields.get("epochs", None),
                 }
                 
-                likelihood_previous_versions = method_likelihood_versions.get(
+                likelihood_previous_variants = method_likelihood_variants.get(
                     method, None
                 )
-                if likelihood_previous_versions:
-                    previous_version = likelihood_previous_versions.get(
+                if likelihood_previous_variants:
+                    previous_variant = likelihood_previous_variants.get(
                         likelihood, None
                     )
                 else:
-                    previous_version = None
+                    previous_variant = None
                 
-                if previous_version:
-                    best_version = bestVersion(version, previous_version)
+                if previous_variant:
+                    best_variant = bestVariants(
+                        variant, previous_variant,
+                        additional_other_option=model_metrics_override_string
+                    )
                 else:
-                    best_version = version
+                    best_variant = variant
                 
-                if version != best_version:
+                if variant != best_variant:
                     continue
                 
-                method_likelihood_versions.setdefault(method, {})
-                method_likelihood_versions[method][likelihood] = version
+                method_likelihood_variants.setdefault(method, {})
+                method_likelihood_variants[method][likelihood] = variant
                 
                 # Extract metrics
                 
@@ -1949,31 +1970,56 @@ def modelID():
             continue
         yield model_id
 
-def bestVersion(*versions):
+def bestVariants(*variants, additional_other_option=None):
     
-    sorted_versions = sorted(versions, key = versionSortKey)
-    best_version = sorted_versions[-1]
+    def variantSortKey(variant):
+        
+        # Other
+        
+        other = variant.get("other", None)
+        
+        if other:
+            other_set = set(other.split("; "))
+        else:
+            other_set = set()
+        
+        if additional_other_option in other_set:
+            additional_other_option_available = True
+        else:
+            additional_other_option_available = False
+        
+        # Version
+        
+        version_rankings = {
+            "EOT": 0, # end of training
+            "ES": 1,  # early stopping
+            "OP": 2   # optimal parameters
+        }
+        
+        version = variant.get("version", None)
+        ranking = version_rankings.get(version, -1)
+        
+        # Epoch number
+        
+        epoch_number = variant.get("epoch_number", -1)
+        
+        if isinstance(epoch_number, list):
+            epoch_number = statistics.mean(epoch_number)
+        
+        # Sort key
+        
+        variant_sort_key = [
+            additional_other_option_available,
+            ranking,
+            epoch_number
+        ]
+        
+        return variant_sort_key
     
-    return best_version
+    sorted_variants = sorted(variants, key = variantSortKey)
+    best_variant = sorted_variants[-1]
     
-def versionSortKey(version):
-    
-    version_type_rankings = {
-        "EOT": 0, # end of training
-        "ES": 1,  # early stopping
-        "OP": 2   # optimal parameters
-    }
-    
-    type = version.get("type", None)
-    ranking = version_type_rankings.get(type, -1)
-    epoch_number = version.get("epoch_number", -1)
-    
-    if isinstance(epoch_number, list):
-        epoch_number = statistics.mean(epoch_number)
-    
-    version_sort_key = [ranking, epoch_number]
-    
-    return version_sort_key
+    return best_variant
 
 def comparisonTableColumnSorter(name):
     name = str(name)
@@ -2134,6 +2180,13 @@ parser.add_argument(
     nargs = "*",
     default = [],
     help = "strings to exclude in prediction methods"
+)
+parser.add_argument(
+    "--model-metrics-override-string", "-o",
+    type = str,
+    nargs = "?",
+    default = None,
+    help = "string to override models for model metrics plots"
 )
 parser.add_argument(
     "--epoch-cut-off", "-e",    
