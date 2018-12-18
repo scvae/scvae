@@ -77,7 +77,7 @@ reset_plot_look = lambda: seaborn.set(
     palette = standard_palette,
     color_codes = False,
     rc = {
-        "lines.markersize": 3,
+        "lines.markersize": 1,
         "figure.dpi": 200
     }
 )
