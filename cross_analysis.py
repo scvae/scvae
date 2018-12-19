@@ -44,10 +44,12 @@ from analysis import (
     clustering_metrics
 )
 from auxiliary import (
-    formatTime, capitaliseString,
+    formatTime,
+    normaliseString, properString, capitaliseString,
     title, subtitle, heading, subheading,
     prod
 )
+from miscellaneous.prediction import PREDICTION_METHOD_NAMES
 
 metrics_basename = "test-metrics"
 prediction_basename = "test-prediction"
@@ -127,6 +129,19 @@ LIKELIHOOD_DISRIBUTION_ORDER = [
 FACTOR_ANALYSIS_MODEL_TYPE = "VAE(G, g: LFM)"
 FACTOR_ANALYSIS_MODEL_TYPE_ALIAS = "FA"
 
+OTHER_METHOD_NAMES = {
+    "k-means": ["k_means", "kmeans"],
+    "Seurat": ["seurat"]
+}
+
+OTHER_METHOD_SPECIFICATIONS = {
+    "Seurat": {
+        "directory name": "Seurat",
+        "training set name": "full",
+        "evaluation set name": "full"
+    },
+}
+
 def main(log_directory = None, results_directory = None,
     data_set_included_strings = [], 
     data_set_excluded_strings = [], 
@@ -136,8 +151,8 @@ def main(log_directory = None, results_directory = None,
     prediction_excluded_strings = [],
     additional_other_option = None,
     epoch_cut_off = inf,
+    other_methods = [],
     export_options = [],
-    show_baselines = True,
     log_summary = False):
     
     search_strings_sets = [
@@ -415,17 +430,18 @@ def main(log_directory = None, results_directory = None,
             
             # Comparisons
             
-            if show_baselines:
-                set_baselines = baselinesForDataSet(
-                    data_set_directory = os.path.join(
+            if other_methods:
+                set_other_method_metrics = metricsForOtherMethods(
+                    data_set_directory=os.path.join(
                         results_directory,
                         data_set_path
                     ),
-                    prediction_included_strings = prediction_included_strings,
-                    prediction_excluded_strings = prediction_excluded_strings
+                    other_methods=other_methods,
+                    prediction_included_strings=prediction_included_strings,
+                    prediction_excluded_strings=prediction_excluded_strings
                 )
             else:
-                set_baselines = None
+                set_other_method_metrics = None
             
             ## Setup
             
@@ -683,37 +699,57 @@ def main(log_directory = None, results_directory = None,
             print(comparison_table + "\n")
             print(common_comparison_fields_string + "\n")
             
-            if set_baselines:
-                baseline_string_parts = ["Baselines:"]
+            if set_other_method_metrics:
+                other_methods_string_parts = ["Other methods:"]
                 
-                baseline_metric_values = {}
-                for set_name, method_baselines in set_baselines.items():
-                    for method, metric_baselines in method_baselines.items():
-                        for metric_name, baselines in metric_baselines.items():
+                other_methods_metric_values = {}
+                for set_name, other_method_metrics \
+                    in set_other_method_metrics.items():
+                    
+                    for method, method_metrics \
+                        in other_method_metrics.items():
+                        
+                        for metric_name, metric_values \
+                            in method_metrics.items():
                             
                             set_metric_name = metric_name
                             
                             if set_name == "superset":
                                 set_metric_name += " (superset)"
                             
-                            baseline_metric_values.setdefault(method, {})
-                            baseline_metric_values[method].setdefault(
-                                set_metric_name, baselines
+                            other_methods_metric_values.setdefault(method, {})
+                            other_methods_metric_values[method].setdefault(
+                                set_metric_name, metric_values
                             )
                 
-                for method, metric_values in baseline_metric_values.items():
-                    baseline_string_parts.append("    {}:".format(method))
+                for method, metric_values \
+                    in other_methods_metric_values.items():
+                    
+                    other_methods_string_parts.append("    {}:".format(
+                        method
+                    ))
+                    
                     for metric_name, values in metric_values.items():
-                        baseline_string_parts.append(
-                            "        {}: {:.6g}±{:.6g}".format(
-                                metric_name,
+                        
+                        if len(values) > 1:
+                            value_string = "{:.6g}±{:.6g}".format(
                                 statistics.mean(values),
                                 statistics.stdev(values)
                             )
+                        elif len(values) == 1:
+                            value_string = "{:.6g}".format(values[0])
+                        else:
+                            continue
+                        
+                        other_methods_string_parts.append(
+                            "        {}: {}".format(
+                                metric_name,
+                                value_string
+                            )
                         )
                 
-                baseline_string = "\n".join(baseline_string_parts)
-                print(baseline_string + "\n")
+                other_methods_string = "\n".join(other_methods_string_parts)
+                print(other_methods_string + "\n")
             
             if log_summary:
                 log_string_parts.append(subtitle("Comparison", plain = True))
@@ -721,8 +757,8 @@ def main(log_directory = None, results_directory = None,
                 log_string_parts.append(
                     common_comparison_fields_string + "\n"
                 )
-                if set_baselines:
-                    log_string_parts.append(baseline_string + "\n")
+                if set_other_method_metrics:
+                    log_string_parts.append(other_methods_string + "\n")
             
             ## Plot
             
@@ -1125,10 +1161,11 @@ def main(log_directory = None, results_directory = None,
                 
                 # Baselines
                 
-                if set_baselines:
-                    baselines = set_baselines.get(set_name, None)
+                if set_other_method_metrics:
+                    other_method_metrics = set_other_method_metrics.get(
+                        set_name, None)
                 else:
-                    baselines = None
+                    other_method_metrics = None
                 
                 # Clustering metrics
                 
@@ -1163,7 +1200,7 @@ def main(log_directory = None, results_directory = None,
                         secondary_differentiator_key = "method",
                         secondary_differentiator_order = method_order,
                         special_cases = special_cases,
-                        baselines = baselines,
+                        other_method_metrics = other_method_metrics,
                         x_label = optimised_metric_symbol,
                         y_label = clustering_metric_symbol,
                         name = [
@@ -1280,81 +1317,136 @@ def metricsSetsInResultsDirectory(results_directory,
     
     return metrics_set
 
-def baselinesForDataSet(data_set_directory,
-                        prediction_included_strings = None,
-                        prediction_excluded_strings = None):
+def metricsForOtherMethods(data_set_directory,
+                           other_methods=[],
+                           prediction_included_strings = None,
+                           prediction_excluded_strings = None):
     
-    baseline_directory = os.path.join(data_set_directory, "baseline")
+    if not isinstance(other_methods, list):
+        other_methods = [other_methods]
     
-    if not os.path.exists(baseline_directory):
-        return None
+    other_method_metrics = {}
     
-    baselines = {}
-    
-    for path, directory_names, filenames in os.walk(baseline_directory):
-        for filename in filenames:
-            if filename.startswith(prediction_basename) \
-                and filename.endswith(zipped_pickle_extension):
-                
-                prediction_match = matchString(
-                    filename,
-                    prediction_included_strings,
-                    prediction_excluded_strings
+    for other_method in other_methods:
+        
+        other_method_data_set_directory = data_set_directory
+        other_method_prediction_basename = prediction_basename
+        
+        other_method = properString(
+            normaliseString(other_method),
+            OTHER_METHOD_NAMES
+        )
+        directory_name = normaliseString(other_method)
+        
+        other_method_specifications = OTHER_METHOD_SPECIFICATIONS.get(
+            other_method, None
+        )
+        
+        if other_method_specifications:
+            
+            replacement_directory_name = other_method_specifications.get(
+                "directory name", None
+            )
+            training_set_name = other_method_specifications.get(
+                "training set name", None
+            )
+            evaluation_set_name = other_method_specifications.get(
+                "evaluation set name", None
+            )
+            
+            if replacement_directory_name:
+                directory_name = replacement_directory_name
+            
+            if training_set_name == "full":
+                other_method_data_set_directory = re.sub(
+                    pattern=r"/split-[\w\d.]+?/",
+                    repl="/no_split/",
+                    string=other_method_data_set_directory
                 )
-                
-                if not prediction_match:
-                    continue
-                
-                baseline_path = os.path.join(path, filename)
-                
-                with gzip.open(baseline_path, "r") as baseline_file:
-                    baseline = pickle.load(baseline_file)
-                
-                method = baseline.get("prediction method", None)
-                clustering_metric_values = baseline.get(
-                    "clustering metric values", [])
-                
-                for metric_name, metric_set \
-                    in clustering_metric_values.items():
+            
+            if evaluation_set_name != "test":
+                other_method_prediction_basename \
+                    = other_method_prediction_basename.replace(
+                        "test",
+                        evaluation_set_name,
+                        1
+                    )
+        
+        method_directory = os.path.join(
+            other_method_data_set_directory,
+            directory_name
+        )
+        
+        print(method_directory)
+        
+        if not os.path.exists(method_directory):
+            continue
+        
+        for path, directory_names, filenames in os.walk(method_directory):
+            for filename in filenames:
+                if filename.startswith(other_method_prediction_basename) \
+                    and filename.endswith(zipped_pickle_extension):
                     
-                    for metric_set_name, metric_value in metric_set.items():
-                        if metric_value is None:
-                            continue
-                        elif metric_set_name.startswith("clusters"):
-                            
-                            metric_details = clustering_metrics.get(
-                                metric_name, dict())
-                            metric_kind = metric_details.get("kind", None)
-                            
-                            if metric_kind and metric_kind == "supervised":
-                                
-                                set_name = "standard"
-                                
-                                if metric_set_name.endswith("superset"):
-                                    set_name = "superset"
-                            
-                            elif metric_kind \
-                                and metric_kind == "unsupervised":
-                                
-                                set_name = "unsupervised"
-                            
-                            else:
-                                set_name = "unknown"
-                            
-                            baselines.setdefault(set_name, {})
-                            baselines[set_name].setdefault(method, {})
-                            baselines[set_name][method].setdefault(
-                                metric_name, []
-                            )
-                            baselines[set_name][method][metric_name].append(
-                                float(metric_value)
-                            )
+                    prediction_match = matchString(
+                        filename,
+                        prediction_included_strings,
+                        prediction_excluded_strings
+                    )
                     
-                    metric_value = metric_set.get("clusters", None)
-                    metric_value_superset = metric_set.get(
-                        "clusters; superset", None)
+                    if not prediction_match:
+                        continue
+                    
+                    prediction_path = os.path.join(path, filename)
+                    
+                    with gzip.open(prediction_path, "r") as prediction_file:
+                        prediction = pickle.load(prediction_file)
+                    
+                    method = prediction.get("prediction method", None)
+                    clustering_metric_values = prediction.get(
+                        "clustering metric values", [])
+                    
+                    for metric_name, metric_set \
+                        in clustering_metric_values.items():
+                        
+                        for metric_set_name, metric_value in metric_set.items():
+                            if metric_value is None:
+                                continue
+                            elif metric_set_name.startswith("clusters"):
+                                
+                                metric_details = clustering_metrics.get(
+                                    metric_name, dict())
+                                metric_kind = metric_details.get("kind", None)
+                                
+                                if metric_kind and metric_kind == "supervised":
+                                    
+                                    set_name = "standard"
+                                    
+                                    if metric_set_name.endswith("superset"):
+                                        set_name = "superset"
+                                
+                                elif metric_kind \
+                                    and metric_kind == "unsupervised":
+                                    
+                                    set_name = "unsupervised"
+                                
+                                else:
+                                    set_name = "unknown"
+                                
+                                other_method_metrics.setdefault(
+                                    set_name, {}
+                                )
+                                other_method_metrics[set_name]\
+                                    .setdefault(method, {})
+                                other_method_metrics[set_name][method]\
+                                    .setdefault(metric_name, [])
+                                other_method_metrics[set_name][method]\
+                                    [metric_name].append(float(metric_value))
+                        
+                        # metric_value = metric_set.get("clusters", None)
+                        # metric_value_superset = metric_set.get(
+                        #     "clusters; superset", None)
     
-    return baselines
+    return other_method_metrics
 
 def parseMetricsForRunsAndVersionsOfModel(
         runs,
@@ -2204,24 +2296,19 @@ parser.add_argument(
     default = inf
 )
 parser.add_argument(
+    "--other-methods", "-o",
+    type = str,
+    nargs = "*",
+    default = [],
+    help = "other methods to plot in model metrics plot, if available"
+)
+parser.add_argument(
     "--export-options",
     type = str,
     nargs = "?",
     default = [],
     help = "analyse model evolution for video"
 )
-parser.add_argument(
-    "--show-baselines", "-b",
-    action = "store_true",
-    help = "show baselines, if available"
-)
-parser.add_argument(
-    "--hide-baselines", "-B",
-    dest = "show_baselines",
-    action = "store_false",
-    help = "hide baselines"
-)
-parser.set_defaults(show_baselines = True)
 parser.add_argument(
     "--log-summary", "-s",
     action = "store_true",

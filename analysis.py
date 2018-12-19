@@ -4398,7 +4398,7 @@ def plotModelMetricSets(
         secondary_differentiator_key = None,
         secondary_differentiator_order = None,
         special_cases = None,
-        baselines = None,
+        other_method_metrics = None,
         palette = None,
         marker_styles = None,
         name = None
@@ -4408,8 +4408,8 @@ def plotModelMetricSets(
     
     figure_name = figureName("model_metric_sets", name)
     
-    if baselines:
-        figure_name += "-baselines"
+    if other_method_metrics:
+        figure_name += "-other_methods"
     
     if not isinstance(metrics_sets, list):
         metrics_sets = [metrics_sets]
@@ -4476,7 +4476,8 @@ def plotModelMetricSets(
                 capsize = 2,
                 linestyle = "",
                 color = colour,
-                label = colour_key
+                label = colour_key,
+                markersize = 7
             )
         
         marker_key = metrics_set[secondary_differentiator_key]
@@ -4528,12 +4529,22 @@ def plotModelMetricSets(
         "dashdotted"
     ]
     
-    if baselines:
-        for baseline_kind, baseline_values in baselines.items():
-
-            y = numpy.array(baseline_values[y_key])
+    if other_method_metrics:
+        for method_name, metric_values in other_method_metrics.items():
+            
+            y_values = metric_values.get(y_key, None)
+            
+            if not y_values:
+                continue
+            
+            y = numpy.array(y_values)
+            
             y_mean = y.mean()
-            y_sd = y.std(ddof=1)
+            
+            if y.shape[0] > 1:
+                y_sd = y.std(ddof=1)
+            else:
+                y_sd = None
             
             line_style = baseline_line_styles.pop(0)
             
@@ -4541,19 +4552,20 @@ def plotModelMetricSets(
                 y = y_mean,
                 color = standard_palette[-1],
                 linestyle = line_style,
-                label = baseline_kind,
+                label = method_name,
                 zorder = -1
             )
             
-            axis.axhspan(
-                ymin = y_mean - y_sd,
-                ymax = y_mean + y_sd,
-                facecolor = standard_palette[-1],
-                alpha = 0.4,
-                edgecolor = None,
-                label = baseline_kind,
-                zorder = -2
-            )
+            if y_sd is not None:
+                axis.axhspan(
+                    ymin = y_mean - y_sd,
+                    ymax = y_mean + y_sd,
+                    facecolor = standard_palette[-1],
+                    alpha = 0.4,
+                    edgecolor = None,
+                    label = method_name,
+                    zorder = -2
+                )
     
     if len(metrics_sets) > 1:
         
