@@ -134,7 +134,7 @@ def main(log_directory = None, results_directory = None,
     model_excluded_strings = [],
     prediction_included_strings = [],
     prediction_excluded_strings = [],
-    model_metrics_override_string = None,
+    additional_other_option = None,
     epoch_cut_off = inf,
     export_options = [],
     show_baselines = True,
@@ -201,6 +201,10 @@ def main(log_directory = None, results_directory = None,
                     "_".join(search_strings)
                 ))
         
+        if additional_other_option:
+            cross_analysis_name_parts.append("a_{}".format(
+                additional_other_option))
+        
         if epoch_cut_off and epoch_cut_off != inf:
             cross_analysis_name_parts.append("e_{}".format(epoch_cut_off))
         
@@ -235,6 +239,12 @@ def main(log_directory = None, results_directory = None,
                     search_kind,
                     ", ".join(search_strings)
                 ))
+        
+        if additional_other_option:
+            explanation_string_parts.append(
+                "Additional other option to use for models in model metrics "
+                    "plot: {}.".format(additional_other_option)
+            )
         
         if epoch_cut_off and epoch_cut_off != inf:
             explanation_string_parts.append(
@@ -804,9 +814,9 @@ def main(log_directory = None, results_directory = None,
                             filter_values = set(filter_value.split("; "))
                             field_values = set(field_value.split("; "))
                             
-                            if model_metrics_override_string:
+                            if additional_other_option:
                                 field_values.discard(
-                                    model_metrics_override_string
+                                    additional_other_option
                                 )
                             
                             filter_value = "; ".join(sorted(filter_values))
@@ -874,7 +884,7 @@ def main(log_directory = None, results_directory = None,
                 if previous_variant:
                     best_variant = bestVariants(
                         variant, previous_variant,
-                        additional_other_option=model_metrics_override_string
+                        additional_other_option=additional_other_option
                     )
                 else:
                     best_variant = variant
@@ -2182,11 +2192,11 @@ parser.add_argument(
     help = "strings to exclude in prediction methods"
 )
 parser.add_argument(
-    "--model-metrics-override-string", "-o",
+    "--additional-other-option", "-a",
     type = str,
     nargs = "?",
     default = None,
-    help = "string to override models for model metrics plots"
+    help = "additional other option for models in model metrics plots"
 )
 parser.add_argument(
     "--epoch-cut-off", "-e",    
