@@ -1377,8 +1377,6 @@ def metricsForOtherMethods(data_set_directory,
             directory_name
         )
         
-        print(method_directory)
-        
         if not os.path.exists(method_directory):
             continue
         
