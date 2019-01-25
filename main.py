@@ -878,7 +878,7 @@ parser.add_argument(
     "--data-directory", "-D",
     type = str,
     default = "data",
-    help = "directory where data is placed"
+    help = "directory where data are placed"
 )
 parser.add_argument(
     "--log-directory", "-L",

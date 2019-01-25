@@ -3340,6 +3340,8 @@ def loadGTExDataSet(paths):
 
 def loadMatrixAsDataSet(paths, transpose = True):
     
+    # Values
+    
     values, column_headers, row_indices = \
         loadTabSeparatedMatrix(paths["values"]["full"], numpy.float32)
     
@@ -3351,11 +3353,24 @@ def loadMatrixAsDataSet(paths, transpose = True):
         example_names = numpy.array(row_indices)
         feature_names = numpy.array(column_headers)
     
-    feature_names = feature_names[:, 0]
+    example_names = example_names.flatten()
+    feature_names = feature_names.flatten()
+    
+    # Labels
+    
+    if "labels" in paths:
+        labels = loadLabelsFromDelimiterSeparetedValues(
+            path=paths["labels"]["full"],
+            example_names=example_names
+        )
+    else:
+        labels = None
+    
+    # Result
     
     data_dictionary = {
         "values": values,
-        "labels": None,
+        "labels": labels,
         "example names": example_names,
         "feature names": feature_names
     }
@@ -3406,7 +3421,11 @@ def loadTabSeparatedMatrix(tsv_path, data_type = None):
                 column_offset = i
                 break
         
-        column_headers = column_headers[column_offset:]
+        column_header_offset = column_offset - (
+            len(row_elements) - len(column_headers)
+        )
+        
+        column_headers = column_headers[column_header_offset:]
         
         def parseRowElements(row_elements):
             row_index = row_elements[:column_offset]
@@ -3436,9 +3455,14 @@ def loadLabelsFromDelimiterSeparetedValues(path, label_column = 1,
     metadata = pandas.read_csv(
         path,
         index_col = example_column,
+        usecols = [example_column, label_column],
         delimiter = delimiter,
         header = header
     )
+    
+    if isinstance(label_column, int):
+        label_column = metadata.columns[0]
+    
     unordered_labels = metadata[label_column]
     
     if example_names is not None:
@@ -3451,6 +3475,9 @@ def loadLabelsFromDelimiterSeparetedValues(path, label_column = 1,
     
     else:
         labels = unordered_labels.values
+    
+    if dtype is None and labels.dtype == "object":
+        dtype = "U"
     
     if dtype:
         labels = labels.astype(dtype)
