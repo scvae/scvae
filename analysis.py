@@ -113,7 +113,7 @@ maximum_number_of_examples_for_dendrogram = 1000
 
 maximum_number_of_features_for_t_sne = 100
 maximum_number_of_examples_for_t_sne = 200000
-number_of_pca_components_before_tsne = 50
+maximum_number_of_pca_components_before_tsne = 50
 
 number_of_random_examples = 100
 
@@ -2011,15 +2011,25 @@ def analyseDecompositions(data_sets, other_data_sets = [], centroids = None,
                     elif data_set.number_of_features > \
                         maximum_number_of_features_for_t_sne:
                         
+                        number_of_pca_components_before_tsne = min(
+                            maximum_number_of_pca_components_before_tsne,
+                            data_set.number_of_examples - 1
+                        )
+                        
                         print(
                             "The number of features for {}".format(
                                 title_with_ID),
                             "is too large to decompose it",
-                            "using {} in due time.".format(decomposition_method)
+                            "using {} in due time.".format(
+                                decomposition_method)
                         )
-                        print("Decomposing {} to {} components using PCA".format(
-                            title_with_ID, number_of_pca_components_before_tsne),
-                            "beforehand.")
+                        print("Decomposing {} to {} components using PCA"
+                            .format(
+                                title_with_ID,
+                                number_of_pca_components_before_tsne
+                            ),
+                            "beforehand."
+                        )
                         decompose_time_start = time()
                         
                         values_decomposed, other_values_decomposed, \
