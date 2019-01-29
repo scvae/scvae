@@ -96,6 +96,25 @@ distributions = {
         )
     },
 
+    "log-normal": {
+        "parameters": {
+            "mean": {
+                "support": [-inf, inf],
+                "activation function": identity,
+                "initial value": tf.zeros
+            },
+            "variance": {
+                "support": [-3, 3],
+                "activation function": softplus,
+                "initial value": tf.ones
+            }
+        },
+        "class": lambda theta: tensorflow_distributions.LogNormal(
+            loc = theta["mean"], 
+            scale = tf.sqrt(theta["variance"])
+        )
+    },
+
     "categorical": {
         "parameters": {
             "logits": {
