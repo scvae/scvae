@@ -59,7 +59,7 @@ distributions = {
                 "initial value": tf.zeros
             },
             "variance": {
-                "support": [-3, 3],
+                "support": [0, inf],
                 "activation function": softplus,
                 "initial value": tf.ones
             }
@@ -104,7 +104,7 @@ distributions = {
                 "initial value": tf.zeros
             },
             "variance": {
-                "support": [-3, 3],
+                "support": [0, inf],
                 "activation function": softplus,
                 "initial value": tf.ones
             }
