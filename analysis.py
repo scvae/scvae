@@ -4769,7 +4769,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
                 # Plot one example for each class to add labels
                 if label not in classes:
                     classes.add(label)
-                    axis.scatter(values[i, 0], values[i, 1], c = colour,
+                    axis.scatter(values[i, 0], values[i, 1], color = colour,
                         label = label)
             
             axis.scatter(values[:, 0], values[:, 1], c = colours)
