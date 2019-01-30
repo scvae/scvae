@@ -48,6 +48,13 @@ import argparse
 import itertools
 import random
 
+import warnings
+
+# TODO Remove when TensorFlow Probability library is updated to v0.6
+warnings.filterwarnings(action="ignore", category=DeprecationWarning)
+warnings.filterwarnings(action="ignore", category=FutureWarning)
+warnings.filterwarnings(action="ignore", category=PendingDeprecationWarning)
+
 def main(input_file_or_name, data_directory = "data",
     log_directory = "log", results_directory = "results",
     temporary_log_directory = None,
