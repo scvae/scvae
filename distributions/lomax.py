@@ -181,9 +181,6 @@ class Lomax(distribution.Distribution):
   def _event_shape(self):
     return tensor_shape.scalar()
 
-  # def _sample_n(self, n, seed=None):
-  #   pass
-
   def _log_prob(self, x):
     return self._log_unnormalized_prob(x) - self._log_normalization()
 
@@ -203,9 +200,6 @@ class Lomax(distribution.Distribution):
 
   def _log_normalization(self):
     return math_ops.log(self.scale) - math_ops.log(self.concentration)
-
-  # def _entropy(self):
-  #   pass
 
   @distribution_util.AppendDocstring(
       """The mean of a Lomax distribution is only defined for
@@ -290,25 +284,3 @@ class LomaxWithSoftplusConcentrationScale(Lomax):
           allow_nan_stats=allow_nan_stats,
           name=name)
     self._parameters = parameters
-
-
-# @kullback_leibler.RegisterKL(Lomax, Lomax)
-# def _kl_lomax_lomax(l0, l1, name=None):
-#   """Calculate the batched KL divergence KL(l0 || l1) with l0 and l1 Lomax.
-#
-#   Args:
-#     l0: instance of a Lomax distribution object.
-#     l1: instance of a Lomax distribution object.
-#     name: (optional) Name to use for created operations.
-#       Default is "kl_lomax_lomax".
-#
-#   Returns:
-#     kl_lomax_lomax: `Tensor`. The batchwise KL(l0 || l1).
-#   """
-#   with ops.name_scope(name, "kl_lomax_lomax", values=[
-#       l0.concentration, l0.scale, l1.concentration, l1.scale]):
-#     # Result from:
-#     #   http://www.fil.ion.ucl.ac.uk/~wpenny/publications/densities.ps
-#     # For derivation see:
-#     #   http://stats.stackexchange.com/questions/11646/kullback-leibler-divergence-between-two-gamma-distributions   pylint: disable=line-too-long
-#     return ...

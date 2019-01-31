@@ -27,9 +27,6 @@ from tensorflow import sigmoid, identity
 from distributions.zero_inflated import ZeroInflated
 from distributions.categorized import Categorized
 from distributions.lomax import Lomax
-from distributions.pareto import Pareto
-from distributions.generalised_pareto import GeneralisedPareto
-from distributions.multinomial_non_permuted import NonPermutedMultinomial
 
 distributions = {
     "gaussian": {
@@ -178,47 +175,6 @@ distributions = {
             scale = tf.exp(theta["log_scale"])
         )
     },
-
-    "pareto": {
-        "parameters": {
-            "log_alpha": {
-                "support": [-10, 10],
-                "activation function": identity
-            }
-        },
-        "class": lambda theta: Pareto(
-            alpha = tf.exp(theta["log_alpha"])
-        )
-    },
-
-    "generalised pareto": {
-        "parameters": {
-            "xi": {
-                "support": [-1e4, 1e4],
-                "activation function": identity
-            },
-            "log_sigma": {
-                "support": [-3, 3],
-                "activation function": identity
-            }
-        },
-        "class": lambda theta: GeneralisedPareto(
-            xi = theta["xi"],
-            sigma = tf.exp(theta["log_sigma"])
-            , validate_args=True)
-    },
-
-    "multinomial": {
-        "parameters": {
-            "p": {
-                "support": [0, 1],
-                "activation function": softmax
-            }
-        },
-        "class": lambda theta, N: NonPermutedMultinomial(
-                n = N,
-                p = theta["p"])
-    },    
 
     "zero-inflated poisson": {
         "parameters": {
