@@ -41,6 +41,7 @@ import numpy as np
 
 from tensorflow import where
 from tensorflow.python.ops.distributions import categorical
+from tensorflow_probability import distributions
 from tensorflow.python.ops.distributions import distribution
 from tensorflow.python.ops.distributions import util as distribution_util
 from tensorflow.python.framework import dtypes
@@ -116,7 +117,8 @@ class Categorized(distribution.Distribution):
     if not dist:
       raise ValueError("dist must be non-empty")
 
-    if not isinstance(dist, distribution.Distribution):
+    if not isinstance(dist, (distribution.Distribution,
+                             distributions.Distribution)):
       raise TypeError(
           "dist must be a Distribution instance"
           " but saw: %s" % dist)

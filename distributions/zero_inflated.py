@@ -39,6 +39,7 @@ from __future__ import print_function
 
 import numpy as np
 
+from tensorflow_probability import distributions
 from tensorflow.python.ops.distributions import distribution
 from tensorflow.python.ops.distributions import util as distribution_util
 from tensorflow.python.framework import ops
@@ -105,7 +106,8 @@ class ZeroInflated(distribution.Distribution):
     if not dist:
       raise ValueError("dist must be non-empty")
 
-    if not isinstance(dist, distribution.Distribution):
+    if not isinstance(dist, (distribution.Distribution,
+                             distributions.Distribution)):
       raise TypeError(
           "dist must be a Distribution instance"
           " but saw: %s" % dist)
