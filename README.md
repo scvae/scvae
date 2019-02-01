@@ -4,9 +4,9 @@ This software tool implements two variants of variational auto-encoders: one wit
 
 The methods used by this tool is described and examined in the paper ["scVAE: Variational auto-encoders for single-cell gene expression data"][scVAE-paper] by [Christopher Heje Grønbech][Chris], [Maximillian Fornitz Vording][Max], [Pascal Nordgren Timshel][Pascal], [Casper Kaae Sønderby][Casper], [Tune Hannes Pers][Tune], and [Ole Winther][Ole].
 
-The tool has been developed by Christopher and Maximillian at [Section for Cognitive Systems][CogSys] at [DTU Compute][] with help from Casper and [Lars Maaløe][Lars] supervised by Ole and in collaboration with [Pers Lab][]. It is being further developed by Christopher at [Unit for Genomic Medicine][GM] (only available in Danish) at [Rigshospitalet][RH].
+The tool has been developed by Christopher and Maximillian at [Section for Cognitive Systems][CogSys] at [DTU Compute][] with help from Casper and [Lars Maaløe][Lars] supervised by Ole and in collaboration with [Pers Lab][]. It is being further developed by Christopher at [Centre for Genomic Medicine][GM] (only available in Danish) at [Rigshospitalet][RH].
 
-[scVAE-paper]: https://www.biorxiv.org/content/early/2018/05/16/318295
+[scVAE-paper]: https://www.biorxiv.org/content/10.1101/318295v2
 [Chris]: https://github.com/chgroenbech
 [Max]: https://github.com/maximillian91
 [Pascal]: https://github.com/pascaltimshel
@@ -46,7 +46,7 @@ This tool is not available as a Python module yet. In the meantime you will firs
 
 	$ pip install numpy scipy scikit-learn kneed tensorflow-gpu tensorflow-probability-gpu pandas tables beautifulsoup4 stemming matplotlib seaborn pillow
 
-(If you do not have a GPU to use with TensorFlow, install the standard version by replacing `tensorflow-gpu` with `tensorflow`.)
+(If you do not have a GPU supported by TensorFlow, install the standard version by replacing `tensorflow-gpu` and `tensorflow-probability-gpu` with `tensorflow` and `tensorflow-probability`, respectively.)
 
 After this, you can clone this tool to an appropriate folder:
 
@@ -66,17 +66,43 @@ To see how to change the standard configuration or use another data set, run the
 
 To reproduce the main results from our paper, you can run the following commands:
 
-* Purified immune cells data set from 10x Genomics:
+* Combined [PBMC data set][PBMC] (under "Single Cell 3′ Paper: Zheng et al. 2017") from 10x Genomics:
 
-		$ ./main.py -i 10x-PBMC-PP -m GMVAE -r negative_binomial -l 100 -H 100 100 -e 500 --decomposition-methods pca tsne
+		$ ./main.py -i 10x-PBMC-PP -m GMVAE -r negative_binomial -l 100 -H 100 100 -w 200 -e 500 --decomposition-methods pca tsne
 
-* Mouse brain cells data set from 10x Genomics:
+* [TCGA data set][TCGA]:
+
+		$ ./main.py -i TCGA-RSEM --map-features --feature-selection keep_highest_variances 5000 -m GMVAE -r negative_binomial -l 50 -H 1000 1000 -e 500 --decomposition-methods pca tsne
+
+* [MBC data set][MBC] from 10x Genomics:
 
 		$ ./main.py -i 10x-MBC -m GMVAE -K 10 -r zero_inflated_negative_binomial -l 25 -H 250 250 -e 500 --decomposition-methods pca tsne
 
-* TCGA data set:
+[PBMC]: https://support.10xgenomics.com/single-cell-gene-expression/datasets/
+[TCGA]: https://xenabrowser.net/datapages/?dataset=tcga_gene_expected_count&host=https://toil.xenahubs.net
+[MBC]: https://support.10xgenomics.com/single-cell-gene-expression/datasets/1.3.0/1M_neurons
 
-		$ ./main.py -i TCGA-RSEM --map-features -m GMVAE -r negative_binomial -l 50 -H 500 500 -e 500 --decomposition-methods pca tsne
+You can change the model setup using the following argument options:
+
+* `-m`: The model type, either `VAE` or `GMVAE`.
+* `-r`: Likelihood function (or reconstruction distribution). Choose from:
+	* `poisson`,
+	* `negative binomial`,
+	* `zero_inflated_poisson`,
+	* `zero_inflated_negative binomial`,
+	* `constrained_poisson`,
+	* `bernoulli`,
+	* `gaussian`,
+	* `log_normal`, and
+	* `lomax`.
+* `-k`: The threshold for the piecewise categorical distibution (denoted by *K* in the paper).
+* `-l`: The dimension of the latent variable.
+* `-H`: The number of hidden units in each layer separated by spaces. For example, `-H 200 100` will make both the inference (encoder) and the generative (decoder) networks two-layered with the first inference layer and the last generative layer consisting of 200 hidden units and the last inference layer and the first generative layer consisting of 100 hidden units.
+* `-K`: The number of components for the GMVAE (if possible, this is inferred from labelled data, but it can be overridden using this option).
+* `-e`: The number of epochs to train the model.
+* `-w`: The number of epochs during training where the warm-up optimisation scheme is used.
+
+By default, a number of analyses are conducted of the models and saved in the subdirectory `results/`. These can be skipped using the option `--skip-analyses`. Among the anlyses are visualisations of the latent representations and the reconstructions, and the method to visualise these can be customised using the option `--decomposition-methods`.
 
 You can also model the MNIST data set. Three different versions are supported: [the original][MNIST-original], [the normalised][MNIST-normalised], and [the binarised][MNIST-binarised]. To run the GMVAE model for, e.g., the binarised version, issue the following command:
 
@@ -92,6 +118,8 @@ The script `cross_analysis.py` is provided to compare different models. After ru
 
 It requires the relative path to the results folder, so using the standard configuration, it is run using the following command:
 
-	$ ./cross_analysis.py -R results/
+	$ ./cross_analysis.py -R $RESULT_DIRECTORY
+
+where  `$RESULT_DIRECTORY` should be replaced by the path to the results directory. By default, scVAE saves results in the subdirectory `results/`.
 
 Logs can be saved by adding the `-s` argument, and these are saved together with produced figures in the results folder specified. Data sets, models, and prediction methods can also be included or excluded using specific arguments. For documentation on these, use the command `./cross_analysis.py -h`.
