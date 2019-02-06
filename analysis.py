@@ -5150,7 +5150,8 @@ def adjustFigureForLegend(figure):
         
         if legend and legendIsAboveAxis(legend, axis):
             
-            figure.canvas.draw()
+            renderer = figure.canvas.get_renderer()
+            figure.draw(renderer=renderer)
             
             legend_size = legend.get_window_extent()
             legend_height_in_inches = legend_size.height / figure.get_dpi()
