@@ -30,6 +30,7 @@ from miscellaneous.decomposition import (
 import sklearn.metrics.cluster
 
 from matplotlib import pyplot
+import matplotlib
 import matplotlib.patches
 import matplotlib.lines
 import matplotlib.gridspec
@@ -71,14 +72,26 @@ neutral_colour = (0.7, 0.7, 0.7)
 lighter_palette = lambda N: seaborn.husl_palette(N, l = .75)
 darker_palette = lambda N: seaborn.husl_palette(N, l = .55)
 
+default_small_marker_size_in_scatter_plots = 1
+default_large_marker_size_in_scatter_plots = 3
+default_marker_size_in_scatter_plots = \
+    default_small_marker_size_in_scatter_plots
+
+default_marker_size_in_legends = 4
+
+legend_marker_scale_from_marker_size = lambda marker_size: \
+    default_marker_size_in_legends / marker_size
+
 reset_plot_look = lambda: seaborn.set(
     context = "paper",
     style = "ticks",
     palette = standard_palette,
     color_codes = False,
     rc = {
-        "lines.markersize": 1,
-        "legend.markerscale": 4,
+        "lines.markersize": default_marker_size_in_scatter_plots,
+        "legend.markerscale": legend_marker_scale_from_marker_size(
+            default_marker_size_in_scatter_plots
+        ),
         "figure.dpi": 200
     }
 )
@@ -114,6 +127,8 @@ maximum_number_of_examples_for_dendrogram = 1000
 maximum_number_of_features_for_t_sne = 100
 maximum_number_of_examples_for_t_sne = 200000
 maximum_number_of_pca_components_before_tsne = 50
+
+maximum_number_of_examples_for_large_points_in_scatter_plots = 1000
 
 number_of_random_examples = 100
 
@@ -4693,6 +4708,15 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
         outliers_string = "{} {}s not shown".format(len(outlier_indices),
             example_tag)
     
+    # Adjust point size based on number of examples
+    
+    if M <= maximum_number_of_examples_for_large_points_in_scatter_plots:
+        marker_size = default_large_marker_size_in_scatter_plots
+    else:
+        marker_size = default_small_marker_size_in_scatter_plots
+    
+    changePointSizeForPlots(marker_size)
+    
     # Figure
     
     figure = pyplot.figure()
@@ -4922,6 +4946,8 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             legend = axis.legend(handles = [])
     
         legend.set_title(outliers_string, {"size": "small"})
+    
+    reset_plot_look()
     
     return figure, figure_name
 
@@ -5223,6 +5249,13 @@ def axisLabelForSymbol(symbol, coordinate = None, decomposition_method = None,
         + suffix + "$"
     
     return axis_label
+
+def changePointSizeForPlots(marker_size):
+    matplotlib.rc(group="lines", markersize=marker_size)
+    matplotlib.rc(
+        group="legend",
+        markerscale=legend_marker_scale_from_marker_size(marker_size)
+    )
 
 class CustomTicker(LogFormatterSciNotation):
     def __call__(self, x, pos = None):
