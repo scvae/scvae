@@ -2300,10 +2300,12 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
     
     feature_selected_feature_names = feature_names[indices]
     
+    N_changed = len(feature_selected_feature_names)
+    
     duration = time() - start_time
     print("{} features selected, {} excluded ({}).".format(
-        len(indices),
-        N - len(indices),
+        N_changed,
+        N - N_changed,
         formatDuration(duration)
     ))
     
@@ -2428,7 +2430,6 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
             example_filtered_values[version] = values[filter_indices, :]
         else:
             example_filtered_values[version] = None
-        
     
     example_filtered_example_names = example_names[filter_indices]
     
@@ -2437,10 +2438,12 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
     else:
         example_filtered_labels = None
     
+    M_changed = len(example_filtered_example_names)
+    
     duration = time() - start_time
     print("{} examples filtered out, {} remaining ({}).".format(
-        M - len(filter_indices),
-        len(filter_indices),
+        M - M_changed,
+        M_changed,
         formatDuration(duration)
     ))
     
