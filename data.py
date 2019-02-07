@@ -2492,6 +2492,12 @@ def preprocessingFunctionForDataSet(title, preprocessing_methods = [],
             preprocess = lambda x: applyWeights(x, weight_method,
                 preprocessPath)
         
+        elif preprocessing_method == "log":
+            preprocess = lambda values: values.logp1()
+        
+        elif preprocessing_method == "exp":
+            preprocess = lambda values: values.expm1()
+        
         elif preprocessing_method == "normalise":
             preprocess = normalisationFunctionForDataSet(title)
         
@@ -4045,8 +4051,6 @@ def directory(base_directory, data_set, splitting_method, splitting_fraction,
     
     else:
         splitting_directory = "no_split"
-    
-    
     
     # Preprocessing directory
     
