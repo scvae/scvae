@@ -112,6 +112,23 @@ distributions = {
         )
     },
 
+    "gamma": {
+        "parameters": {
+            "concentration": {
+                "support": [0, inf],
+                "activation function": softplus,
+            },
+            "rate": {
+                "support": [0, inf],
+                "activation function": softplus,
+            }
+        },
+        "class": lambda theta: tensorflow_distributions.Gamma(
+            concentration = theta["concentration"], 
+            rate = theta["rate"]
+        )
+    },
+
     "categorical": {
         "parameters": {
             "logits": {
