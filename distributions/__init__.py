@@ -26,6 +26,9 @@ from tensorflow import sigmoid, identity
 
 from distributions.zero_inflated import ZeroInflated
 from distributions.categorized import Categorized
+from distributions.exponentially_modified_normal import (
+    ExponentiallyModifiedNormal
+)
 from distributions.lomax import Lomax
 
 distributions = {
@@ -97,13 +100,11 @@ distributions = {
         "parameters": {
             "mean": {
                 "support": [-inf, inf],
-                "activation function": identity,
-                "initial value": tf.zeros
+                "activation function": identity
             },
             "variance": {
                 "support": [0, inf],
-                "activation function": softplus,
-                "initial value": tf.ones
+                "activation function": softplus
             }
         },
         "class": lambda theta: tensorflow_distributions.LogNormal(
@@ -112,15 +113,39 @@ distributions = {
         )
     },
 
+    "exponentially_modified_gaussian": {
+        "parameters": {
+            "location": {
+                "support": [-inf, inf],
+                "activation function": identity
+            },
+            "scale": {
+                "support": [0, inf],
+                "activation function": softplus
+            },
+            "rate": {
+                "support": [0, inf],
+                "activation function": softplus
+            }
+        },
+        "class": lambda theta: ExponentiallyModifiedNormal(
+            loc = theta["location"], 
+            scale = theta["scale"],
+            rate = theta["rate"],
+            validate_args=True,
+            allow_nan_stats=False
+        )
+    },
+
     "gamma": {
         "parameters": {
             "concentration": {
                 "support": [0, inf],
-                "activation function": softplus,
+                "activation function": softplus
             },
             "rate": {
                 "support": [0, inf],
-                "activation function": softplus,
+                "activation function": softplus
             }
         },
         "class": lambda theta: tensorflow_distributions.Gamma(
