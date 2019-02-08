@@ -99,7 +99,7 @@ def decompose(values, other_value_sets=[], centroids={}, method=None,
         other_value_sets_decomposed = other_value_sets_decomposed[0]
     
     # Only supports centroids without data sets as top levels
-    if centroids and method == "pca":
+    if centroids and method == "PCA":
         if "means" in centroids:
             centroids = {"unknown": centroids}
         W = model.components_
