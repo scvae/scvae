@@ -632,6 +632,17 @@ data_sets = {
     }
 }
 
+default_tags = {
+    "example": "example",
+    "feature": "feature",
+    "mapped feature": "mapped feature",
+    "class": "class",
+    "type": "value",
+    "item": "item"
+}
+
+default_excluded_classes = ["No class"]
+
 class DataSet(object):
     def __init__(self, input_file_or_name,
         values = None,
@@ -673,46 +684,46 @@ class DataSet(object):
             )
         
         # Find data set
-        self.title = findDataSet(self.name, directory)
+        self.title, self.specifications = findDataSet(self.name, directory)
         
         # Tags (with names for examples, feature, and values) of data set
-        self.tags = dataSetTags(self.title)
+        self.tags = postprocessTags(self.specifications.get(
+            "tags", default_tags))
         
         # Example type for data set
-        self.example_type = dataSetExampleType(self.title)
+        self.example_type = self.specifications.get("example type", "unknown")
         
         # Maximum value of data set
-        self.maximum_value = dataSetMaximumValue(self.title)
+        self.maximum_value = self.specifications.get("maximum value")
         
         # Discreteness
         self.discreteness = self.example_type == "counts" \
             or (self.maximum_value != None and self.maximum_value == 255)
         
         # Feature dimensions for data set
-        self.feature_dimensions = dataSetFeatureDimensions(self.title)
+        self.feature_dimensions = self.specifications.get(
+            "feature dimensions")
         
         # Literature probabilities for data set
-        self.literature_probabilities = dataSetLiteratureProbabilities(self.title)
-        
-        # Class mapper for data set
-        self.class_mapper = dataSetClassMapper(self.title)
+        self.literature_probabilities = None
         
         # Label super set for data set
-        self.label_superset = dataSetLabelSuperset(self.title)
+        self.label_superset = self.specifications.get("label superset")
         self.superset_labels = None
         self.number_of_superset_classes = None
         
         # Label palette for data set
-        self.class_palette = dataSetClassPalette(self.title)
-        self.superset_class_palette = supersetClassPalette(
+        self.class_palette = self.specifications.get("class palette",
+            classPaletteBuilder(self.title))
+        self.superset_class_palette = supersetClassPaletteBuilder(
             self.class_palette, self.label_superset)
         
         # Excluded classes for data set
-        self.excluded_classes = dataSetExcludedClasses(self.title)
+        self.excluded_classes = self.specifications.get("excluded classes")
         
         # Excluded classes for data set
-        self.excluded_superset_classes = dataSetExcludedSupersetClasses(
-            self.title)
+        self.excluded_superset_classes = self.specifications.get(
+            "excluded superset classes")
         
         # Values and their names as well as labels in data set
         self.values = None
@@ -758,10 +769,10 @@ class DataSet(object):
         self.predicted_superset_label_sorter = None
         
         # Sorted class names for data set
-        sorted_class_names = dataSetSortedClassNames(self.title)
+        sorted_class_names = self.specifications.get("sorted class names")
         self.label_sorter = createLabelSorter(sorted_class_names)
-        sorted_superset_class_names = dataSetSortedClassNames(self.title,
-            superset = True)
+        sorted_superset_class_names = self.specifications.get(
+            "sorted superset class names")
         self.superset_label_sorter = createLabelSorter(
             sorted_superset_class_names)
         
@@ -800,8 +811,8 @@ class DataSet(object):
         self.binarise_values = binarise_values
         
         if preprocessed is None:
-            data_set_preprocessing_methods = \
-                dataSetPreprocessingMethods(self.title)
+            data_set_preprocessing_methods = self.specifications.get(
+                "preprocessing methods")
             if data_set_preprocessing_methods:
                 self.preprocessed = True
             else:
@@ -821,11 +832,8 @@ class DataSet(object):
         # Version of data set (original, reconstructed)
         self.version = version
         
-        # Heat map normalisation for data set
-        self.heat_map_normalisation = dataSetHeatMapNormalisation(self.title)
-        
         # PCA limits for data set
-        self.pca_limits = dataSetPCALimits(self.title, self.kind)
+        self.pca_limits = None
         
         # Noisy preprocessing
         self.noisy_preprocessing_methods = noisy_preprocessing_methods
@@ -834,8 +842,8 @@ class DataSet(object):
             self.noisy_preprocessing_methods = []
         
         if self.noisy_preprocessing_methods:
-            self.noisy_preprocess = preprocessingFunctionForDataSet(
-                self.title, self.noisy_preprocessing_methods,
+            self.noisy_preprocess = preprocessingFunction(
+                self.noisy_preprocessing_methods,
                 self.preprocessedPath,
                 noisy = True
             )
@@ -1011,14 +1019,6 @@ class DataSet(object):
         
         if labels is not None:
             
-            if self.class_mapper:
-                labels = labels.tolist()
-                labels = [
-                    properString(label, self.class_mapper, normalise = False)
-                    for label in labels
-                ]
-                labels = numpy.array(labels)
-            
             self.labels = labels
             
             if class_names is not None:
@@ -1155,12 +1155,14 @@ class DataSet(object):
             data_dictionary = loadDataDictionary(sparse_path)
             print()
         else:
-            original_paths = acquireDataSet(self.title,
+            URLs = self.specifications.get("URLs", None)
+            original_paths = acquireDataSet(self.title, URLs,
                 self.original_directory)
+            loading_function = self.specifications.get("loading function")
             
             loading_time_start = time()
-            data_dictionary = loadOriginalDataSet(self.title,
-                original_paths)
+            data_dictionary = loadOriginalDataSet(original_paths,
+                loading_function)
             loading_duration = time() - loading_time_start
             
             print()
@@ -1256,8 +1258,7 @@ class DataSet(object):
                 print("Preprocessing values.")
                 start_time = time()
                 
-                preprocessing_function = preprocessingFunctionForDataSet(
-                    self.title,
+                preprocessing_function = preprocessingFunction(
                     self.preprocessing_methods,
                     self.preprocessedPath
                 )
@@ -1386,8 +1387,8 @@ class DataSet(object):
                 print("Binarising values.")
                 start_time = time()
                 
-                binarisation_function = preprocessingFunctionForDataSet(
-                    self.title, binarise_preprocessing, self.preprocessedPath)
+                binarisation_function = preprocessingFunction(
+                    binarise_preprocessing, self.preprocessedPath)
                 binarised_values = binarisation_function(self.values)
                 
                 duration = time() - start_time
@@ -1782,21 +1783,23 @@ def saveDataSetDictionaryAsJSONFile(data_set_dictionary, name, directory):
 def findDataSet(name, directory):
     
     title = None
+    data_set = None
     
-    for data_set_title in data_sets:
+    for data_set_title, data_set_specifications in data_sets.items():
         if normaliseString(data_set_title) == normaliseString(name):
             title = data_set_title
+            data_set = data_set_specifications
+            break
     
     if not title:
         json_path = os.path.join(directory, name, name + ".json")
         if os.path.exists(json_path):
             title, data_set = dataSetFromJSONFile(json_path)
-            data_sets[title] = data_set
     
     if not title:
         raise KeyError("Data set not found.")
     
-    return title
+    return title, data_set
 
 def dataSetFromJSONFile(json_path):
     
@@ -1861,76 +1864,19 @@ def loadingFunction(search_string):
     
     return data_set_loading_function
 
-def dataSetTags(title):
-    if "tags" in data_sets[title]:
-        tags = data_sets[title]["tags"]
-    else:
-        tags = {
-            "example": "example",
-            "feature": "feature",
-            "mapped feature": "mapped feature",
-            "class": "class",
-            "type": "value",
-            "item": "item"
-        }
-    
+def postprocessTags(tags):
     if "item" in tags and tags["item"]:
-        tags["value"] = tags["item"] + " " + tags["type"]
+        value_tag = tags["item"] + " " + tags["type"]
     else:
-        tags["value"] = tags["type"]
-    
+        value_tag = tags["type"]
+    tags["value"] = value_tag
     return tags
 
-def dataSetExampleType(title):
-    if "example type" in data_sets[title]:
-        return data_sets[title]["example type"]
-    else:
-        return "unknown"
-
-def dataSetMaximumValue(title):
-    if "maximum value" in data_sets[title]:
-        return data_sets[title]["maximum value"]
-    else:
-        return None
-
-def dataSetFeatureDimensions(title):
-    if "feature dimensions" in data_sets[title]:
-        return data_sets[title]["feature dimensions"]
-    else:
-        return None
-
-def dataSetHeatMapNormalisation(title):
-    if "heat map normalisation" in data_sets[title]:
-        return data_sets[title]["heat map normalisation"]
-    else:
-        return None
-
-def dataSetPCALimits(title, kind):
-    if "PCA limits" in data_sets[title]:
-        return data_sets[title]["PCA limits"][kind]
-    else:
-        return None
-
-def dataSetLiteratureProbabilities(title):
-    if "literature probabilities" in data_sets[title]:
-        return data_sets[title]["literature probabilities"]
-    else:
-        return None
-
-def dataSetClassMapper(title):
-    if "class mapping" in data_sets[title]:
-        class_mapper = data_sets[title]["class mapping"]
-    else:
-        class_mapper = None
-    return class_mapper
-
-def dataSetClassPalette(title):
-    if "class palette" in data_sets[title]:
-        class_palette = data_sets[title]["class palette"]
-    elif "MNIST" in title:
+def classPaletteBuilder(title):
+    if title.startswith("MNIST"):
         index_palette = seaborn.hls_palette(10)
         class_palette = {i: index_palette[i] for i in range(10)}
-    elif "10x-PBMC-P" in title:
+    elif title.startswith("10x-PBMC-P"):
         classes = data_sets["10x-PBMC-PP"]["URLs"]["all"]
         N = len(classes)
         brewer_palette = seaborn.color_palette("Set3", N)
@@ -1939,48 +1885,7 @@ def dataSetClassPalette(title):
         class_palette = None
     return class_palette
 
-def dataSetLabelSuperset(title):
-    if "label superset" in data_sets[title]:
-        return data_sets[title]["label superset"]
-    else:
-        return None
-
-def dataSetSortedClassNames(title, superset = False):
-    if not superset:
-        sorted_class_names = "sorted class names"
-    else:
-        sorted_class_names = "sorted superset class names"
-    
-    if sorted_class_names in data_sets[title]:
-        return data_sets[title][sorted_class_names]
-    else:
-        return []
-
-# Default excluded class
-# (added later if present in data set labels)
-default_excluded_classes = ["No class"]
-
-def dataSetExcludedClasses(title):
-    if "excluded classes" in data_sets[title]:
-        return data_sets[title]["excluded classes"]
-    else:
-        return []
-
-def dataSetExcludedSupersetClasses(title):
-    if "excluded superset classes" in data_sets[title]:
-        return data_sets[title]["excluded superset classes"]
-    else:
-        return []
-
-def dataSetPreprocessingMethods(title):
-    if "preprocessing methods" in data_sets[title]:
-        return data_sets[title]["preprocessing methods"]
-    else:
-        return None
-
-def acquireDataSet(title, directory):
-    
-    URLs = data_sets[title]["URLs"]
+def acquireDataSet(title, URLs, directory):
     
     paths = {}
     
@@ -2052,12 +1957,12 @@ def acquireDataSet(title, directory):
     
     return paths
 
-def loadOriginalDataSet(title, paths):
+def loadOriginalDataSet(paths, loading_function):
     
     print("Loading original data set.")
     loading_time_start = time()
     
-    data_dictionary = data_sets[title]["loading function"](paths)
+    data_dictionary = loading_function(paths)
     
     loading_duration = time() - loading_time_start
     print("Original data set loaded ({}).".format(formatDuration(
@@ -2433,37 +2338,7 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
     return example_filtered_values, example_filtered_example_names, \
         example_filtered_labels
 
-def normalisationFunctionForDataSet(title):
-    if "maximum value" in data_sets[title]:
-        maximum_value = data_sets[title]["maximum value"]
-        normalisation_function = lambda values: values / maximum_value
-        if not "original maximum value" in data_sets[title]:
-            data_sets[title]["original maximum value"] = maximum_value
-        data_sets[title]["maximum value"] = 1
-    else:
-        normalisation_function = lambda values: sklearn.preprocessing.normalize(
-            values, norm = 'l2', axis = 0)
-    return normalisation_function
-
-def bernoulliSample(p):
-    return numpy.random.binomial(1, p)
-
-def binarisationFunctionForDataSet(title, noisy = False):
-    if "maximum value" in data_sets[title]:
-        normalisation = data_sets[title]["maximum value"]
-    else:
-        normalisation = 1
-    
-    if noisy:
-        binarisation_function = lambda values: bernoulliSample(
-            values / normalisation)
-    else:
-        binarisation_function = lambda values: sklearn.preprocessing.binarize(
-            values / normalisation, threshold = 0.5)
-    
-    return binarisation_function
-
-def preprocessingFunctionForDataSet(title, preprocessing_methods = [],
+def preprocessingFunction(preprocessing_methods = [],
     preprocessPath = None, noisy = False):
     
     preprocesses = []
@@ -2482,10 +2357,15 @@ def preprocessingFunctionForDataSet(title, preprocessing_methods = [],
             preprocess = lambda values: values.expm1()
         
         elif preprocessing_method == "normalise":
-            preprocess = normalisationFunctionForDataSet(title)
+            preprocess = lambda values: sklearn.preprocessing.normalize(
+                values, norm="l2", axis=0)
         
         elif preprocessing_method == "binarise":
-            preprocess = binarisationFunctionForDataSet(title, noisy)
+            if noisy:
+                preprocess = lambda values: numpy.random.binomial(1, values)
+            else:
+                preprocess = lambda values: sklearn.preprocessing.binarize(
+                    values, threshold = 0.5)
         
         else:
             preprocess = lambda x: x
@@ -2500,10 +2380,6 @@ def preprocessingFunctionForDataSet(title, preprocessing_methods = [],
         preprocesses,
         x
     )
-    
-    if "original maximum value" in data_sets[title]:
-        data_sets[title]["maximum value"] = \
-            data_sets[title]["original maximum value"]
     
     return preprocessing_function
 
@@ -3965,7 +3841,7 @@ def supersetLabels(labels, label_superset):
     
     return superset_labels
 
-def supersetClassPalette(class_palette, label_superset):
+def supersetClassPaletteBuilder(class_palette, label_superset):
     
     if not label_superset or label_superset == "infer":
         return None
@@ -3985,7 +3861,10 @@ def supersetClassPalette(class_palette, label_superset):
 
 GENERAL_CLASS_NAMES = ["Others", "Unknown", "No class", "Remaining"]
 
-def createLabelSorter(sorted_class_names = []):
+def createLabelSorter(sorted_class_names = None):
+    
+    if not sorted_class_names:
+        sorted_class_names = []
     
     def labelSorter(label):
         
