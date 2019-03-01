@@ -17,6 +17,7 @@
 # ======================================================================== #
 
 import os
+import shutil
 import gzip
 import tarfile
 import pickle
@@ -663,8 +664,13 @@ class DataSet(object):
         
         # Save data set dictionary if necessary
         if data_set_dictionary:
-            saveDataSetDictionaryAsJSONFile(data_set_dictionary,
-                self. directory)
+            if os.path.exists(self.directory):
+                shutil.rmtree(self.directory)
+            saveDataSetDictionaryAsJSONFile(
+                data_set_dictionary,
+                self.name,
+                self.directory
+            )
         
         # Find data set
         self.title = findDataSet(self.name, directory)
@@ -1729,10 +1735,7 @@ def parseInput(input_file_or_name):
         with open(json_path, "r") as json_file:
             data_set_dictionary = json.load(json_file)
         
-        if "title" in data_set_dictionary:
-            name = data_set_dictionary["title"]
-        else:
-            name = baseName(json_path)
+        name = baseName(json_path)
         
         if "URLs" not in data_set_dictionary:
             
@@ -1756,9 +1759,8 @@ def parseInput(input_file_or_name):
         }
     else:
         name = input_file_or_name
+        name = normaliseString(name)
         data_set_dictionary = None
-    
-    name = normaliseString(name)
     
     return name, data_set_dictionary
 
@@ -1767,27 +1769,8 @@ def baseName(path):
     base_name = base_name.split(os.extsep, 1)[0]
     return base_name
 
-def saveDataSetDictionaryAsJSONFile(data_set_dictionary, directory):
+def saveDataSetDictionaryAsJSONFile(data_set_dictionary, name, directory):
     
-    if "title" in data_set_dictionary:
-        name = data_set_dictionary["title"]
-    elif "values" in data_set_dictionary:
-        name = baseName(data_set_dictionary["values"])
-    elif "URLs" in data_set_dictionary:
-        name = None
-        for key in ["all", "values"]:
-            if key in data_set_dictionary["URLs"]:
-                if "full" in data_set_dictionary["URLs"]:
-                    name = data_set_dictionary["URLs"]["key"]["full"]
-                elif "training" in data_set_dictionary["URLs"]:
-                    name = data_set_dictionary["URLs"]["key"]["training"]
-        if name:
-            name = baseName(name)
-        else:
-            raise Exception("No values found in data set.")
-        
-    
-    name = normaliseString(name)
     json_path = os.path.join(directory, name + ".json")
     
     if not os.path.exists(directory):
@@ -1801,7 +1784,7 @@ def findDataSet(name, directory):
     title = None
     
     for data_set_title in data_sets:
-        if normaliseString(data_set_title) == name:
+        if normaliseString(data_set_title) == normaliseString(name):
             title = data_set_title
     
     if not title:
