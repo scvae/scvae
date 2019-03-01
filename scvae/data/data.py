@@ -460,40 +460,6 @@ data_sets = {
         "feature dimensions": (28, 28)
     },
     
-    "Reuters": {
-        "tags": {
-            "example": "document",
-            "feature": "word",
-            "class": "topic",
-            "type": "count",
-            "item": "word"
-        },
-        "URLs": {
-            "all": {
-                "full": "http://www.daviddlewis.com/resources/testcollections/reuters21578/reuters21578.tar.gz"
-            }
-        },
-        "loading function": lambda x: loadReutersDataSet(x)
-    },
-    
-    "20 Newsgroups": {
-        "tags": {
-            "example": "document",
-            "feature": "word",
-            "class": "topic",
-            "type": "count",
-            "item": "word"
-        },
-        "URLs": {
-            "all": {
-                "full":
-                    "http://qwone.com/~jason/20Newsgroups/20news-bydate.tar.gz"
-            }
-        },
-        "loading function": lambda x: load20NewsgroupsDataSet(x),
-        "example type": "counts"
-    },
-    
     "blobs": {
         "URLs": {
             "all": {
@@ -3480,115 +3446,6 @@ def loadBinarisedMNISTDataSet(paths):
     
     return data_dictionary
 
-def loadReutersDataSet(paths):
-    
-    topics_list = []
-    body_list = []
-    
-    with tarfile.open(paths["all"]["full"], 'r:gz') as tarball:
-        
-        article_filenames = [f for f in tarball.getnames() if ".sgm" in f]
-        
-        for article_filename in article_filenames:
-            
-            with tarball.extractfile(article_filename) as article_html:
-                soup = BeautifulSoup(article_html, 'html.parser')
-            
-            for article in soup.find_all("reuters"):
-                
-                topics = article.topics
-                body = article.body
-                
-                if topics is not None and body is not None:
-                    
-                    topics_generator = topics.find_all("d")
-                    topics_text = [topic.get_text() for topic in topics_generator]
-                    
-                    body_text = body.get_text()
-                    
-                    if len(topics_text) > 0 and len(body_text) > 0:
-                        topics_list.append(topics_text)
-                        body_list.append(body_text)
-    
-    M = len(body_list)
-    
-    bag_of_words, distinct_words = createBagOfWords(body_list)
-    
-    values = bag_of_words
-    labels = numpy.array([t[0] for t in topics_list])
-    example_names = numpy.array(["article {}".format(i + 1) for i in range(M)])
-    feature_names = numpy.array(distinct_words)
-    
-    data_dictionary = {
-        "values": values,
-        "labels": labels,
-        "example names": example_names,
-        "feature names": feature_names
-    }
-    
-    return data_dictionary
-
-def load20NewsgroupsDataSet(paths):
-    
-    documents = {
-        "train": [],
-        "test": []
-    }
-    document_ids = {
-        "train": [],
-        "test": []
-    }
-    newsgroups = {
-        "train": [],
-        "test": []
-    }
-    
-    with tarfile.open(paths["all"]["full"], 'r:gz') as tarball:
-        
-        for member in tarball:
-            if member.isfile():
-                
-                with tarball.extractfile(member) as document_file:
-                    document = document_file.read().decode("latin1") 
-                
-                kind, newsgroup, document_id = member.name.split(os.sep)
-                
-                kind = kind.split("-")[-1]
-                
-                documents[kind].append(document)
-                document_ids[kind].append(document_id)
-                newsgroups[kind].append(newsgroup)
-    
-    M_train = len(documents["train"])
-    M_test = len(documents["test"])
-    M = M_train + M_test
-    
-    split_indices = {
-        "training": slice(0, M_train),
-        "test": slice(M_train, M)
-    }
-    
-    documents = documents["train"] + documents["test"]
-    document_ids = document_ids["train"] + document_ids["test"]
-    newsgroups = newsgroups["train"] + newsgroups["test"]
-    
-    bag_of_words, distinct_words = createBagOfWords(documents)
-    
-    values = bag_of_words
-    labels = numpy.array(newsgroups)
-    example_names = numpy.array(document_ids)
-    feature_names = numpy.array(distinct_words)
-    
-    data_dictionary = {
-        "values": values,
-        "labels": labels,
-        "example names": example_names,
-        "feature names": feature_names,
-        "split indices": split_indices
-    }
-    
-    return data_dictionary
-
 def loadSampleDataSet(paths):
     
     with gzip.open(paths["all"]["full"], "rb") as data_file:
@@ -3687,49 +3544,6 @@ def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
     }
     
     return data_dictionary
-
-def createBagOfWords(documents):
-    
-    def findWords(text):
-        lower_case_text = text.lower()
-        # lower_case_text = re.sub(r"(reuter)$", "", lower_case_text)
-        lower_case_text = re.sub(r"\d+[\d.,\-\(\)+]*", " DIGIT ", lower_case_text)
-        words = re.compile(r"[\w'\-]+").findall(lower_case_text)
-        words = [stemming.stem(word) for word in words]
-        return words
-    
-    # Create original bag of words with one bucket per distinct word. 
-    
-    # List and set for saving the found words
-    documents_words = list()
-    distinct_words = set()
-    
-    # Run through documents bodies and update the list and set with words from findWords()
-    for document in documents:
-        
-        words = findWords(document)
-        
-        documents_words.append(words)
-        distinct_words.update(words)
-    
-    # Create list of the unique set of distinct words found
-    distinct_words = list(distinct_words)
-    
-    # Create dictionary mapping words to their index in the list
-    distinct_words_index = dict()
-    for i, distinct_word in enumerate(distinct_words):
-        distinct_words_index[distinct_word] = i
-    
-    # Initialize bag of words matrix with numpy's zeros()
-    bag_of_words = numpy.zeros([len(documents), len(distinct_words)])
-    
-    # Fill out bag of words with cumulative count of word occurences
-    for i, words in enumerate(documents_words):
-        for word in words:
-            bag_of_words[i, distinct_words_index[word]] += 1
-    
-    # Return bag of words matrix as a sparse representation matrix to save memory
-    return bag_of_words, distinct_words
 
 ## Apply weights
 def applyWeights(data, method, preprocessPath = None):
