@@ -460,56 +460,6 @@ data_sets = {
         "feature dimensions": (28, 28)
     },
     
-    "blobs": {
-        "URLs": {
-            "all": {
-                "full": "http://people.compute.dtu.dk/maxvo/datasets/blobs.pkl.gz"
-            }
-        },
-        "loading function": lambda x: loadSampleDataSet(x),
-        "example type": "dummy"
-    },
-    
-    "circles": {
-        "URLs": {
-            "all": {
-                "full": "http://people.compute.dtu.dk/maxvo/datasets/circles.pkl.gz"
-            }
-        },
-        "loading function": lambda x: loadSampleDataSet(x),
-        "example type": "dummy"
-    },
-    
-    "moons": {
-        "URLs": {
-            "all": {
-                "full": "http://people.compute.dtu.dk/maxvo/datasets/moons.pkl.gz"
-            }
-        },
-        "loading function": lambda x: loadSampleDataSet(x),
-        "example type": "dummy"
-    },
-    
-    "sample": {
-        "URLs": {
-            "all": {
-                "full": "http://people.compute.dtu.dk/chegr/data-sets/count_samples.pkl.gz"
-            }
-        },
-        "loading function": lambda x: loadSampleDataSet(x),
-        "example type": "counts"
-    },
-    
-    "sample (sparse)": {
-        "URLs": {
-            "all": {
-                "full": "http://people.compute.dtu.dk/chegr/data-sets/count_samples_sparse.pkl.gz"
-            }
-        },
-        "loading function": lambda x: loadSampleDataSet(x),
-        "example type": "counts"
-    },
-    
     "development": {
         "URLs": {},
         "loading function": lambda x: loadDevelopmentDataSet(
@@ -3442,28 +3392,6 @@ def loadBinarisedMNISTDataSet(paths):
         "example names": example_names,
         "feature names": feature_names,
         "split indices": split_indices
-    }
-    
-    return data_dictionary
-
-def loadSampleDataSet(paths):
-    
-    with gzip.open(paths["all"]["full"], "rb") as data_file:
-        data = pickle.load(data_file)
-    
-    values = data["values"]
-    labels = data["labels"]
-    
-    M, N = values.shape
-    
-    example_names = numpy.array(["example {}".format(i + 1) for i in range(M)])
-    feature_names = numpy.array(["feature {}".format(j + 1) for j in range(N)])
-    
-    data_dictionary = {
-        "values": values,
-        "labels": labels,
-        "example names": example_names,
-        "feature names": feature_names
     }
     
     return data_dictionary
