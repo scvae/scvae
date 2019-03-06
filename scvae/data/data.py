@@ -49,7 +49,7 @@ from auxiliary import (
     isfloat,
     downloadFile, copyFile
 )
-
+from data.internal_io import load_data_dictionary, save_data_dictionary
 from miscellaneous.decomposition import (
     decompose,
     DECOMPOSITION_METHOD_NAMES,
@@ -1062,7 +1062,7 @@ class DataSet(object):
         
         if os.path.isfile(sparse_path):
             print("Loading data set.")
-            data_dictionary = loadDataDictionary(sparse_path)
+            data_dictionary = load_data_dictionary(sparse_path)
             print()
         else:
             URLs = self.specifications.get("URLs", None)
@@ -1082,7 +1082,7 @@ class DataSet(object):
                     os.makedirs(self.preprocess_directory)
                 
                 print("Saving data set.")
-                saveDataDictionary(data_dictionary, sparse_path)
+                save_data_dictionary(data_dictionary, sparse_path)
                 
                 print()
         
@@ -1130,7 +1130,7 @@ class DataSet(object):
         
         if os.path.isfile(sparse_path):
             print("Loading preprocessed data.")
-            data_dictionary = loadDataDictionary(sparse_path)
+            data_dictionary = load_data_dictionary(sparse_path)
             if "preprocessed values" not in data_dictionary:
                 data_dictionary["preprocessed values"] = None
             if self.map_features:
@@ -1232,7 +1232,7 @@ class DataSet(object):
                     os.makedirs(self.preprocess_directory)
             
                 print("Saving preprocessed data set.")
-                saveDataDictionary(data_dictionary, sparse_path)
+                save_data_dictionary(data_dictionary, sparse_path)
                 print()
         
         values = data_dictionary["values"]
@@ -1283,7 +1283,7 @@ class DataSet(object):
         
         if os.path.isfile(sparse_path):
             print("Loading binarised data.")
-            data_dictionary = loadDataDictionary(sparse_path)
+            data_dictionary = load_data_dictionary(sparse_path)
         
         else:
             
@@ -1319,7 +1319,7 @@ class DataSet(object):
                     os.makedirs(self.preprocess_directory)
                 
                 print("Saving binarised data set.")
-                saveDataDictionary(data_dictionary, sparse_path)
+                save_data_dictionary(data_dictionary, sparse_path)
         
         binarised_values = SparseRowMatrix(binarised_values)
         
@@ -1358,7 +1358,7 @@ class DataSet(object):
         
         if os.path.isfile(sparse_path):
             print("Loading split data sets.")
-            split_data_dictionary = loadDataDictionary(sparse_path)
+            split_data_dictionary = load_data_dictionary(sparse_path)
             if self.map_features:
                 self.features_mapped = True
                 self.tags = updateTagForMappedFeatures(self.tags)
@@ -1391,7 +1391,7 @@ class DataSet(object):
                     os.makedirs(self.preprocess_directory)
                 
                 print("Saving split data sets.")
-                saveDataDictionary(split_data_dictionary, sparse_path)
+                save_data_dictionary(split_data_dictionary, sparse_path)
                 print()
         
         for data_subset in split_data_dictionary:
@@ -2368,231 +2368,6 @@ def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
     print("Data set split ({}).".format(formatDuration(duration)))
     
     return split_data_dictionary
-
-def loadDataDictionary(path):
-    
-    def load(tables_file, group = None):
-        
-        if not group:
-            group = tables_file.root
-        
-        data_dictionary = {}
-        
-        for node in tables_file.iter_nodes(group):
-            node_title = node._v_title
-            if node == group:
-                pass
-            elif isinstance(node, tables.Group):
-                if node_title.endswith("set"):
-                    data_dictionary[node_title] = load(
-                        tables_file, group = node)
-                elif node_title.endswith("values"):
-                    data_dictionary[node_title] = loadSparseMatrix(
-                        tables_file, group = node)
-                elif node_title == "split indices":
-                    data_dictionary[node_title] = loadSplitIndices(
-                        tables_file, group = node)
-                elif node_title == "feature mapping":
-                    data_dictionary[node_title] = loadFeatureMapping(
-                        tables_file, group = node)
-                else:
-                    raise NotImplementedError(
-                        "Loading group `{}` not implemented.".format(
-                            node_title)
-                    )
-            elif isinstance(node, tables.Array):
-                data_dictionary[node_title] = loadArrayOrOtherType(node)
-            else:
-                raise NotImplementedError(
-                    "Loading node `{}` not implemented.".format(node_title)
-                )
-        
-        return data_dictionary
-    
-    start_time = time()
-    
-    with tables.open_file(path, "r") as tables_file:
-        data_dictionary = load(tables_file)
-    
-    duration = time() - start_time
-    print("Data loaded ({}).".format(formatDuration(duration)))
-    
-    return data_dictionary
-
-def loadArrayOrOtherType(node):
-    
-    value = node.read()
-    
-    if value.dtype.char == "S":
-        decode = numpy.vectorize(lambda s: s.decode("UTF-8"))
-        value = decode(value).astype("U")
-    
-    elif value.dtype == numpy.uint8:
-        value = value.tostring().decode("UTF-8")
-        
-        if value == "None":
-            value = None
-    
-    if node._v_name.endswith("_was_list"):
-        value = value.tolist()
-    
-    return value
-
-def loadSparseMatrix(tables_file, group):
-    
-    arrays = {}
-    
-    for array in tables_file.iter_nodes(group, "Array"):
-        arrays[array.title] = array.read()
-    
-    sparse_matrix = scipy.sparse.csr_matrix(
-        (arrays["data"], arrays["indices"], arrays["indptr"]),
-        shape = arrays["shape"]
-    )
-    
-    return sparse_matrix
-
-def loadSplitIndices(tables_file, group):
-    
-    split_indices = {}
-    
-    for array in tables_file.iter_nodes(group, "Array"):
-        start, stop = array.read()
-        split_indices[array.title] = slice(start, stop)
-    
-    return split_indices
-
-def loadFeatureMapping(tables_file, group):
-    
-    feature_lists = {}
-    
-    for array in tables_file.iter_nodes(group, "Array"):
-        feature_lists[array.title] = array.read().tolist()
-    
-    feature_names = feature_lists["feature_names"]
-    feature_counts = feature_lists["feature_counts"]
-    feature_IDs = feature_lists["feature_IDs"]
-    
-    feature_mapping = {}
-    
-    for feature_name, feature_count in zip(feature_names, feature_counts):
-        feature_name = feature_name.decode("UTF-8")
-        feature_ID_set = [
-            feature_IDs.pop(0).decode("UTF-8") for i in range(feature_count)
-        ]
-        feature_mapping[feature_name] = feature_ID_set
-    
-    return feature_mapping
-
-def saveDataDictionary(data_dictionary, path):
-    
-    directory, filename = os.path.split(path)
-    
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    
-    def save(data_dictionary, tables_file, group_title = None):
-        
-        if group_title:
-            group = tables_file.create_group("/",
-                normaliseString(group_title), group_title)
-        else:
-            group = tables_file.root
-        
-        for title, value in data_dictionary.items():
-            
-            if isinstance(value, scipy.sparse.csr_matrix):
-                saveSparseMatrix(value, title, group, tables_file)
-            elif isinstance(value, (numpy.ndarray, list)):
-                saveArray(value, title, group, tables_file)
-            elif title == "split indices":
-                saveSplitIndices(value, title, group, tables_file)
-            elif title == "feature mapping":
-                saveFeatureMapping(value, title, group, tables_file)
-            elif value is None:
-                saveString(str(value), title, group, tables_file)
-            elif title.endswith("set"):
-                save(value, tables_file, group_title = title)
-            else:
-                raise NotImplementedError(
-                    "Saving type {} for title \"{}\" has not been implemented."
-                        .format(type(value), title)
-                )
-    
-    start_time = time()
-    
-    filters = tables.Filters(complib = "zlib", complevel = 5)
-    
-    with tables.open_file(path, "w", filters = filters) as tables_file:
-        save(data_dictionary, tables_file)
-    
-    duration = time() - start_time
-    print("Data saved ({}).".format(formatDuration(duration)))
-
-def saveArray(array, title, group, tables_file):
-    name = normaliseString(title)
-    if isinstance(array, list):
-        array = numpy.array(array)
-        name += "_was_list"
-    if array.dtype.char == "U":
-        encode = numpy.vectorize(lambda s: s.encode("UTF-8"))
-        array = encode(array).astype("S")
-    atom = tables.Atom.from_dtype(array.dtype)
-    data_store = tables_file.create_carray(
-        group,
-        name,
-        atom,
-        array.shape,
-        title
-    )
-    data_store[:] = array
-
-def saveString(string, title, group, tables_file):
-    encoded_string = numpy.frombuffer(string.encode('UTF-8'), numpy.uint8)
-    saveArray(encoded_string, title, group, tables_file)
-
-def saveSparseMatrix(sparse_matrix, title, group, tables_file):
-    
-    name = normaliseString(title)
-    group = tables_file.create_group(group, name, title)
-    
-    for attribute in ("data", "indices", "indptr", "shape"):
-        array = numpy.array(getattr(sparse_matrix, attribute))
-        saveArray(array, attribute, group, tables_file)
-
-def saveSplitIndices(split_indices, title, group, tables_file):
-    
-    name = normaliseString(title)
-    group = tables_file.create_group(group, name, title)
-    
-    for subset_name, subset_slice in split_indices.items():
-        subset_slice_array = numpy.array(
-            [subset_slice.start, subset_slice.stop])
-        saveArray(subset_slice_array, subset_name, group, tables_file)
-
-def saveFeatureMapping(feature_mapping, title, group, tables_file):
-    
-    name = normaliseString(title)
-    group = tables_file.create_group(group, name, title)
-    
-    feature_names = []
-    feature_counts = []
-    feature_IDs = []
-    
-    for feature_name, feature_ID_set in feature_mapping.items():
-        feature_names.append(feature_name)
-        feature_counts.append(len(feature_ID_set))
-        feature_IDs.extend(feature_ID_set)
-    
-    feature_lists = {
-        "feature_names": feature_names,
-        "feature_counts": feature_counts,
-        "feature_IDs": feature_IDs
-    }
-    
-    for feature_list_name, feature_list in feature_lists.items():
-        feature_list_array = numpy.array(feature_list)
-        saveArray(feature_list_array, feature_list_name, group, tables_file)
 
 def loadMacoksoDataSet(paths):
     
