@@ -28,9 +28,6 @@ from models import (
 
 from distributions import distributions, latent_distributions
 
-from miscellaneous.decomposition import (
-    DECOMPOSITION_METHOD_NAMES, DEFAULT_DECOMPOSITION_DIMENSIONALITY
-)
 from miscellaneous.prediction import (
     predict, PREDICTION_METHOD_NAMES, PREDICTION_METHOD_SPECIFICATIONS
 )
@@ -83,8 +80,6 @@ def main(input_file_or_name, data_directory = "data",
     batch_size = 100, learning_rate = 1e-4,
     run_id = None, new_run = False,
     prediction_method = None, prediction_training_set_name = "training",
-    prediction_decomposition_method = None,
-    prediction_decomposition_dimensionality = None,
     decomposition_methods = ["PCA"], highlight_feature_indices = [],
     reset_training = False, skip_modelling = False,
     model_versions = ["all"],
@@ -471,9 +466,6 @@ def main(input_file_or_name, data_directory = "data",
             "method": prediction_method,
             "number_of_classes": number_of_clusters,
             "training_set_name": prediction_training_set_name,
-            "decomposition_method": prediction_decomposition_method,
-            "decomposition_dimensionality":
-                prediction_decomposition_dimensionality
         }
         
         print("Prediction method: {}.".format(prediction_method))
@@ -486,33 +478,6 @@ def main(input_file_or_name, data_directory = "data",
                 prediction_training_set.kind))
         
         prediction_id_parts = []
-        
-        if prediction_decomposition_method:
-            
-            prediction_decomposition_method = properString(
-                prediction_decomposition_method,
-                DECOMPOSITION_METHOD_NAMES
-            )
-            
-            if not prediction_decomposition_dimensionality:
-                prediction_decomposition_dimensionality \
-                    = DEFAULT_DECOMPOSITION_DIMENSIONALITY
-            
-            prediction_id_parts += [
-                prediction_decomposition_method,
-                prediction_decomposition_dimensionality
-            ]
-            
-            prediction_details.update({
-                "decomposition_method": prediction_decomposition_method,
-                "decomposition_dimensionality":
-                    prediction_decomposition_dimensionality
-            })
-            
-            print("Decomposition method before prediction: {}-d {}.".format(
-                prediction_decomposition_dimensionality,
-                prediction_decomposition_method
-            ))
         
         prediction_id_parts.append(prediction_method)
         
@@ -642,31 +607,6 @@ def main(input_file_or_name, data_directory = "data",
             
             else:
                 latent_prediction_training_set = None
-            
-            if prediction_decomposition_method:
-                
-                if latent_prediction_training_set:
-                    latent_prediction_training_set, \
-                        latent_prediction_evaluation_set \
-                        = data.decomposeDataSubsets(
-                            latent_prediction_training_set,
-                            latent_prediction_evaluation_set,
-                            method = prediction_decomposition_method,
-                            number_of_components = 
-                                prediction_decomposition_dimensionality,
-                            random = True
-                        )
-                else:
-                    latent_prediction_evaluation_set \
-                        = data.decomposeDataSubsets(
-                            latent_prediction_evaluation_set,
-                            method = prediction_decomposition_method,
-                            number_of_components = 
-                                prediction_decomposition_dimensionality,
-                            random = True
-                        )
-                
-                print()
             
             cluster_ids, predicted_labels, predicted_superset_labels \
                 = predict(
@@ -1152,20 +1092,6 @@ parser.add_argument(
     type = str,
     default = "training",
     help = "name of the subset on which to train prediction method: training (default), validation, test, or full"
-)
-parser.add_argument(
-    "--prediction-decomposition-method",
-    type = str,
-    nargs = "?",
-    default = None,
-    help = "method for decomposing values before predicting labels"
-)
-parser.add_argument(
-    "--prediction-decomposition-dimensionality",
-    type = int,
-    nargs = "?",
-    default = None,
-    help = "dimensionality of decomposition of values before predicting labels"
 )
 parser.add_argument(
     "--decomposition-methods",

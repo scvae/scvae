@@ -1610,24 +1610,6 @@ def parseMetricsForRunsAndVersionsOfModel(
                     
                     prediction_string_parts = []
                     
-                    decomposition_method = predictions.get(
-                        "decomposition method",
-                        None
-                    )
-                    
-                    if decomposition_method:
-                        decomposition_dimensionality = predictions.get(
-                            "decomposition dimensionality",
-                            None
-                        )
-                        
-                        decomposition_string = "{} ({} components)".format(
-                            decomposition_method,
-                            decomposition_dimensionality
-                        )
-                        
-                        prediction_string_parts.append(decomposition_string)
-                    
                     method = predictions.get(
                         "prediction method",
                         None

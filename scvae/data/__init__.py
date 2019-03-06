@@ -19,7 +19,6 @@
 from data.data import (
     DataSet,
     directory,
-    decomposeDataSubsets,
     createLabelSorter,
     standard_deviation,
     sparsity

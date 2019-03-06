@@ -996,14 +996,6 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                     )
                 )
             
-            if prediction_details["decomposition_method"]:
-                prediction_string_parts.append(
-                    "Decomposition method: {}-d {}".format(
-                        prediction_details["decomposition_dimensionality"],
-                        prediction_details["decomposition_method"]
-                    )
-                )
-            
             clustering_metrics_title_printed = False
             
             for metric_name, metric_set in clustering_metric_values.items():
@@ -1040,9 +1032,6 @@ def analyseResults(evaluation_set, reconstructed_evaluation_set,
                 "prediction method": prediction_details["method"],
                 "number of classes": prediction_details["number_of_classes"],
                 "training set": prediction_details["training_set_name"],
-                "decomposition method": prediction_details["decomposition_method"],
-                "decomposition dimensionality":
-                    prediction_details["decomposition_dimensionality"],
                 "clustering metric values": clustering_metric_values
             }
             
