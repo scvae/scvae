@@ -81,7 +81,7 @@ data_sets = {
                 "full": "http://mccarrolllab.com/wp-content/uploads/2015/05/retina_clusteridentities.txt"
             }
         },
-        "loading function": lambda x: loadMouseRetinaDataSet(x),
+        "format": "macosko",
         "example type": "counts",
         "class palette": {
              0: (0., 0., 0.),
@@ -228,7 +228,7 @@ data_sets = {
                 "full": None
             }
         },
-        "loading function": lambda x: load10xDataSet(x),
+        "format": "10x",
         "example type": "counts"
     },
     
@@ -248,7 +248,7 @@ data_sets = {
                 "full": None
             }
         },
-        "loading function": lambda x: load10xDataSet(x),
+        "format": "10x",
         "example type": "counts"
     },
     
@@ -267,7 +267,7 @@ data_sets = {
                 "CD4+/CD25+ regulatory T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/regulatory_t/regulatory_t_filtered_gene_bc_matrices.tar.gz"
             },
         },
-        "loading function": lambda x: loadAndCombine10xDataSets(x),
+        "format": "10x-combine",
         "example type": "counts"
     },
     
@@ -286,7 +286,7 @@ data_sets = {
                 "CD4+/CD45RA+/CD25- naïve T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_t/naive_t_filtered_gene_bc_matrices.tar.gz"
             },
         },
-        "loading function": lambda x: loadAndCombine10xDataSets(x),
+        "format": "10x-combine",
         "example type": "counts"
     },
     
@@ -311,7 +311,7 @@ data_sets = {
                 "CD8+/CD45RA+ naïve cytotoxic T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_cytotoxic/naive_cytotoxic_filtered_gene_bc_matrices.tar.gz"
             },
         },
-        "loading function": lambda x: loadAndCombine10xDataSets(x),
+        "format": "10x-combine",
         "example type": "counts"
     },
     
@@ -331,7 +331,7 @@ data_sets = {
                 "full": "https://raw.githubusercontent.com/10XGenomics/single-cell-3prime-paper/master/pbmc68k_analysis/68k_pbmc_barcodes_annotation.tsv"
             }
         },
-        "loading function": lambda x: load10xDataSet(x),
+        "format": "10x",
         "example type": "counts"
     },
     
@@ -355,7 +355,7 @@ data_sets = {
                 "full": "https://toil.xenahubs.net/download/gencode.v23.annotation.transcript.probemap.gz"
             }
         },
-        "loading function": lambda x: loadTCGADataSet(x),
+        "format": "tcga",
         "example type": "counts"
     },
     
@@ -379,7 +379,7 @@ data_sets = {
                 "full": "https://toil.xenahubs.net/download/gencode.v23.annotation.gene.probeMap.gz"
             }
         },
-        "loading function": lambda x: loadTCGADataSet(x),
+        "format": "tcga",
         "example type": "counts"
     },
     
@@ -405,7 +405,7 @@ data_sets = {
                         "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz"
             },
         },
-        "loading function": lambda x: loadMNISTDataSet(x),
+        "format": "mnist",
         "maximum value": 255,
         "example type": "images",
         "feature dimensions": (28, 28)
@@ -424,7 +424,7 @@ data_sets = {
                     "full": "http://deeplearning.net/data/mnist/mnist.pkl.gz"
             }
         },
-        "loading function": lambda x: loadNormalisedMNISTDataSet(x),
+        "format": "mnist-normalised",
         "maximum value": 1,
         "example type": "images",
         "feature dimensions": (28, 28)
@@ -454,7 +454,7 @@ data_sets = {
                     "test": None
             },
         },
-        "loading function": lambda x: loadBinarisedMNISTDataSet(x),
+        "format": "mnist-binarised",
         "maximum value": 1,
         "example type": "images",
         "feature dimensions": (28, 28)
@@ -462,12 +462,7 @@ data_sets = {
     
     "development": {
         "URLs": {},
-        "loading function": lambda x: loadDevelopmentDataSet(
-            number_of_examples = 10000,
-            number_of_features = 5 * 5,
-            scale = 10,
-            update_probability = 0.0001
-        ),
+        "format": "development",
         # "example type": "images",
         "example type": "counts",
         "feature dimensions": (5, 5),
@@ -1074,11 +1069,11 @@ class DataSet(object):
             URLs = self.specifications.get("URLs", None)
             original_paths = acquireDataSet(self.title, URLs,
                 self.original_directory)
-            loading_function = self.specifications.get("loading function")
+            data_format = self.specifications.get("format")
             
             loading_time_start = time()
             data_dictionary = loadOriginalDataSet(original_paths,
-                loading_function)
+                data_format)
             loading_duration = time() - loading_time_start
             
             print()
@@ -1748,37 +1743,9 @@ def dataSetFromJSONFile(json_path):
                 "full": data_set["labels"]
             }
     
-    if "loading function" in data_set:
-        loading_function_string = data_set["loading function"]
-    else:
-        loading_function_string = title
-    
-    data_set["loading function"] = loadingFunction(loading_function_string)
+    data_set.set_default("format", title)
     
     return title, data_set
-
-loading_functions = {
-    "default": lambda x: loadMatrixAsDataSet(x, transpose = False),
-    "transpose": lambda x: loadMatrixAsDataSet(x, transpose = True),
-    "10x": lambda x: load10xDataSet(x),
-    "10x-combine": lambda x: loadAndCombine10xDataSets(x),
-    "gtex": lambda x: loadGTExDataSet(x)
-}
-
-def loadingFunction(search_string):
-    
-    search_string = normaliseString(search_string)
-    
-    data_set_loading_function = None
-    
-    for loading_function_name, loading_function in loading_functions.items():
-        if loading_function_name in search_string:
-            data_set_loading_function = loading_function
-    
-    if not data_set_loading_function:
-        data_set_loading_function = loading_functions["default"]
-    
-    return data_set_loading_function
 
 def postprocessTags(tags):
     if "item" in tags and tags["item"]:
@@ -1873,12 +1840,18 @@ def acquireDataSet(title, URLs, directory):
     
     return paths
 
-def loadOriginalDataSet(paths, loading_function):
+def loadOriginalDataSet(paths, data_format):
     
     print("Loading original data set.")
     loading_time_start = time()
     
-    data_dictionary = loading_function(paths)
+    load = loaders.get(data_format)
+    
+    if load is None:
+        raise ValueError("Data format `{}` not recognised.".format(
+            data_format))
+    
+    data_dictionary = load(paths=paths)
     
     loading_duration = time() - loading_time_start
     print("Original data set loaded ({}).".format(formatDuration(
@@ -2820,7 +2793,7 @@ def saveFeatureMapping(feature_mapping, title, group, tables_file):
         feature_list_array = numpy.array(feature_list)
         saveArray(feature_list_array, feature_list_name, group, tables_file)
 
-def loadMouseRetinaDataSet(paths):
+def loadMacoksoDataSet(paths):
     
     values, column_headers, row_indices = \
         loadTabSeparatedMatrix(paths["values"]["full"], numpy.float32)
@@ -3397,7 +3370,7 @@ def loadBinarisedMNISTDataSet(paths):
     return data_dictionary
 
 def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
-    scale = 10, update_probability = 0.0001):
+    scale = 10, update_probability = 0.0001, **kwargs):
     
     random_state = numpy.random.RandomState(60)
     
@@ -3472,6 +3445,19 @@ def loadDevelopmentDataSet(number_of_examples = 10000, number_of_features = 25,
     }
     
     return data_dictionary
+
+loaders = {
+    "matrix": loadMatrixAsDataSet,
+    "10x": load10xDataSet,
+    "10x-combine": loadAndCombine10xDataSets,
+    "macosko": loadMacoksoDataSet,
+    "gtex": loadGTExDataSet,
+    "tcga": loadTCGADataSet,
+    "mnist": loadMNISTDataSet,
+    "mnist-normalised": loadNormalisedMNISTDataSet,
+    "mnist-binarised": loadBinarisedMNISTDataSet,
+    "development": loadDevelopmentDataSet
+}
 
 ## Apply weights
 def applyWeights(data, method, preprocessPath = None):
