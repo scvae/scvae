@@ -755,7 +755,6 @@ class DataSet(object):
         if self.noisy_preprocessing_methods:
             self.noisy_preprocess = preprocessingFunction(
                 self.noisy_preprocessing_methods,
-                self.preprocessedPath,
                 noisy = True
             )
         else:
@@ -1170,9 +1169,7 @@ class DataSet(object):
                 start_time = time()
                 
                 preprocessing_function = preprocessingFunction(
-                    self.preprocessing_methods,
-                    self.preprocessedPath
-                )
+                    self.preprocessing_methods)
                 preprocessed_values = preprocessing_function(values)
                 
                 duration = time() - start_time
@@ -1189,8 +1186,7 @@ class DataSet(object):
                      "preprocessed": preprocessed_values},
                     self.feature_names,
                     self.feature_selection,
-                    self.feature_selection_parameters,
-                    self.preprocessedPath
+                    self.feature_selection_parameters
                 )
                 
                 values = values_dictionary["original"]
@@ -1299,7 +1295,7 @@ class DataSet(object):
                 start_time = time()
                 
                 binarisation_function = preprocessingFunction(
-                    binarise_preprocessing, self.preprocessedPath)
+                    binarise_preprocessing)
                 binarised_values = binarisation_function(self.values)
                 
                 duration = time() - start_time
@@ -2000,7 +1996,7 @@ def mapFeatures(values, feature_IDs, feature_mapping):
     return aggregated_values, feature_names
 
 def selectFeatures(values_dictionary, feature_names, feature_selection = None,
-    feature_selection_parameters = None, preprocessPath = None):
+    feature_selection_parameters = None):
     
     feature_selection = normaliseString(feature_selection)
     
@@ -2018,23 +2014,6 @@ def selectFeatures(values_dictionary, feature_names, feature_selection = None,
             total_feature_sum = total_feature_sum.A.squeeze()
         indices = total_feature_sum != 0
     
-    elif feature_selection == "keep_gini_indices_above":
-        gini_indices = loadWeights(values, "gini", preprocessPath)
-        if feature_selection_parameters:
-            threshold = float(feature_selection_parameters[0])
-        else:
-            threshold = 0.1
-        indices = gini_indices > threshold
-
-    elif feature_selection == "keep_highest_gini_indices":
-        gini_indices = loadWeights(values, "gini", preprocessPath)
-        gini_sorted_indices = numpy.argsort(gini_indices)
-        if feature_selection_parameters:
-            number_to_keep = int(feature_selection_parameters[0])
-        else:
-            number_to_keep = int(M/2)
-        indices = numpy.sort(gini_sorted_indices[-number_to_keep:])
-        
     elif feature_selection == "keep_variances_above":
         variances = values.var(axis = 0)
         if isinstance(variances, numpy.matrix):
@@ -2097,12 +2076,6 @@ def defaultFeatureParameters(feature_selection = None,
         
         if feature_selection == "remove_zeros":
             feature_selection_parameters = None
-        
-        elif feature_selection == "keep_gini_indices_above":
-            feature_selection_parameters = [0.1]
-        
-        elif feature_selection == "keep_highest_gini_indices":
-            feature_selection_parameters = [int(M/2)]
         
         elif feature_selection == "keep_variances_above":
             feature_selection_parameters = [0.5]
@@ -2228,18 +2201,13 @@ def filterExamples(values_dictionary, example_names, example_filter = None,
         example_filtered_labels
 
 def preprocessingFunction(preprocessing_methods = [],
-    preprocessPath = None, noisy = False):
+    noisy = False):
     
     preprocesses = []
     
     for preprocessing_method in preprocessing_methods:
         
-        if preprocessing_method in ["gini", "idf"]:
-            weight_method = preprocessing_method
-            preprocess = lambda x: applyWeights(x, weight_method,
-                preprocessPath)
-        
-        elif preprocessing_method == "log":
+        if preprocessing_method == "log":
             preprocess = lambda values: values.logp1()
         
         elif preprocessing_method == "exp":
@@ -3458,91 +3426,6 @@ loaders = {
     "mnist-binarised": loadBinarisedMNISTDataSet,
     "development": loadDevelopmentDataSet
 }
-
-## Apply weights
-def applyWeights(data, method, preprocessPath = None):
-    
-    weights = loadWeights(data, method, preprocessPath)
-    
-    return data.multiply(weights)
-
-def loadWeights(data, method, preprocessPath):
-    
-    if preprocessPath:
-        weights_path = preprocessPath(method + "-weights")
-    else:
-        weights_path = None
-    
-    if weights_path and os.path.isfile(weights_path):
-        print("Loading weights from.")
-        weights_dictionary = loadDataDictionary(weights_path)
-    else:
-        start_time = time()
-        
-        if method == "gini":
-            weights = computeGiniIndices(data)
-        elif method == "idf":
-            weights = computeInverseGlobalFrequencyWeights(data)
-        
-        duration = time() - start_time
-        
-        weights_dictionary = {"weights": weights}
-        
-        if weights_path and duration > maximum_duration_before_saving:
-            print("Saving weights.")
-            saveDataDictionary(weights_dictionary, weights_path)
-    
-    return weights_dictionary["weights"]
-
-## Compute Gini indices
-def computeGiniIndices(data, epsilon = 1e-16, batch_size = 5000):
-    """Calculate the Gini coefficients along last axis of a NumPy array."""
-    # Based on last equation on:
-    # http://www.statsdirect.com/help/default.htm#nonparametric_methods/gini.htm
-    
-    print("Computing Gini indices.")
-    start_time = time()
-    
-    # Number of examples, M, and features, N
-    M, N = data.shape
-    
-    # 1-indexing vector for each data element
-    index_vector = 2 * numpy.arange(1, M + 1) - M - 1
-    
-    gini_indices = numpy.zeros(N)
-    
-    for i in range(0, N, batch_size):
-        batch = data[:, i:(i+batch_size)].A
-        
-        # Values cannot be 0
-        batch = numpy.clip(batch, epsilon, batch)
-        
-        # Array should be normalised and sorted frequencies over the examples
-        batch = numpy.sort(batch / (numpy.sum(batch, axis = 0)), axis = 0)
-        
-        # Gini coefficients over the examples for each feature. 
-        gini_indices[i:(i+batch_size)] = index_vector @ batch / M
-    
-    duration = time() - start_time
-    print("Gini indices computed ({}).".format(formatDuration(duration)))
-    
-    return gini_indices
-
-def computeInverseGlobalFrequencyWeights(data):
-    
-    print("Computing IDF weights.")
-    start_time = time()
-    
-    M = data.shape[0]
-    
-    global_frequencies = data.astype(bool).sum(axis=0).A.squeeze()
-    
-    idf_weights = numpy.log(M / (global_frequencies + 1))
-    
-    duration = time() - start_time
-    print("IDF weights computed ({}).".format(formatDuration(duration)))
-    
-    return idf_weights
 
 def supersetLabels(labels, label_superset):
     

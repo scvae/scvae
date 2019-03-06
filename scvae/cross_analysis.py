@@ -1918,11 +1918,6 @@ split_replacements = {
 
 feature_replacements = {
     "features_mapped": "feature mapping",
-    r"keep_gini_indices_above_([\d.]+)": lambda match:
-        "features with Gini index above {}".format(int(float(match.group(1)))),
-    r"keep_highest_gini_indices_([\d.]+)": lambda match:
-        " {} features with highest Gini indices".format(
-            int(float(match.group(1)))),
     r"keep_variances_above_([\d.]+)": lambda match:
         "features with variance above {}".format(
             int(float(match.group(1)))),
@@ -1946,11 +1941,6 @@ example_replacements = {
     "excluded_classes": "excluded classes removed",
 }
 
-preprocessing_replacements = {
-    "gini": "Gini indices",
-    "idf": "IDF"
-}
-
 def dataSetTitleFromDataSetName(name):
     
     replacement_dictionaries = [
@@ -1958,8 +1948,7 @@ def dataSetTitleFromDataSetName(name):
         split_replacements,
         feature_replacements,
         example_feaute_replacements,
-        example_replacements,
-        preprocessing_replacements
+        example_replacements
     ]
     
     return titleFromName(name, replacement_dictionaries)
