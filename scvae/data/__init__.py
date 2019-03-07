@@ -20,6 +20,6 @@ from data.data import (
     DataSet,
     directory,
     createLabelSorter,
-    standard_deviation,
-    sparsity
+    standard_deviation
 )
+from data.sparse import sparsity
