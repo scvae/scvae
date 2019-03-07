@@ -49,6 +49,7 @@ from auxiliary import (
     isfloat,
     downloadFile, copyFile
 )
+from data import processing
 from data.internal_io import load_data_dictionary, save_data_dictionary
 from data.sparse import SparseRowMatrix
 from miscellaneous.decomposition import (
@@ -754,7 +755,7 @@ class DataSet(object):
             self.noisy_preprocessing_methods = []
         
         if self.noisy_preprocessing_methods:
-            self.noisy_preprocess = preprocessingFunction(
+            self.noisy_preprocess = processing.build_preprocessor(
                 self.noisy_preprocessing_methods,
                 noisy = True
             )
@@ -1153,7 +1154,7 @@ class DataSet(object):
                 )
                 start_time = time()
                 
-                values, feature_names = mapFeatures(
+                values, feature_names = processing.map_features(
                     values, feature_names, self.feature_mapping)
                 
                 self.features_mapped = True
@@ -1169,7 +1170,7 @@ class DataSet(object):
                 print("Preprocessing values.")
                 start_time = time()
                 
-                preprocessing_function = preprocessingFunction(
+                preprocessing_function = processing.build_preprocessor(
                     self.preprocessing_methods)
                 preprocessed_values = preprocessing_function(values)
                 
@@ -1182,7 +1183,7 @@ class DataSet(object):
                 preprocessed_values = None
             
             if self.feature_selection:
-                values_dictionary, feature_names = selectFeatures(
+                values_dictionary, feature_names = processing.select_features(
                     {"original": values,
                      "preprocessed": preprocessed_values},
                     self.feature_names,
@@ -1196,7 +1197,7 @@ class DataSet(object):
                 print()
                 
             if self.example_filter:
-                values_dictionary, example_names, labels = filterExamples(
+                values_dictionary, example_names, labels = processing.filter_examples(
                     {"original": values,
                      "preprocessed": preprocessed_values},
                     self.example_names,
@@ -1295,7 +1296,7 @@ class DataSet(object):
                 print("Binarising values.")
                 start_time = time()
                 
-                binarisation_function = preprocessingFunction(
+                binarisation_function = processing.build_preprocessor(
                     binarise_preprocessing)
                 binarised_values = binarisation_function(self.values)
                 
@@ -1381,8 +1382,8 @@ class DataSet(object):
             }
             
             splitting_time_start = time()
-            split_data_dictionary = splitDataSet(data_dictionary, method,
-                fraction)
+            split_data_dictionary = processing.split_data_set(
+                data_dictionary, method, fraction)
             splitting_duration = time() - splitting_time_start
             
             print()
@@ -1869,137 +1870,6 @@ def updateTagForMappedFeatures(tags):
     
     return tags
 
-def mapFeatures(values, feature_IDs, feature_mapping):
-    
-    values = scipy.sparse.csc_matrix(values)
-    
-    M, N_IDs = values.shape
-    N_features = len(feature_mapping)
-    
-    feature_name_from_ID = {
-        v: k for k, vs in feature_mapping.items() for v in vs
-    }
-    
-    N_unknown_IDs = 0
-    
-    for feature_ID in feature_IDs:
-        if feature_ID not in feature_name_from_ID:
-            feature_name_from_ID[feature_ID] = feature_ID
-            N_unknown_IDs += 1
-    
-    if N_unknown_IDs > 0:
-        print("{0} feature{1} cannot be mapped -- using original feature{1}."\
-            .format(N_unknown_IDs, "s" if N_unknown_IDs > 1 else ""))
-    
-    N_features += N_unknown_IDs
-    
-    aggregated_values = numpy.zeros((M, N_features), values.dtype)
-    feature_names_with_index = dict()
-    
-    for i, feature_ID in enumerate(feature_IDs):
-        
-        feature_name = feature_name_from_ID[feature_ID]
-        
-        if feature_name in feature_names_with_index:
-            index = feature_names_with_index[feature_name]
-        else:
-            index = len(feature_names_with_index)
-            feature_names_with_index[feature_name] = index
-        
-        aggregated_values[:, index] += values[:, i].A.flatten()
-    
-    feature_names = list(feature_names_with_index.keys())
-    
-    feature_names_not_found = set(feature_mapping.keys()) - set(feature_names)
-    N_feature_names_not_found = len(feature_names_not_found)
-    N_features -= N_feature_names_not_found
-    aggregated_values = aggregated_values[:, :N_features]
-    
-    if N_feature_names_not_found > 0:
-        print(
-            "Did not find any original features for {} new feature{}.".format(
-                N_feature_names_not_found,
-                "s" if N_feature_names_not_found > 1 else ""
-            )
-        )
-    
-    aggregated_values = SparseRowMatrix(aggregated_values)
-    feature_names = numpy.array(feature_names)
-    
-    return aggregated_values, feature_names
-
-def selectFeatures(values_dictionary, feature_names, feature_selection = None,
-    feature_selection_parameters = None):
-    
-    feature_selection = normaliseString(feature_selection)
-    
-    print("Selecting features.")
-    start_time = time()
-    
-    if type(values_dictionary) == dict:
-        values = values_dictionary["original"]
-    
-    M, N = values.shape
-    
-    if feature_selection == "remove_zeros":
-        total_feature_sum = values.sum(axis = 0)
-        if isinstance(total_feature_sum, numpy.matrix):
-            total_feature_sum = total_feature_sum.A.squeeze()
-        indices = total_feature_sum != 0
-    
-    elif feature_selection == "keep_variances_above":
-        variances = values.var(axis = 0)
-        if isinstance(variances, numpy.matrix):
-            variances = variances.A.squeeze()
-        if feature_selection_parameters:
-            threshold = float(feature_selection_parameters[0])
-        else:
-            threshold = 0.5
-        indices = variances > threshold
-
-    elif feature_selection == "keep_highest_variances":
-        variances = values.var(axis = 0)
-        if isinstance(variances, numpy.matrix):
-            variances = variances.A.squeeze()
-        variance_sorted_indices = numpy.argsort(variances)
-        if feature_selection_parameters:
-            number_to_keep = int(feature_selection_parameters[0])
-        else:
-            number_to_keep = int(M/2)
-        indices = numpy.sort(variance_sorted_indices[-number_to_keep:])
-        
-    else:
-        indices = numpy.arange(N)
-    
-    if feature_selection:
-        error = ValueError(
-            "No features excluded using feature selection. Exiting.")
-        if indices.dtype == "bool" and all(indices):
-            raise error
-        elif indices.dtype != "bool" and len(indices) == N:
-            raise error
-    
-    feature_selected_values = {}
-    
-    for version, values in values_dictionary.items():
-        if values is not None:
-            feature_selected_values[version] = values[:, indices]
-        else:
-            feature_selected_values[version] = None
-    
-    feature_selected_feature_names = feature_names[indices]
-    
-    N_changed = len(feature_selected_feature_names)
-    
-    duration = time() - start_time
-    print("{} features selected, {} excluded ({}).".format(
-        N_changed,
-        N - N_changed,
-        formatDuration(duration)
-    ))
-    
-    return feature_selected_values, feature_selected_feature_names
-
 def defaultFeatureParameters(feature_selection = None,
     number_of_features = None):
     
@@ -2023,284 +1893,6 @@ def defaultFeatureParameters(feature_selection = None,
         feature_selection_parameters = None
     
     return feature_selection_parameters
-
-def filterExamples(values_dictionary, example_names, example_filter = None,
-    example_filter_parameters = None, labels = None, excluded_classes = None,
-    superset_labels = None, excluded_superset_classes = None,
-    count_sum = None):
-    
-    print("Filtering examples.")
-    start_time = time()
-    
-    example_filter = normaliseString(example_filter)
-    
-    if superset_labels is not None:
-        filter_labels = superset_labels.copy()
-        filter_excluded_classes = excluded_superset_classes
-    elif labels is not None:
-        filter_labels = labels.copy()
-        filter_excluded_classes = excluded_classes
-    else:
-        filter_labels = None
-    
-    filter_class_names = numpy.unique(filter_labels)
-    
-    if type(values_dictionary) == dict:
-        values = values_dictionary["original"]
-    
-    M, N = values.shape
-    
-    filter_indices = numpy.arange(M)
-    
-    if example_filter == "macosko":
-        minimum_number_of_non_zero_elements = 900
-        number_of_non_zero_elements = (values != 0).sum(axis = 1)
-        filter_indices = numpy.nonzero(
-            number_of_non_zero_elements > minimum_number_of_non_zero_elements
-        )[0]
-    
-    elif example_filter == "inverse_macosko":
-        maximum_number_of_non_zero_elements = 900
-        number_of_non_zero_elements = (values != 0).sum(axis = 1)
-        filter_indices = numpy.nonzero(
-            number_of_non_zero_elements <= maximum_number_of_non_zero_elements
-        )[0]
-    
-    elif example_filter in ["keep", "remove", "excluded_classes"]:
-        
-        if filter_labels is None:
-            raise ValueError("Cannot filter examples based on labels, "
-                "since data set is unlabelled.")
-        
-        if example_filter == "excluded_classes":
-            example_filter = "remove"
-            example_filter_parameters = filter_excluded_classes
-        
-        if example_filter == "keep":
-            label_indices = set()
-            
-            for parameter in example_filter_parameters:
-                for class_name in filter_class_names:
-                    if normaliseString(str(class_name)) \
-                        == normaliseString(str(parameter)):
-                        
-                        class_indices = filter_labels == class_name
-                        label_indices.update(filter_indices[class_indices])
-
-            filter_indices = filter_indices[list(label_indices)]
-            
-        elif example_filter == "remove":
-            for parameter in example_filter_parameters:
-                for class_name in filter_class_names:
-                    if normaliseString(str(class_name)) \
-                        == normaliseString(str(parameter)):
-                        
-                        label_indices = filter_labels != class_name
-                        filter_labels = filter_labels[label_indices]
-                        filter_indices = filter_indices[label_indices]
-    
-    elif example_filter == "remove_count_sum_above":
-        threshold = int(example_filter_parameters[0])
-        filter_indices = filter_indices[count_sum.reshape(-1) <= threshold]
-    
-    if example_filter and len(filter_indices) == M:
-        raise ValueError("No examples filtered out using example filter. Exiting.")
-    
-    example_filtered_values = {}
-    
-    for version, values in values_dictionary.items():
-        if values is not None:
-            example_filtered_values[version] = values[filter_indices, :]
-        else:
-            example_filtered_values[version] = None
-    
-    example_filtered_example_names = example_names[filter_indices]
-    
-    if labels is not None:
-        example_filtered_labels = labels[filter_indices]
-    else:
-        example_filtered_labels = None
-    
-    M_changed = len(example_filtered_example_names)
-    
-    duration = time() - start_time
-    print("{} examples filtered out, {} remaining ({}).".format(
-        M - M_changed,
-        M_changed,
-        formatDuration(duration)
-    ))
-    
-    return example_filtered_values, example_filtered_example_names, \
-        example_filtered_labels
-
-def preprocessingFunction(preprocessing_methods = [],
-    noisy = False):
-    
-    preprocesses = []
-    
-    for preprocessing_method in preprocessing_methods:
-        
-        if preprocessing_method == "log":
-            preprocess = lambda values: values.logp1()
-        
-        elif preprocessing_method == "exp":
-            preprocess = lambda values: values.expm1()
-        
-        elif preprocessing_method == "normalise":
-            preprocess = lambda values: sklearn.preprocessing.normalize(
-                values, norm="l2", axis=0)
-        
-        elif preprocessing_method == "binarise":
-            if noisy:
-                preprocess = lambda values: numpy.random.binomial(1, values)
-            else:
-                preprocess = lambda values: sklearn.preprocessing.binarize(
-                    values, threshold = 0.5)
-        
-        else:
-            preprocess = lambda x: x
-        
-        preprocesses.append(preprocess)
-    
-    if not preprocessing_methods:
-        preprocesses.append(lambda x: x)
-    
-    preprocessing_function = lambda x: reduce(
-        lambda v, p: p(v),
-        preprocesses,
-        x
-    )
-    
-    return preprocessing_function
-
-def splitDataSet(data_dictionary, method = "default", fraction = 0.9):
-    
-    print("Splitting data set.")
-    start_time = time()
-    
-    if method == "default":
-        if self.split_indices:
-            method = "indices"
-        else:
-            method = "random"
-    
-    method = normaliseString(method)
-    
-    M = data_dictionary["values"].shape[0]
-    
-    random_state = numpy.random.RandomState(42)
-    
-    if method == "random":
-        
-        M_training_validation = int(fraction * M)
-        M_training = int(fraction * M_training_validation)
-        
-        shuffled_indices = random_state.permutation(M)
-        
-        training_indices = shuffled_indices[:M_training]
-        validation_indices = shuffled_indices[M_training:M_training_validation]
-        test_indices = shuffled_indices[M_training_validation:]
-    
-    elif method == "indices":
-        
-        split_indices = data_dictionary["split indices"]
-        
-        training_indices = split_indices["training"]
-        test_indices = split_indices["test"]
-        
-        if "validation" in split_indices:
-            validation_indices = split_indices["validation"]
-        else:
-            M_training_validation = training_indices.stop
-            M_all = test_indices.stop
-            
-            M_training = M_training_validation - (M_all - M_training_validation)
-            # M_training = int(fraction * M_training_validation)
-            
-            training_indices = slice(M_training)
-            validation_indices = slice(M_training, M_training_validation)
-    
-    elif method == "macosko":
-        
-        values = data_dictionary["values"]
-        
-        minimum_number_of_non_zero_elements = 900
-        number_of_non_zero_elements = (values != 0).sum(axis = 1)
-        
-        training_indices = numpy.nonzero(
-            number_of_non_zero_elements > minimum_number_of_non_zero_elements
-        )[0]
-        
-        test_validation_indices = numpy.nonzero(
-            number_of_non_zero_elements <= minimum_number_of_non_zero_elements
-        )[0]
-        
-        random_state.shuffle(test_validation_indices)
-        
-        N_test_validation = len(test_validation_indices)
-        V = int((1 - fraction) * N_test_validation)
-        
-        validation_indices = test_validation_indices[:V]
-        test_indices = test_validation_indices[V:]
-    
-    split_data_dictionary = {
-        "training set": {
-            "values": data_dictionary["values"][training_indices],
-            "preprocessed values": None,
-            "binarised values": None,
-            "labels": None,
-            "example names": data_dictionary["example names"][training_indices]
-        },
-        "validation set": {
-            "values": data_dictionary["values"][validation_indices],
-            "preprocessed values": None,
-            "binarised values": None,
-            "labels": None,
-            "example names": data_dictionary["example names"][validation_indices]
-        },
-        "test set": {
-            "values": data_dictionary["values"][test_indices],
-            "preprocessed values": None,
-            "binarised values": None,
-            "labels": None,
-            "example names": data_dictionary["example names"][test_indices]
-        },
-        "feature names": data_dictionary["feature names"],
-        "class names": data_dictionary["class names"]
-    }
-    
-    if "labels" in data_dictionary and data_dictionary["labels"] is not None:
-        split_data_dictionary["training set"]["labels"] = \
-            data_dictionary["labels"][training_indices]
-        split_data_dictionary["validation set"]["labels"] = \
-            data_dictionary["labels"][validation_indices]
-        split_data_dictionary["test set"]["labels"] = \
-            data_dictionary["labels"][test_indices]
-    
-    if "preprocessed values" in data_dictionary \
-        and data_dictionary["preprocessed values"] is not None:
-        
-        split_data_dictionary["training set"]["preprocessed values"] = \
-            data_dictionary["preprocessed values"][training_indices]
-        split_data_dictionary["validation set"]["preprocessed values"] = \
-            data_dictionary["preprocessed values"][validation_indices]
-        split_data_dictionary["test set"]["preprocessed values"] = \
-            data_dictionary["preprocessed values"][test_indices]
-    
-    if "binarised values" in data_dictionary \
-        and data_dictionary["binarised values"] is not None:
-        
-        split_data_dictionary["training set"]["binarised values"] = \
-            data_dictionary["binarised values"][training_indices]
-        split_data_dictionary["validation set"]["binarised values"] = \
-            data_dictionary["binarised values"][validation_indices]
-        split_data_dictionary["test set"]["binarised values"] = \
-            data_dictionary["binarised values"][test_indices]
-    
-    duration = time() - start_time
-    print("Data set split ({}).".format(formatDuration(duration)))
-    
-    return split_data_dictionary
 
 def loadMacoksoDataSet(paths):
     
