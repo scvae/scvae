@@ -149,8 +149,7 @@ class DataSet(object):
         self.number_of_superset_classes = None
         
         # Label palette for data set
-        self.class_palette = self.specifications.get("class palette",
-            classPaletteBuilder(self.title))
+        self.class_palette = self.specifications.get("class palette")
         self.superset_class_palette = supersetClassPaletteBuilder(
             self.class_palette, self.label_superset)
         
@@ -444,6 +443,7 @@ class DataSet(object):
             
             self.number_of_examples = M_values
             self.number_of_features = N_values
+            
         
         else:
             
@@ -479,6 +479,9 @@ class DataSet(object):
                 if self.excluded_classes \
                 else 0
             
+            if self.class_palette is None:
+                self.class_palette = classPaletteBuilder(self.class_names)
+            
             if self.label_superset:
                 
                 self.superset_labels = supersetLabels(
@@ -506,6 +509,10 @@ class DataSet(object):
                     len(self.excluded_superset_classes) \
                     if self.excluded_superset_classes \
                     else 0
+                
+                if self.superset_class_palette is None:
+                    self.superset_class_palette = supersetClassPaletteBuilder(
+                        self.class_names, self.label_superset)
         
         if total_standard_deviations is not None:
             self.total_standard_deviations = total_standard_deviations
@@ -1099,19 +1106,18 @@ def postprocessTags(tags):
     tags["value"] = value_tag
     return tags
 
-def classPaletteBuilder(title):
-    # if title.startswith("MNIST"):
-    #     index_palette = seaborn.hls_palette(10)
-    #     class_palette = {i: index_palette[i] for i in range(10)}
-    # elif title.startswith("10x-PBMC-P"):
-    #     classes = data_sets["10x-PBMC-PP"]["URLs"]["all"]
-    #     N = len(classes)
-    #     brewer_palette = seaborn.color_palette("Set3", N)
-    #     class_palette = {c: brewer_palette[i] for i, c in enumerate(classes)}
-    # else:
-    #     class_palette = None
-    # return class_palette
-    return None
+def classPaletteBuilder(class_names):
+
+    brewer_palette = seaborn.color_palette("Set3")
+
+    if len(class_names) <= len(brewer_palette):
+        class_palette = {
+            c: brewer_palette[i] for i, c in enumerate(class_names)
+        }
+    else:
+        class_palette = None
+
+    return class_palette
 
 def preprocessedPathFunction(preprocess_directory = "", name = ""):
     
@@ -1231,19 +1237,21 @@ def supersetLabels(labels, label_superset):
 
 def supersetClassPaletteBuilder(class_palette, label_superset):
     
-    if not label_superset or label_superset == "infer":
-        return None
+    if (class_palette is None or label_superset is None
+            or label_superset == "infer"):
+        superset_class_palette = None
     
-    superset_class_palette = {}
-    
-    for superset_label, labels_in_superset_label in label_superset.items():
-        superset_label_colours = []
-        for label_in_superset_label in labels_in_superset_label:
-            superset_label_colours.append(
-                class_palette[label_in_superset_label]
-            )
-        superset_class_palette[superset_label] = \
-            numpy.array(superset_label_colours).mean(axis = 0).tolist()
+    else:
+        superset_class_palette = {}
+        
+        for superset_label, labels_in_superset_label in label_superset.items():
+            superset_label_colours = []
+            for label_in_superset_label in labels_in_superset_label:
+                superset_label_colours.append(
+                    class_palette[label_in_superset_label]
+                )
+            superset_class_palette[superset_label] = \
+                numpy.array(superset_label_colours).mean(axis = 0).tolist()
     
     return superset_class_palette
 
