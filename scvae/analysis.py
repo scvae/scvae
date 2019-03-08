@@ -4055,8 +4055,14 @@ def plotMatrix(feature_matrix, plot_distances=False, center_value=None,
     # Label colours
     
     if labels is not None:
-        label_colours = [class_palette[l] for l in labels]
-        unique_colours = class_palette.values()
+        label_colours = [
+            tuple(colour) if isinstance(colour, list) else colour
+            for colour in [class_palette[l] for l in labels]
+        ]
+        unique_colours = [
+            tuple(colour) if isinstance(colour, list) else colour
+            for colour in class_palette.values()
+        ]
         value_for_colour = {
             colour: i for i, colour in enumerate(unique_colours)
         }

@@ -58,7 +58,6 @@ def _load_macokso_data_set(paths):
             example_column=0,
             example_names=example_names,
             header=None,
-            dtype=numpy.int32,
             default_label=0
         )
 
@@ -699,6 +698,8 @@ def _create_development_data_set(
     no_class_indices = random_state.permutation(n_examples)[
         :int(0.1 * n_examples)]
     labels[no_class_indices] = 0
+
+    labels = labels.astype(str)
 
     for i in range(n_examples):
         for j in range(n_features):
