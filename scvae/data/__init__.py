@@ -18,8 +18,7 @@
 
 from data.data import (
     DataSet,
-    directory,
-    createLabelSorter,
-    standard_deviation
+    createLabelSorter
 )
+from data.auxiliary import directory, standard_deviation
 from data.sparse import sparsity
