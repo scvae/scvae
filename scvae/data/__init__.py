@@ -16,9 +16,6 @@
 # 
 # ======================================================================== #
 
-from data.data import (
-    DataSet,
-    createLabelSorter
-)
+from data.data_set import DataSet, _create_label_sorter as create_label_sorter
 from data.auxiliary import directory, standard_deviation
 from data.sparse import sparsity

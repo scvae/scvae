@@ -2635,14 +2635,14 @@ class GaussianMixtureVariationalAutoencoder(object):
                 for output_set in output_sets:
                     if isinstance(output_set, dict):
                         for variable in output_set:
-                            output_set[variable].updatePredictions(
+                            output_set[variable].update_predictions(
                                 predicted_cluster_ids = evaluation_cluster_ids,
                                 predicted_labels = predicted_evaluation_labels,
                                 predicted_superset_labels = 
                                     predicted_evaluation_superset_labels
                             )
                     else:
-                        output_set.updatePredictions(
+                        output_set.update_predictions(
                             predicted_cluster_ids = evaluation_cluster_ids,
                             predicted_labels = predicted_evaluation_labels,
                             predicted_superset_labels = 

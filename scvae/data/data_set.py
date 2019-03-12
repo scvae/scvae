@@ -1,6 +1,6 @@
 # ======================================================================== #
-# 
-# Copyright (c) 2017 - 2018 scVAE authors
+#
+# Copyright (c) 2017 - 2019 scVAE authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,60 +13,27 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # ======================================================================== #
 
 import os
-import shutil
-import gzip
-import tarfile
-import pickle
-import struct
-import random
-
 import re
-from bs4 import BeautifulSoup
-
-import pandas
-import tables
-import json
-
-import numpy
-import scipy.sparse
-import scipy.io
-import sklearn.preprocessing
-import stemming.porter2 as stemming
-
-from functools import reduce
-
-import seaborn
-
+import shutil
 from time import time
 
-from auxiliary import (
-    formatDuration,
-    normaliseString, properString, enumerateListOfStrings,
-    isfloat,
-    downloadFile, copyFile
-)
-from data import loading, parsing, processing
-from data.internal_io import load_data_dictionary, save_data_dictionary
-from data.sparse import SparseRowMatrix
-from miscellaneous.decomposition import (
-    decompose,
-    DECOMPOSITION_METHOD_NAMES,
-    DECOMPOSITION_METHOD_LABEL
-)
+import numpy
+import seaborn
 
-preprocess_suffix = "preprocessed"
-original_suffix = "original"
-preprocessed_extension = ".sparse.h5"
+from auxiliary import formatDuration, normaliseString
+from data import internal_io, loading, parsing, processing, sparse
 
-maximum_duration_before_saving = 30 # seconds
+PREPROCESS_SUFFIX = "preprocessed"
+ORIGINAL_SUFFIX = "original"
+PREPROCESSED_EXTENSION = ".sparse.h5"
 
-subset_kinds = ["full", "training", "validation", "test"]
+MAXIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING = 30
 
-default_tags = {
+DEFAULT_TAGS = {
     "example": "example",
     "feature": "feature",
     "mapped feature": "mapped feature",
@@ -74,40 +41,52 @@ default_tags = {
     "type": "value",
     "item": "item"
 }
+DEFAULT_EXCLUDED_CLASSES = ["No class"]
 
-default_excluded_classes = ["No class"]
+GENERIC_CLASS_NAMES = ["Others", "Unknown", "No class", "Remaining"]
+
 
 class DataSet(object):
-    def __init__(self, input_file_or_name,
-        values = None,
-        total_standard_deviations = None,
-        explained_standard_deviations = None,
-        preprocessed_values = None, binarised_values = None,
-        labels = None, class_names = None,
-        example_names = None, feature_names = None,
-        map_features = False, features_mapped = False,
-        feature_selection = [], example_filter = [],
-        preprocessing_methods = [], preprocessed = None,
-        binarise_values = False,
-        noisy_preprocessing_methods = [],
-        kind = "full", version = "original",
-        directory = "data"):
-        
-        super(DataSet, self).__init__()
-        
+    def __init__(
+            self,
+            input_file_or_name,
+            data_format=None,
+            title=None,
+            specifications=None,
+            values=None,
+            total_standard_deviations=None,
+            explained_standard_deviations=None,
+            preprocessed_values=None,
+            binarised_values=None,
+            labels=None,
+            class_names=None,
+            example_names=None,
+            feature_names=None,
+            map_features=False,
+            features_mapped=False,
+            feature_selection=None,
+            example_filter=None,
+            preprocessing_methods=None,
+            preprocessed=None,
+            binarise_values=False,
+            noisy_preprocessing_methods=None,
+            kind="full",
+            version="original",
+            directory="data"):
+
+        super().__init__()
+
         # Name of data set and optional entry for data sets dictionary
         self.name, data_set_dictionary = parsing.parse_input(
             input_file_or_name)
-        
+
         # Directories and paths for data set
         self.directory = os.path.join(directory, self.name)
-        self.preprocess_directory = os.path.join(self.directory,
-            preprocess_suffix)
-        self.original_directory = os.path.join(self.directory,
-            original_suffix)
-        self.preprocessedPath = preprocessedPathFunction(
-            self.preprocess_directory, self.name)
-        
+        self.preprocess_directory = os.path.join(
+            self.directory, PREPROCESS_SUFFIX)
+        self.original_directory = os.path.join(
+            self.directory, ORIGINAL_SUFFIX)
+
         # Save data set dictionary if necessary
         if data_set_dictionary:
             if os.path.exists(self.directory):
@@ -117,49 +96,66 @@ class DataSet(object):
                 self.name,
                 self.directory
             )
-        
+
         # Find data set
-        self.title, self.specifications = parsing.find_data_set(
-            self.name, directory)
-        
+        if title is None or specifications is None:
+            parsed_title, parsed_specifications = parsing.find_data_set(
+                self.name, directory)
+        if title is None:
+            title = parsed_title
+        if specifications is None:
+            specifications = parsed_specifications
+        self.title = title
+        self.specifications = specifications
+
+        # Prioritise data format from metadata
+        data_format_from_metadata = self.specifications.get("format")
+        if data_format is None:
+            data_format = data_format_from_metadata
+        else:
+            data_format = normaliseString(data_format)
+            if (data_format_from_metadata
+                    and data_format_from_metadata != data_format):
+                raise ValueError(
+                    "Data format already specified in metadata "
+                    "and cannot be changed (is `{}`; wanted `{}`).".format(
+                        data_format_from_metadata,
+                        data_format
+                    )
+                )
+        self.data_format = data_format
+
         # Tags (with names for examples, feature, and values) of data set
-        self.tags = postprocessTags(self.specifications.get(
-            "tags", default_tags))
-        
+        self.tags = _postprocess_tags(self.specifications.get(
+            "tags", DEFAULT_TAGS))
+
         # Example type for data set
         self.example_type = self.specifications.get("example type", "unknown")
-        
-        # Maximum value of data set
-        self.maximum_value = self.specifications.get("maximum value")
-        
+
         # Discreteness
-        self.discreteness = self.example_type == "counts" \
-            or (self.maximum_value != None and self.maximum_value == 255)
-        
+        self.discreteness = self.example_type == "counts"
+
         # Feature dimensions for data set
         self.feature_dimensions = self.specifications.get(
             "feature dimensions")
-        
-        # Literature probabilities for data set
-        self.literature_probabilities = None
-        
+
         # Label super set for data set
         self.label_superset = self.specifications.get("label superset")
         self.superset_labels = None
         self.number_of_superset_classes = None
-        
+
         # Label palette for data set
         self.class_palette = self.specifications.get("class palette")
-        self.superset_class_palette = supersetClassPaletteBuilder(
+        self.superset_class_palette = _create_superset_class_palette(
             self.class_palette, self.label_superset)
-        
+
         # Excluded classes for data set
-        self.excluded_classes = self.specifications.get("excluded classes")
-        
+        self.excluded_classes = self.specifications.get("excluded classes", [])
+
         # Excluded classes for data set
         self.excluded_superset_classes = self.specifications.get(
-            "excluded superset classes")
-        
+            "excluded superset classes", [])
+
         # Values and their names as well as labels in data set
         self.values = None
         self.total_standard_deviations = None
@@ -176,49 +172,49 @@ class DataSet(object):
         self.number_of_features = None
         self.number_of_classes = None
         self.update(
-            values = values,
-            total_standard_deviations = total_standard_deviations,
-            explained_standard_deviations = explained_standard_deviations,
-            preprocessed_values = preprocessed_values,
-            binarised_values = binarised_values,
-            labels = labels,
-            example_names = example_names,
-            feature_names = feature_names,
-            class_names = class_names
+            values=values,
+            total_standard_deviations=total_standard_deviations,
+            explained_standard_deviations=explained_standard_deviations,
+            preprocessed_values=preprocessed_values,
+            binarised_values=binarised_values,
+            labels=labels,
+            example_names=example_names,
+            feature_names=feature_names,
+            class_names=class_names
         )
-        
+
         # Predicted labels
-        
+
         self.predicted_cluster_ids = None
-        
+
         self.predicted_labels = None
         self.predicted_class_names = None
         self.number_of_predicted_classes = None
         self.predicted_class_palette = None
         self.predicted_label_sorter = None
-        
+
         self.predicted_superset_labels = None
         self.predicted_superset_class_names = None
         self.number_of_predicted_superset_classes = None
         self.predicted_superset_class_palette = None
         self.predicted_superset_label_sorter = None
-        
+
         # Sorted class names for data set
         sorted_class_names = self.specifications.get("sorted class names")
-        self.label_sorter = createLabelSorter(sorted_class_names)
+        self.label_sorter = _create_label_sorter(sorted_class_names)
         sorted_superset_class_names = self.specifications.get(
             "sorted superset class names")
-        self.superset_label_sorter = createLabelSorter(
+        self.superset_label_sorter = _create_label_sorter(
             sorted_superset_class_names)
-        
+
         # Feature mapping
         self.map_features = map_features
         self.feature_mapping = None
         self.features_mapped = features_mapped
-        
+
         if self.features_mapped:
-            self.tags = updateTagForMappedFeatures(self.tags)
-        
+            self.tags = _update_tag_for_mapped_features(self.tags)
+
         # Feature selection
         if feature_selection:
             self.feature_selection = feature_selection[0]
@@ -229,7 +225,7 @@ class DataSet(object):
         else:
             self.feature_selection = None
             self.feature_selection_parameters = None
-        
+
         # Example filterering
         if example_filter:
             self.example_filter = example_filter[0]
@@ -240,11 +236,11 @@ class DataSet(object):
         else:
             self.example_filter = None
             self.example_filter_parameters = None
-        
+
         # Preprocessing methods
         self.preprocessing_methods = preprocessing_methods
         self.binarise_values = binarise_values
-        
+
         if preprocessed is None:
             data_set_preprocessing_methods = self.specifications.get(
                 "preprocessing methods")
@@ -254,62 +250,63 @@ class DataSet(object):
                 self.preprocessed = False
         else:
             self.preprocessed = preprocessed
-        
+
         if self.preprocessed:
             self.preprocessing_methods = data_set_preprocessing_methods
-        
+
         # Kind of data set (full, training, validation, test)
         self.kind = kind
-        
+
         # Split indices for training, validation, and test sets
         self.split_indices = None
-        
+
         # Version of data set (original, reconstructed)
         self.version = version
-        
-        # PCA limits for data set
-        self.pca_limits = None
-        
+
         # Noisy preprocessing
         self.noisy_preprocessing_methods = noisy_preprocessing_methods
-        
+
         if self.preprocessed:
             self.noisy_preprocessing_methods = []
-        
+
         if self.noisy_preprocessing_methods:
             self.noisy_preprocess = processing.build_preprocessor(
                 self.noisy_preprocessing_methods,
-                noisy = True
+                noisy=True
             )
         else:
             self.noisy_preprocess = None
-        
+
         if self.kind == "full" and self.values is None:
-            
+
             print("Data set:")
             print("    title:", self.title)
-            
+
             if self.map_features:
                 print("    feature mapping: if available")
-            
+
             if self.feature_selection:
                 print("    feature selection:", self.feature_selection)
                 if self.feature_selection_parameters:
-                    print("        parameters:",
-                        ", ".join(self.feature_selection_parameters))
+                    print(
+                        "        parameters:",
+                        ", ".join(self.feature_selection_parameters)
+                    )
                 else:
                     print("        parameters: default")
             else:
                 print("    feature selection: none")
-            
+
             if self.example_filter:
                 print("    example filter:", self.example_filter)
                 if self.example_filter_parameters:
-                    print("        parameter(s):",
-                        ", ".join(self.example_filter_parameters))
+                    print(
+                        "        parameter(s):",
+                        ", ".join(self.example_filter_parameters)
+                    )
             else:
                 print("    example filter: none")
-            
+
             if not self.preprocessed and self.preprocessing_methods:
                 print("    processing methods:")
                 for preprocessing_method in self.preprocessing_methods:
@@ -318,20 +315,20 @@ class DataSet(object):
                 print("    processing methods: already done")
             else:
                 print("    processing methods: none")
-            
+
             if not self.preprocessed and self.noisy_preprocessing_methods:
                 print("    noisy processing methods:")
                 for preprocessing_method in self.noisy_preprocessing_methods:
                     print("        ", preprocessing_method)
             print()
-    
+
     @property
     def number_of_values(self):
         return self.number_of_examples * self.number_of_features
-    
+
     @property
     def class_probabilities(self):
-        
+
         if self.label_superset:
             labels = self.superset_labels
             class_names = self.superset_class_names
@@ -340,378 +337,430 @@ class DataSet(object):
             labels = self.labels
             class_names = self.class_names
             excluded_classes = self.excluded_classes
-        
+
         class_probabilities = {class_name: 0 for class_name in class_names}
-        
+
         total_count_sum = 0
-    
+
         for label in labels:
             if label in excluded_classes:
                 continue
             class_probabilities[label] += 1
             total_count_sum += 1
-        
+
         class_names_with_zero_probability = []
-        
+
         for name, count in class_probabilities.items():
             if count == 0:
                 class_names_with_zero_probability.append(name)
             class_probabilities[name] = count / total_count_sum
-        
+
         for name in class_names_with_zero_probability:
             class_probabilities.pop(name)
-        
+
         return class_probabilities
-    
+
     @property
     def has_values(self):
         return self.values is not None
-    
+
     @property
     def has_preprocessed_values(self):
         return self.preprocessed_values is not None
-    
+
     @property
     def has_binarised_values(self):
         return self.binarised_values is not None
-    
+
     @property
     def has_labels(self):
         return self.labels is not None
-    
+
     @property
     def has_superset_labels(self):
         return self.superset_labels is not None
-    
+
     @property
     def has_predictions(self):
         return self.has_predicted_labels or self.has_predicted_cluster_ids
-    
+
     @property
     def has_predicted_labels(self):
         return self.predicted_labels is not None
-    
+
     @property
     def has_predicted_superset_labels(self):
         return self.predicted_superset_labels is not None
-    
+
     @property
     def has_predicted_cluster_ids(self):
         return self.predicted_cluster_ids is not None
-    
-    def update(self, values = None,
-        total_standard_deviations = None,
-        explained_standard_deviations = None,
-        preprocessed_values = None,
-        binarised_values = None, labels = None,
-        example_names = None, feature_names = None, class_names = None):
-        
+
+    @property
+    def default_feature_parameters(self):
+
+        feature_selection_parameters = None
+
+        if self.feature_selection:
+            feature_selection = normaliseString(self.feature_selection)
+
+            if feature_selection == "keep_variances_above":
+                feature_selection_parameters = [0.5]
+
+            elif feature_selection == "keep_highest_variances":
+                if self.number_of_features is not None:
+                    feature_selection_parameters = [
+                        int(self.number_of_features / 2)
+                    ]
+
+        return feature_selection_parameters
+
+    @property
+    def default_splitting_method(self):
+        if self.split_indices:
+            return "indices"
+        else:
+            return "random"
+
+    def update(
+            self, values=None,
+            total_standard_deviations=None,
+            explained_standard_deviations=None,
+            preprocessed_values=None,
+            binarised_values=None, labels=None,
+            example_names=None, feature_names=None, class_names=None):
+
         if values is not None:
-            
+
             self.values = values
-            
-            self.count_sum = self.values.sum(axis = 1).reshape(-1, 1)
+
+            self.count_sum = self.values.sum(axis=1).reshape(-1, 1)
             if isinstance(self.count_sum, numpy.matrix):
                 self.count_sum = self.count_sum.A
             self.normalised_count_sum = self.count_sum / self.count_sum.max()
-            
-            M_values, N_values = values.shape
-            
+
+            n_examples_from_values, n_featues_from_values = values.shape
+
             if example_names is not None:
                 self.example_names = example_names
-                assert len(self.example_names.shape) == 1, \
-                    "The list of example names is multi-dimensional: {}."\
+                if self.example_names.ndim > 1:
+                    raise ValueError(
+                        "The list of example names is multi-dimensional: {}."
                         .format(self.example_names.shape)
-                M_examples = self.example_names.shape[0]
-                assert M_values == M_examples, \
-                    "The number of examples in the value matrix ({}) "\
-                        .format(M_values) + \
-                    "is not the same as the number of example names ({})."\
-                        .format(M_examples)
-            
+                    )
+                n_examples = self.example_names.shape[0]
+                if n_examples_from_values != n_examples:
+                    raise ValueError(
+                        "The number of examples ({}) in the value matrix "
+                        "is not the same as the number of example names ({})."
+                        .format(n_examples_from_values, n_examples)
+                    )
+
             if feature_names is not None:
                 self.feature_names = feature_names
-                assert len(self.feature_names.shape) == 1, \
-                    "The list of feature names is multi-dimensional: {}."\
+                if self.feature_names.ndim > 1:
+                    raise ValueError(
+                        "The list of feature names is multi-dimensional: {}."
                         .format(self.feature_names.shape)
-                N_features = self.feature_names.shape[0]
-                assert N_values == N_features, \
-                    "The number of features in the value matrix ({}) "\
-                        .format(N_values) + \
-                    "is not the same as the number of feature names ({})."\
-                        .format(N_features)
-            
-            self.number_of_examples = M_values
-            self.number_of_features = N_values
-            
-        
+                    )
+                n_features = self.feature_names.shape[0]
+                if n_featues_from_values != n_features:
+                    raise ValueError(
+                        "The number of features in the value matrix ({}) "
+                        "is not the same as the number of feature names ({})."
+                        .format(n_featues_from_values, n_features)
+                    )
+
+            self.number_of_examples = n_examples_from_values
+            self.number_of_features = n_featues_from_values
+
         else:
-            
+
             if example_names is not None and feature_names is not None:
-                
+
                 self.example_names = example_names
                 self.feature_names = feature_names
-        
+
         if labels is not None:
-            
+
             self.labels = labels
-            
+
             if class_names is not None:
                 self.class_names = class_names
             else:
                 self.class_names = numpy.unique(self.labels).tolist()
-            
+
             self.class_id_to_class_name = {}
             self.class_name_to_class_id = {}
-            
+
             for i, class_name in enumerate(self.class_names):
                 self.class_name_to_class_id[class_name] = i
                 self.class_id_to_class_name[i] = class_name
-            
+
             if not self.excluded_classes:
-                for excluded_class in default_excluded_classes:
+                for excluded_class in DEFAULT_EXCLUDED_CLASSES:
                     if excluded_class in self.class_names:
                         self.excluded_classes.append(excluded_class)
-            
+
             self.number_of_classes = len(self.class_names)
-            
-            self.number_of_excluded_classes = len(self.excluded_classes) \
-                if self.excluded_classes \
-                else 0
-            
+
+            if self.excluded_classes:
+                self.number_of_excluded_classes = len(self.excluded_classes)
+            else:
+                self.number_of_excluded_classes = 0
+
             if self.class_palette is None:
-                self.class_palette = classPaletteBuilder(self.class_names)
-            
+                self.class_palette = _create_class_palette(self.class_names)
+
             if self.label_superset:
-                
-                self.superset_labels = supersetLabels(
+
+                self.superset_labels = _map_labels_to_superset_labels(
                     self.labels, self.label_superset)
-                
+
                 self.superset_class_names = numpy.unique(
                     self.superset_labels).tolist()
-                
+
                 self.superset_class_id_to_superset_class_name = {}
                 self.superset_class_name_to_superset_class_id = {}
-            
-                for i, class_name in \
-                    enumerate(self.superset_class_names):
-                    self.superset_class_name_to_superset_class_id[class_name] = i
-                    self.superset_class_id_to_superset_class_name[i] = class_name
-                
+
+                for i, class_name in enumerate(self.superset_class_names):
+                    self.superset_class_name_to_superset_class_id[
+                        class_name] = i
+                    self.superset_class_id_to_superset_class_name[
+                        i] = class_name
+
                 if not self.excluded_superset_classes:
-                    for excluded_class in default_excluded_classes:
+                    for excluded_class in DEFAULT_EXCLUDED_CLASSES:
                         if excluded_class in self.superset_class_names:
-                            self.excluded_superset_classes.append(excluded_class)
-                
-                self.number_of_superset_classes = len(self.superset_class_names)
-                
-                self.number_of_excluded_superset_classes = \
-                    len(self.excluded_superset_classes) \
-                    if self.excluded_superset_classes \
-                    else 0
-                
+                            self.excluded_superset_classes.append(
+                                excluded_class)
+
+                self.number_of_superset_classes = len(
+                    self.superset_class_names)
+
+                if self.excluded_superset_classes:
+                    self.number_of_excluded_superset_classes = len(
+                        self.excluded_superset_classes)
+                else:
+                    self.number_of_excluded_superset_classes = 0
+
                 if self.superset_class_palette is None:
-                    self.superset_class_palette = supersetClassPaletteBuilder(
-                        self.class_names, self.label_superset)
-        
+                    self.superset_class_palette = (
+                        _create_superset_class_palette(
+                            self.class_names, self.label_superset
+                        )
+                    )
+
         if total_standard_deviations is not None:
             self.total_standard_deviations = total_standard_deviations
-        
+
         if explained_standard_deviations is not None:
             self.explained_standard_deviations = explained_standard_deviations
-        
+
         if preprocessed_values is not None:
             self.preprocessed_values = preprocessed_values
-        
+
         if binarised_values is not None:
             self.binarised_values = binarised_values
-    
-    def updatePredictions(self, predicted_cluster_ids = None,
-        predicted_labels = None, predicted_class_names = None,
-        predicted_superset_labels = None,
-        predicted_superset_class_names = None):
-        
+
+    def update_predictions(
+            self, predicted_cluster_ids=None,
+            predicted_labels=None, predicted_class_names=None,
+            predicted_superset_labels=None,
+            predicted_superset_class_names=None):
+
         if predicted_cluster_ids is not None:
             self.predicted_cluster_ids = predicted_cluster_ids
-        
+
         if predicted_labels is not None:
-            
+
             self.predicted_labels = predicted_labels
-            
+
             if predicted_class_names is not None:
                 self.predicted_class_names = predicted_class_names
             else:
-                self.predicted_class_names = \
-                    numpy.unique(self.predicted_labels).tolist()
-            
+                self.predicted_class_names = numpy.unique(
+                    self.predicted_labels).tolist()
+
             self.number_of_predicted_classes = len(self.predicted_class_names)
-            
+
             if set(self.predicted_class_names) < set(self.class_names):
                 self.predicted_class_palette = self.class_palette
                 self.predicted_label_sorter = self.label_sorter
-        
+
         if predicted_superset_labels is not None:
-            
+
             self.predicted_superset_labels = predicted_superset_labels
-            
+
             if predicted_superset_class_names is not None:
-                self.predicted_superset_class_names = \
-                    predicted_superset_class_names
+                self.predicted_superset_class_names = (
+                    predicted_superset_class_names)
             else:
-                self.predicted_superset_class_names = \
-                    numpy.unique(self.predicted_superset_labels).tolist()
-            
-            self.number_of_predicted_superset_classes = \
-                len(self.predicted_superset_class_names)
-            
-            if set(self.predicted_superset_class_names) < \
-                set(self.superset_class_names):
-                
-                self.predicted_superset_class_palette = \
-                    self.superset_class_palette
-                self.predicted_superset_label_sorter = \
-                    self.superset_label_sorter
-    
-    def resetPredictions(self):
-        
+                self.predicted_superset_class_names = numpy.unique(
+                    self.predicted_superset_labels).tolist()
+
+            self.number_of_predicted_superset_classes = len(
+                self.predicted_superset_class_names)
+
+            if set(self.predicted_superset_class_names) < set(
+                    self.superset_class_names):
+                self.predicted_superset_class_palette = (
+                    self.superset_class_palette)
+                self.predicted_superset_label_sorter = (
+                    self.superset_label_sorter)
+
+    def reset_predictions(self):
+
         self.predicted_cluster_ids = None
-        
+
         self.predicted_labels = None
         self.predicted_class_names = None
         self.number_of_predicted_classes = None
         self.predicted_class_palette = None
         self.predicted_label_sorter = None
-        
+
         self.predicted_superset_labels = None
         self.predicted_superset_class_names = None
         self.number_of_predicted_superset_classes = None
         self.predicted_superset_class_palette = None
         self.predicted_superset_label_sorter = None
-    
+
     def load(self):
-        
-        sparse_path = self.preprocessedPath()
-        
+
+        sparse_path = self._build_preprocessed_path()
+
         if os.path.isfile(sparse_path):
             print("Loading data set.")
-            data_dictionary = load_data_dictionary(sparse_path)
+            data_dictionary = internal_io.load_data_dictionary(
+                path=sparse_path)
             print()
         else:
-            URLs = self.specifications.get("URLs", None)
-            original_paths = loading.acquire_data_set(self.title, URLs,
-                self.original_directory)
-            data_format = self.specifications.get("format")
-            
+            urls = self.specifications.get("URLs", None)
+            original_paths = loading.acquire_data_set(
+                title=self.title,
+                urls=urls,
+                directory=self.original_directory
+            )
+
             loading_time_start = time()
-            data_dictionary = loading.load_original_data_set(original_paths,
-                data_format)
+            data_dictionary = loading.load_original_data_set(
+                paths=original_paths,
+                data_format=self.data_format
+            )
             loading_duration = time() - loading_time_start
-            
+
             print()
-            
-            if loading_duration > maximum_duration_before_saving:
+
+            if loading_duration > MAXIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING:
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
-                
+
                 print("Saving data set.")
-                save_data_dictionary(data_dictionary, sparse_path)
-                
+                internal_io.save_data_dictionary(
+                    data_dictionary=data_dictionary,
+                    path=sparse_path
+                )
+
                 print()
-        
-        data_dictionary["values"] = SparseRowMatrix(data_dictionary["values"])
-    
+
+        data_dictionary["values"] = sparse.SparseRowMatrix(
+            data_dictionary["values"])
+
         self.update(
-            values = data_dictionary["values"],
-            labels = data_dictionary["labels"],
-            example_names = data_dictionary["example names"],
-            feature_names = data_dictionary["feature names"]
+            values=data_dictionary["values"],
+            labels=data_dictionary["labels"],
+            example_names=data_dictionary["example names"],
+            feature_names=data_dictionary["feature names"]
         )
-        
+
         if "split indices" in data_dictionary:
             self.split_indices = data_dictionary["split indices"]
-        
+
         if "feature mapping" in data_dictionary:
             self.feature_mapping = data_dictionary["feature mapping"]
         else:
             self.map_features = False
-        
+
         if not self.feature_selection_parameters:
-            self.feature_selection_parameters = defaultFeatureParameters(
-                self.feature_selection, self.number_of_features)
-        
+            self.feature_selection_parameters = self.default_feature_parameters
+
         self.preprocess()
-        
+
         if self.binarise_values:
             self.binarise()
-    
+
     def preprocess(self):
-        
-        if not self.map_features and not self.preprocessing_methods \
-            and not self.feature_selection and not self.example_filter:
-            self.update(preprocessed_values = None)
+
+        if (not self.map_features and not self.preprocessing_methods
+                and not self.feature_selection and not self.example_filter):
+            self.update(preprocessed_values=None)
             return
-        
-        sparse_path = self.preprocessedPath(
-            map_features = self.map_features,
-            preprocessing_methods = self.preprocessing_methods,
-            feature_selection = self.feature_selection, 
-            feature_selection_parameters = self.feature_selection_parameters,
-            example_filter = self.example_filter,
-            example_filter_parameters = self.example_filter_parameters
+
+        sparse_path = self._build_preprocessed_path(
+            map_features=self.map_features,
+            preprocessing_methods=self.preprocessing_methods,
+            feature_selection=self.feature_selection,
+            feature_selection_parameters=self.feature_selection_parameters,
+            example_filter=self.example_filter,
+            example_filter_parameters=self.example_filter_parameters
         )
-        
+
         if os.path.isfile(sparse_path):
             print("Loading preprocessed data.")
-            data_dictionary = load_data_dictionary(sparse_path)
+            data_dictionary = internal_io.load_data_dictionary(sparse_path)
             if "preprocessed values" not in data_dictionary:
                 data_dictionary["preprocessed values"] = None
             if self.map_features:
                 self.features_mapped = True
-                self.tags = updateTagForMappedFeatures(self.tags)
+                self.tags = _update_tag_for_mapped_features(self.tags)
             print()
         else:
-            
+
             preprocessing_time_start = time()
-            
+
             values = self.values
             example_names = self.example_names
             feature_names = self.feature_names
-            
+
             if self.map_features and not self.features_mapped:
-                
-                print("Mapping {} original features to {} new features."
+
+                print(
+                    "Mapping {} original features to {} new features."
                     .format(self.number_of_features, len(self.feature_mapping))
                 )
                 start_time = time()
-                
+
                 values, feature_names = processing.map_features(
                     values, feature_names, self.feature_mapping)
-                
+
                 self.features_mapped = True
-                self.tags = updateTagForMappedFeatures(self.tags)
-                
+                self.tags = _update_tag_for_mapped_features(self.tags)
+
                 duration = time() - start_time
                 print("Features mapped ({}).".format(formatDuration(duration)))
-                
+
                 print()
-            
+
             if not self.preprocessed and self.preprocessing_methods:
-                
+
                 print("Preprocessing values.")
                 start_time = time()
-                
+
                 preprocessing_function = processing.build_preprocessor(
                     self.preprocessing_methods)
                 preprocessed_values = preprocessing_function(values)
-                
+
                 duration = time() - start_time
-                print("Values preprocessed ({}).".format(formatDuration(duration)))
-                
+                print(
+                    "Values preprocessed ({})."
+                    .format(formatDuration(duration))
+                )
+
                 print()
-            
+
             else:
                 preprocessed_values = None
-            
+
             if self.feature_selection:
                 values_dictionary, feature_names = processing.select_features(
                     {"original": values,
@@ -720,186 +769,189 @@ class DataSet(object):
                     self.feature_selection,
                     self.feature_selection_parameters
                 )
-                
+
                 values = values_dictionary["original"]
                 preprocessed_values = values_dictionary["preprocessed"]
-            
+
                 print()
-                
+
             if self.example_filter:
-                values_dictionary, example_names, labels = processing.filter_examples(
-                    {"original": values,
-                     "preprocessed": preprocessed_values},
-                    self.example_names,
-                    self.example_filter,
-                    self.example_filter_parameters,
-                    labels = self.labels,
-                    excluded_classes = self.excluded_classes,
-                    superset_labels = self.superset_labels,
-                    excluded_superset_classes = self.excluded_superset_classes,
-                    count_sum = self.count_sum
+                values_dictionary, example_names, labels = (
+                    processing.filter_examples(
+                        {"original": values,
+                         "preprocessed": preprocessed_values},
+                        self.example_names,
+                        self.example_filter,
+                        self.example_filter_parameters,
+                        labels=self.labels,
+                        excluded_classes=self.excluded_classes,
+                        superset_labels=self.superset_labels,
+                        excluded_superset_classes=(
+                            self.excluded_superset_classes),
+                        count_sum=self.count_sum
+                    )
                 )
-                
+
                 values = values_dictionary["original"]
                 preprocessed_values = values_dictionary["preprocessed"]
-            
+
                 print()
-            
+
             data_dictionary = {
                 "values": values,
                 "preprocessed values": preprocessed_values,
             }
-            
+
             if self.features_mapped or self.feature_selection:
                 data_dictionary["feature names"] = feature_names
-            
+
             if self.example_filter:
                 data_dictionary["example names"] = example_names
                 data_dictionary["labels"] = labels
-            
+
             preprocessing_duration = time() - preprocessing_time_start
-            
-            if preprocessing_duration > maximum_duration_before_saving:
+
+            if (preprocessing_duration
+                    > MAXIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING):
+
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
-            
+
                 print("Saving preprocessed data set.")
-                save_data_dictionary(data_dictionary, sparse_path)
+                internal_io.save_data_dictionary(data_dictionary, sparse_path)
                 print()
-        
+
         values = data_dictionary["values"]
         preprocessed_values = data_dictionary["preprocessed values"]
-        
+
         if preprocessed_values is None:
             preprocessed_values = values
-        
+
         if self.features_mapped or self.feature_selection:
             feature_names = data_dictionary["feature names"]
         else:
             feature_names = self.feature_names
-        
+
         if self.example_filter:
             example_names = data_dictionary["example names"]
             labels = data_dictionary["labels"]
         else:
             example_names = self.example_names
             labels = self.labels
-        
-        values = SparseRowMatrix(values)
-        preprocessed_values = SparseRowMatrix(preprocessed_values)
-        
+
+        values = sparse.SparseRowMatrix(values)
+        preprocessed_values = sparse.SparseRowMatrix(preprocessed_values)
+
         self.update(
-            values = values,
-            preprocessed_values = preprocessed_values,
-            feature_names = feature_names,
-            example_names = example_names,
-            labels = labels
+            values=values,
+            preprocessed_values=preprocessed_values,
+            feature_names=feature_names,
+            example_names=example_names,
+            labels=labels
         )
-    
+
     def binarise(self):
-        
+
         if self.preprocessed_values is None:
-            raise NotImplementedError("Data set values have to have been",
-                "preprocessed and feature selected first.")
-        
+            raise NotImplementedError(
+                "Data set values have to have been preprocessed and feature"
+                " selected first."
+            )
+
         binarise_preprocessing = ["binarise"]
-        
-        sparse_path = self.preprocessedPath(
-            map_features = self.map_features,
-            preprocessing_methods = binarise_preprocessing,
-            feature_selection = self.feature_selection, 
-            feature_selection_parameters = self.feature_selection_parameters,
-            example_filter = self.example_filter,
-            example_filter_parameters = self.example_filter_parameters
+
+        sparse_path = self._build_preprocessed_path(
+            map_features=self.map_features,
+            preprocessing_methods=binarise_preprocessing,
+            feature_selection=self.feature_selection,
+            feature_selection_parameters=self.feature_selection_parameters,
+            example_filter=self.example_filter,
+            example_filter_parameters=self.example_filter_parameters
         )
-        
+
         if os.path.isfile(sparse_path):
             print("Loading binarised data.")
-            data_dictionary = load_data_dictionary(sparse_path)
-        
+            data_dictionary = internal_io.load_data_dictionary(sparse_path)
+
         else:
-            
+
             binarising_time_start = time()
-            
+
             if self.preprocessing_methods != binarise_preprocessing:
-                
+
                 print("Binarising values.")
                 start_time = time()
-                
+
                 binarisation_function = processing.build_preprocessor(
                     binarise_preprocessing)
                 binarised_values = binarisation_function(self.values)
-                
+
                 duration = time() - start_time
-                print("Values binarised ({}).".format(formatDuration(duration)))
-                
+                print(
+                    "Values binarised ({}).".format(formatDuration(duration))
+                )
+
                 print()
-            
+
             elif self.preprocessing_methods == binarise_preprocessing:
                 binarised_values = self.preprocessed_values
-            
+
             data_dictionary = {
                 "values": self.values,
                 "preprocessed values": binarised_values,
                 "feature names": self.feature_names
             }
-            
+
             binarising_duration = time() - binarising_time_start
-            
-            if binarising_duration > maximum_duration_before_saving:
+
+            if binarising_duration > MAXIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING:
+
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
-                
+
                 print("Saving binarised data set.")
-                save_data_dictionary(data_dictionary, sparse_path)
-        
-        binarised_values = SparseRowMatrix(binarised_values)
-        
-        self.update(
-            binarised_values = data_dictionary["preprocessed values"],
-        )
-    
-    def defaultSplittingMethod(self):
-        if self.split_indices:
-            return "indices"
-        else:
-            return "random"
-    
-    def split(self, method = "default", fraction = 0.9):
-        
+                internal_io.save_data_dictionary(data_dictionary, sparse_path)
+
+        binarised_values = sparse.SparseRowMatrix(binarised_values)
+
+        self.update(binarised_values=data_dictionary["preprocessed values"])
+
+    def split(self, method="default", fraction=0.9):
+
         if method == "default":
-            method = self.defaultSplittingMethod()
-        
-        sparse_path = self.preprocessedPath(
-            map_features = self.map_features,
-            preprocessing_methods = self.preprocessing_methods,
-            feature_selection = self.feature_selection,
-            feature_selection_parameters = self.feature_selection_parameters,
-            example_filter = self.example_filter,
-            example_filter_parameters = self.example_filter_parameters,
-            splitting_method = method,
-            splitting_fraction = fraction,
-            split_indices = self.split_indices
+            method = self.default_splitting_method
+
+        sparse_path = self._build_preprocessed_path(
+            map_features=self.map_features,
+            preprocessing_methods=self.preprocessing_methods,
+            feature_selection=self.feature_selection,
+            feature_selection_parameters=self.feature_selection_parameters,
+            example_filter=self.example_filter,
+            example_filter_parameters=self.example_filter_parameters,
+            splitting_method=method,
+            splitting_fraction=fraction,
+            split_indices=self.split_indices
         )
-        
+
         print("Splitting:")
         print("    method:", method)
         if method != "indices":
             print("    fraction: {:.1f} %".format(100 * fraction))
         print()
-        
+
         if os.path.isfile(sparse_path):
             print("Loading split data sets.")
-            split_data_dictionary = load_data_dictionary(sparse_path)
+            split_data_dictionary = internal_io.load_data_dictionary(
+                path=sparse_path)
             if self.map_features:
                 self.features_mapped = True
-                self.tags = updateTagForMappedFeatures(self.tags)
+                self.tags = _update_tag_for_mapped_features(self.tags)
             print()
         else:
-            
+
             if self.values is None:
                 self.load()
-            
+
             data_dictionary = {
                 "values": self.values,
                 "preprocessed values": self.preprocessed_values,
@@ -910,97 +962,112 @@ class DataSet(object):
                 "class names": self.class_names,
                 "split indices": self.split_indices
             }
-            
+
             splitting_time_start = time()
             split_data_dictionary = processing.split_data_set(
                 data_dictionary, method, fraction)
             splitting_duration = time() - splitting_time_start
-            
+
             print()
-            
-            if splitting_duration > maximum_duration_before_saving:
+
+            if splitting_duration > MAXIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING:
+
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
-                
+
                 print("Saving split data sets.")
-                save_data_dictionary(split_data_dictionary, sparse_path)
+                internal_io.save_data_dictionary(
+                    data_dictionary=split_data_dictionary,
+                    parse=sparse_path
+                )
                 print()
-        
+
         for data_subset in split_data_dictionary:
             if not isinstance(split_data_dictionary[data_subset], dict):
                 continue
             for data_subset_key in split_data_dictionary[data_subset]:
                 if "values" in data_subset_key:
-                    values = split_data_dictionary[data_subset][data_subset_key]
+                    values = split_data_dictionary[data_subset][
+                        data_subset_key]
                     if values is not None:
-                        split_data_dictionary[data_subset][data_subset_key] \
-                            = SparseRowMatrix(values)
-        
+                        split_data_dictionary[data_subset][data_subset_key] = (
+                            sparse.SparseRowMatrix(values))
+
         training_set = DataSet(
             self.name,
-            values = split_data_dictionary["training set"]["values"],
-            preprocessed_values = \
-                split_data_dictionary["training set"]["preprocessed values"],
-            binarised_values = \
-                split_data_dictionary["training set"]["binarised values"],
-            labels = split_data_dictionary["training set"]["labels"],
-            example_names = split_data_dictionary["training set"]["example names"],
-            feature_names = split_data_dictionary["feature names"],
-            features_mapped = self.features_mapped,
-            class_names = split_data_dictionary["class names"],
-            feature_selection = self.feature_selection,
-            example_filter = self.example_filter,
-            preprocessing_methods = self.preprocessing_methods,
-            noisy_preprocessing_methods = self.noisy_preprocessing_methods,
-            kind = "training"
+            title=self.title,
+            specifications=self.specifications,
+            values=split_data_dictionary["training set"]["values"],
+            preprocessed_values=(
+                split_data_dictionary["training set"]["preprocessed values"]),
+            binarised_values=(
+                split_data_dictionary["training set"]["binarised values"]),
+            labels=split_data_dictionary["training set"]["labels"],
+            example_names=(
+                split_data_dictionary["training set"]["example names"]),
+            feature_names=split_data_dictionary["feature names"],
+            features_mapped=self.features_mapped,
+            class_names=split_data_dictionary["class names"],
+            feature_selection=self.feature_selection,
+            example_filter=self.example_filter,
+            preprocessing_methods=self.preprocessing_methods,
+            noisy_preprocessing_methods=self.noisy_preprocessing_methods,
+            kind="training"
         )
-        
+
         validation_set = DataSet(
             self.name,
-            values = split_data_dictionary["validation set"]["values"],
-            preprocessed_values = \
-                split_data_dictionary["validation set"]["preprocessed values"],
-            binarised_values = \
-                split_data_dictionary["validation set"]["binarised values"],
-            labels = split_data_dictionary["validation set"]["labels"],
-            example_names = split_data_dictionary["validation set"]["example names"],
-            feature_names = split_data_dictionary["feature names"],
-            features_mapped = self.features_mapped,
-            class_names = split_data_dictionary["class names"],
-            feature_selection = self.feature_selection,
-            example_filter = self.example_filter,
-            preprocessing_methods = self.preprocessing_methods,
-            noisy_preprocessing_methods = self.noisy_preprocessing_methods,
-            kind = "validation"
+            title=self.title,
+            specifications=self.specifications,
+            values=split_data_dictionary["validation set"]["values"],
+            preprocessed_values=(
+                split_data_dictionary["validation set"]["preprocessed values"]
+            ),
+            binarised_values=(
+                split_data_dictionary["validation set"]["binarised values"]),
+            labels=split_data_dictionary["validation set"]["labels"],
+            example_names=(
+                split_data_dictionary["validation set"]["example names"]),
+            feature_names=split_data_dictionary["feature names"],
+            features_mapped=self.features_mapped,
+            class_names=split_data_dictionary["class names"],
+            feature_selection=self.feature_selection,
+            example_filter=self.example_filter,
+            preprocessing_methods=self.preprocessing_methods,
+            noisy_preprocessing_methods=self.noisy_preprocessing_methods,
+            kind="validation"
         )
-        
+
         test_set = DataSet(
             self.name,
-            values = split_data_dictionary["test set"]["values"],
-            preprocessed_values = \
-                split_data_dictionary["test set"]["preprocessed values"],
-            binarised_values = \
-                split_data_dictionary["test set"]["binarised values"],
-            labels = split_data_dictionary["test set"]["labels"],
-            example_names = split_data_dictionary["test set"]["example names"],
-            feature_names = split_data_dictionary["feature names"],
-            features_mapped = self.features_mapped,
-            class_names = split_data_dictionary["class names"],
-            feature_selection = self.feature_selection,
-            example_filter = self.example_filter,
-            preprocessing_methods = self.preprocessing_methods,
-            noisy_preprocessing_methods = self.noisy_preprocessing_methods,
-            kind = "test"
+            title=self.title,
+            specifications=self.specifications,
+            values=split_data_dictionary["test set"]["values"],
+            preprocessed_values=(
+                split_data_dictionary["test set"]["preprocessed values"]),
+            binarised_values=(
+                split_data_dictionary["test set"]["binarised values"]),
+            labels=split_data_dictionary["test set"]["labels"],
+            example_names=split_data_dictionary["test set"]["example names"],
+            feature_names=split_data_dictionary["feature names"],
+            features_mapped=self.features_mapped,
+            class_names=split_data_dictionary["class names"],
+            feature_selection=self.feature_selection,
+            example_filter=self.example_filter,
+            preprocessing_methods=self.preprocessing_methods,
+            noisy_preprocessing_methods=self.noisy_preprocessing_methods,
+            kind="test"
         )
-        
+
         print(
             "Data sets with {} features{}{}:\n".format(
                 training_set.number_of_features,
-                " and {} classes".format(self.number_of_classes)
-                    if self.number_of_classes else "",
-                " ({} superset classes)".format(self.number_of_superset_classes)
-                    if self.number_of_superset_classes else ""
-                ) +
+                (" and {} classes".format(self.number_of_classes)
+                    if self.number_of_classes else ""),
+                (" ({} superset classes)".format(
+                    self.number_of_superset_classes)
+                    if self.number_of_superset_classes else "")
+            ),
             "    Training set: {} examples.\n".format(
                 training_set.number_of_examples) +
             "    Validation set: {} examples.\n".format(
@@ -1008,44 +1075,11 @@ class DataSet(object):
             "    Test set: {} examples.".format(
                 test_set.number_of_examples)
         )
-        
+
         print()
-        
+
         return training_set, validation_set, test_set
-    
-    def indicesForExampleNames(self, example_names):
-        indices = []
-        for example_name in example_names:
-            index = (self.example_names == example_name).nonzero()[0][0]
-            indices.append(index)
-        indices = numpy.array(indices)
-        return indices
-    
-    def applyIndices(self, indices):
-        filter_indices = numpy.arange(self.number_of_examples)
-        filter_indices = filter_indices[indices]
-        self.update(
-            values = self.values[filter_indices],
-            labels = self.labels[filter_indices],
-            example_names = self.example_names[filter_indices],
-            feature_names = self.feature_names,
-            class_names = self.class_names
-        )
-        if self.total_standard_deviations is not None:
-            self.update(
-                total_standard_deviations = \
-                    self.total_standard_deviations[filter_indices])
-        if self.explained_standard_deviations is not None:
-            self.update(
-                explained_standard_deviations = \
-                    self.explained_standard_deviations[filter_indices])
-        if self.preprocessed_values is not None:
-            self.update(
-                preprocessed_values = self.preprocessed_values[filter_indices])
-        if self.binarised_values is not None:
-            self.update(
-                binarised_values = self.binarised_values[filter_indices])
-    
+
     def clear(self):
         self.values = None
         self.total_standard_deviations = None
@@ -1062,7 +1096,62 @@ class DataSet(object):
         self.number_of_features = None
         self.number_of_classes = None
 
-def postprocessTags(tags):
+    def _build_preprocessed_path(
+            self,
+            map_features=None,
+            preprocessing_methods=None,
+            feature_selection=None,
+            feature_selection_parameters=None,
+            example_filter=None,
+            example_filter_parameters=None,
+            splitting_method=None,
+            splitting_fraction=None,
+            split_indices=None):
+
+        base_path = os.path.join(self.preprocess_directory, self.name)
+
+        filename_parts = [base_path]
+
+        if map_features:
+            filename_parts.append("features_mapped")
+
+        if feature_selection:
+            feature_selection_part = normaliseString(feature_selection)
+            if feature_selection_parameters:
+                for parameter in feature_selection_parameters:
+                    feature_selection_part += "_" + normaliseString(str(
+                        parameter))
+            filename_parts.append(feature_selection_part)
+
+        if example_filter:
+            example_filter_part = normaliseString(example_filter)
+            if example_filter_parameters:
+                for parameter in example_filter_parameters:
+                    example_filter_part += "_" + normaliseString(str(
+                        parameter))
+            filename_parts.append(example_filter_part)
+
+        if preprocessing_methods:
+            filename_parts.extend(map(normaliseString, preprocessing_methods))
+
+        if splitting_method:
+            filename_parts.append("split")
+
+            if (splitting_method == "indices" and
+                    len(split_indices) == 3 or not splitting_fraction):
+                filename_parts.append(splitting_method)
+            else:
+                filename_parts.append("{}_{}".format(
+                    splitting_method,
+                    splitting_fraction
+                ))
+
+        path = "-".join(filename_parts) + PREPROCESSED_EXTENSION
+
+        return path
+
+
+def _postprocess_tags(tags):
     if "item" in tags and tags["item"]:
         value_tag = tags["item"] + " " + tags["type"]
     else:
@@ -1070,7 +1159,41 @@ def postprocessTags(tags):
     tags["value"] = value_tag
     return tags
 
-def classPaletteBuilder(class_names):
+
+def _update_tag_for_mapped_features(tags):
+    mapped_feature_tag = tags.pop("mapped feature", None)
+    if mapped_feature_tag:
+        tags["feature"] = mapped_feature_tag
+    return tags
+
+
+def _map_labels_to_superset_labels(labels, label_superset):
+
+    if not label_superset:
+        superset_labels = None
+
+    elif label_superset == "infer":
+        superset_labels = []
+
+        for label in labels:
+            superset_label = re.match("^( ?[A-Za-z])+", label).group()
+            superset_labels.append(superset_label)
+
+        superset_labels = numpy.array(superset_labels)
+
+    else:
+        label_superset_reverse = {
+            v: k for k, vs in label_superset.items() for v in vs
+        }
+        labels_to_superset_labels = numpy.vectorize(
+            lambda label: label_superset_reverse[label]
+        )
+        superset_labels = labels_to_superset_labels(labels)
+
+    return superset_labels
+
+
+def _create_class_palette(class_names):
 
     brewer_palette = seaborn.color_palette("Set3")
 
@@ -1083,167 +1206,50 @@ def classPaletteBuilder(class_names):
 
     return class_palette
 
-def preprocessedPathFunction(preprocess_directory = "", name = ""):
-    
-    def preprocessedPath(base_name = None, map_features = None,
-        preprocessing_methods = None,
-        feature_selection = None, feature_selection_parameters = None,
-        example_filter = None, example_filter_parameters = None,
-        splitting_method = None, splitting_fraction = None,
-        split_indices = None):
-        
-        base_path = os.path.join(preprocess_directory, name)
-        
-        filename_parts = [base_path]
-        
-        if base_name:
-            filename_parts.append(normaliseString(base_name))
-        
-        if map_features:
-            filename_parts.append("features_mapped")
-        
-        if feature_selection:
-            feature_selection_part = normaliseString(feature_selection)
-            if feature_selection_parameters:
-                for parameter in feature_selection_parameters:
-                    feature_selection_part += "_" + normaliseString(str(
-                        parameter))
-            filename_parts.append(feature_selection_part)
-        
-        if example_filter:
-            example_filter_part = normaliseString(example_filter)
-            if example_filter_parameters:
-                for parameter in example_filter_parameters:
-                    example_filter_part += "_" + normaliseString(str(
-                        parameter))
-            filename_parts.append(example_filter_part)
-        
-        if preprocessing_methods:
-            filename_parts.extend(map(normaliseString, preprocessing_methods))
-        
-        
-        if splitting_method:
-            filename_parts.append("split")
-            
-            if splitting_method == "indices" and \
-                len(split_indices) == 3 or not splitting_fraction:
-                
-                filename_parts.append(splitting_method)
-            else:
-                filename_parts.append("{}_{}".format(
-                    splitting_method,
-                    splitting_fraction
-                ))
-        
-        path = "-".join(filename_parts) + preprocessed_extension
-        
-        return path
-    
-    return preprocessedPath
 
-def updateTagForMappedFeatures(tags):
-    
-    mapped_feature_tag = tags.pop("mapped feature", None)
-    
-    if mapped_feature_tag:
-        tags["feature"] = mapped_feature_tag
-    
-    return tags
+def _create_superset_class_palette(class_palette, label_superset):
 
-def defaultFeatureParameters(feature_selection = None,
-    number_of_features = None):
-    
-    if feature_selection:
-        feature_selection = normaliseString(feature_selection)
-        M = number_of_features
-        
-        if feature_selection == "remove_zeros":
-            feature_selection_parameters = None
-        
-        elif feature_selection == "keep_variances_above":
-            feature_selection_parameters = [0.5]
-        
-        elif feature_selection == "keep_highest_variances":
-            feature_selection_parameters = [int(M/2)]
-        
-        else:
-            feature_selection_parameters = None
-    
-    else:
-        feature_selection_parameters = None
-    
-    return feature_selection_parameters
-
-def supersetLabels(labels, label_superset):
-    
-    if not label_superset:
-        superset_labels = None
-    
-    elif label_superset == "infer":
-        superset_labels = []
-
-        for label in labels:
-            superset_label = re.match("^( ?[A-Za-z])+", label).group()
-            superset_labels.append(superset_label)
-        
-        superset_labels = numpy.array(superset_labels)
-    
-    else:
-        label_superset_reverse = {v: k for k, vs in label_superset.items()
-            for v in vs}
-            
-        label_to_superset_label = lambda label: label_superset_reverse[label]
-        labels_to_superset_labels = numpy.vectorize(label_to_superset_label)
-        
-        superset_labels = labels_to_superset_labels(labels)
-    
-    return superset_labels
-
-def supersetClassPaletteBuilder(class_palette, label_superset):
-    
     if (class_palette is None or label_superset is None
             or label_superset == "infer"):
         superset_class_palette = None
-    
+
     else:
         superset_class_palette = {}
-        
+
         for superset_label, labels_in_superset_label in label_superset.items():
             superset_label_colours = []
             for label_in_superset_label in labels_in_superset_label:
                 superset_label_colours.append(
                     class_palette[label_in_superset_label]
                 )
-            superset_class_palette[superset_label] = \
-                numpy.array(superset_label_colours).mean(axis = 0).tolist()
-    
+            superset_class_palette[superset_label] = numpy.array(
+                superset_label_colours).mean(axis=0).tolist()
+
     return superset_class_palette
 
-GENERAL_CLASS_NAMES = ["Others", "Unknown", "No class", "Remaining"]
 
-def createLabelSorter(sorted_class_names = None):
-    
+def _create_label_sorter(sorted_class_names=None):
+
     if not sorted_class_names:
         sorted_class_names = []
-    
-    def labelSorter(label):
-        
+
+    def sort_key_for_label(label):
+
         label = str(label)
-        
-        K = len(sorted_class_names)
-        L = len(GENERAL_CLASS_NAMES)
-        index_width = len(str(K+L))
-        
+
+        n_sorted = len(sorted_class_names)
+        n_generic = len(GENERIC_CLASS_NAMES)
+        index_width = len(str(n_sorted+n_generic))
+
         if label in sorted_class_names:
             index = sorted_class_names.index(label)
-        elif label in GENERAL_CLASS_NAMES:
-            index = K + GENERAL_CLASS_NAMES.index(label)
+        elif label in GENERIC_CLASS_NAMES:
+            index = n_sorted + GENERIC_CLASS_NAMES.index(label)
         else:
-            index = K + L
-        
-        label =  "{:{}d} {}".format(index, index_width, label)
-        
-        return label
-    
-    return labelSorter
+            index = n_sorted + n_generic
 
+        label = "{:{}d} {}".format(index, index_width, label)
+
+        return label
+
+    return sort_key_for_label

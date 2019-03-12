@@ -44,7 +44,7 @@ from PIL import Image
 
 from pandas import DataFrame
 
-from data import createLabelSorter, standard_deviation, sparsity
+from data import create_label_sorter, standard_deviation, sparsity
 
 import os
 import gzip
@@ -2906,7 +2906,7 @@ def plotClassHistogram(labels, class_names = None, class_palette = None,
     K = len(class_names)
     
     if not label_sorter:
-        label_sorter = createLabelSorter()
+        label_sorter = create_label_sorter()
     
     if not class_palette:
         index_palette = lighter_palette(K)
@@ -4192,7 +4192,7 @@ def plotVariableCorrelations(values, variable_names = None,
         label_sorter = colouring_data_set.label_sorter
         
         if not label_sorter:
-            label_sorter = createLabelSorter()
+            label_sorter = create_label_sorter()
         
         if not class_palette:
             index_palette = lighter_palette(number_of_classes)
@@ -4765,7 +4765,7 @@ def plotValues(values, colour_coding = None, colouring_data_set = None,
             label_sorter = colouring_data_set.label_sorter
         
         if not label_sorter:
-            label_sorter = createLabelSorter()
+            label_sorter = create_label_sorter()
         
         if not class_palette:
             index_palette = lighter_palette(number_of_classes)

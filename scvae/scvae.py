@@ -616,19 +616,19 @@ def main(input_file_or_name, data_directory = "data",
                     number_of_clusters
                 )
             
-            transformed_evaluation_set.updatePredictions(
+            transformed_evaluation_set.update_predictions(
                 predicted_cluster_ids = cluster_ids,
                 predicted_labels = predicted_labels,
                 predicted_superset_labels = predicted_superset_labels
             )
-            reconstructed_evaluation_set.updatePredictions(
+            reconstructed_evaluation_set.update_predictions(
                 predicted_cluster_ids = cluster_ids,
                 predicted_labels = predicted_labels,
                 predicted_superset_labels = predicted_superset_labels
             )
             
             for variable in latent_evaluation_sets:
-                latent_evaluation_sets[variable].updatePredictions(
+                latent_evaluation_sets[variable].update_predictions(
                     predicted_cluster_ids = cluster_ids,
                     predicted_labels = predicted_labels,
                     predicted_superset_labels = predicted_superset_labels
@@ -662,7 +662,7 @@ def main(input_file_or_name, data_directory = "data",
         # Clean up
         
         if transformed_evaluation_set.version == "original":
-            transformed_evaluation_set.resetPredictions()
+            transformed_evaluation_set.reset_predictions()
 
 def parseModelVersions(proposed_versions):
     

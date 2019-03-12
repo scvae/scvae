@@ -74,7 +74,7 @@ def directory(
         splitting_directory_parts = ["split"]
 
         if splitting_method == "default":
-            splitting_method = data_set.defaultSplittingMethod()
+            splitting_method = data_set.default_splitting_method
 
         if (splitting_method == "indices" and len(data_set.split_indices) == 3
                 or not splitting_fraction):
