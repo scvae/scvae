@@ -49,7 +49,7 @@ from auxiliary import (
     normaliseString, capitaliseString
 )
 
-from data import DataSet
+from data.data_set import DataSet
 from analysis import analyseIntermediateResults
 from auxiliary import loadLearningCurves
 

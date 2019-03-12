@@ -61,7 +61,7 @@ def variance(a, axis=None, ddof=0, batch_size=None):
     return var
 
 
-def directory(
+def build_directory_path(
         base_directory, data_set, splitting_method, splitting_fraction,
         preprocessing=True):
 

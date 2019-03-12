@@ -50,7 +50,7 @@ from auxiliary import (
     normaliseString, capitaliseString
 )
 
-from data import DataSet
+from data.data_set import DataSet
 from analysis import analyseIntermediateResults, accuracy
 from miscellaneous.prediction import mapClusterIDsToLabelIDs
 from auxiliary import loadLearningCurves

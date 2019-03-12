@@ -18,8 +18,9 @@
 # 
 # ======================================================================== #
 
-import data
 import analysis
+from data.data_set import DataSet
+from data.auxiliary import build_directory_path
 
 from models import (
     VariationalAutoencoder,
@@ -155,7 +156,7 @@ def main(input_file_or_name, data_directory = "data",
     
     print(title("Data"))
     
-    data_set = data.DataSet(
+    data_set = DataSet(
         input_file_or_name,
         directory = data_directory,
         map_features = map_features,
@@ -184,17 +185,19 @@ def main(input_file_or_name, data_directory = "data",
     
     ## Setup of log and results directories
     
-    log_directory = data.directory(log_directory, data_set,
-        splitting_method, splitting_fraction)
-    data_results_directory = data.directory(results_directory, data_set,
-        splitting_method, splitting_fraction, preprocessing = False)
-    results_directory = data.directory(results_directory, data_set,
-        splitting_method, splitting_fraction)
+    log_directory = build_directory_path(
+        log_directory, data_set, splitting_method, splitting_fraction)
+    data_results_directory = build_directory_path(
+        results_directory, data_set, splitting_method, splitting_fraction,
+        preprocessing = False)
+    results_directory = build_directory_path(
+        results_directory, data_set, splitting_method, splitting_fraction)
     
     if temporary_log_directory:
         main_temporary_log_directory = temporary_log_directory
-        temporary_log_directory = data.directory(temporary_log_directory,
-            data_set, splitting_method, splitting_fraction)
+        temporary_log_directory = build_directory_path(
+            temporary_log_directory, data_set, splitting_method,
+            splitting_fraction)
     
     ## Data analysis
     
