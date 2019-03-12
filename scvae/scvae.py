@@ -295,8 +295,6 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
             prior_probabilities = None
         elif prior_probabilities_method == "infer":
             prior_probabilities = training_set.class_probabilities
-        elif prior_probabilities_method == "literature":
-            prior_probabilities = training_set.literature_probabilities
         else:
             prior_probabilities = None
         
