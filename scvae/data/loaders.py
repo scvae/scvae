@@ -280,45 +280,20 @@ def _load_gtex_data_set(paths):
     return data_dictionary
 
 
-@_register_loader("matrix")
-def _load_matrix_as_data_set(paths, transpose=True):
+@_register_loader("matrix_fbe")
+def _load_fbe_matrix_as_data_set(paths):
+    return _load_values_and_labels_from_matrix(
+        paths=paths,
+        orientation="fbe"
+    )
 
-    # Values
 
-    values, column_headers, row_indices = _load_tab_separated_matrix(
-        paths["values"]["full"], numpy.float32)
-
-    if transpose:
-        values = values.T
-        example_names = numpy.array(column_headers)
-        feature_names = numpy.array(row_indices)
-    else:
-        example_names = numpy.array(row_indices)
-        feature_names = numpy.array(column_headers)
-
-    example_names = example_names.flatten()
-    feature_names = feature_names.flatten()
-
-    # Labels
-
-    if "labels" in paths:
-        labels = _load_labels_from_delimiter_separeted_values(
-            path=paths["labels"]["full"],
-            example_names=example_names
-        )
-    else:
-        labels = None
-
-    # Result
-
-    data_dictionary = {
-        "values": values,
-        "labels": labels,
-        "example names": example_names,
-        "feature names": feature_names
-    }
-
-    return data_dictionary
+@_register_loader("matrix_ebf")
+def _load_ebf_matrix_as_data_set(paths):
+    return _load_values_and_labels_from_matrix(
+        paths=paths,
+        orientation="ebf"
+    )
 
 
 @_register_loader("mnist_original")
@@ -464,6 +439,54 @@ def _load_development_data_set(**kwargs):
         scale=10,
         update_probability=0.0001
     )
+
+
+def _load_values_and_labels_from_matrix(paths, orientation=None):
+
+    # Values
+
+    values, column_headers, row_indices = _load_tab_separated_matrix(
+        paths["values"]["full"], numpy.float32)
+
+    if orientation == "fbe":
+        values = values.T
+        example_names = numpy.array(column_headers)
+        feature_names = numpy.array(row_indices)
+    elif orientation == "ebf":
+        example_names = numpy.array(row_indices)
+        feature_names = numpy.array(column_headers)
+    elif orientation is None:
+        raise ValueError(" ".join[
+            "Orientation of matrix not set."
+            "`fbe`: rows as features; columns as examples."
+            "`ebf`: rows as examples; columns as features."
+        ])
+    else:
+        raise ValueError("`{}` not a valid orientation.".format(orientation))
+
+    example_names = example_names.flatten()
+    feature_names = feature_names.flatten()
+
+    # Labels
+
+    if "labels" in paths:
+        labels = _load_labels_from_delimiter_separeted_values(
+            path=paths["labels"]["full"],
+            example_names=example_names
+        )
+    else:
+        labels = None
+
+    # Result
+
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names
+    }
+
+    return data_dictionary
 
 
 def _load_values_from_10x_data_set(path):
