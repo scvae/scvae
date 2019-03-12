@@ -2128,6 +2128,8 @@ class VariationalAutoencoder(object):
                 if evaluation_set_transformed:
                     transformed_evaluation_set = DataSet(
                         evaluation_set.name,
+                        title = evaluation_set.title,
+                        specifications = evaluation_set.specifications,
                         values = t_eval,
                         preprocessed_values = None,
                         labels = evaluation_set.labels,
@@ -2149,6 +2151,8 @@ class VariationalAutoencoder(object):
             if "reconstructed" in output_versions:
                 reconstructed_evaluation_set = DataSet(
                     evaluation_set.name,
+                    title = evaluation_set.title,
+                    specifications = evaluation_set.specifications,
                     values = p_x_mean_eval,
                     total_standard_deviations = p_x_stddev_eval,
                     explained_standard_deviations = stddev_of_p_x_mean_eval,
@@ -2168,6 +2172,8 @@ class VariationalAutoencoder(object):
             if "latent" in output_versions:
                 z_evaluation_set = DataSet(
                     evaluation_set.name,
+                    title = evaluation_set.title,
+                    specifications = evaluation_set.specifications,
                     values = q_z_mean_eval,
                     preprocessed_values = None,
                     labels = evaluation_set.labels,

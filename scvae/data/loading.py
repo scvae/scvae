@@ -109,6 +109,9 @@ def load_original_data_set(paths, data_format):
     print("Loading original data set.")
     loading_time_start = time()
 
+    if data_format is None:
+        raise ValueError("Data format not specified.")
+
     load = LOADERS.get(data_format)
 
     if load is None:

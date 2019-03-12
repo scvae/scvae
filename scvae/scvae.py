@@ -53,7 +53,7 @@ warnings.filterwarnings(action="ignore", category=DeprecationWarning)
 warnings.filterwarnings(action="ignore", category=FutureWarning)
 warnings.filterwarnings(action="ignore", category=PendingDeprecationWarning)
 
-def main(input_file_or_name, data_directory = "data",
+def main(input_file_or_name, data_format = None, data_directory = "data",
     log_directory = "log", results_directory = "results",
     temporary_log_directory = None,
     map_features = False, feature_selection = [], example_filter = [],
@@ -158,6 +158,7 @@ def main(input_file_or_name, data_directory = "data",
     
     data_set = DataSet(
         input_file_or_name,
+        data_format = data_format,
         directory = data_directory,
         map_features = map_features,
         feature_selection = feature_selection,
@@ -825,6 +826,12 @@ parser.add_argument(
     help = "input: data set name or path to input file"
 )
 parser.add_argument(
+    "--format", "-f",
+    type = str,
+    dest = "data_format",
+    help = "format of the data set"
+)
+parser.add_argument(
     "--data-directory", "-D",
     type = str,
     default = "data",
@@ -1178,7 +1185,7 @@ parser.add_argument(
     help = "level to which analyses are performed: limited, normal (default), extensive"
 )
 parser.add_argument(
-    "--fast-analysis", "-f",
+    "--fast-analysis",
     action = "store_true",
     help = "perform fast analysis (equivalent to: `--analyses simple --analysis-level limited`)"
 )

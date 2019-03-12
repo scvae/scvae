@@ -103,7 +103,7 @@
 				"CD4+/CD25+ regulatory T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/regulatory_t/regulatory_t_filtered_gene_bc_matrices.tar.gz"
 			}
 		},
-		"format": "10x-combine",
+		"format": "10x_combine",
 		"example type": "counts"
 	},
 
@@ -241,7 +241,7 @@
 						"http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz"
 			}
 		},
-		"format": "mnist-original",
+		"format": "mnist_original",
 		"example type": "images",
 		"feature dimensions": [28, 28]
 	},
@@ -259,7 +259,7 @@
 					"full": "http://deeplearning.net/data/mnist/mnist.pkl.gz"
 			}
 		},
-		"format": "mnist-normalised",
+		"format": "mnist_normalised",
 		"example type": "images",
 		"feature dimensions": [28, 28]
 	},
@@ -288,7 +288,7 @@
 					"test": null
 			}
 		},
-		"format": "mnist-binarised",
+		"format": "mnist_binarised",
 		"example type": "images",
 		"feature dimensions": [28, 28]
 	},

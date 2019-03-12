@@ -79,7 +79,7 @@ def _load_10x_data_set(paths):
     example_names = data_dictionary["example names"]
     feature_names = data_dictionary["feature names"]
 
-    if paths["labels"]["full"]:
+    if "labels" in paths and "full" in paths["labels"]:
         labels = _load_labels_from_delimiter_separeted_values(
             path=paths["labels"]["full"],
             label_column="celltype",
@@ -100,7 +100,7 @@ def _load_10x_data_set(paths):
     return data_dictionary
 
 
-@_register_loader("10x-combine")
+@_register_loader("10x_combine")
 def _load_and_combine_10x_data_sets(paths):
 
     # Initialisation
@@ -321,7 +321,7 @@ def _load_matrix_as_data_set(paths, transpose=True):
     return data_dictionary
 
 
-@_register_loader("mnist-original")
+@_register_loader("mnist_original")
 def _load_original_mnist_data_set(paths):
 
     values = {}
@@ -371,7 +371,7 @@ def _load_original_mnist_data_set(paths):
     return data_dictionary
 
 
-@_register_loader("mnist-normalised")
+@_register_loader("mnist_normalised")
 def _load_normalised_mnist_data_set(paths):
 
     with gzip.open(paths["all"]["full"], mode="r") as data_file:
@@ -416,7 +416,7 @@ def _load_normalised_mnist_data_set(paths):
     return data_dictionary
 
 
-@_register_loader("mnist-binarised")
+@_register_loader("mnist_binarised")
 def _load_binarised_mnist_data_set(paths):
 
     values = {}

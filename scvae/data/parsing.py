@@ -136,8 +136,6 @@ def _data_set_from_json_file(json_path):
                 "full": data_set["labels"]
             }
 
-    data_set.set_default("format", title)
-
     return title, data_set
 
 
