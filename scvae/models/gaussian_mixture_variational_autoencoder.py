@@ -31,10 +31,7 @@ from models.auxiliary import (
 from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
 
-from tensorflow.contrib.distributions import (
-    Normal, Bernoulli, Categorical,
-    kl_divergence
-)
+from tensorflow_probability import distributions as tensorflow_distributions
 from distributions import distributions, latent_distributions, Categorized
 
 import numpy
@@ -699,7 +696,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                 
                 p_x_given_z = Categorized(
                     dist = p_x_given_z,
-                    cat = Categorical(logits = x_logits)
+                    cat = tensorflow_distributions.Categorical(
+                        logits = x_logits)
                 )
             
             return p_x_given_z
@@ -846,7 +844,8 @@ class GaussianMixtureVariationalAutoencoder(object):
             # (B)
             KL_y = p_y_entropy - q_y_given_x_entropy
         else:
-            KL_y =kl_divergence(self.q_y_given_x, self.p_y)
+            KL_y = tensorflow_distributions.kl_divergence(
+                self.q_y_given_x, self.p_y)
             p_y_entropy = tf.squeeze(self.p_y.entropy())
 
         KL_y_threshhold = self.proportion_of_free_KL_nats * p_y_entropy

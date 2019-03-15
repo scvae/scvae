@@ -30,10 +30,7 @@ from models.auxiliary import (
 from tensorflow.python.ops.nn import relu, softmax
 from tensorflow import sigmoid, identity
 
-from tensorflow.contrib.distributions import (
-    Normal, Bernoulli, Categorical,
-    kl_divergence
-)
+from tensorflow_probability import distributions as tensorflow_distributions
 from distributions import distributions, latent_distributions, Categorized
 
 import numpy
@@ -728,7 +725,8 @@ class VariationalAutoencoder(object):
                 
                 self.p_x_given_z = Categorized(
                     dist = self.p_x_given_z,
-                    cat = Categorical(logits = x_logits)
+                    cat = tensorflow_distributions.Categorical(
+                        logits = x_logits)
                 )
             
 
@@ -835,7 +833,8 @@ class VariationalAutoencoder(object):
         else:
             if self.analytical_kl_term:
                 ## Evaluate KL divergence analytically without sampling
-                KL =kl_divergence(self.q_z_given_x, self.p_z)
+                KL = tensorflow_distributions.kl_divergence(
+                    self.q_z_given_x, self.p_z)
             else:
                 ## Evaluate KL divergence numerically with sampling
                 ## Evaluate all log(q(z|x)) and log(p(z)) on (R, L, batchsize,
