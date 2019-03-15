@@ -159,7 +159,7 @@ def loadNumberOfEpochsTrained(model, run_id = None, early_stopping = False,
     loss = loss_prefix + loss
     
     ## Log directory
-    log_directory = model.logDirectory(
+    log_directory = model.log_directory(
         run_id = run_id,
         early_stopping = early_stopping,
         best_model = best_model
@@ -212,7 +212,7 @@ def loadLearningCurves(model, data_set_kinds = "all", run_id = None,
     
     ## Log directory
     if not log_directory:
-        log_directory = model.logDirectory(
+        log_directory = model.log_directory(
             run_id = run_id,
             early_stopping = early_stopping,
             best_model = best_model
@@ -294,7 +294,7 @@ def loadAccuracies(model, data_set_kinds = "all", superset = False,
         data_set_kinds = [data_set_kinds]
     
     ## Log directory
-    log_directory = model.logDirectory(
+    log_directory = model.log_directory(
         run_id = run_id,
         early_stopping = early_stopping,
         best_model = best_model
@@ -371,7 +371,7 @@ def loadCentroids(model, data_set_kinds = "all", run_id = None,
         return None
     
     ## Log directory
-    log_directory = model.logDirectory(
+    log_directory = model.log_directory(
         run_id = run_id,
         early_stopping = early_stopping,
         best_model = best_model
@@ -499,7 +499,7 @@ def loadKLDivergences(model, run_id = None, early_stopping = False,
     data_set_kind = "training"
     
     ## Log directory
-    log_directory = model.logDirectory(
+    log_directory = model.log_directory(
         run_id = run_id,
         early_stopping = early_stopping,
         best_model = best_model
@@ -627,7 +627,7 @@ def betterModelExists(model, run_id = None):
     return better_model_exists
 
 def modelStoppedEarly(model, run_id = None):
-    stopped_early, _ = model.earlyStoppingStatus(run_id = run_id)
+    stopped_early, _ = model.early_stopping_status(run_id = run_id)
     return stopped_early
 
 def checkRunID(run_id):

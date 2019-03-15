@@ -279,7 +279,7 @@ def generateRunID(timestamp = None):
     return run_id
 
 def generateUniqueRunIDForModel(model, timestamp = None):
-    log_directory = model.logDirectory()
+    log_directory = model.log_directory()
     existing_run_ids = [
         re.sub(r"^run_", "", d)
         for d in os.listdir(log_directory)

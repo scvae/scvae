@@ -73,7 +73,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     prior_probabilities_method = "uniform",
     number_of_warm_up_epochs = 0,
     kl_weight = 1,
-    proportion_of_free_KL_nats = 0.0,
+    proportion_of_free_nats_for_y_kl_divergence = 0.0,
     batch_normalisation = True,
     dropout_keep_probabilities = [],
     count_sum = True,
@@ -318,7 +318,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
             analytical_kl_term = analytical_kl_term,
             prior_probabilities = prior_probabilities,
             number_of_latent_clusters = number_of_classes,
-            proportion_of_free_KL_nats = proportion_of_free_KL_nats,
+            proportion_of_free_nats_for_y_kl_divergence = proportion_of_free_nats_for_y_kl_divergence,
             reconstruction_distribution = reconstruction_distribution,
             number_of_reconstruction_classes = number_of_reconstruction_classes,
             batch_normalisation = batch_normalisation,
@@ -368,7 +368,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     if "epochs trained" in status:
         status_filename += "-" + status["epochs trained"]
     status_path = os.path.join(
-        model.logDirectory(run_id = run_id),
+        model.log_directory(run_id = run_id),
         status_filename + ".log"
     )
     with open(status_path, "w") as status_file:
@@ -1039,11 +1039,11 @@ parser.add_argument(
     help = "weighting of KL divergence"
 )
 parser.add_argument(
-    "--proportion-of-free-KL-nats",
+    "--proportion-of-free-nats-for-y-kl-divergence",
     type = float,
     nargs = "?",
     default = 0.0,
-    help = "Proportion of maximum KL_y divergence which has constant term and zero gradients, ´free bits´ method"
+    help = "proportion of maximum y KL divergence, which has constant term and zero gradients, for the GMVAE (free-bits method)"
 )
 parser.add_argument(
     "--batch-normalisation", "-b",
