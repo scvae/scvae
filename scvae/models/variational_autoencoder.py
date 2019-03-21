@@ -34,7 +34,7 @@ from auxiliary import (
     loadLearningCurves
 )
 from data.data_set import DataSet
-from distributions import distributions, latent_distributions, Categorised
+from distributions import DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised
 from models.auxiliary import (
     dense_layer, dense_layers, log_reduce_exp,
     early_stopping_status,
@@ -83,7 +83,7 @@ class VariationalAutoencoder:
 
         self.latent_distribution_name = latent_distribution
         self.latent_distribution = copy.deepcopy(
-            latent_distributions[latent_distribution]
+            LATENT_DISTRIBUTIONS[latent_distribution]
         )
         self.number_of_latent_clusters = number_of_latent_clusters
         self.analytical_kl_term = analytical_kl_term
@@ -96,7 +96,7 @@ class VariationalAutoencoder:
 
         self.generative_architecture = generative_architecture.upper()
         self.reconstruction_distribution_name = reconstruction_distribution
-        self.reconstruction_distribution = distributions[
+        self.reconstruction_distribution = DISTRIBUTIONS[
             reconstruction_distribution]
 
         # Number of categorical elements needed for reconstruction, e.g. K+1
@@ -1731,7 +1731,7 @@ class VariationalAutoencoder:
         for part_name in self.latent_distribution:
             part_distribution_name = self.latent_distribution[part_name][
                 "name"]
-            part_distribution = distributions[part_distribution_name]
+            part_distribution = DISTRIBUTIONS[part_distribution_name]
             part_parameters = self.latent_distribution[part_name]["parameters"]
 
             with tf.variable_scope(part_name.upper()):
@@ -1831,7 +1831,7 @@ class VariationalAutoencoder:
                     posterior_parameters[parameter] += prior_parameters[
                         parameter]
 
-        self.q_z_given_x = distributions[self.latent_distribution["posterior"][
+        self.q_z_given_x = DISTRIBUTIONS[self.latent_distribution["posterior"][
             "name"]]["class"](self.latent_distribution["posterior"][
                 "parameters"])
 
@@ -1856,7 +1856,7 @@ class VariationalAutoencoder:
         )
 
         # Latent prior distribution
-        self.p_z = distributions[self.latent_distribution["prior"]["name"]][
+        self.p_z = DISTRIBUTIONS[self.latent_distribution["prior"]["name"]][
             "class"](self.latent_distribution["prior"]["parameters"])
 
         self.p_z_probabilities = []

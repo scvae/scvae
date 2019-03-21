@@ -34,7 +34,7 @@ from auxiliary import (
     loadLearningCurves
 )
 from data.data_set import DataSet
-from distributions import distributions, latent_distributions, Categorised
+from distributions import DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised
 from miscellaneous.prediction import mapClusterIDsToLabelIDs
 from models.auxiliary import (
     dense_layer, dense_layers,
@@ -77,7 +77,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         latent_distribution = "gaussian mixture"
         self.latent_distribution_name = latent_distribution
         self.latent_distribution = copy.deepcopy(
-            latent_distributions[latent_distribution]
+            LATENT_DISTRIBUTIONS[latent_distribution]
         )
 
         if prior_probabilities:
@@ -104,7 +104,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         self.number_of_monte_carlo_samples = number_of_monte_carlo_samples
 
         self.reconstruction_distribution_name = reconstruction_distribution
-        self.reconstruction_distribution = distributions[
+        self.reconstruction_distribution = DISTRIBUTIONS[
             reconstruction_distribution]
 
         # Number of categorical elements needed for reconstruction, e.g. K+1
@@ -2259,7 +2259,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
         # Encoder for q(z|x,y_i=1) = N(mu(x,y_i=1), sigma^2(x,y_i=1))
         with tf.variable_scope("Q"):
-            distribution = distributions[distribution_name]
+            distribution = DISTRIBUTIONS[distribution_name]
             xy = tf.concat((self.x, y), axis=-1)
             encoder = dense_layers(
                 inputs=xy,
@@ -2324,7 +2324,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
         with tf.variable_scope("P"):
             with tf.variable_scope(normaliseString(distribution_name).upper()):
-                distribution = distributions[distribution_name]
+                distribution = DISTRIBUTIONS[distribution_name]
                 # Loop over and add parameter layers to theta dict.
                 theta = {}
                 for parameter in distribution["parameters"]:
@@ -2358,7 +2358,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             self, x, distribution_name="categorical", reuse=False):
 
         with tf.variable_scope(distribution_name.upper()):
-            distribution = distributions[distribution_name]
+            distribution = DISTRIBUTIONS[distribution_name]
             # Encoder
             encoder = dense_layers(
                 inputs=self.x,

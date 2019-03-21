@@ -1,6 +1,6 @@
 # ======================================================================== #
-# 
-# Copyright (c) 2017 - 2018 scVAE authors
+#
+# Copyright (c) 2017 - 2019 scVAE authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,125 +13,131 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # ======================================================================== #
 
+import numpy as np
 import tensorflow as tf
-from numpy import inf
+import tensorflow_probability as tfp
 
-from tensorflow_probability import distributions as tensorflow_distributions
-
-from tensorflow.python.ops.nn import relu, softmax, softplus
-from tensorflow import sigmoid, identity
-
-from distributions.zero_inflated import ZeroInflated
 from distributions.categorised import Categorised
 from distributions.exponentially_modified_normal import (
-    ExponentiallyModifiedNormal
-)
+    ExponentiallyModifiedNormal)
 from distributions.lomax import Lomax
+from distributions.zero_inflated import ZeroInflated
 
-distributions = {
+__all__ = [
+    "Categorised",
+    "ExponentiallyModifiedNormal",
+    "Lomax",
+    "ZeroInflated"
+]
+
+DISTRIBUTIONS = {
     "gaussian": {
         "parameters": {
             "mu": {
-                "support": [-inf, inf],
-                "activation function": identity,
+                "support": [-np.inf, np.inf],
+                "activation function": tf.identity,
                 "initial value": tf.zeros
             },
             "log_sigma": {
                 "support": [-3, 3],
-                "activation function": identity,
+                "activation function": tf.identity,
                 "initial value": tf.zeros
             }
         },
-        "class": lambda theta: tensorflow_distributions.Normal(
-            loc = theta["mu"], 
-            scale = tf.exp(theta["log_sigma"])
+        "class": lambda theta: tfp.distributions.Normal(
+            loc=theta["mu"],
+            scale=tf.exp(theta["log_sigma"])
         )
     },
 
     "modified gaussian": {
         "parameters": {
             "mean": {
-                "support": [-inf, inf],
-                "activation function": identity,
+                "support": [-np.inf, np.inf],
+                "activation function": tf.identity,
                 "initial value": tf.zeros
             },
             "variance": {
-                "support": [0, inf],
-                "activation function": softplus,
+                "support": [0, np.inf],
+                "activation function": tf.nn.softplus,
                 "initial value": tf.ones
             }
         },
-        "class": lambda theta: tensorflow_distributions.Normal(
-            loc = theta["mean"], 
-            scale = tf.sqrt(theta["variance"])
+        "class": lambda theta: tfp.distributions.Normal(
+            loc=theta["mean"],
+            scale=tf.sqrt(theta["variance"])
         )
     },
 
     "gaussian mixture": {
         "parameters": {
             "logits": {
-                "support": [-inf, inf],
-                "activation function": identity,
+                "support": [-np.inf, np.inf],
+                "activation function": tf.identity,
                 "initial value": tf.ones
             },
             "mus": {
-                "support": [-inf, inf],
-                "activation function": identity,
-                "initial value": lambda x: tf.random_normal(x, stddev = 1)
+                "support": [-np.inf, np.inf],
+                "activation function": tf.identity,
+                "initial value": lambda x: tf.random_normal(x, stddev=1)
             },
             "log_sigmas": {
                 "support": [-3, 3],
-                "activation function": identity,
+                "activation function": tf.identity,
                 "initial value": tf.zeros
             }
         },
-        "class": lambda theta: tensorflow_distributions.Mixture(
-            cat = tensorflow_distributions.Categorical(logits = theta["logits"]), 
-            components = [tensorflow_distributions.MultivariateNormalDiag(
-                loc = m, scale_diag = tf.exp(s)) for m, s in 
-                zip(theta["mus"], theta["log_sigmas"])]
+        "class": lambda theta: tfp.distributions.Mixture(
+            cat=tfp.distributions.Categorical(logits=theta["logits"]),
+            components=[
+                tfp.distributions.MultivariateNormalDiag(
+                    loc=m,
+                    scale_diag=tf.exp(s)
+                )
+                for m, s in zip(theta["mus"], theta["log_sigmas"])
+            ]
         )
     },
 
     "log-normal": {
         "parameters": {
             "mean": {
-                "support": [-inf, inf],
-                "activation function": identity
+                "support": [-np.inf, np.inf],
+                "activation function": tf.identity
             },
             "variance": {
-                "support": [0, inf],
-                "activation function": softplus
+                "support": [0, np.inf],
+                "activation function": tf.nn.softplus
             }
         },
-        "class": lambda theta: tensorflow_distributions.LogNormal(
-            loc = theta["mean"], 
-            scale = tf.sqrt(theta["variance"])
+        "class": lambda theta: tfp.distributions.LogNormal(
+            loc=theta["mean"],
+            scale=tf.sqrt(theta["variance"])
         )
     },
 
     "exponentially_modified_gaussian": {
         "parameters": {
             "location": {
-                "support": [-inf, inf],
-                "activation function": identity
+                "support": [-np.inf, np.inf],
+                "activation function": tf.identity
             },
             "scale": {
-                "support": [0, inf],
-                "activation function": softplus
+                "support": [0, np.inf],
+                "activation function": tf.nn.softplus
             },
             "rate": {
-                "support": [0, inf],
-                "activation function": softplus
+                "support": [0, np.inf],
+                "activation function": tf.nn.softplus
             }
         },
         "class": lambda theta: ExponentiallyModifiedNormal(
-            loc = theta["location"], 
-            scale = theta["scale"],
-            rate = theta["rate"],
+            loc=theta["location"],
+            scale=theta["scale"],
+            rate=theta["rate"],
             validate_args=True,
             allow_nan_stats=False
         )
@@ -140,52 +146,52 @@ distributions = {
     "gamma": {
         "parameters": {
             "concentration": {
-                "support": [0, inf],
-                "activation function": softplus
+                "support": [0, np.inf],
+                "activation function": tf.nn.softplus
             },
             "rate": {
-                "support": [0, inf],
-                "activation function": softplus
+                "support": [0, np.inf],
+                "activation function": tf.nn.softplus
             }
         },
-        "class": lambda theta: tensorflow_distributions.Gamma(
-            concentration = theta["concentration"], 
-            rate = theta["rate"]
+        "class": lambda theta: tfp.distributions.Gamma(
+            concentration=theta["concentration"],
+            rate=theta["rate"]
         )
     },
 
     "categorical": {
         "parameters": {
             "logits": {
-                "support": [-inf, inf],
-                "activation function": identity
+                "support": [-np.inf, np.inf],
+                "activation function": tf.identity
             }
         },
-        "class": lambda theta: 
-            tensorflow_distributions.Categorical(logits = theta["logits"]), 
+        "class": lambda theta:
+            tfp.distributions.Categorical(logits=theta["logits"]),
     },
 
     "bernoulli": {
         "parameters": {
             "logits": {
-                "support": [-inf, inf],
-                "activation function": identity
+                "support": [-np.inf, np.inf],
+                "activation function": tf.identity
             }
         },
-        "class": lambda theta: tensorflow_distributions.Bernoulli(
-            logits = theta["logits"]
+        "class": lambda theta: tfp.distributions.Bernoulli(
+            logits=theta["logits"]
         )
     },
-    
+
     "poisson": {
         "parameters": {
             "log_lambda": {
                 "support": [-10, 10],
-                "activation function": identity
+                "activation function": tf.identity
             }
         },
-        "class": lambda theta: tensorflow_distributions.Poisson(
-            rate = tf.exp(theta["log_lambda"])
+        "class": lambda theta: tfp.distributions.Poisson(
+            rate=tf.exp(theta["log_lambda"])
         )
     },
 
@@ -193,11 +199,11 @@ distributions = {
         "parameters": {
             "lambda": {
                 "support": [0, 1],
-                "activation function": softmax
+                "activation function": tf.nn.softmax
             }
         },
-        "class": lambda theta, N: tensorflow_distributions.Poisson(
-            rate = theta["lambda"] * N
+        "class": lambda theta, N: tfp.distributions.Poisson(
+            rate=theta["lambda"] * N
         )
     },
 
@@ -205,16 +211,16 @@ distributions = {
         "parameters": {
             "log_concentration": {
                 "support": [-10, 10],
-                "activation function": identity
+                "activation function": tf.identity
             },
             "log_scale": {
                 "support": [-10, 10],
-                "activation function": identity
+                "activation function": tf.identity
             }
         },
         "class": lambda theta: Lomax(
-            concentration = tf.exp(theta["log_concentration"]),
-            scale = tf.exp(theta["log_scale"])
+            concentration=tf.exp(theta["log_concentration"]),
+            scale=tf.exp(theta["log_scale"])
         )
     },
 
@@ -222,64 +228,64 @@ distributions = {
         "parameters": {
             "pi": {
                 "support": [0, 1],
-                "activation function": sigmoid
+                "activation function": tf.sigmoid
             },
             "log_lambda": {
                 "support": [-10, 10],
-                "activation function": identity
+                "activation function": tf.identity
             }
         },
         "class": lambda theta: ZeroInflated(
-            tensorflow_distributions.Poisson(
-                rate = tf.exp(theta["log_lambda"])
+            dist=tfp.distributions.Poisson(
+                rate=tf.exp(theta["log_lambda"])
             ),
-            pi = theta["pi"]
+            pi=theta["pi"]
         )
     },
-    
+
     "negative binomial": {
         "parameters": {
             "p": {
                 "support": [0, 1],
-                "activation function": sigmoid
+                "activation function": tf.sigmoid
             },
             "log_r": {
                 "support": [-10, 10],
-                "activation function": identity
+                "activation function": tf.identity
             }
         },
-        "class": lambda theta: tensorflow_distributions.NegativeBinomial(
-            total_count = tf.exp(theta["log_r"]),
-            probs = theta["p"]
+        "class": lambda theta: tfp.distributions.NegativeBinomial(
+            total_count=tf.exp(theta["log_r"]),
+            probs=theta["p"]
         )
     },
-    
+
     "zero-inflated negative binomial": {
         "parameters": {
             "pi": {
                 "support": [0, 1],
-                "activation function": sigmoid
+                "activation function": tf.sigmoid
             },
             "p": {
                 "support": [0, 1],
-                "activation function": sigmoid
+                "activation function": tf.sigmoid
             },
             "log_r": {
                 "support": [-10, 10],
-                "activation function": identity
+                "activation function": tf.identity
             }
         },
         "class": lambda theta: ZeroInflated(
-            tensorflow_distributions.NegativeBinomial(
-                total_count = tf.exp(theta["log_r"]),
-                probs = theta["p"]
+            dist=tfp.distributions.NegativeBinomial(
+                total_count=tf.exp(theta["log_r"]),
+                probs=theta["p"]
             ),
-            pi = theta["pi"]
+            pi=theta["pi"]
         )
     }
 }
 
-latent_distributions = {
+LATENT_DISTRIBUTIONS = {
     "gaussian": {
         "prior": {
             "name": "gaussian",
@@ -314,7 +320,7 @@ latent_distributions = {
             "parameters": {}
         },
         "posterior": {
-            "name": "gaussian mixture", 
+            "name": "gaussian mixture",
             "parameters": {}
         }
     },
@@ -324,7 +330,7 @@ latent_distributions = {
             "parameters": {}
         },
         "posterior": {
-            "name": "gaussian", 
+            "name": "gaussian",
             "parameters": {}
         }
     },
@@ -334,32 +340,8 @@ latent_distributions = {
             "parameters": {}
         },
         "posterior": {
-            "name": "gaussian", 
+            "name": "gaussian",
             "parameters": {}
         }
     }
-}
-
-model_inference_graph = {
-    "explicit gaussian mixture": {
-        "posteriors": {
-            "q_z_given_x_y": {
-                "name": "gaussian", 
-                "parameters": {},
-                "conditioning": ["encoder", "q_y_given_x"]
-            },
-            "q_y_given_x": {
-                "name": "categorical",
-                "parameters": {},
-                "conditioning": ["encoder"]
-            }
-        },
-        "priors": {
-            "p_z_given_y": {
-                "name": "gaussian",
-                "parameters": {},
-                "conditioning": ["decoder"]
-            }
-        }
-    },
 }
