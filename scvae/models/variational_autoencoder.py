@@ -37,11 +37,11 @@ from data.data_set import DataSet
 from distributions import distributions, latent_distributions, Categorized
 from models.auxiliary import (
     dense_layer, dense_layers, log_reduce_exp,
-    earlyStoppingStatus,
-    trainingString, dataString,
-    generateUniqueRunIDForModel,
-    correctModelCheckpointPath, removeOldCheckpoints,
-    copyModelDirectory, clearLogDirectory
+    early_stopping_status,
+    build_training_string, build_data_string,
+    generate_unique_run_id_for_model,
+    correct_model_checkpoint_path, remove_old_checkpoints,
+    copy_model_directory, clear_log_directory
 )
 
 # Infinitesimal to avoid over- and underflow
@@ -444,7 +444,7 @@ class VariationalAutoencoder:
                     log_directory=log_directory
                 )["lower_bound"]
                 stopped_early, epochs_with_no_improvement = (
-                    earlyStoppingStatus(
+                    early_stopping_status(
                         validation_losses,
                         self.early_stopping_rounds
                     )
@@ -463,7 +463,7 @@ class VariationalAutoencoder:
             run_id = checkRunID(run_id)
             new_run = True
         elif new_run:
-            run_id = generateUniqueRunIDForModel(
+            run_id = generate_unique_run_id_for_model(
                 model=self,
                 timestamp=start_time
             )
@@ -476,7 +476,7 @@ class VariationalAutoencoder:
         # Remove model run if prompted
         permanent_log_directory = self.log_directory(run_id=run_id)
         if reset_training and os.path.exists(permanent_log_directory):
-            clearLogDirectory(permanent_log_directory)
+            clear_log_directory(permanent_log_directory)
 
         # Logging
         status = {
@@ -544,12 +544,12 @@ class VariationalAutoencoder:
             )
 
         # Training message
-        data_string = dataString(
+        data_string = build_data_string(
             data_set=training_set,
             reconstruction_distribution_name=(
                 self.reconstruction_distribution_name)
         )
-        training_string = trainingString(
+        training_string = build_training_string(
             model_string=model_string,
             epoch_start=epoch_start,
             number_of_epochs=number_of_epochs,
@@ -680,7 +680,7 @@ class VariationalAutoencoder:
                 print("Restoring earlier model parameters.")
                 restoring_time_start = time()
 
-                model_checkpoint_path = correctModelCheckpointPath(
+                model_checkpoint_path = correct_model_checkpoint_path(
                     checkpoint.model_checkpoint_path,
                     log_directory
                 )
@@ -1158,7 +1158,7 @@ class VariationalAutoencoder:
                             current_checkpoint = tf.train.get_checkpoint_state(
                                     log_directory)
                             if current_checkpoint:
-                                copyModelDirectory(
+                                copy_model_directory(
                                     current_checkpoint,
                                     early_stopping_log_directory
                                 )
@@ -1221,11 +1221,11 @@ class VariationalAutoencoder:
                     current_checkpoint = (
                         tf.train.get_checkpoint_state(log_directory))
                     if current_checkpoint:
-                        copyModelDirectory(
+                        copy_model_directory(
                             current_checkpoint,
                             best_model_log_directory
                         )
-                    removeOldCheckpoints(best_model_log_directory)
+                    remove_old_checkpoints(best_model_log_directory)
                     saving_duration = time() - saving_time_start
                     print("    Best model parameters saved ({}).".format(
                         formatDuration(saving_duration)))
@@ -1308,7 +1308,7 @@ class VariationalAutoencoder:
 
             # Clean up
 
-            removeOldCheckpoints(log_directory)
+            remove_old_checkpoints(log_directory)
 
             if temporary_log_directory:
 
@@ -1429,7 +1429,7 @@ class VariationalAutoencoder:
                     eval_summary_directory)
 
             if checkpoint:
-                model_checkpoint_path = correctModelCheckpointPath(
+                model_checkpoint_path = correct_model_checkpoint_path(
                     checkpoint.model_checkpoint_path,
                     log_directory
                 )
@@ -1443,7 +1443,7 @@ class VariationalAutoencoder:
                 )
                 return [None] * len(output_versions)
 
-            data_string = dataString(
+            data_string = build_data_string(
                 evaluation_set, self.reconstruction_distribution_name)
             print("Evaluating trained {} on {}.".format(
                 model_string, data_string))
