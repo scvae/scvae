@@ -34,7 +34,7 @@ from auxiliary import (
     loadLearningCurves
 )
 from data.data_set import DataSet
-from distributions import distributions, latent_distributions, Categorized
+from distributions import distributions, latent_distributions, Categorised
 from miscellaneous.prediction import mapClusterIDsToLabelIDs
 from models.auxiliary import (
     dense_layer, dense_layers,
@@ -2489,7 +2489,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     ]
                 )
 
-                p_x_given_z = Categorized(
+                p_x_given_z = Categorised(
                     dist=p_x_given_z,
                     cat=tfp.distributions.Categorical(
                         logits=x_logits)

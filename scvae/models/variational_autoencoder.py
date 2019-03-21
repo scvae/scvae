@@ -34,7 +34,7 @@ from auxiliary import (
     loadLearningCurves
 )
 from data.data_set import DataSet
-from distributions import distributions, latent_distributions, Categorized
+from distributions import distributions, latent_distributions, Categorised
 from models.auxiliary import (
     dense_layer, dense_layers, log_reduce_exp,
     early_stopping_status,
@@ -1988,7 +1988,7 @@ class VariationalAutoencoder:
                     ]
                 )
 
-                self.p_x_given_z = Categorized(
+                self.p_x_given_z = Categorised(
                     dist=self.p_x_given_z,
                     cat=tfp.distributions.Categorical(logits=x_logits)
                 )

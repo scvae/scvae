@@ -25,7 +25,7 @@ from tensorflow.python.ops.nn import relu, softmax, softplus
 from tensorflow import sigmoid, identity
 
 from distributions.zero_inflated import ZeroInflated
-from distributions.categorized import Categorized
+from distributions.categorised import Categorised
 from distributions.exponentially_modified_normal import (
     ExponentiallyModifiedNormal
 )
