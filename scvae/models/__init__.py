@@ -1,6 +1,6 @@
 # ======================================================================== #
-# 
-# Copyright (c) 2017 - 2018 scVAE authors
+#
+# Copyright (c) 2017 - 2019 scVAE authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # ======================================================================== #
 
 from models.variational_autoencoder import VariationalAutoencoder
-from models.gaussian_mixture_variational_autoencoder import \
-    GaussianMixtureVariationalAutoencoder
+from models.gaussian_mixture_variational_autoencoder import (
+    GaussianMixtureVariationalAutoencoder)
+
+__all__ = [
+    "VariationalAutoencoder",
+    "GaussianMixtureVariationalAutoencoder"
+]
