@@ -26,7 +26,7 @@ import scipy.sparse
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from analysis import analyseIntermediateResults
+from analysis import analyse_intermediate_results
 from auxiliary import (
     checkRunID,
     formatDuration, formatTime,
@@ -1273,26 +1273,27 @@ class VariationalAutoencoder:
                         intermediate_latent_values = q_z_mean_train
                         intermediate_data_set = training_set
 
-                    analyseIntermediateResults(
+                    analyse_intermediate_results(
+                        epoch=epoch,
                         learning_curves=learning_curves,
                         epoch_start=epoch_start,
-                        epoch=epoch,
+                        model_type=self.type,
                         latent_values=intermediate_latent_values,
                         data_set=intermediate_data_set,
                         centroids=centroids,
                         model_name=self.name,
                         run_id=run_id,
-                        model_type=self.type,
                         results_directory=self.base_results_directory
                     )
                     print()
                 else:
-                    analyseIntermediateResults(
+                    analyse_intermediate_results(
+                        epoch=epoch,
                         learning_curves=learning_curves,
                         epoch_start=epoch_start,
+                        model_type=self.type,
                         model_name=self.name,
                         run_id=run_id,
-                        model_type=self.type,
                         results_directory=self.base_results_directory
                     )
                     print()

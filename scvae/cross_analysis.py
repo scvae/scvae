@@ -38,10 +38,10 @@ from scipy.stats import pearsonr
 import argparse
 
 from analysis import (
-    formatStatistics, saveFigure,
-    plotCorrelations, plotELBOHeatMap,
-    plotModelMetrics, plotModelMetricSets,
-    clustering_metrics
+    format_summary_statistics, save_figure,
+    plot_correlations, plot_elbo_heat_map,
+    plot_model_metrics, plot_model_metric_sets,
+    CLUSTERING_METRICS
 )
 from auxiliary import (
     formatTime,
@@ -416,7 +416,7 @@ def main(log_directory = None, results_directory = None,
                     log_string_parts.append(correlation_string + "\n")
                 
                 print("Plotting correlations.")
-                figure, figure_name = plotCorrelations(
+                figure, figure_name = plot_correlations(
                     correlation_sets,
                     x_key = "ELBO",
                     y_key = "clustering metric",
@@ -424,7 +424,7 @@ def main(log_directory = None, results_directory = None,
                     y_label = "",
                     name = data_set_path.replace(os.sep, "-")
                 )
-                saveFigure(figure, figure_name, export_options,
+                save_figure(figure, figure_name, export_options,
                     cross_analysis_directory)
                 print()
             
@@ -526,14 +526,14 @@ def main(log_directory = None, results_directory = None,
                     )
                 
                 if network_architecture_ELBOs.size > 1:
-                    figure, figure_name = plotELBOHeatMap(
+                    figure, figure_name = plot_elbo_heat_map(
                         network_architecture_ELBOs,
                         x_label = "Latent dimension",
                         y_label = "Number of hidden units",
                         z_symbol = "\mathcal{L}",
                         name = data_set_path.replace(os.sep, "-")
                     )
-                    saveFigure(figure, figure_name, export_options,
+                    save_figure(figure, figure_name, export_options,
                         cross_analysis_directory)
             
             ## Table
@@ -1055,7 +1055,7 @@ def main(log_directory = None, results_directory = None,
                     optimised_metric_name
                 ]
                 
-                figure, figure_name = plotModelMetrics(
+                figure, figure_name = plot_model_metrics(
                     metrics_sets,
                     key = optimised_metric_name,
                     primary_differentiator_key = "model",
@@ -1068,7 +1068,7 @@ def main(log_directory = None, results_directory = None,
                         optimised_metric_name
                     ]
                 )
-                saveFigure(figure, figure_name, export_options,
+                save_figure(figure, figure_name, export_options,
                     cross_analysis_directory)
             
             # Optimised metrics and clustering metrics
@@ -1190,7 +1190,7 @@ def main(log_directory = None, results_directory = None,
                         optimised_metric_name
                     ]
                     
-                    figure, figure_name = plotModelMetricSets(
+                    figure, figure_name = plot_model_metric_sets(
                         metrics_sets,
                         x_key = optimised_metric_name,
                         y_key = clustering_metric_name,
@@ -1210,7 +1210,7 @@ def main(log_directory = None, results_directory = None,
                             optimised_metric_name
                         ]
                     )
-                    saveFigure(figure, figure_name, export_options,
+                    save_figure(figure, figure_name, export_options,
                         cross_analysis_directory)
                     
             print()
@@ -1411,7 +1411,7 @@ def metricsForOtherMethods(data_set_directory,
                                 continue
                             elif metric_set_name.startswith("clusters"):
                                 
-                                metric_details = clustering_metrics.get(
+                                metric_details = CLUSTERING_METRICS.get(
                                     metric_name, dict())
                                 metric_kind = metric_details.get("kind", None)
                                 
@@ -1597,7 +1597,7 @@ def parseMetricsForRunsAndVersionsOfModel(
             
             if reconstructed_statistics:
                 metrics_string_parts.append(
-                    formatStatistics(reconstructed_statistics)
+                    format_summary_statistics(reconstructed_statistics)
                 )
             
             metrics_string_parts.append("")

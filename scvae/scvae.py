@@ -204,7 +204,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     
     if analyse and analyse_data:
         print(subtitle("Analysing data"))
-        analysis.analyseData(
+        analysis.analyse_data(
             data_sets = all_data_sets,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
@@ -426,7 +426,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     
     ### Evaluation set
     
-    evaluation_subset_indices = analysis.evaluationSubsetIndices(
+    evaluation_subset_indices = analysis.indices_for_evaluation_subset(
         evaluation_set)
     
     print("Evaluation set: {} set.".format(evaluation_set.kind))
@@ -524,7 +524,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     if analyse:
         
         print(subtitle("Model analysis"))
-        analysis.analyseModel(
+        analysis.analyse_model(
             model = model,
             run_id = run_id,
             analyses = analyses,
@@ -644,7 +644,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
             
             print(heading("{} results analysis".format(model_parameter_set_name)))
             
-            analysis.analyseResults(
+            analysis.analyse_results(
                 evaluation_set = transformed_evaluation_set,
                 reconstructed_evaluation_set = reconstructed_evaluation_set,
                 latent_evaluation_sets = latent_evaluation_sets,
