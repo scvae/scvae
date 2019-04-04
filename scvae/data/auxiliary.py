@@ -22,6 +22,9 @@ import numpy
 
 from auxiliary import normaliseString
 
+EVALUATION_SUBSET_MAXIMUM_NUMBER_OF_EXAMPLES = 25
+EVALUATION_SUBSET_MAXIMUM_NUMBER_OF_EXAMPLES_PER_CLASS = 3
+
 
 def standard_deviation(a, axis=None, ddof=0, batch_size=None):
     if (not isinstance(a, numpy.ndarray) or axis is not None
@@ -137,3 +140,42 @@ def build_directory_path(
     )
 
     return directory
+
+
+def indices_for_evaluation_subset(evaluation_set,
+                                  maximum_number_of_examples_per_class=None,
+                                  total_maximum_number_of_examples=None):
+
+    if maximum_number_of_examples_per_class is None:
+        maximum_number_of_examples_per_class = (
+            EVALUATION_SUBSET_MAXIMUM_NUMBER_OF_EXAMPLES_PER_CLASS)
+
+    if total_maximum_number_of_examples is None:
+        total_maximum_number_of_examples = (
+            EVALUATION_SUBSET_MAXIMUM_NUMBER_OF_EXAMPLES)
+
+    random_state = numpy.random.RandomState(80)
+
+    if evaluation_set.has_labels:
+
+        if evaluation_set.label_superset:
+            class_names = evaluation_set.superset_class_names
+            labels = evaluation_set.superset_labels
+        else:
+            class_names = evaluation_set.class_names
+            labels = evaluation_set.labels
+
+        subset = set()
+
+        for class_name in class_names:
+            class_label_indices = numpy.argwhere(labels == class_name)
+            random_state.shuffle(class_label_indices)
+            subset.update(
+                *class_label_indices[:maximum_number_of_examples_per_class])
+
+    else:
+        subset = numpy.random.permutation(evaluation_set.number_of_examples)[
+            :total_maximum_number_of_examples]
+        subset = set(subset)
+
+    return subset

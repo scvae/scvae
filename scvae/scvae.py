@@ -18,9 +18,9 @@
 # 
 # ======================================================================== #
 
-import analysis
+import analyses
 from data.data_set import DataSet
-from data.auxiliary import build_directory_path
+from data.auxiliary import build_directory_path, indices_for_evaluation_subset
 
 from models import (
     VariationalAutoencoder,
@@ -85,7 +85,8 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     reset_training = False, skip_modelling = False,
     model_versions = ["all"],
     analyse = True, evaluation_set_name = "test", analyse_data = False,
-    analyses = ["default"], analysis_level = "normal", fast_analysis = False,
+    included_analyses = ["default"], analysis_level = "normal",
+    fast_analysis = False,
     export_options = []):
     
     # Setup
@@ -96,7 +97,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     
     if fast_analysis:
         analyse = True
-        analyses = ["simple"]
+        included_analyses = ["simple"]
         analysis_level = "limited"
     
     ## Distributions
@@ -204,11 +205,11 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     
     if analyse and analyse_data:
         print(subtitle("Analysing data"))
-        analysis.analyse_data(
+        analyses.analyse_data(
             data_sets = all_data_sets,
             decomposition_methods = decomposition_methods,
             highlight_feature_indices = highlight_feature_indices,
-            analyses = analyses,
+            included_analyses = included_analyses,
             analysis_level = analysis_level,
             export_options = export_options,
             results_directory = data_results_directory
@@ -349,6 +350,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
         number_of_epochs = number_of_epochs,
         batch_size = batch_size,
         learning_rate = learning_rate,
+        intermediate_analyser = analyses.analyse_intermediate_results,
         plotting_interval = plotting_interval_during_training,
         run_id = run_id,
         new_run = new_run,
@@ -426,7 +428,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     
     ### Evaluation set
     
-    evaluation_subset_indices = analysis.indices_for_evaluation_subset(
+    evaluation_subset_indices = indices_for_evaluation_subset(
         evaluation_set)
     
     print("Evaluation set: {} set.".format(evaluation_set.kind))
@@ -524,10 +526,10 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     if analyse:
         
         print(subtitle("Model analysis"))
-        analysis.analyse_model(
+        analyses.analyse_model(
             model = model,
             run_id = run_id,
-            analyses = analyses,
+            included_analyses = included_analyses,
             analysis_level = analysis_level,
             export_options = export_options,
             results_directory = results_directory
@@ -644,7 +646,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
             
             print(heading("{} results analysis".format(model_parameter_set_name)))
             
-            analysis.analyse_results(
+            analyses.analyse_results(
                 evaluation_set = transformed_evaluation_set,
                 reconstructed_evaluation_set = reconstructed_evaluation_set,
                 latent_evaluation_sets = latent_evaluation_sets,
@@ -656,7 +658,8 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
                 prediction_details = prediction_details,
                 best_model = use_best_model,
                 early_stopping = use_early_stopping_model,
-                analyses = analyses, analysis_level = analysis_level,
+                included_analyses = included_analyses,
+                analysis_level = analysis_level,
                 export_options = export_options,
                 results_directory = results_directory
             )
@@ -1170,11 +1173,11 @@ parser.add_argument(
 )
 parser.set_defaults(analyse_data = False)
 parser.add_argument(
-    "--analyses",
+    "--included-analyses",
     type = str,
     nargs = "+",
     default = ["default"],
-    help = "analyses to perform, which can be specified individually or as groups: simple, default, complete"
+    help = "analyses to perform, which can be specified individually or as groups: simple, default, all"
 )
 parser.add_argument(
     "--analysis-level",
@@ -1185,7 +1188,7 @@ parser.add_argument(
 parser.add_argument(
     "--fast-analysis",
     action = "store_true",
-    help = "perform fast analysis (equivalent to: `--analyses simple --analysis-level limited`)"
+    help = "perform fast analysis (equivalent to: `--included-analyses simple --analysis-level limited`)"
 )
 parser.set_defaults(fast_analysis = False)
 parser.add_argument(

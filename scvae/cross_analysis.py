@@ -37,12 +37,12 @@ from scipy.stats import pearsonr
 
 import argparse
 
-from analysis import (
-    format_summary_statistics, save_figure,
+from analyses.figures import save_figure
+from analyses.figures.cross_model import (
     plot_correlations, plot_elbo_heat_map,
-    plot_model_metrics, plot_model_metric_sets,
-    CLUSTERING_METRICS
+    plot_model_metrics, plot_model_metric_sets
 )
+from analyses.metrics import format_summary_statistics
 from auxiliary import (
     formatTime,
     normaliseString, properString, capitaliseString,

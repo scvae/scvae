@@ -26,7 +26,6 @@ import scipy.sparse
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from analysis import analyse_intermediate_results
 from auxiliary import (
     checkRunID,
     formatDuration, formatTime,
@@ -453,7 +452,8 @@ class VariationalAutoencoder:
         return stopped_early, epochs_with_no_improvement
 
     def train(self, training_set, validation_set=None, number_of_epochs=100,
-              batch_size=100, learning_rate=1e-3, plotting_interval=None,
+              batch_size=100, learning_rate=1e-3,
+              intermediate_analyser=None, plotting_interval=None,
               run_id=None, new_run=False, reset_training=False,
               temporary_log_directory=None):
 
@@ -1233,70 +1233,73 @@ class VariationalAutoencoder:
                 print()
 
                 # Plot latent validation values
-                if plotting_interval is None:
-                    plot_intermediate_results = (
-                        epoch < 10
-                        or epoch < 100 and (epoch + 1) % 10 == 0
-                        or epoch < 1000 and (epoch + 1) % 50 == 0
-                        or epoch > 1000 and (epoch + 1) % 100 == 0
-                        or epoch == number_of_epochs - 1
-                    )
-                else:
-                    plot_intermediate_results = (
-                        epoch % plotting_interval == 0)
+                if intermediate_analyser:
 
-                if plot_intermediate_results:
+                    if plotting_interval is None:
+                        plot_intermediate_results = (
+                            epoch < 10
+                            or epoch < 100 and (epoch + 1) % 10 == 0
+                            or epoch < 1000 and (epoch + 1) % 50 == 0
+                            or epoch > 1000 and (epoch + 1) % 100 == 0
+                            or epoch == number_of_epochs - 1
+                        )
+                    else:
+                        plot_intermediate_results = (
+                            epoch % plotting_interval == 0)
 
-                    if "mixture" in self.latent_distribution_name:
-                        n_clusters = len(p_z_probabilities)
-                        n_latent = self.latent_size
-                        p_z_covariance_matrices = numpy.empty(
-                            shape=[n_clusters, n_latent, n_latent])
-                        for k in range(n_clusters):
-                            p_z_covariance_matrices[k] = numpy.diag(
-                                p_z_variances[k])
-                        centroids = {
-                            "prior": {
-                                "probabilities": numpy.array(
-                                    p_z_probabilities),
-                                "means": numpy.stack(p_z_means),
-                                "covariance_matrices": p_z_covariance_matrices
+                    if plot_intermediate_results:
+
+                        if "mixture" in self.latent_distribution_name:
+                            n_clusters = len(p_z_probabilities)
+                            n_latent = self.latent_size
+                            p_z_covariance_matrices = numpy.empty(
+                                shape=[n_clusters, n_latent, n_latent])
+                            for k in range(n_clusters):
+                                p_z_covariance_matrices[k] = numpy.diag(
+                                    p_z_variances[k])
+                            centroids = {
+                                "prior": {
+                                    "probabilities": numpy.array(
+                                        p_z_probabilities),
+                                    "means": numpy.stack(p_z_means),
+                                    "covariance_matrices": (
+                                        p_z_covariance_matrices)
+                                }
                             }
-                        }
-                    else:
-                        centroids = None
+                        else:
+                            centroids = None
 
-                    if validation_set:
-                        intermediate_latent_values = q_z_mean_valid
-                        intermediate_data_set = validation_set
-                    else:
-                        intermediate_latent_values = q_z_mean_train
-                        intermediate_data_set = training_set
+                        if validation_set:
+                            intermediate_latent_values = q_z_mean_valid
+                            intermediate_data_set = validation_set
+                        else:
+                            intermediate_latent_values = q_z_mean_train
+                            intermediate_data_set = training_set
 
-                    analyse_intermediate_results(
-                        epoch=epoch,
-                        learning_curves=learning_curves,
-                        epoch_start=epoch_start,
-                        model_type=self.type,
-                        latent_values=intermediate_latent_values,
-                        data_set=intermediate_data_set,
-                        centroids=centroids,
-                        model_name=self.name,
-                        run_id=run_id,
-                        results_directory=self.base_results_directory
-                    )
-                    print()
-                else:
-                    analyse_intermediate_results(
-                        epoch=epoch,
-                        learning_curves=learning_curves,
-                        epoch_start=epoch_start,
-                        model_type=self.type,
-                        model_name=self.name,
-                        run_id=run_id,
-                        results_directory=self.base_results_directory
-                    )
-                    print()
+                        intermediate_analyser(
+                            epoch=epoch,
+                            learning_curves=learning_curves,
+                            epoch_start=epoch_start,
+                            model_type=self.type,
+                            latent_values=intermediate_latent_values,
+                            data_set=intermediate_data_set,
+                            centroids=centroids,
+                            model_name=self.name,
+                            run_id=run_id,
+                            results_directory=self.base_results_directory
+                        )
+                        print()
+                    else:
+                        intermediate_analyser(
+                            epoch=epoch,
+                            learning_curves=learning_curves,
+                            epoch_start=epoch_start,
+                            model_type=self.type,
+                            model_name=self.name,
+                            run_id=run_id,
+                            results_directory=self.base_results_directory
+                        )
+                        print()
 
             training_duration = time() - training_time_start
 
