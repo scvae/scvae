@@ -27,20 +27,18 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 from analyses.metrics.clustering import accuracy
+from analyses.prediction import map_cluster_ids_to_label_ids
 from auxiliary import (
-    checkRunID,
     formatDuration, formatTime,
-    normaliseString, capitaliseString,
-    loadLearningCurves
+    normaliseString, capitaliseString
 )
 from data.data_set import DataSet
 from distributions import DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised
-from miscellaneous.prediction import mapClusterIDsToLabelIDs
 from models.auxiliary import (
     dense_layer, dense_layers,
-    early_stopping_status,
     build_training_string, build_data_string,
-    generate_unique_run_id_for_model,
+    load_learning_curves, early_stopping_status,
+    generate_unique_run_id_for_model, check_run_id,
     correct_model_checkpoint_path, remove_old_checkpoints,
     copy_model_directory, clear_log_directory
 )
@@ -431,7 +429,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         log_directory = os.path.join(base, self.name)
 
         if run_id:
-            run_id = checkRunID(run_id)
+            run_id = check_run_id(run_id)
             log_directory = os.path.join(
                 log_directory,
                 "run_{}".format(run_id)
@@ -462,7 +460,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
         if os.path.exists(log_directory):
 
-            validation_losses = loadLearningCurves(
+            validation_losses = load_learning_curves(
                 model=self,
                 data_set_kinds="validation",
                 run_id=run_id,
@@ -490,7 +488,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         start_time = time()
 
         if run_id:
-            run_id = checkRunID(run_id)
+            run_id = check_run_id(run_id)
             new_run = True
         elif new_run:
             run_id = generate_unique_run_id_for_model(
@@ -758,7 +756,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     os.path.split(model_checkpoint_path)[-1].split("-")[-1])
 
                 if validation_set:
-                    lower_bound_valid_learning_curve = loadLearningCurves(
+                    lower_bound_valid_learning_curve = load_learning_curves(
                         model=self,
                         data_set_kinds="validation",
                         run_id=run_id,
@@ -1035,10 +1033,12 @@ class GaussianMixtureVariationalAutoencoder(object):
                 training_cluster_ids = q_y_logits_train.argmax(axis=1)
 
                 if training_set.has_labels:
-                    predicted_training_label_ids = mapClusterIDsToLabelIDs(
-                        training_label_ids,
-                        training_cluster_ids,
-                        excluded_class_ids
+                    predicted_training_label_ids = (
+                        map_cluster_ids_to_label_ids(
+                            training_label_ids,
+                            training_cluster_ids,
+                            excluded_class_ids
+                        )
                     )
                     accuracy_train = accuracy(
                         training_label_ids,
@@ -1050,7 +1050,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
                 if training_set.label_superset:
                     predicted_training_superset_label_ids = (
-                        mapClusterIDsToLabelIDs(
+                        map_cluster_ids_to_label_ids(
                             training_superset_label_ids,
                             training_cluster_ids,
                             excluded_superset_class_ids
@@ -1279,7 +1279,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
                     if validation_set.has_labels:
                         predicted_validation_label_ids = (
-                            mapClusterIDsToLabelIDs(
+                            map_cluster_ids_to_label_ids(
                                 validation_label_ids,
                                 validation_cluster_ids,
                                 excluded_class_ids
@@ -1295,7 +1295,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
                     if validation_set.label_superset:
                         predicted_validation_superset_label_ids = (
-                            mapClusterIDsToLabelIDs(
+                            map_cluster_ids_to_label_ids(
                                 validation_superset_label_ids,
                                 validation_cluster_ids,
                                 excluded_superset_class_ids
@@ -1612,7 +1612,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         # Setup
 
         if run_id:
-            run_id = checkRunID(run_id)
+            run_id = check_run_id(run_id)
             model_string = "model for run {}".format(run_id)
         else:
             model_string = "model"
@@ -1899,7 +1899,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             evaluation_cluster_ids = q_y_logits.argmax(axis=1)
 
             if evaluation_set.has_labels:
-                predicted_evaluation_label_ids = mapClusterIDsToLabelIDs(
+                predicted_evaluation_label_ids = map_cluster_ids_to_label_ids(
                     evaluation_label_ids,
                     evaluation_cluster_ids,
                     excluded_class_ids
@@ -1914,7 +1914,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
             if evaluation_set.label_superset:
                 predicted_evaluation_superset_label_ids = (
-                    mapClusterIDsToLabelIDs(
+                    map_cluster_ids_to_label_ids(
                         evaluation_superset_label_ids,
                         evaluation_cluster_ids,
                         excluded_superset_class_ids

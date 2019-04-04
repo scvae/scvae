@@ -29,7 +29,7 @@ from models import (
 
 from distributions import DISTRIBUTIONS, LATENT_DISTRIBUTIONS
 
-from miscellaneous.prediction import (
+from analyses.prediction import (
     predict, PREDICTION_METHOD_NAMES, PREDICTION_METHOD_SPECIFICATIONS
 )
 

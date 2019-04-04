@@ -49,7 +49,7 @@ from auxiliary import (
     title, subtitle, heading, subheading,
     prod
 )
-from miscellaneous.prediction import PREDICTION_METHOD_NAMES
+from analyses.prediction import PREDICTION_METHOD_NAMES
 
 metrics_basename = "test-metrics"
 prediction_basename = "test-prediction"
