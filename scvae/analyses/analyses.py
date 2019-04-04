@@ -24,6 +24,7 @@ from time import time
 import numpy
 
 from analyses import figures, images, metrics, subanalyses
+from analyses.decomposition import decompose
 from analyses.figures.auxiliary import _axis_label_for_symbol
 from auxiliary import (
     loadNumberOfEpochsTrained, loadLearningCurves, loadAccuracies,
@@ -33,7 +34,6 @@ from auxiliary import (
     normaliseString, capitaliseString, subheading
 )
 from data.auxiliary import indices_for_evaluation_subset
-from miscellaneous.decomposition import decompose
 
 ANALYSIS_GROUPS = {
     "simple": ["metrics", "images", "learning_curves", "accuracies"],

@@ -30,7 +30,7 @@ from auxiliary import (
     formatDuration,
     normaliseString, properString, capitaliseString
 )
-from miscellaneous.decomposition import (
+from analyses.decomposition import (
     decompose,
     DECOMPOSITION_METHOD_NAMES,
     DEFAULT_DECOMPOSITION_METHOD

@@ -20,7 +20,7 @@ import matplotlib.patches
 import numpy
 
 from auxiliary import normaliseString, properString
-from miscellaneous.decomposition import (
+from analyses.decomposition import (
     DECOMPOSITION_METHOD_NAMES,
     DECOMPOSITION_METHOD_LABEL
 )
