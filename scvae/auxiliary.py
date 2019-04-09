@@ -22,19 +22,12 @@ import sys
 import shutil
 import time
 from collections import namedtuple
-from functools import reduce
 from math import floor
-from operator import mul
 
 import urllib.request
 
 import numpy
 import tensorflow
-
-# Math
-
-def prod(iterable):
-    return reduce(mul, iterable, 1)
 
 # Time
 

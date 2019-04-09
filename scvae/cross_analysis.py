@@ -46,8 +46,7 @@ from analyses.metrics import format_summary_statistics
 from auxiliary import (
     formatTime,
     normaliseString, properString, capitaliseString,
-    title, subtitle, heading, subheading,
-    prod
+    title, subtitle, heading, subheading
 )
 from analyses.prediction import PREDICTION_METHOD_NAMES
 
@@ -521,7 +520,8 @@ def main(log_directory = None, results_directory = None,
                     .reindex(
                         index = sorted(
                             network_architecture_ELBOs.index,
-                            key = lambda s: prod(map(int, s.split("×")))
+                            key = lambda s: numpy.prod(list(map(
+                                int, s.split("×"))))
                         )
                     )
                 
