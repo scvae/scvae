@@ -25,7 +25,7 @@ from matplotlib import pyplot
 
 from analyses.figures import saving, style
 from analyses.figures.auxiliary import _axis_label_for_symbol
-from auxiliary import normaliseString, capitaliseString
+from auxiliary import normalise_string, capitalise_string
 
 
 def plot_learning_curves(curves, model_type, epoch_offset=0, name=None):
@@ -244,7 +244,7 @@ def plot_accuracy_evolution(accuracies, name=None):
             line_style = "dashed"
             colour = style.STANDARD_PALETTE[1]
 
-        label = "{} set".format(capitaliseString(accuracies_kind))
+        label = "{} set".format(capitalise_string(accuracies_kind))
         epochs = numpy.arange(len(accuracies)) + 1
         axis.plot(
             epochs,
@@ -311,7 +311,7 @@ def plot_kl_divergence_evolution(kl_neurons, scale="log", name=None):
 def plot_centroid_probabilities_evolution(probabilities, distribution,
                                           linestyle="solid", name=None):
 
-    distribution = normaliseString(distribution)
+    distribution = normalise_string(distribution)
 
     y_label = _axis_label_for_symbol(
         symbol="\\pi",
@@ -356,7 +356,7 @@ def plot_centroid_means_evolution(means, distribution, decomposed=False,
         decomposition_method = "PCA"
     else:
         decomposition_method = ""
-    distribution = normaliseString(distribution)
+    distribution = normalise_string(distribution)
     suffix = "(y = k)"
 
     x_label = _axis_label_for_symbol(
@@ -428,7 +428,7 @@ def plot_centroid_means_evolution(means, distribution, decomposed=False,
 def plot_centroid_covariance_matrices_evolution(covariance_matrices,
                                                 distribution, name=None):
 
-    distribution = normaliseString(distribution)
+    distribution = normalise_string(distribution)
     figure_name = "centroids_evolution-{}-covariance_matrices".format(
         distribution)
     figure_name = saving.build_figure_name(figure_name, name)

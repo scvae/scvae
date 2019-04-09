@@ -24,7 +24,7 @@ from time import time
 import numpy
 import seaborn
 
-from auxiliary import formatDuration, normaliseString
+from auxiliary import format_duration, normalise_string
 from data import internal_io, loading, parsing, processing, sparse
 
 PREPROCESS_SUFFIX = "preprocessed"
@@ -113,7 +113,7 @@ class DataSet(object):
         if data_format is None:
             data_format = data_format_from_metadata
         else:
-            data_format = normaliseString(data_format)
+            data_format = normalise_string(data_format)
             if (data_format_from_metadata
                     and data_format_from_metadata != data_format):
                 raise ValueError(
@@ -402,7 +402,7 @@ class DataSet(object):
         feature_selection_parameters = None
 
         if self.feature_selection:
-            feature_selection = normaliseString(self.feature_selection)
+            feature_selection = normalise_string(self.feature_selection)
 
             if feature_selection == "keep_variances_above":
                 feature_selection_parameters = [0.5]
@@ -737,7 +737,8 @@ class DataSet(object):
                 self.tags = _update_tag_for_mapped_features(self.tags)
 
                 duration = time() - start_time
-                print("Features mapped ({}).".format(formatDuration(duration)))
+                print("Features mapped ({}).".format(format_duration(
+                    duration)))
 
                 print()
 
@@ -753,7 +754,7 @@ class DataSet(object):
                 duration = time() - start_time
                 print(
                     "Values preprocessed ({})."
-                    .format(formatDuration(duration))
+                    .format(format_duration(duration))
                 )
 
                 print()
@@ -888,7 +889,7 @@ class DataSet(object):
 
                 duration = time() - start_time
                 print(
-                    "Values binarised ({}).".format(formatDuration(duration))
+                    "Values binarised ({}).".format(format_duration(duration))
                 )
 
                 print()
@@ -1116,23 +1117,23 @@ class DataSet(object):
             filename_parts.append("features_mapped")
 
         if feature_selection:
-            feature_selection_part = normaliseString(feature_selection)
+            feature_selection_part = normalise_string(feature_selection)
             if feature_selection_parameters:
                 for parameter in feature_selection_parameters:
-                    feature_selection_part += "_" + normaliseString(str(
+                    feature_selection_part += "_" + normalise_string(str(
                         parameter))
             filename_parts.append(feature_selection_part)
 
         if example_filter:
-            example_filter_part = normaliseString(example_filter)
+            example_filter_part = normalise_string(example_filter)
             if example_filter_parameters:
                 for parameter in example_filter_parameters:
-                    example_filter_part += "_" + normaliseString(str(
+                    example_filter_part += "_" + normalise_string(str(
                         parameter))
             filename_parts.append(example_filter_part)
 
         if preprocessing_methods:
-            filename_parts.extend(map(normaliseString, preprocessing_methods))
+            filename_parts.extend(map(normalise_string, preprocessing_methods))
 
         if splitting_method:
             filename_parts.append("split")

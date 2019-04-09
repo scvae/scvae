@@ -22,8 +22,8 @@ from time import time
 import scipy.sparse
 
 from auxiliary import (
-    formatDuration, normaliseString,
-    downloadFile, copyFile
+    format_duration, normalise_string,
+    download_file, copy_file
 )
 from data.loaders import LOADERS
 
@@ -63,7 +63,7 @@ def acquire_data_set(title, urls, directory):
             extension = os.extsep + ".".join(extensions)
 
             filename = "-".join(
-                map(normaliseString, [title, values_or_labels, kind]))
+                map(normalise_string, [title, values_or_labels, kind]))
             path = os.path.join(directory, filename) + extension
 
             paths[values_or_labels][kind] = path
@@ -81,11 +81,11 @@ def acquire_data_set(title, urls, directory):
                         values_or_labels, kind, title))
                     start_time = time()
 
-                    copyFile(url, path)
+                    copy_file(url, path)
 
                     duration = time() - start_time
                     print("Data set copied ({}).".format(
-                        formatDuration(duration)))
+                        format_duration(duration)))
                     print()
 
                 else:
@@ -94,11 +94,11 @@ def acquire_data_set(title, urls, directory):
                         values_or_labels, kind, title))
                     start_time = time()
 
-                    downloadFile(url, path)
+                    download_file(url, path)
 
                     duration = time() - start_time
                     print("Data set downloaded ({}).".format(
-                        formatDuration(duration)))
+                        format_duration(duration)))
                     print()
 
     return paths
@@ -121,7 +121,7 @@ def load_original_data_set(paths, data_format):
     data_dictionary = load(paths=paths)
 
     loading_duration = time() - loading_time_start
-    print("Original data set loaded ({}).".format(formatDuration(
+    print("Original data set loaded ({}).".format(format_duration(
         loading_duration)))
 
     if not isinstance(data_dictionary["values"], scipy.sparse.csr_matrix):
@@ -135,7 +135,7 @@ def load_original_data_set(paths, data_format):
             data_dictionary["values"])
 
         sparse_duration = time() - sparse_time_start
-        print("Data set value array converted ({}).".format(formatDuration(
+        print("Data set value array converted ({}).".format(format_duration(
             sparse_duration)))
 
     return data_dictionary

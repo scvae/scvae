@@ -20,7 +20,7 @@ import os
 
 import numpy
 
-from auxiliary import normaliseString
+from auxiliary import normalise_string
 
 EVALUATION_SUBSET_MAXIMUM_NUMBER_OF_EXAMPLES = 25
 EVALUATION_SUBSET_MAXIMUM_NUMBER_OF_EXAMPLES_PER_CLASS = 3
@@ -100,30 +100,30 @@ def build_directory_path(
         preprocessing_directory_parts.append("features_mapped")
 
     if data_set.feature_selection:
-        feature_selection_part = normaliseString(data_set.feature_selection)
+        feature_selection_part = normalise_string(data_set.feature_selection)
         if data_set.feature_selection_parameters:
             for parameter in data_set.feature_selection_parameters:
-                feature_selection_part += "_" + normaliseString(str(
+                feature_selection_part += "_" + normalise_string(str(
                     parameter))
         preprocessing_directory_parts.append(feature_selection_part)
 
     if data_set.example_filter:
-        example_filter_part = normaliseString(data_set.example_filter)
+        example_filter_part = normalise_string(data_set.example_filter)
         if data_set.example_filter_parameters:
             for parameter in data_set.example_filter_parameters:
-                example_filter_part += "_" + normaliseString(str(
+                example_filter_part += "_" + normalise_string(str(
                     parameter))
         preprocessing_directory_parts.append(example_filter_part)
 
     if preprocessing and data_set.preprocessing_methods:
         preprocessing_directory_parts.extend(
-            map(normaliseString, data_set.preprocessing_methods)
+            map(normalise_string, data_set.preprocessing_methods)
         )
 
     if preprocessing and data_set.noisy_preprocessing_methods:
         preprocessing_directory_parts.append("noisy")
         preprocessing_directory_parts.extend(
-            map(normaliseString, data_set.noisy_preprocessing_methods)
+            map(normalise_string, data_set.noisy_preprocessing_methods)
         )
 
     if preprocessing_directory_parts:

@@ -27,8 +27,8 @@ from analyses import figures
 from analyses.figures import style
 from analyses.figures.auxiliary import _axis_label_for_symbol
 from auxiliary import (
-    formatDuration,
-    normaliseString, properString, capitaliseString
+    format_duration,
+    normalise_string, proper_string, capitalise_string
 )
 from analyses.decomposition import (
     decompose,
@@ -85,7 +85,7 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
         )
         distribution_duration = time() - distribution_time_start
         print("    Class distribution plotted and saved ({}).".format(
-            formatDuration(distribution_duration)))
+            format_duration(distribution_duration)))
 
     # Superset class distribution
     if data_set.label_superset and colouring_data_set == data_set:
@@ -107,7 +107,7 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
         )
         distribution_duration = time() - distribution_time_start
         print("    Superset class distribution plotted and saved ({}).".format(
-            formatDuration(distribution_duration)))
+            format_duration(distribution_duration)))
 
     # Count distribution
     if scipy.sparse.issparse(data_set.values):
@@ -136,7 +136,7 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
         )
     distribution_duration = time() - distribution_time_start
     print("    Count distribution plotted and saved ({}).".format(
-        formatDuration(distribution_duration)))
+        format_duration(distribution_duration)))
 
     # Count distributions with cut-off
     if (analysis_level == "extensive" and cutoffs
@@ -160,7 +160,7 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
         distribution_duration = time() - distribution_time_start
         print(
             "    Count distributions with cut-offs plotted and saved ({})."
-            .format(formatDuration(distribution_duration))
+            .format(format_duration(distribution_duration))
         )
 
     # Count sum distribution
@@ -182,7 +182,7 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
     )
     distribution_duration = time() - distribution_time_start
     print("    Count sum distribution plotted and saved ({}).".format(
-        formatDuration(distribution_duration)))
+        format_duration(distribution_duration)))
 
     # Count distributions and count sum distributions for each class
     if analysis_level == "extensive" and colouring_data_set.labels is not None:
@@ -247,7 +247,7 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
         distribution_duration = time() - distribution_time_start
         print(
             "    Count distributions for each class plotted and saved ({})."
-            .format(formatDuration(distribution_duration))
+            .format(format_duration(distribution_duration))
         )
 
         distribution_time_start = time()
@@ -278,7 +278,7 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
         print(
             "    "
             "Count sum distributions for each class plotted and saved ({})."
-            .format(formatDuration(distribution_duration))
+            .format(format_duration(distribution_duration))
         )
 
     print()
@@ -453,7 +453,7 @@ def analyse_matrices(data_set, plot_distances=False, name=None,
                 subsampling_string,
                 sort_string,
                 "plotted and saved",
-                "({})".format(formatDuration(duration))
+                "({})".format(format_duration(duration))
             ] if s]) + ".")
 
     print()
@@ -511,7 +511,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
         if data_set.values.shape[1] <= 1:
             continue
 
-        name = normaliseString(title)
+        name = normalise_string(title)
 
         if specifier:
             specification = specifier(data_set)
@@ -552,7 +552,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                 else:
                     continue
             else:
-                decomposition_method = properString(
+                decomposition_method = proper_string(
                     decomposition_method, DECOMPOSITION_METHOD_NAMES)
 
                 values_decomposed = data_set.values
@@ -605,8 +605,8 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                         )
                         decompose_duration = time() - decompose_time_start
                         print("{} pre-decomposed ({}).".format(
-                            capitaliseString(title),
-                            formatDuration(decompose_duration)
+                            capitalise_string(title),
+                            format_duration(decompose_duration)
                         ))
 
                     else:
@@ -630,8 +630,8 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                 )
                 decompose_duration = time() - decompose_time_start
                 print("{} decomposed ({}).".format(
-                    capitaliseString(title),
-                    formatDuration(decompose_duration)
+                    capitalise_string(title),
+                    format_duration(decompose_duration)
                 ))
                 print()
 
@@ -688,8 +688,8 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
             )
             plot_duration = time() - plot_time_start
             print("    {} plotted and saved ({}).".format(
-                capitaliseString(title),
-                formatDuration(plot_duration)
+                capitalise_string(title),
+                format_duration(plot_duration)
             ))
 
             # Labels
@@ -712,7 +712,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                 )
                 plot_duration = time() - plot_time_start
                 print("    {} (with labels) plotted and saved ({}).".format(
-                    capitaliseString(title), formatDuration(plot_duration)))
+                    capitalise_string(title), format_duration(plot_duration)))
 
                 # Superset labels
                 if colouring_data_set.superset_labels is not None:
@@ -737,8 +737,8 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                         "    "
                         "{} (with superset labels) plotted and saved ({})."
                         .format(
-                            capitaliseString(title),
-                            formatDuration(plot_duration)
+                            capitalise_string(title),
+                            format_duration(plot_duration)
                         )
                     )
 
@@ -767,8 +767,8 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                         print(
                             "    {} (for each class) plotted and saved ({})."
                             .format(
-                                capitaliseString(title),
-                                formatDuration(plot_duration)
+                                capitalise_string(title),
+                                format_duration(plot_duration)
                             )
                         )
 
@@ -797,8 +797,8 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                         print(
                             "    {} (for each superset class) plotted and "
                             "saved ({}).".format(
-                                capitaliseString(title),
-                                formatDuration(plot_duration)
+                                capitalise_string(title),
+                                format_duration(plot_duration)
                             )
                         )
 
@@ -826,8 +826,8 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     "    "
                     "{} (with predicted cluster IDs) plotted and saved ({})."
                     .format(
-                        capitaliseString(title),
-                        formatDuration(plot_duration)
+                        capitalise_string(title),
+                        format_duration(plot_duration)
                     )
                 )
 
@@ -855,8 +855,8 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     "    "
                     "{} (with predicted labels) plotted and saved ({})."
                     .format(
-                        capitaliseString(title),
-                        formatDuration(plot_duration)
+                        capitalise_string(title),
+                        format_duration(plot_duration)
                     )
                 )
 
@@ -882,8 +882,8 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                 print(
                     "    {} (with predicted superset labels) plotted and saved"
                     " ({}).".format(
-                        capitaliseString(title),
-                        formatDuration(plot_duration)
+                        capitalise_string(title),
+                        format_duration(plot_duration)
                     )
                 )
 
@@ -906,8 +906,8 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
             )
             plot_duration = time() - plot_time_start
             print("    {} (with count sum) plotted and saved ({}).".format(
-                capitaliseString(title),
-                formatDuration(plot_duration)
+                capitalise_string(title),
+                format_duration(plot_duration)
             ))
 
             # Features
@@ -931,9 +931,9 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                 )
                 plot_duration = time() - plot_time_start
                 print("    {} (with {}) plotted and saved ({}).".format(
-                    capitaliseString(title),
+                    capitalise_string(title),
                     data_set.feature_names[feature_index],
-                    formatDuration(plot_duration)
+                    format_duration(plot_duration)
                 ))
 
             print()
@@ -948,7 +948,7 @@ def analyse_centroid_probabilities(centroids, name=None,
     plot_time_start = time()
 
     if name:
-        name = normaliseString(name)
+        name = normalise_string(name)
 
     posterior_probabilities = None
     prior_probabilities = None
@@ -966,7 +966,7 @@ def analyse_centroid_probabilities(centroids, name=None,
         if posterior_probabilities is not None:
             y_label = _axis_label_for_symbol(
                 symbol="\\pi",
-                distribution=normaliseString("posterior"),
+                distribution=normalise_string("posterior"),
                 suffix="^k")
             if name:
                 plot_name = [name, "posterior", "prior"]
@@ -975,7 +975,7 @@ def analyse_centroid_probabilities(centroids, name=None,
         else:
             y_label = _axis_label_for_symbol(
                 symbol="\\pi",
-                distribution=normaliseString("prior"),
+                distribution=normalise_string("prior"),
                 suffix="^k")
             if name:
                 plot_name = [name, "prior"]
@@ -984,7 +984,7 @@ def analyse_centroid_probabilities(centroids, name=None,
     elif posterior_probabilities is not None:
         y_label = _axis_label_for_symbol(
             symbol="\\pi",
-            distribution=normaliseString("posterior"),
+            distribution=normalise_string("posterior"),
             suffix="^k")
         if name:
             plot_name = [name, "posterior"]
@@ -1009,4 +1009,4 @@ def analyse_centroid_probabilities(centroids, name=None,
 
     plot_duration = time() - plot_time_start
     print("Centroid probabilities plotted and saved ({}).".format(
-        formatDuration(plot_duration)))
+        format_duration(plot_duration)))

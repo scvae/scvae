@@ -23,7 +23,7 @@ from matplotlib import pyplot
 
 from analyses.figures import saving, style
 from analyses.figures.auxiliary import _covariance_matrix_as_ellipse
-from auxiliary import normaliseString
+from auxiliary import normalise_string
 
 
 def plot_values(values, colour_coding=None, colouring_data_set=None,
@@ -45,10 +45,10 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
     if not title:
         title = "none"
 
-    figure_name += "-" + normaliseString(title)
+    figure_name += "-" + normalise_string(title)
 
     if colour_coding:
-        colour_coding = normaliseString(colour_coding)
+        colour_coding = normalise_string(colour_coding)
         figure_name += "-" + colour_coding
         if "predicted" in colour_coding:
             if prediction_details:
@@ -176,7 +176,7 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
 
         elif "class" in colour_coding:
             colours = []
-            figure_name += "-" + normaliseString(str(class_name))
+            figure_name += "-" + normalise_string(str(class_name))
             ordered_indices_set = {
                 str(class_name): [],
                 "Remaining": []
@@ -248,7 +248,7 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
             raise ValueError("Feature number higher than number of features.")
 
         feature_name = colouring_data_set.feature_names[feature_index]
-        figure_name += "-{}".format(normaliseString(feature_name))
+        figure_name += "-{}".format(normalise_string(feature_name))
 
         f = colouring_data_set.values[shuffled_indices, feature_index]
         if scipy.sparse.issparse(f):

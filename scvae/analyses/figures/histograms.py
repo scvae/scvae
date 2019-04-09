@@ -22,7 +22,7 @@ import seaborn
 from matplotlib import pyplot
 
 from analyses.figures import saving, style
-from auxiliary import capitaliseString
+from auxiliary import capitalise_string
 
 MAXIMUM_NUMBER_OF_BINS_FOR_HISTOGRAMS = 20000
 
@@ -188,7 +188,7 @@ def plot_histogram(series, excess_zero_count=0, label=None, normed=False,
     )
 
     axis.set_xscale(x_scale)
-    axis.set_xlabel(capitaliseString(label))
+    axis.set_xlabel(capitalise_string(label))
 
     if normed:
         axis.set_ylabel("Frequency")

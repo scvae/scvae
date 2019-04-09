@@ -27,8 +27,8 @@ from analyses import figures, images, metrics, subanalyses
 from analyses.decomposition import decompose
 from analyses.figures.auxiliary import _axis_label_for_symbol
 from auxiliary import (
-    formatTime, formatDuration,
-    normaliseString, capitaliseString, subheading
+    format_time, format_duration,
+    normalise_string, capitalise_string, subheading
 )
 from data.auxiliary import indices_for_evaluation_subset
 from models.auxiliary import (
@@ -96,17 +96,17 @@ def analyse_data(data_sets,
 
         metrics_duration = time() - metrics_time_start
         print("Metrics calculated ({}).".format(
-            formatDuration(metrics_duration)))
+            format_duration(metrics_duration)))
 
         metrics_path = os.path.join(results_directory, "data_set_metrics.log")
         metrics_saving_time_start = time()
 
         metrics_string_parts = [
-            "Timestamp: {}".format(formatTime(metrics_saving_time_start)),
+            "Timestamp: {}".format(format_time(metrics_saving_time_start)),
             "Features: {}".format(number_of_features),
             "Examples: {}".format(number_of_examples["full"]),
             "\n".join([
-                "{} examples: {}".format(capitaliseString(kind), number)
+                "{} examples: {}".format(capitalise_string(kind), number)
                 for kind, number in number_of_examples.items()
                 if kind != "full"
             ]),
@@ -118,7 +118,7 @@ def analyse_data(data_sets,
             metrics_file.write(metrics_string)
 
         metrics_saving_duration = time() - metrics_saving_time_start
-        print("Metrics saved ({}).".format(formatDuration(
+        print("Metrics saved ({}).".format(format_duration(
             metrics_saving_duration)))
         print()
 
@@ -153,7 +153,7 @@ def analyse_data(data_sets,
                 directory=results_directory
             )
             image_duration = time() - image_time_start
-            print("Image saved ({}).".format(formatDuration(image_duration)))
+            print("Image saved ({}).".format(format_duration(image_duration)))
             print()
 
         if "distributions" in included_analyses:
@@ -216,7 +216,7 @@ def analyse_data(data_sets,
             duration = time() - time_start
             print(
                 "    Feature value standard deviations computed({})."
-                .format(formatDuration(duration))
+                .format(format_duration(duration))
             )
 
             # Feature value standard_deviations
@@ -241,7 +241,7 @@ def analyse_data(data_sets,
             duration = time() - time_start
             print(
                 "    Feature value standard deviations plotted and saved({})."
-                .format(formatDuration(duration))
+                .format(format_duration(duration))
             )
 
             # Distribution of feature value standard deviations
@@ -267,7 +267,7 @@ def analyse_data(data_sets,
             duration = time() - time_start
             print(
                 "    Feature value standard deviation distribution plotted "
-                "and saved ({}).".format(formatDuration(duration))
+                "and saved ({}).".format(format_duration(duration))
             )
 
             print()
@@ -343,7 +343,7 @@ def analyse_model(model, run_id=None,
 
         learning_curves_duration = time() - learning_curves_time_start
         print("Learning curves plotted and saved ({}).".format(
-            formatDuration(learning_curves_duration)))
+            format_duration(learning_curves_duration)))
         print()
 
     if "accuracies" in included_analyses:
@@ -390,7 +390,7 @@ def analyse_model(model, run_id=None,
 
             accuracies_duration = time() - accuracies_time_start
             print("Accuracies plotted and saved ({}).".format(
-                formatDuration(accuracies_duration)))
+                format_duration(accuracies_duration)))
             print()
 
     if "kl_heat_maps" in included_analyses and "VAE" in model.type:
@@ -417,7 +417,7 @@ def analyse_model(model, run_id=None,
 
         heat_map_duration = time() - heat_map_time_start
         print("Heat map plotted and saved ({}).".format(
-            formatDuration(heat_map_duration)))
+            format_duration(heat_map_duration)))
         print()
 
     if "latent_distributions" in included_analyses and model.type == "GMVAE":
@@ -506,7 +506,7 @@ def analyse_model(model, run_id=None,
                 centroids_duration = time() - centroids_time_start
                 print(
                     "Evolution of latent {} parameters plotted and saved ({})"
-                    .format(distribution, formatDuration(centroids_duration))
+                    .format(distribution, format_duration(centroids_duration))
                 )
                 print()
 
@@ -543,7 +543,7 @@ def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
 
     learning_curves_duration = time() - learning_curves_time_start
     print("Learning curves plotted and saved ({}).".format(
-        formatDuration(learning_curves_duration)))
+        format_duration(learning_curves_duration)))
 
     if latent_values is not None:
 
@@ -571,8 +571,8 @@ def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
 
             decompose_duration = time() - decompose_time_start
             print("{} decomposed ({}).".format(
-                capitaliseString(latent_set_name),
-                formatDuration(decompose_duration))
+                capitalise_string(latent_set_name),
+                format_duration(decompose_duration))
             )
 
         symbol = "z"
@@ -649,8 +649,8 @@ def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
         plot_duration = time() - plot_time_start
         print(
             "{} plotted and saved ({}).".format(
-                capitaliseString(latent_set_name),
-                formatDuration(plot_duration)
+                capitalise_string(latent_set_name),
+                format_duration(plot_duration)
             )
         )
 
@@ -728,7 +728,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         os.makedirs(results_directory)
 
     setup_duration = time() - setup_time_start
-    print("Finished setting up ({}).".format(formatDuration(setup_duration)))
+    print("Finished setting up ({}).".format(format_duration(setup_duration)))
     print()
 
     if "metrics" in included_analyses:
@@ -762,7 +762,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         )
 
         loading_duration = time() - loading_time_start
-        print("Results loaded ({}).".format(formatDuration(loading_duration)))
+        print("Results loaded ({}).".format(format_duration(loading_duration)))
         print()
 
         print("Calculating metrics for results.")
@@ -791,7 +791,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
 
         metrics_duration = time() - metrics_time_start
         print("Metrics calculated ({}).".format(
-            formatDuration(metrics_duration)))
+            format_duration(metrics_duration)))
 
         metrics_saving_time_start = time()
 
@@ -803,7 +803,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
 
         # Build metrics string
         metrics_string_parts = [
-            "Timestamp: {}".format(formatTime(metrics_saving_time_start)),
+            "Timestamp: {}".format(format_time(metrics_saving_time_start)),
             "Number of epochs trained: {}".format(number_of_epochs_trained),
             "\nEvaluation:"
         ]
@@ -861,7 +861,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                 results_directory, prediction_log_filename + ".pkl.gz")
 
             prediction_string_parts = [
-                "Timestamp: {}".format(formatTime(
+                "Timestamp: {}".format(format_time(
                     metrics_saving_time_start)),
                 "Number of epochs trained: {}".format(
                     number_of_epochs_trained),
@@ -899,14 +899,14 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                         if not clustering_metric_name_printed:
                             prediction_string_parts.append(
                                 "    {}:".format(
-                                    capitaliseString(metric_name)
+                                    capitalise_string(metric_name)
                                 )
                             )
                             clustering_metric_name_printed = True
 
                         prediction_string_parts.append(
                             "        {}: {:.5g}.".format(
-                                capitaliseString(set_name), metric_value
+                                capitalise_string(set_name), metric_value
                             )
                         )
 
@@ -928,7 +928,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                 pickle.dump(prediction_dictionary, prediction_file)
 
         metrics_saving_duration = time() - metrics_saving_time_start
-        print("Metrics saved ({}).".format(formatDuration(
+        print("Metrics saved ({}).".format(format_duration(
             metrics_saving_duration)))
         print()
 
@@ -943,11 +943,11 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                 if metric_value is not None:
 
                     if not clustering_metric_name_printed:
-                        print("{}:".format(capitaliseString(metric_name)))
+                        print("{}:".format(capitalise_string(metric_name)))
                         clustering_metric_name_printed = True
 
                     print("    {}: {:.5g}.".format(
-                        capitaliseString(set_name), metric_value
+                        capitalise_string(set_name), metric_value
                     ))
 
             print()
@@ -979,7 +979,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             directory=results_directory
         )
         image_duration = time() - image_time_start
-        print("Image saved ({}).".format(formatDuration(image_duration)))
+        print("Image saved ({}).".format(format_duration(image_duration)))
         print()
 
     if "profile_comparisons" in included_analyses:
@@ -1114,7 +1114,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
 
         profile_comparisons_duration = time() - profile_comparisons_time_start
         print("Profile comparisons plotted and saved ({}).".format(
-            formatDuration(profile_comparisons_duration)))
+            format_duration(profile_comparisons_duration)))
         print()
 
     if "distributions" in included_analyses:
@@ -1202,7 +1202,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             heat_maps_duration = time() - heat_maps_time_start
             print(
                 "    Difference heat map plotted and saved ({})."
-                .format(formatDuration(heat_maps_duration))
+                .format(format_duration(heat_maps_duration))
             )
 
             # log-ratios
@@ -1226,7 +1226,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             heat_maps_duration = time() - heat_maps_time_start
             print(
                 "    log-ratio heat map plotted and saved ({})."
-                .format(formatDuration(heat_maps_duration))
+                .format(format_duration(heat_maps_duration))
             )
 
     print()
@@ -1259,7 +1259,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             )
             loading_duration = time() - loading_time_start
             print("Centroids loaded ({}).".format(
-                formatDuration(loading_duration)))
+                format_duration(loading_duration)))
             print()
         else:
             centroids = None
@@ -1312,7 +1312,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             correlations_duration = time() - correlations_time_start
             print(
                 "    Latent correlations for {} plotted ({})."
-                .format(set_name, formatDuration(correlations_duration))
+                .format(set_name, format_duration(correlations_duration))
             )
 
         print()
@@ -1351,9 +1351,9 @@ def _parse_analyses(included_analyses):
         if analysis in ANALYSIS_GROUPS:
             group = analysis
             resulting_analyses.update(map(
-                normaliseString, ANALYSIS_GROUPS[group]))
+                normalise_string, ANALYSIS_GROUPS[group]))
         elif analysis in ANALYSIS_GROUPS["all"]:
-            resulting_analyses.add(normaliseString(analysis))
+            resulting_analyses.add(normalise_string(analysis))
         else:
             raise ValueError("Analysis `{}` not found.".format(analysis))
 

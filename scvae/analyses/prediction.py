@@ -24,7 +24,7 @@ from kneed import KneeLocator
 from sklearn.cluster import KMeans, MiniBatchKMeans, DBSCAN
 from sklearn.neighbors import NearestNeighbors
 
-from auxiliary import properString, formatDuration
+from auxiliary import proper_string, format_duration
 
 PREDICTION_METHOD_NAMES = {
     "k-means": ["k_means", "kmeans"],
@@ -60,7 +60,7 @@ MAXIMUM_SAMPLE_SIZE_FOR_NORMAL_KMEANS = 10000
 def predict(training_set, evaluation_set, method="copy",
             number_of_clusters=2):
 
-    method = properString(method, PREDICTION_METHOD_NAMES)
+    method = proper_string(method, PREDICTION_METHOD_NAMES)
 
     specifications = PREDICTION_METHOD_SPECIFICATIONS.get(method, {})
     inference = specifications.get("inference", None)
@@ -212,7 +212,7 @@ def predict(training_set, evaluation_set, method="copy",
 
     prediction_duration = time() - prediction_time_start
     print("Labels predicted ({}).".format(
-        formatDuration(prediction_duration)))
+        format_duration(prediction_duration)))
 
     return cluster_ids, predicted_labels, predicted_superset_labels
 

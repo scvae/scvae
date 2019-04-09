@@ -23,7 +23,7 @@ import seaborn
 from matplotlib import pyplot
 
 from analyses.figures import saving, style
-from auxiliary import normaliseString, capitaliseString
+from auxiliary import normalise_string, capitalise_string
 
 
 def plot_series(series, x_label, y_label, sort=False, scale="linear",
@@ -56,8 +56,8 @@ def plot_series(series, x_label, y_label, sort=False, scale="linear",
         axis.plot(x, series, color=colour)
         axis.set_yscale(scale)
 
-    axis.set_xlabel(capitaliseString(x_label))
-    axis.set_ylabel(capitaliseString(y_label))
+    axis.set_xlabel(capitalise_string(x_label))
+    axis.set_ylabel(capitalise_string(y_label))
 
     return figure, figure_name
 
@@ -70,8 +70,8 @@ def plot_profile_comparison(observed_series, expected_series,
                             x_scale="linear", y_scale="linear", y_cutoff=None,
                             name=None):
 
-    sort_by = normaliseString(sort_by)
-    sort_direction = normaliseString(sort_direction)
+    sort_by = normalise_string(sort_by)
+    sort_direction = normalise_string(sort_direction)
     figure_name = saving.build_figure_name("profile_comparison", name)
 
     if scipy.sparse.issparse(observed_series):
@@ -94,10 +94,10 @@ def plot_profile_comparison(observed_series, expected_series,
 
     if sort:
         x_label = "{}s sorted {} by {} {}s [sort index]".format(
-            capitaliseString(x_name), sort_direction, sort_by, y_name.lower())
+            capitalise_string(x_name), sort_direction, sort_by, y_name.lower())
     else:
-        x_label = "{}s [original index]".format(capitaliseString(x_name))
-    y_label = capitaliseString(y_name) + "s"
+        x_label = "{}s [original index]".format(capitalise_string(x_name))
+    y_label = capitalise_string(y_name) + "s"
 
     observed_label = "Observed"
     expected_label = "Expected"

@@ -29,8 +29,8 @@ import tensorflow_probability as tfp
 from analyses.metrics.clustering import accuracy
 from analyses.prediction import map_cluster_ids_to_label_ids
 from auxiliary import (
-    formatDuration, formatTime,
-    normaliseString, capitaliseString
+    format_duration, format_time,
+    normalise_string, capitalise_string
 )
 from data.data_set import DataSet
 from distributions import DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised
@@ -256,7 +256,7 @@ class GaussianMixtureVariationalAutoencoder(object):
     @property
     def name(self):
 
-        latent_parts = [normaliseString(self.latent_distribution_name)]
+        latent_parts = [normalise_string(self.latent_distribution_name)]
 
         if "mixture" in self.latent_distribution_name:
             latent_parts.append("c_{}".format(self.n_clusters))
@@ -264,7 +264,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         if self.prior_probabilities_method != "uniform":
             latent_parts.append("p_" + self.prior_probabilities_method)
 
-        reconstruction_parts = [normaliseString(
+        reconstruction_parts = [normalise_string(
             self.reconstruction_distribution_name)]
 
         if self.k_max:
@@ -511,7 +511,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             "completed": False,
             "message": None,
             "epochs trained": None,
-            "start time": formatTime(start_time),
+            "start time": format_time(start_time),
             "training duration": None,
             "last epoch duration": None,
             "learning rate": learning_rate,
@@ -609,7 +609,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             shutil.copytree(permanent_log_directory, log_directory)
 
             copying_duration = time() - copying_time_start
-            print("Log directory copied ({}).".format(formatDuration(
+            print("Log directory copied ({}).".format(format_duration(
                 copying_duration)))
 
             print()
@@ -705,7 +705,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 excluded_superset_class_ids = []
 
         preparing_data_duration = time() - preparing_data_time_start
-        print("Data prepared ({}).".format(formatDuration(
+        print("Data prepared ({}).".format(format_duration(
             preparing_data_duration)))
         print()
 
@@ -774,7 +774,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
                 restoring_duration = time() - restoring_time_start
                 print("Earlier model parameters restored ({}).".format(
-                    formatDuration(restoring_duration)))
+                    format_duration(restoring_duration)))
                 print()
             else:
                 print("Initialising model parameters.")
@@ -792,7 +792,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
                 initialising_duration = time() - initialising_time_start
                 print("Model parameters initialised ({}).".format(
-                    formatDuration(initialising_duration)))
+                    format_duration(initialising_duration)))
                 print()
 
             status["epochs trained"] = "{}-{}".format(
@@ -819,7 +819,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
                     noisy_duration = time() - noisy_time_start
                     print("Values noisily preprocessed ({}).".format(
-                        formatDuration(noisy_duration)))
+                        format_duration(noisy_duration)))
                     print()
 
                 epoch_time_start = time()
@@ -877,15 +877,15 @@ class GaussianMixtureVariationalAutoencoder(object):
                     if (step + 1 - steps_per_epoch * epoch) in output_at_step:
 
                         print("Step {:d} ({}): {:.5g}.".format(
-                            int(step + 1), formatDuration(step_duration),
+                            int(step + 1), format_duration(step_duration),
                             batch_loss))
 
                         if numpy.isnan(batch_loss):
                             status["completed"] = False
                             status["message"] = "loss became nan"
-                            status["training duration"] = formatDuration(
+                            status["training duration"] = format_duration(
                                 time() - training_time_start)
-                            status["last epoch duration"] = formatDuration(
+                            status["last epoch duration"] = format_duration(
                                 time() - epoch_time_start)
                             return status, run_id
 
@@ -894,7 +894,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 epoch_duration = time() - epoch_time_start
 
                 print("Epoch {} ({}):".format(
-                    epoch + 1, formatDuration(epoch_duration)))
+                    epoch + 1, format_duration(epoch_duration)))
 
                 # With warmup or not
                 if warm_up_weight < 1:
@@ -1146,7 +1146,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 # Printing training evaluation
                 evaluation_string = "    {} set ({}): ".format(
                     training_set.kind.capitalize(),
-                    formatDuration(evaluating_duration)
+                    format_duration(evaluating_duration)
                 )
                 evaluation_metrics = [
                     "ELBO: {:.5g}".format(lower_bound_train),
@@ -1383,7 +1383,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     # Printing validation evaluation
                     evaluation_string = "    {} set ({}): ".format(
                         validation_set.kind.capitalize(),
-                        formatDuration(evaluating_duration)
+                        format_duration(evaluating_duration)
                     )
                     evaluation_metrics = [
                         "ELBO: {:.5g}".format(lower_bound_valid),
@@ -1428,7 +1428,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                             print(
                                 "        "
                                 "Previous model parameters saved ({})."
-                                .format(formatDuration(saving_duration))
+                                .format(format_duration(saving_duration))
                             )
                         else:
                             print(
@@ -1466,7 +1466,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     session, checkpoint_file, global_step=epoch + 1)
                 saving_duration = time() - saving_time_start
                 print("    Model parameters saved ({}).".format(
-                    formatDuration(saving_duration)))
+                    format_duration(saving_duration)))
 
                 # Saving best model parameters yet
                 if (validation_set
@@ -1487,7 +1487,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     remove_old_checkpoints(best_model_log_directory)
                     saving_duration = time() - saving_time_start
                     print("    Best model parameters saved ({}).".format(
-                        formatDuration(saving_duration)))
+                        format_duration(saving_duration)))
 
                 print()
 
@@ -1572,9 +1572,9 @@ class GaussianMixtureVariationalAutoencoder(object):
             training_duration = time() - training_time_start
 
             print("{} trained for {} epochs ({}).".format(
-                capitaliseString(model_string),
+                capitalise_string(model_string),
                 number_of_epochs,
-                formatDuration(training_duration))
+                format_duration(training_duration))
             )
             print()
 
@@ -1593,14 +1593,14 @@ class GaussianMixtureVariationalAutoencoder(object):
                 shutil.move(log_directory, permanent_log_directory)
 
                 copying_duration = time() - copying_time_start
-                print("Log directory moved ({}).".format(formatDuration(
+                print("Log directory moved ({}).".format(format_duration(
                     copying_duration)))
 
                 print()
 
             status["completed"] = True
-            status["training duration"] = formatDuration(training_duration)
-            status["last epoch duration"] = formatDuration(epoch_duration)
+            status["training duration"] = format_duration(training_duration)
+            status["last epoch duration"] = format_duration(epoch_duration)
 
             return status, run_id
 
@@ -1671,7 +1671,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             evaluation_set_transformed = True
             noisy_duration = time() - noisy_time_start
             print("Values noisily preprocessed ({}).".format(
-                formatDuration(noisy_duration)))
+                format_duration(noisy_duration)))
             print()
 
         # Use label IDs instead of labels
@@ -1995,7 +1995,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
             evaluation_string = "    {} set ({}): ".format(
                 evaluation_set.kind.capitalize(),
-                formatDuration(evaluating_duration))
+                format_duration(evaluating_duration))
             evaluation_metrics = [
                 "ELBO: {:.5g}".format(lower_bound_eval),
                 "ENRE: {:.5g}".format(reconstruction_error_eval),
@@ -2281,7 +2281,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                 reuse=reuse
             )
 
-            with tf.variable_scope(normaliseString(distribution_name).upper()):
+            with tf.variable_scope(normalise_string(
+                    distribution_name).upper()):
                 # Loop over and add parameter layers to theta dict.
                 theta = {}
                 for parameter in distribution["parameters"]:
@@ -2329,7 +2330,8 @@ class GaussianMixtureVariationalAutoencoder(object):
             self, y, distribution_name="modified gaussian", reuse=False):
 
         with tf.variable_scope("P"):
-            with tf.variable_scope(normaliseString(distribution_name).upper()):
+            with tf.variable_scope(normalise_string(
+                    distribution_name).upper()):
                 distribution = DISTRIBUTIONS[distribution_name]
                 # Loop over and add parameter layers to theta dict.
                 theta = {}

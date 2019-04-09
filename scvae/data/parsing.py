@@ -21,7 +21,7 @@ import os
 
 import importlib_resources as resources
 
-from auxiliary import normaliseString
+from auxiliary import normalise_string
 
 
 def parse_input(input_file_or_name):
@@ -57,7 +57,7 @@ def parse_input(input_file_or_name):
         }
     else:
         name = input_file_or_name
-        name = normaliseString(name)
+        name = normalise_string(name)
         data_set_dictionary = None
 
     return name, data_set_dictionary
@@ -83,7 +83,7 @@ def find_data_set(name, directory):
     data_set = None
 
     for data_set_title, data_set_specifications in data_sets.items():
-        if normaliseString(data_set_title) == normaliseString(name):
+        if normalise_string(data_set_title) == normalise_string(name):
             title = data_set_title
             data_set = data_set_specifications
             break

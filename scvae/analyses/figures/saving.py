@@ -21,7 +21,7 @@ import os
 import numpy
 from matplotlib import pyplot
 
-from auxiliary import normaliseString
+from auxiliary import normalise_string
 
 FIGURE_EXTENSION = ".png"
 
@@ -46,7 +46,7 @@ def build_figure_name(base_name, other_names=None):
         if not other_names:
             other_names = []
         other_names.extend(base_name[1:])
-        base_name = normaliseString(base_name[0])
+        base_name = normalise_string(base_name[0])
 
     figure_name = base_name
 
@@ -57,7 +57,7 @@ def build_figure_name(base_name, other_names=None):
         else:
             other_names = [
                 str(name) for name in other_names if name is not None]
-        figure_name += "-" + "-".join(map(normaliseString, other_names))
+        figure_name += "-" + "-".join(map(normalise_string, other_names))
 
     return figure_name
 

@@ -35,8 +35,8 @@ from analyses.prediction import (
 
 from auxiliary import (
     title, subtitle, heading,
-    normaliseString, properString, enumerateListOfStrings,
-    removeEmptyDirectories
+    normalise_string, proper_string, enumerate_list_of_strings,
+    remove_empty_directories
 )
 from models.auxiliary import (
     check_run_id,
@@ -362,7 +362,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     
     # Remove temporary directories created and emptied during training
     if temporary_log_directory and os.path.exists(main_temporary_log_directory):
-        removeEmptyDirectories(main_temporary_log_directory)
+        remove_empty_directories(main_temporary_log_directory)
     
     if not status["completed"]:
         print(status["message"])
@@ -406,7 +406,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
             evaluation_title_parts.append("prediction")
         evaluation_title_parts.append("analysis")
     
-    evaluation_title = enumerateListOfStrings(evaluation_title_parts)
+    evaluation_title = enumerate_list_of_strings(evaluation_title_parts)
     
     print(title(evaluation_title.capitalize()))
     
@@ -439,7 +439,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     
     if prediction_method:
         
-        prediction_method = properString(
+        prediction_method = proper_string(
             prediction_method,
             PREDICTION_METHOD_NAMES
         )
@@ -495,7 +495,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
                 prediction_id_parts.append(prediction_training_set.kind)
         
         prediction_id = "_".join(map(
-            lambda s: normaliseString(str(s)).replace("_", ""),
+            lambda s: normalise_string(str(s)).replace("_", ""),
             prediction_id_parts
         ))
         prediction_details["id"] = prediction_id
@@ -518,7 +518,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
         and model_stopped_early(model, run_id = run_id):
             model_parameter_set_names.append("early stopping")
     
-    print("Model parameter sets: {}.".format(enumerateListOfStrings(
+    print("Model parameter sets: {}.".format(enumerate_list_of_strings(
         model_parameter_set_names)))
     
     print()
@@ -690,7 +690,7 @@ def parseModelVersions(proposed_versions):
     else:
         for proposed_version in proposed_versions:
             
-            normalised_proposed_version = normaliseString(proposed_version)
+            normalised_proposed_version = normalise_string(proposed_version)
             parsed_version = None
             
             for version, version_aliases in version_alias_sets.items():
@@ -711,11 +711,11 @@ def parseModelVersions(proposed_versions):
     return parsed_versions
 
 def parseDistribution(distribution):
-    distribution = normaliseString(distribution)
+    distribution = normalise_string(distribution)
     distribution_names = list(DISTRIBUTIONS.keys())
     distribution_names += list(LATENT_DISTRIBUTIONS.keys())
     for distribution_name in distribution_names:
-        if normaliseString(distribution_name) == distribution:
+        if normalise_string(distribution_name) == distribution:
             return distribution_name
     raise ValueError("Distribution `{}` not found.".format(distribution))
 

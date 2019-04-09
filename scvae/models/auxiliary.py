@@ -29,7 +29,7 @@ import numpy
 import tensorflow as tf
 from tensorflow.contrib.layers import fully_connected, batch_norm, dropout
 
-from auxiliary import capitaliseString
+from auxiliary import capitalise_string
 
 
 # Wrapper layer for inserting batch normalisation in between linear and
@@ -155,14 +155,14 @@ def build_training_string(model_string, epoch_start, number_of_epochs,
     elif epoch_start == number_of_epochs:
         training_string = (
             "{} has already been trained for {} epochs on {}.".format(
-                capitaliseString(model_string), number_of_epochs, data_string
+                capitalise_string(model_string), number_of_epochs, data_string
             )
         )
     elif epoch_start > number_of_epochs:
         training_string = (
             "{} has already been trained for more than {} epochs on {}. "
             "Loading model trained for {} epochs.".format(
-                capitaliseString(model_string),
+                capitalise_string(model_string),
                 number_of_epochs,
                 data_string,
                 epoch_start

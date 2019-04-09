@@ -27,8 +27,8 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 from auxiliary import (
-    formatDuration, formatTime,
-    normaliseString, capitaliseString
+    format_duration, format_time,
+    normalise_string, capitalise_string
 )
 from data.data_set import DataSet
 from distributions import DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised
@@ -241,7 +241,7 @@ class VariationalAutoencoder:
     @property
     def name(self):
 
-        major_parts = [normaliseString(self.latent_distribution_name)]
+        major_parts = [normalise_string(self.latent_distribution_name)]
 
         if "mixture" in self.latent_distribution_name:
             major_parts.append("c_{}".format(self.number_of_latent_clusters))
@@ -255,7 +255,7 @@ class VariationalAutoencoder:
         if self.generative_architecture != "MLP":
             major_parts.append("ga_{}".format(self.generative_architecture))
 
-        minor_parts = [normaliseString(self.reconstruction_distribution_name)]
+        minor_parts = [normalise_string(self.reconstruction_distribution_name)]
 
         if self.k_max:
             minor_parts.append("k_{}".format(self.k_max))
@@ -481,7 +481,7 @@ class VariationalAutoencoder:
             "completed": False,
             "message": None,
             "epochs trained": None,
-            "start time": formatTime(start_time),
+            "start time": format_time(start_time),
             "training duration": None,
             "last epoch duration": None,
             "learning rate": learning_rate,
@@ -579,7 +579,7 @@ class VariationalAutoencoder:
             shutil.copytree(permanent_log_directory, log_directory)
 
             copying_duration = time() - copying_time_start
-            print("Log directory copied ({}).".format(formatDuration(
+            print("Log directory copied ({}).".format(format_duration(
                 copying_duration)))
 
             print()
@@ -638,7 +638,7 @@ class VariationalAutoencoder:
                     t_valid = validation_set.values
 
         preparing_data_duration = time() - preparing_data_time_start
-        print("Data prepared ({}).".format(formatDuration(
+        print("Data prepared ({}).".format(format_duration(
             preparing_data_duration)))
         print()
 
@@ -705,7 +705,7 @@ class VariationalAutoencoder:
 
                 restoring_duration = time() - restoring_time_start
                 print("Earlier model parameters restored ({}).".format(
-                    formatDuration(restoring_duration)))
+                    format_duration(restoring_duration)))
                 print()
             else:
                 print("Initialising model parameters.")
@@ -723,7 +723,7 @@ class VariationalAutoencoder:
 
                 initialising_duration = time() - initialising_time_start
                 print("Model parameters initialised ({}).".format(
-                    formatDuration(initialising_duration)))
+                    format_duration(initialising_duration)))
                 print()
 
             status["epochs trained"] = "{}-{}".format(
@@ -749,7 +749,7 @@ class VariationalAutoencoder:
 
                     noisy_duration = time() - noisy_time_start
                     print("Values noisily preprocessed ({}).".format(
-                        formatDuration(noisy_duration)))
+                        format_duration(noisy_duration)))
                     print()
 
                 epoch_time_start = time()
@@ -808,15 +808,15 @@ class VariationalAutoencoder:
                     if (step + 1 - steps_per_epoch * epoch) in output_at_step:
 
                         print("Step {:d} ({}): {:.5g}.".format(
-                            int(step + 1), formatDuration(step_duration),
+                            int(step + 1), format_duration(step_duration),
                             batch_loss))
 
                         if numpy.isnan(batch_loss):
                             status["completed"] = False
                             status["message"] = "loss became nan"
-                            status["training duration"] = formatDuration(
+                            status["training duration"] = format_duration(
                                 time() - training_time_start)
-                            status["last epoch duration"] = formatDuration(
+                            status["last epoch duration"] = format_duration(
                                 time() - epoch_time_start)
                             return status, run_id
 
@@ -825,7 +825,7 @@ class VariationalAutoencoder:
                 epoch_duration = time() - epoch_time_start
 
                 print("Epoch {} ({}):".format(
-                    epoch + 1, formatDuration(epoch_duration)))
+                    epoch + 1, format_duration(epoch_duration)))
 
                 # With warmup or not
                 if warm_up_weight < 1:
@@ -991,7 +991,7 @@ class VariationalAutoencoder:
                 print(
                     "    {} set ({}):".format(
                         training_set.kind.capitalize(),
-                        formatDuration(evaluating_duration)
+                        format_duration(evaluating_duration)
                     ),
                     "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                         lower_bound_train,
@@ -1127,7 +1127,7 @@ class VariationalAutoencoder:
                     print(
                         "    {} set ({}):".format(
                             validation_set.kind.capitalize(),
-                            formatDuration(evaluating_duration)
+                            format_duration(evaluating_duration)
                         ),
                         "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                             lower_bound_valid,
@@ -1164,7 +1164,7 @@ class VariationalAutoencoder:
                             print(
                                 "        "
                                 "Previous model parameters saved ({})."
-                                .format(formatDuration(saving_duration))
+                                .format(format_duration(saving_duration))
                             )
                         else:
                             print(
@@ -1205,7 +1205,7 @@ class VariationalAutoencoder:
                 )
                 saving_duration = time() - saving_time_start
                 print("    Model parameters saved ({}).".format(
-                    formatDuration(saving_duration)))
+                    format_duration(saving_duration)))
 
                 # Saving best model parameters yet
                 if (validation_set
@@ -1226,7 +1226,7 @@ class VariationalAutoencoder:
                     remove_old_checkpoints(best_model_log_directory)
                     saving_duration = time() - saving_time_start
                     print("    Best model parameters saved ({}).".format(
-                        formatDuration(saving_duration)))
+                        format_duration(saving_duration)))
 
                 print()
 
@@ -1302,9 +1302,9 @@ class VariationalAutoencoder:
             training_duration = time() - training_time_start
 
             print("{} trained for {} epochs ({}).".format(
-                capitaliseString(model_string),
+                capitalise_string(model_string),
                 number_of_epochs,
-                formatDuration(training_duration))
+                format_duration(training_duration))
             )
             print()
 
@@ -1323,14 +1323,14 @@ class VariationalAutoencoder:
                 shutil.move(log_directory, permanent_log_directory)
 
                 copying_duration = time() - copying_time_start
-                print("Log directory moved ({}).".format(formatDuration(
+                print("Log directory moved ({}).".format(format_duration(
                     copying_duration)))
 
                 print()
 
             status["completed"] = True
-            status["training duration"] = formatDuration(training_duration)
-            status["last epoch duration"] = formatDuration(epoch_duration)
+            status["training duration"] = format_duration(training_duration)
+            status["last epoch duration"] = format_duration(epoch_duration)
 
             return status, run_id
 
@@ -1406,7 +1406,7 @@ class VariationalAutoencoder:
             evaluation_set_transformed = True
             noisy_duration = time() - noisy_time_start
             print("Values noisily preprocessed ({}).".format(
-                formatDuration(noisy_duration)))
+                format_duration(noisy_duration)))
             print()
 
         # max_count = int(max(t_eval, axis = (0, 1)))
@@ -1618,7 +1618,7 @@ class VariationalAutoencoder:
             print(
                 "    {} set ({}): ".format(
                     evaluation_set.kind.capitalize(),
-                    formatDuration(evaluating_duration)
+                    format_duration(evaluating_duration)
                 ),
                 "ELBO: {:.5g}, ENRE: {:.5g}, KL: {:.5g}.".format(
                     lower_bound_eval,

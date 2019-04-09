@@ -19,7 +19,7 @@
 import matplotlib.patches
 import numpy
 
-from auxiliary import normaliseString, properString
+from auxiliary import normalise_string, proper_string
 from analyses.decomposition import (
     DECOMPOSITION_METHOD_NAMES,
     DECOMPOSITION_METHOD_LABEL
@@ -30,8 +30,8 @@ def _axis_label_for_symbol(symbol, coordinate=None, decomposition_method=None,
                            distribution=None, prefix="", suffix=""):
 
     if decomposition_method:
-        decomposition_method = properString(
-            normaliseString(decomposition_method),
+        decomposition_method = proper_string(
+            normalise_string(decomposition_method),
             DECOMPOSITION_METHOD_NAMES
         )
         decomposition_label = DECOMPOSITION_METHOD_LABEL[decomposition_method]

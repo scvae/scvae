@@ -23,7 +23,7 @@ import numpy
 import scipy
 import sklearn.preprocessing
 
-from auxiliary import normaliseString, formatDuration
+from auxiliary import normalise_string, format_duration
 from data.sparse import SparseRowMatrix
 
 PREPROCESSERS = {}
@@ -94,7 +94,7 @@ def map_features(values, feature_ids, feature_mapping):
 def select_features(values_dictionary, feature_names, feature_selection=None,
                     feature_selection_parameters=None):
 
-    feature_selection = normaliseString(feature_selection)
+    feature_selection = normalise_string(feature_selection)
 
     print("Selecting features.")
     start_time = time()
@@ -161,7 +161,7 @@ def select_features(values_dictionary, feature_names, feature_selection=None,
     print("{} features selected, {} excluded ({}).".format(
         n_features_changed,
         n_features - n_features_changed,
-        formatDuration(duration)
+        format_duration(duration)
     ))
 
     return feature_selected_values, feature_selected_feature_names
@@ -175,7 +175,7 @@ def filter_examples(values_dictionary, example_names, example_filter=None,
     print("Filtering examples.")
     start_time = time()
 
-    example_filter = normaliseString(example_filter)
+    example_filter = normalise_string(example_filter)
 
     if superset_labels is not None:
         filter_labels = superset_labels.copy()
@@ -227,8 +227,8 @@ def filter_examples(values_dictionary, example_names, example_filter=None,
             for parameter in example_filter_parameters:
                 for class_name in filter_class_names:
 
-                    normalised_class_name = normaliseString(str(class_name))
-                    normalised_parameter = normaliseString(str(parameter))
+                    normalised_class_name = normalise_string(str(class_name))
+                    normalised_parameter = normalise_string(str(parameter))
 
                     if normalised_class_name == normalised_parameter:
                         class_indices = filter_labels == class_name
@@ -241,8 +241,8 @@ def filter_examples(values_dictionary, example_names, example_filter=None,
             for parameter in example_filter_parameters:
                 for class_name in filter_class_names:
 
-                    normalised_class_name = normaliseString(str(class_name))
-                    normalised_parameter = normaliseString(str(parameter))
+                    normalised_class_name = normalise_string(str(class_name))
+                    normalised_parameter = normalise_string(str(parameter))
 
                     if normalised_class_name == normalised_parameter:
                         label_indices = filter_labels != class_name
@@ -284,7 +284,7 @@ def filter_examples(values_dictionary, example_names, example_filter=None,
     print("{} examples filtered out, {} remaining ({}).".format(
         n_examples - n_examples_changed,
         n_examples_changed,
-        formatDuration(duration)
+        format_duration(duration)
     ))
 
     return (example_filtered_values, example_filtered_example_names,
@@ -333,7 +333,7 @@ def split_data_set(data_dictionary, method="default", fraction=0.9):
         else:
             method = "random"
 
-    method = normaliseString(method)
+    method = normalise_string(method)
 
     n = data_dictionary["values"].shape[0]
 
@@ -448,7 +448,7 @@ def split_data_set(data_dictionary, method="default", fraction=0.9):
             data_dictionary["binarised values"][test_indices])
 
     duration = time() - start_time
-    print("Data set split ({}).".format(formatDuration(duration)))
+    print("Data set split ({}).".format(format_duration(duration)))
 
     return split_data_dictionary
 

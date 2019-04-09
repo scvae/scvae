@@ -22,7 +22,7 @@ from sklearn.decomposition import PCA, FastICA, TruncatedSVD
 from sklearn.manifold import TSNE
 
 from analyses.decomposition.incremental_pca import IncrementalPCA
-from auxiliary import normaliseString, properString
+from auxiliary import normalise_string, proper_string
 
 DECOMPOSITION_METHOD_NAMES = {
     "PCA": ["pca"],
@@ -48,7 +48,8 @@ def decompose(values, other_value_sets=[], centroids={}, method=None,
 
     if method is None:
         method = DEFAULT_DECOMPOSITION_METHOD
-    method = properString(normaliseString(method), DECOMPOSITION_METHOD_NAMES)
+    method = proper_string(
+        normalise_string(method), DECOMPOSITION_METHOD_NAMES)
 
     if number_of_components is None:
         number_of_components = DEFAULT_DECOMPOSITION_DIMENSIONALITY

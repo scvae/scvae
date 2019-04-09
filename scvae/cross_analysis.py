@@ -44,8 +44,8 @@ from analyses.figures.cross_model import (
 )
 from analyses.metrics import format_summary_statistics
 from auxiliary import (
-    formatTime,
-    normaliseString, properString, capitaliseString,
+    format_time,
+    normalise_string, proper_string, capitalise_string,
     title, subtitle, heading, subheading
 )
 from analyses.prediction import PREDICTION_METHOD_NAMES
@@ -623,7 +623,7 @@ def main(log_directory = None, results_directory = None,
             
             for field_name, field_value in common_comparison_fields.items():
                 common_comparison_fields_string_parts.append(
-                    "{}: {}".format(capitaliseString(field_name), field_value)
+                    "{}: {}".format(capitalise_string(field_name), field_value)
                 )
             
             common_comparison_fields_string = "\n".join(
@@ -653,12 +653,12 @@ def main(log_directory = None, results_directory = None,
                     for full_form, abbreviation in ABBREVIATIONS.items():
                         field_name = re.sub(full_form, abbreviation, field_name)
                     field_name = textwrap.shorten(
-                        capitaliseString(field_name),
+                        capitalise_string(field_name),
                         width = field_width,
                         placeholder = "…"
                     )
                 elif field_name == field_name.lower():
-                    field_name = capitaliseString(field_name)
+                    field_name = capitalise_string(field_name)
                 
                 comparison_table_heading_parts.append(
                     "{:{}}".format(field_name, field_width)
@@ -1332,11 +1332,11 @@ def metricsForOtherMethods(data_set_directory,
         other_method_data_set_directory = data_set_directory
         other_method_prediction_basename = prediction_basename
         
-        other_method = properString(
-            normaliseString(other_method),
+        other_method = proper_string(
+            normalise_string(other_method),
             OTHER_METHOD_NAMES
         )
-        directory_name = normaliseString(other_method)
+        directory_name = normalise_string(other_method)
         
         other_method_specifications = OTHER_METHOD_SPECIFICATIONS.get(
             other_method, None
@@ -1472,11 +1472,11 @@ def parseMetricsForRunsAndVersionsOfModel(
             run_key = "multiple"
         
         if len(runs) > 1:
-            print(heading(capitaliseString(run_title)))
+            print(heading(capitalise_string(run_title)))
             
             if log_summary:
                 log_string_parts.append(
-                    heading(capitaliseString(run_title), plain = True)
+                    heading(capitalise_string(run_title), plain = True)
                 )
         
         version_epoch_summary_metrics = {}
@@ -1514,7 +1514,7 @@ def parseMetricsForRunsAndVersionsOfModel(
             
             timestamp = metrics["timestamp"]
             metrics_string_parts.append(
-                "Timestamp: {}".format(formatTime(timestamp))
+                "Timestamp: {}".format(format_time(timestamp))
             )
             
             # Epochs
@@ -1671,7 +1671,7 @@ def parseMetricsForRunsAndVersionsOfModel(
                             
                             metrics_string_parts.append(
                                 "    {}:".format(
-                                    capitaliseString(metric_name)
+                                    capitalise_string(metric_name)
                                 )
                             )
                             
@@ -1730,14 +1730,14 @@ def parseMetricsForRunsAndVersionsOfModel(
             metrics_string = "\n".join(metrics_string_parts)
             
             if len(versions) > 1:
-                print(subheading(capitaliseString(version_title)))
+                print(subheading(capitalise_string(version_title)))
             
             print(metrics_string)
             
             if log_summary:
                 if len(versions) > 1:
                     log_string_parts.append(
-                        subheading(capitaliseString(version_title),
+                        subheading(capitalise_string(version_title),
                             plain = True)
                     )
                 log_string_parts.append(metrics_string)

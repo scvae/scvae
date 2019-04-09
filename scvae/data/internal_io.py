@@ -23,7 +23,7 @@ import numpy
 import scipy
 import tables
 
-from auxiliary import normaliseString, formatDuration
+from auxiliary import normalise_string, format_duration
 
 
 def load_data_dictionary(path):
@@ -72,7 +72,7 @@ def load_data_dictionary(path):
         data_dictionary = load(tables_file)
 
     duration = time() - start_time
-    print("Data loaded ({}).".format(formatDuration(duration)))
+    print("Data loaded ({}).".format(format_duration(duration)))
 
     return data_dictionary
 
@@ -88,7 +88,7 @@ def save_data_dictionary(data_dictionary, path):
 
         if group_title:
             group = tables_file.create_group(
-                "/", normaliseString(group_title), group_title)
+                "/", normalise_string(group_title), group_title)
         else:
             group = tables_file.root
 
@@ -120,7 +120,7 @@ def save_data_dictionary(data_dictionary, path):
         save(data_dictionary, tables_file)
 
     duration = time() - start_time
-    print("Data saved ({}).".format(formatDuration(duration)))
+    print("Data saved ({}).".format(format_duration(duration)))
 
 
 def _load_array_or_other_type(node):
@@ -193,7 +193,7 @@ def _load_feature_mapping(tables_file, group):
 
 
 def _save_array(array, title, group, tables_file):
-    name = normaliseString(title)
+    name = normalise_string(title)
     if isinstance(array, list):
         array = numpy.array(array)
         name += "_was_list"
@@ -218,7 +218,7 @@ def _save_string(string, title, group, tables_file):
 
 def _save_sparse_matrix(sparse_matrix, title, group, tables_file):
 
-    name = normaliseString(title)
+    name = normalise_string(title)
     group = tables_file.create_group(group, name, title)
 
     for attribute in ("data", "indices", "indptr", "shape"):
@@ -228,7 +228,7 @@ def _save_sparse_matrix(sparse_matrix, title, group, tables_file):
 
 def _save_split_indices(split_indices, title, group, tables_file):
 
-    name = normaliseString(title)
+    name = normalise_string(title)
     group = tables_file.create_group(group, name, title)
 
     for subset_name, subset_slice in split_indices.items():
@@ -239,7 +239,7 @@ def _save_split_indices(split_indices, title, group, tables_file):
 
 def _save_feature_mapping(feature_mapping, title, group, tables_file):
 
-    name = normaliseString(title)
+    name = normalise_string(title)
     group = tables_file.create_group(group, name, title)
 
     feature_names = []
