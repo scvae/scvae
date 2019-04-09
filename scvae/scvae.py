@@ -36,9 +36,11 @@ from analyses.prediction import (
 from auxiliary import (
     title, subtitle, heading,
     normaliseString, properString, enumerateListOfStrings,
-    checkRunID,
-    betterModelExists, modelStoppedEarly,
     removeEmptyDirectories
+)
+from models.auxiliary import (
+    check_run_id,
+    better_model_exists, model_stopped_early
 )
 
 import os
@@ -111,7 +113,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     if not skip_modelling:
         
         if run_id:
-            run_id = checkRunID(run_id)
+            run_id = check_run_id(run_id)
         
         model_valid, model_errors = validateModelParameters(
             model_type, latent_distribution,
@@ -509,11 +511,11 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
         model_parameter_set_names.append("end of training")
     
     if "best_model" in model_versions \
-        and betterModelExists(model, run_id = run_id):
+        and better_model_exists(model, run_id = run_id):
             model_parameter_set_names.append("best model")
     
     if "early_stopping" in model_versions \
-        and modelStoppedEarly(model, run_id = run_id):
+        and model_stopped_early(model, run_id = run_id):
             model_parameter_set_names.append("early stopping")
     
     print("Model parameter sets: {}.".format(enumerateListOfStrings(

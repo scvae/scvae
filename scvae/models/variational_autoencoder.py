@@ -27,18 +27,16 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 from auxiliary import (
-    checkRunID,
     formatDuration, formatTime,
-    normaliseString, capitaliseString,
-    loadLearningCurves
+    normaliseString, capitaliseString
 )
 from data.data_set import DataSet
 from distributions import DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised
 from models.auxiliary import (
     dense_layer, dense_layers, log_reduce_exp,
-    early_stopping_status,
     build_training_string, build_data_string,
-    generate_unique_run_id_for_model,
+    early_stopping_status, load_learning_curves,
+    generate_unique_run_id_for_model, check_run_id,
     correct_model_checkpoint_path, remove_old_checkpoints,
     copy_model_directory, clear_log_directory
 )
@@ -404,7 +402,7 @@ class VariationalAutoencoder:
         log_directory = os.path.join(base, self.name)
 
         if run_id:
-            run_id = checkRunID(run_id)
+            run_id = check_run_id(run_id)
             log_directory = os.path.join(
                 log_directory,
                 "run_{}".format(run_id)
@@ -436,7 +434,7 @@ class VariationalAutoencoder:
         if os.path.exists(log_directory):
 
             if os.path.exists(early_stopping_log_directory):
-                validation_losses = loadLearningCurves(
+                validation_losses = load_learning_curves(
                     model=self,
                     data_set_kinds="validation",
                     run_id=run_id,
@@ -460,7 +458,7 @@ class VariationalAutoencoder:
         start_time = time()
 
         if run_id:
-            run_id = checkRunID(run_id)
+            run_id = check_run_id(run_id)
             new_run = True
         elif new_run:
             run_id = generate_unique_run_id_for_model(
@@ -689,7 +687,7 @@ class VariationalAutoencoder:
                     os.path.split(model_checkpoint_path)[-1].split("-")[-1])
 
                 if validation_set:
-                    lower_bound_valid_learning_curve = loadLearningCurves(
+                    lower_bound_valid_learning_curve = load_learning_curves(
                         model=self,
                         data_set_kinds="validation",
                         run_id=run_id,
@@ -1343,7 +1341,7 @@ class VariationalAutoencoder:
                  log_results=True):
 
         if run_id:
-            run_id = checkRunID(run_id)
+            run_id = check_run_id(run_id)
             model_string = "model for run {}".format(run_id)
         else:
             model_string = "model"

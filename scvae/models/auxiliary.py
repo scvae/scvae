@@ -21,6 +21,7 @@ import random
 import re
 import shutil
 import time
+from collections import namedtuple
 from datetime import datetime
 from string import ascii_uppercase
 
@@ -135,30 +136,6 @@ def log_reduce_exp(input_tensor, reduction_function=tf.reduce_mean, axis=None):
     return tf.squeeze(output_tensor)
 
 
-def early_stopping_status(losses, early_stopping_rounds):
-
-    n_epochs_without_improvements = 0
-    stopped_early = False
-
-    if losses is not None:
-
-        n_epochs = len(losses)
-
-        for epoch_number in range(1, n_epochs):
-
-            if losses[epoch_number] < losses[epoch_number - 1]:
-                n_epochs_without_improvements += 1
-            else:
-                n_epochs_without_improvements = 0
-
-            if n_epochs_without_improvements >= early_stopping_rounds:
-                stopped_early = True
-                n_epochs_without_improvements = numpy.nan
-                break
-
-    return stopped_early, n_epochs_without_improvements
-
-
 def build_training_string(model_string, epoch_start, number_of_epochs,
                           data_string):
 
@@ -225,6 +202,405 @@ def build_data_string(data_set, reconstruction_distribution_name):
     return data_string
 
 
+def load_number_of_epochs_trained(model, run_id=None, early_stopping=False,
+                                  best_model=False):
+
+    n_epoch = None
+    data_set_kind = "training"
+    loss = "log_likelihood"
+    loss_prefix = "losses/"
+
+    if "VAE" in model.type:
+        loss = "lower_bound"
+
+    loss = loss_prefix + loss
+
+    log_directory = model.log_directory(
+        run_id=run_id,
+        early_stopping=early_stopping,
+        best_model=best_model
+    )
+
+    scalar_sets = _summary_reader(log_directory, data_set_kind, loss)
+
+    if scalar_sets and data_set_kind in scalar_sets:
+        data_set_scalars = scalar_sets[data_set_kind]
+    else:
+        data_set_scalars = None
+
+    if data_set_scalars and loss in data_set_scalars:
+        scalars = data_set_scalars[loss]
+    else:
+        scalars = None
+
+    if scalars:
+        n_epoch = max([scalar.step for scalar in scalars])
+
+    return n_epoch
+
+
+def load_learning_curves(model, data_set_kinds="all", run_id=None,
+                         early_stopping=False, best_model=False,
+                         log_directory=None):
+
+    learning_curve_sets = {}
+
+    if data_set_kinds == "all":
+        data_set_kinds = ["training", "validation", "evaluation"]
+    elif not isinstance(data_set_kinds, list):
+        data_set_kinds = [data_set_kinds]
+
+    if not log_directory:
+        log_directory = model.log_directory(
+            run_id=run_id,
+            early_stopping=early_stopping,
+            best_model=best_model
+        )
+
+    if model.type == "GMVAE":
+        losses = [
+            "lower_bound",
+            "reconstruction_error",
+            "kl_divergence_z",
+            "kl_divergence_y"
+        ]
+    elif "VAE" == model.type:
+        losses = ["lower_bound", "reconstruction_error", "kl_divergence"]
+    else:
+        losses = ["log_likelihood"]
+
+    loss_prefix = "losses/"
+    loss_searches = list(map(lambda s: loss_prefix + s, losses))
+
+    scalar_sets = _summary_reader(log_directory, data_set_kinds, loss_searches)
+
+    for data_set_kind in data_set_kinds:
+
+        learning_curve_set = {}
+
+        for loss in losses:
+
+            loss_tag = loss_prefix + loss
+
+            if scalar_sets and data_set_kind in scalar_sets:
+                data_set_scalars = scalar_sets[data_set_kind]
+            else:
+                data_set_scalars = None
+
+            if data_set_scalars and loss_tag in data_set_scalars:
+                scalars = data_set_scalars[loss_tag]
+            else:
+                scalars = None
+
+            if scalars:
+
+                learning_curve = numpy.empty(len(scalars))
+
+                if len(scalars) == 1:
+                    learning_curve[0] = scalars[0].value
+                else:
+                    for scalar in scalars:
+                        learning_curve[scalar.step - 1] = scalar.value
+
+            else:
+                learning_curve = None
+
+            learning_curve_set[loss] = learning_curve
+
+        learning_curve_sets[data_set_kind] = learning_curve_set
+
+    if len(data_set_kinds) == 1:
+        learning_curve_sets = learning_curve_sets[data_set_kinds[0]]
+
+    return learning_curve_sets
+
+
+def load_accuracies(model, data_set_kinds="all", superset=False,
+                    run_id=None, early_stopping=False, best_model=False):
+
+    accuracies = {}
+
+    if data_set_kinds == "all":
+        data_set_kinds = ["training", "validation", "evaluation"]
+    elif not isinstance(data_set_kinds, list):
+        data_set_kinds = [data_set_kinds]
+
+    log_directory = model.log_directory(
+        run_id=run_id,
+        early_stopping=early_stopping,
+        best_model=best_model
+    )
+
+    accuracy_tag = "accuracy"
+
+    if superset:
+        accuracy_tag = "superset_" + accuracy_tag
+
+    scalar_sets = _summary_reader(
+        log_directory=log_directory,
+        data_set_kinds=data_set_kinds,
+        tag_searches=[accuracy_tag]
+    )
+
+    empty_scalar_sets = 0
+
+    for data_set_kind in data_set_kinds:
+
+        if scalar_sets and data_set_kind in scalar_sets:
+            data_set_scalars = scalar_sets[data_set_kind]
+        else:
+            data_set_scalars = None
+
+        if data_set_scalars and accuracy_tag in data_set_scalars:
+            scalars = data_set_scalars[accuracy_tag]
+        else:
+            scalars = None
+
+        if scalars:
+
+            data_set_accuracies = numpy.empty(len(scalars))
+
+            if len(scalars) == 1:
+                data_set_accuracies[0] = scalars[0].value
+            else:
+                for scalar in scalars:
+                    data_set_accuracies[scalar.step - 1] = scalar.value
+
+            accuracies[data_set_kind] = data_set_accuracies
+
+        else:
+            accuracies[data_set_kind] = None
+            empty_scalar_sets += 1
+
+    if len(data_set_kinds) == 1:
+        accuracies = accuracies[data_set_kinds[0]]
+
+    if empty_scalar_sets == len(data_set_kinds):
+        accuracies = None
+
+    return accuracies
+
+
+def load_centroids(model, data_set_kinds="all", run_id=None,
+                   early_stopping=False, best_model=False):
+
+    if "VAE" not in model.type:
+        return None
+
+    centroids_sets = {}
+
+    if data_set_kinds == "all":
+        data_set_kinds = ["training", "validation", "evaluation"]
+    elif not isinstance(data_set_kinds, list):
+        data_set_kinds = [data_set_kinds]
+
+    log_directory = model.log_directory(
+        run_id=run_id,
+        early_stopping=early_stopping,
+        best_model=best_model
+    )
+
+    centroid_tag = "cluster"
+
+    scalar_sets = _summary_reader(
+        log_directory=log_directory,
+        data_set_kinds=data_set_kinds,
+        tag_searches=[centroid_tag]
+    )
+
+    for data_set_kind in data_set_kinds:
+
+        centroids_set = {}
+
+        for distribution in ["prior", "posterior"]:
+
+            cluster_tag = distribution + "/cluster_0/probability"
+
+            if scalar_sets and data_set_kind in scalar_sets:
+                data_set_scalars = scalar_sets[data_set_kind]
+            else:
+                data_set_scalars = None
+
+            if data_set_scalars and cluster_tag in data_set_scalars:
+                scalars = data_set_scalars[cluster_tag]
+            else:
+                scalars = None
+
+            if not scalars:
+                centroids_set[distribution] = None
+                continue
+
+            n_epoch = len(scalars)
+            n_centroids = 1
+            latent_size = model.latent_size
+
+            if "mixture" in model.latent_distribution[distribution]["name"]:
+                n_centroids = model.number_of_latent_clusters
+
+            z_probabilities = numpy.empty(shape=(n_epoch, n_centroids))
+            z_means = numpy.empty(shape=(n_epoch, n_centroids, latent_size))
+            z_variances = numpy.empty(
+                shape=(n_epoch, n_centroids, latent_size))
+            z_covariance_matrices = numpy.empty(
+                shape=(n_epoch, n_centroids, latent_size, latent_size))
+
+            for k in range(n_centroids):
+
+                probability_scalars = data_set_scalars[
+                    distribution + "/cluster_{}/probability".format(k)]
+
+                if len(probability_scalars) == 1:
+                    z_probabilities[0][k] = probability_scalars[0].value
+                else:
+                    for scalar in probability_scalars:
+                        z_probabilities[scalar.step - 1][k] = scalar.value
+
+                for l in range(latent_size):
+
+                    mean_scalars = data_set_scalars[
+                        distribution
+                        + "/cluster_{}/mean/dimension_{}".format(k, l)
+                    ]
+
+                    if len(mean_scalars) == 1:
+                        z_means[0][k][l] = mean_scalars[0].value
+                    else:
+                        for scalar in mean_scalars:
+                            z_means[scalar.step - 1][k][l] = scalar.value
+
+                    variance_scalars = data_set_scalars[
+                        distribution
+                        + "/cluster_{}/variance/dimension_{}".format(k, l)
+                    ]
+
+                    if len(variance_scalars) == 1:
+                        z_variances[0][k][l] = variance_scalars[0].value
+                    else:
+                        for scalar in variance_scalars:
+                            z_variances[scalar.step - 1][k][l] = scalar.value
+
+                for e in range(n_epoch):
+                    z_covariance_matrices[e, k] = numpy.diag(z_variances[e, k])
+
+            if data_set_kind == "evaluation":
+                z_probabilities = z_probabilities[0]
+                z_means = z_means[0]
+                z_covariance_matrices = z_covariance_matrices[0]
+
+            centroids_set[distribution] = {
+                "probabilities": z_probabilities,
+                "means": z_means,
+                "covariance_matrices": z_covariance_matrices
+            }
+
+        centroids_sets[data_set_kind] = centroids_set
+
+    if len(data_set_kinds) == 1:
+        centroids_sets = centroids_sets[data_set_kinds[0]]
+
+    return centroids_sets
+
+
+def load_kl_divergences(model, run_id=None, early_stopping=False,
+                        best_model=False):
+
+    kl_neurons = None
+    data_set_kind = "training"
+    kl_divergence_neurons_tag_prefix = "kl_divergence_neurons/"
+    log_directory = model.log_directory(
+        run_id=run_id,
+        early_stopping=early_stopping,
+        best_model=best_model
+    )
+
+    scalar_sets = _summary_reader(
+        log_directory=log_directory,
+        data_set_kinds=data_set_kind,
+        tag_searches=[kl_divergence_neurons_tag_prefix]
+    )
+
+    if scalar_sets and data_set_kind in scalar_sets:
+        data_set_scalars = scalar_sets[data_set_kind]
+    else:
+        data_set_scalars = None
+
+    kl_divergence_neuron_0_tag = kl_divergence_neurons_tag_prefix + "0"
+
+    if data_set_scalars and kl_divergence_neuron_0_tag in data_set_scalars:
+        scalars = data_set_scalars[kl_divergence_neuron_0_tag]
+    else:
+        scalars = None
+
+    if scalars:
+
+        n_epochs = len(scalars)
+
+        if "mixture" in model.latent_distribution_name:
+            latent_size = 1
+        else:
+            latent_size = model.latent_size
+
+        kl_neurons = numpy.empty([n_epochs, latent_size])
+
+        for i in range(latent_size):
+            kl_divergence_neuron_i_tag = (
+                kl_divergence_neurons_tag_prefix + str(i))
+
+            if kl_divergence_neuron_i_tag in data_set_scalars:
+                scalars = data_set_scalars[kl_divergence_neuron_i_tag]
+            else:
+                scalars = None
+
+            if scalars:
+                for scalar in scalars:
+                    kl_neurons[scalar.step - 1, i] = scalar.value
+            else:
+                kl_neurons[:, i] = numpy.full(n_epochs, numpy.nan)
+
+    return kl_neurons
+
+
+def early_stopping_status(losses, early_stopping_rounds):
+
+    n_epochs_without_improvements = 0
+    stopped_early = False
+
+    if losses is not None:
+
+        n_epochs = len(losses)
+
+        for epoch_number in range(1, n_epochs):
+
+            if losses[epoch_number] < losses[epoch_number - 1]:
+                n_epochs_without_improvements += 1
+            else:
+                n_epochs_without_improvements = 0
+
+            if n_epochs_without_improvements >= early_stopping_rounds:
+                stopped_early = True
+                n_epochs_without_improvements = numpy.nan
+                break
+
+    return stopped_early, n_epochs_without_improvements
+
+
+def better_model_exists(model, run_id=None):
+    n_epochs_current = load_number_of_epochs_trained(
+        model, run_id=run_id, best_model=False)
+    n_epochs_best = load_number_of_epochs_trained(
+        model, run_id=run_id, best_model=True)
+    if n_epochs_best:
+        better_model_exists = n_epochs_best < n_epochs_current
+    else:
+        better_model_exists = False
+    return better_model_exists
+
+
+def model_stopped_early(model, run_id=None):
+    stopped_early, _ = model.early_stopping_status(run_id=run_id)
+    return stopped_early
+
+
 def generate_unique_run_id_for_model(model, timestamp=None):
     log_directory = model.log_directory()
     existing_run_ids = [
@@ -237,6 +613,19 @@ def generate_unique_run_id_for_model(model, timestamp=None):
         run_id = _generate_run_id(timestamp=timestamp)
         if run_id not in existing_run_ids:
             unique_run_id_found = True
+    return run_id
+
+
+def check_run_id(run_id):
+    if run_id is not None:
+        run_id = str(run_id)
+        if not re.fullmatch(r"[\w]+", run_id):
+            raise ValueError(
+                "`run_id` can only contain letters, numbers, and "
+                "underscores ('_')."
+            )
+    else:
+        raise TypeError("The run ID has not been set.")
     return run_id
 
 
@@ -333,6 +722,52 @@ def remove_old_checkpoints(directory):
             )
             if is_old_checkpoint_file:
                 os.remove(file_path)
+
+
+def _summary_reader(log_directory, data_set_kinds, tag_searches):
+
+    scalars = None
+    ScalarEvent = namedtuple('ScalarEvent', ['wall_time', 'step', 'value'])
+
+    if not isinstance(data_set_kinds, list):
+        data_set_kinds = [data_set_kinds]
+
+    if not isinstance(tag_searches, list):
+        tag_searches = [tag_searches]
+
+    if os.path.exists(log_directory):
+
+        scalars = {}
+
+        for data_set_kind in data_set_kinds:
+            data_set_log_directory = os.path.join(log_directory, data_set_kind)
+            data_set_scalars = None
+            if os.path.exists(data_set_log_directory):
+                data_set_scalars = {}
+                for filename in sorted(os.listdir(data_set_log_directory)):
+                    if filename.startswith("event"):
+                        events_path = os.path.join(
+                            data_set_log_directory,
+                            filename
+                        )
+                        events = tf.train.summary_iterator(
+                            events_path)
+                        for event in events:
+                            for value in event.summary.value:
+                                for tag_search in tag_searches:
+                                    if tag_search in value.tag:
+                                        tag = value.tag
+                                        scalar = ScalarEvent(
+                                            wall_time=event.wall_time,
+                                            step=event.step,
+                                            value=value.simple_value
+                                        )
+                                        if tag not in data_set_scalars:
+                                            data_set_scalars[tag] = []
+                                        data_set_scalars[tag].append(scalar)
+            scalars[data_set_kind] = data_set_scalars
+
+    return scalars
 
 
 def _generate_run_id(timestamp=None, number_of_letters=2):

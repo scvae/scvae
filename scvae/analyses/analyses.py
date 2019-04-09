@@ -27,13 +27,15 @@ from analyses import figures, images, metrics, subanalyses
 from analyses.decomposition import decompose
 from analyses.figures.auxiliary import _axis_label_for_symbol
 from auxiliary import (
-    loadNumberOfEpochsTrained, loadLearningCurves, loadAccuracies,
-    loadCentroids, loadKLDivergences,
-    checkRunID,
     formatTime, formatDuration,
     normaliseString, capitaliseString, subheading
 )
 from data.auxiliary import indices_for_evaluation_subset
+from models.auxiliary import (
+    load_number_of_epochs_trained, load_learning_curves, load_accuracies,
+    load_centroids, load_kl_divergences,
+    check_run_id
+)
 
 ANALYSIS_GROUPS = {
     "simple": ["metrics", "images", "learning_curves", "accuracies"],
@@ -276,9 +278,10 @@ def analyse_model(model, run_id=None,
                   export_options=None, results_directory="results"):
 
     if run_id:
-        run_id = checkRunID(run_id)
+        run_id = check_run_id(run_id)
 
-    number_of_epochs_trained = loadNumberOfEpochsTrained(model, run_id=run_id)
+    number_of_epochs_trained = load_number_of_epochs_trained(
+        model, run_id=run_id)
     epochs_string = "e_" + str(number_of_epochs_trained)
 
     results_directory = _build_path_for_result_directory(
@@ -300,7 +303,7 @@ def analyse_model(model, run_id=None,
         print("Plotting learning curves.")
         learning_curves_time_start = time()
 
-        learning_curves = loadLearningCurves(
+        learning_curves = load_learning_curves(
             model=model,
             data_set_kinds=["training", "validation"],
             run_id=run_id
@@ -347,7 +350,7 @@ def analyse_model(model, run_id=None,
 
         accuracies_time_start = time()
 
-        accuracies = loadAccuracies(
+        accuracies = load_accuracies(
             model=model,
             run_id=run_id,
             data_set_kinds=["training", "validation"]
@@ -366,7 +369,7 @@ def analyse_model(model, run_id=None,
                 directory=results_directory
             )
 
-            superset_accuracies = loadAccuracies(
+            superset_accuracies = load_accuracies(
                 model=model,
                 data_set_kinds=["training", "validation"],
                 superset=True,
@@ -397,7 +400,7 @@ def analyse_model(model, run_id=None,
         print("Plotting logarithm of KL divergence heat map.")
         heat_map_time_start = time()
 
-        kl_neurons = loadKLDivergences(model=model, run_id=run_id)
+        kl_neurons = load_kl_divergences(model=model, run_id=run_id)
 
         kl_neurons = numpy.sort(kl_neurons, axis=1)
 
@@ -421,7 +424,7 @@ def analyse_model(model, run_id=None,
 
         print(subheading("Latent distributions"))
 
-        centroids = loadCentroids(
+        centroids = load_centroids(
             model=model,
             data_set_kinds="validation",
             run_id=run_id
@@ -515,7 +518,7 @@ def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
                                  results_directory="results"):
 
     if run_id:
-        run_id = checkRunID(run_id)
+        run_id = check_run_id(run_id)
 
     results_directory = _build_path_for_result_directory(
         base_directory=results_directory,
@@ -668,7 +671,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         )
 
     if run_id:
-        run_id = checkRunID(run_id)
+        run_id = check_run_id(run_id)
 
     if evaluation_subset_indices is None:
         evaluation_subset_indices = indices_for_evaluation_subset(
@@ -679,7 +682,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
     print("Setting up results analyses.")
     setup_time_start = time()
 
-    number_of_epochs_trained = loadNumberOfEpochsTrained(
+    number_of_epochs_trained = load_number_of_epochs_trained(
         model=model,
         run_id=run_id,
         early_stopping=early_stopping,
@@ -735,21 +738,21 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         print("Loading results from model log directory.")
         loading_time_start = time()
 
-        evaluation_eval = loadLearningCurves(
+        evaluation_eval = load_learning_curves(
             model=model,
             data_set_kinds="evaluation",
             run_id=run_id,
             early_stopping=early_stopping,
             best_model=best_model
         )
-        accuracy_eval = loadAccuracies(
+        accuracy_eval = load_accuracies(
             model=model,
             data_set_kinds="evaluation",
             run_id=run_id,
             early_stopping=early_stopping,
             best_model=best_model
         )
-        superset_accuracy_eval = loadAccuracies(
+        superset_accuracy_eval = load_accuracies(
             model=model,
             data_set_kinds="evaluation",
             superset=True,
@@ -1247,7 +1250,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         if model.latent_distribution_name == "gaussian mixture":
             print("Loading centroids from model log directory.")
             loading_time_start = time()
-            centroids = loadCentroids(
+            centroids = load_centroids(
                 model=model,
                 data_set_kinds="evaluation",
                 run_id=run_id,
@@ -1321,7 +1324,7 @@ def _build_path_for_result_directory(base_directory, model_name,
     results_directory = os.path.join(base_directory, model_name)
 
     if run_id:
-        run_id = checkRunID(run_id)
+        run_id = check_run_id(run_id)
         results_directory = os.path.join(
             results_directory,
             "run_{}".format(run_id)
