@@ -123,13 +123,6 @@ def enumerateListOfStrings(list_of_strings):
         )
     return enumerated_string
 
-def isfloat(value):
-    try:
-        float(value)
-        return True
-    except ValueError:
-        return False
-
 # Functions for models
 # TODO Move auxiliary model functions to `models/auxiliary.py`
 # Note that doing this with the current setup causes an import loop.

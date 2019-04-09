@@ -27,8 +27,6 @@ import pandas
 import scipy
 import tables
 
-from auxiliary import isfloat
-
 LOADERS = {}
 
 
@@ -602,7 +600,7 @@ def _load_tab_separated_matrix(tsv_path, data_type=None):
         row_elements = next(tsv_file).split()
 
         for i, element in enumerate(row_elements):
-            if isfloat(element):
+            if _is_float(element):
                 column_offset = i
                 break
 
@@ -753,3 +751,11 @@ def _create_development_data_set(
     }
 
     return data_dictionary
+
+
+def _is_float(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
