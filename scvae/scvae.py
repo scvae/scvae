@@ -40,7 +40,8 @@ from auxiliary import (
 )
 from models.auxiliary import (
     check_run_id,
-    better_model_exists, model_stopped_early
+    better_model_exists, model_stopped_early,
+    parse_model_versions, parse_sample_lists, validate_model_parameters
 )
 
 import os
@@ -93,7 +94,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     
     # Setup
     
-    model_versions = parseModelVersions(model_versions)
+    model_versions = parse_model_versions(model_versions)
     
     ## Analyses
     
@@ -115,7 +116,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
         if run_id:
             run_id = check_run_id(run_id)
         
-        model_valid, model_errors = validateModelParameters(
+        model_valid, model_errors = validate_model_parameters(
             model_type, latent_distribution,
             reconstruction_distribution, number_of_reconstruction_classes,
             parameterise_latent_posterior
@@ -235,9 +236,9 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     feature_size = training_set.number_of_features
     
     # Parse numbers of samples
-    number_of_monte_carlo_samples = parseSampleLists(
+    number_of_monte_carlo_samples = parse_sample_lists(
         number_of_monte_carlo_samples)
-    number_of_importance_samples = parseSampleLists(
+    number_of_importance_samples = parse_sample_lists(
         number_of_importance_samples)
     
     # Use analytical KL term for single-Gaussian-VAE
@@ -670,143 +671,6 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
         
         if transformed_evaluation_set.version == "original":
             transformed_evaluation_set.reset_predictions()
-
-def parseModelVersions(proposed_versions):
-    
-    version_alias_sets = {
-        "end_of_training": ["eot", "end", "finish", "finished"],
-        "best_model": ["bm", "best", "optimal", "optimal_parameters", "op"],
-        "early_stopping": ["es", "early", "stop", "stopped"]
-    }
-    
-    parsed_versions = []
-    
-    if not isinstance(proposed_versions, list):
-        proposed_versions = [proposed_versions]
-    
-    if proposed_versions == ["all"]:
-        parsed_versions = list(version_alias_sets.keys())
-    
-    else:
-        for proposed_version in proposed_versions:
-            
-            normalised_proposed_version = normalise_string(proposed_version)
-            parsed_version = None
-            
-            for version, version_aliases in version_alias_sets.items():
-                if normalised_proposed_version == version \
-                    or normalised_proposed_version in version_aliases:
-                        parsed_version = version
-                        break
-            
-            if parsed_version:
-                parsed_versions.append(parsed_version)
-            else:
-                raise ValueError(
-                    "`{}` is not a model version.".format(
-                        proposed_version
-                    )
-                )
-    
-    return parsed_versions
-
-def parseSampleLists(list_with_number_of_samples):
-    
-    if len(list_with_number_of_samples) == 2:
-        number_of_samples = {
-            "training": list_with_number_of_samples[0],
-            "evaluation": list_with_number_of_samples[1]
-        }
-    
-    elif len(list_with_number_of_samples) == 1:
-        number_of_samples = {
-            "training": list_with_number_of_samples[0],
-            "evaluation": list_with_number_of_samples[0]
-        }
-    
-    else:
-        raise ValueError("List of number of samples can only contain " +
-            "one or two numbers.")
-    
-    return number_of_samples
-
-def validateModelParameters(model_type, latent_distribution,
-    reconstruction_distribution, number_of_reconstruction_classes,
-    parameterise_latent_posterior):
-    
-    validity = True
-    errors = []
-    
-    # Likelihood
-    
-    likelihood_validity = True
-    likelihood_error = ""
-    
-    if number_of_reconstruction_classes > 0:
-        likelihood_error = "Reconstruction classification with"
-        
-        likelihood_error_list = []
-        
-        if reconstruction_distribution == "bernoulli":
-            likelihood_error_list.append("the Bernoulli distribution")
-            likelihood_validity = False
-        
-        if "zero-inflated" in reconstruction_distribution:
-            likelihood_error_list.append("zero-inflated distributions")
-            likelihood_validity = False
-        
-        if "constrained" in reconstruction_distribution:
-            likelihood_error_list.append("constrained distributions")
-            likelihood_validity = False
-        
-        if "multinomial" in reconstruction_distribution:
-            likelihood_error_list.append("the multinomial distribution")
-            likelihood_validity = False
-        
-        number_of_distributions = len(likelihood_error_list)
-        
-        if number_of_distributions == 1:
-            likelihood_error_distribution = likelihood_error_list[0]
-        elif number_of_distributions == 2:
-            likelihood_error_distribution = \
-                " or ".join(likelihood_error_list)
-        elif number_of_distributions >= 2:
-            likelihood_error_distribution = \
-                ", ".join(likelihood_error_list[:-1]) + ", or" \
-                + likelihood_error_list[-1]
-        
-        if likelihood_validity:
-            likelihood_error = ""
-        else:
-            likelihood_error += " " + likelihood_error_distribution + "."
-    
-    validity = validity and likelihood_validity
-    
-    if not likelihood_validity:
-        errors.append(likelihood_error)
-    
-    # Parameterisation of latent posterior for VAE
-    if "VAE" in model_type:
-        parameterise_validity = True
-        parameterise_error = ""
-        
-        if not (model_type in ["VAE"]
-            and latent_distribution == "gaussian mixture") \
-            and parameterise_latent_posterior:
-            
-            parameterise_error = "Cannot parameterise latent posterior " \
-                + "parameters for " + model_type + " or " \
-                + latent_distribution + " distribution."
-            parameterise_validity = False
-        
-        validity = validity and parameterise_validity
-        
-        if not parameterise_validity:
-            errors.append(parameterise_error)
-    
-    # Return
-    
-    return validity, errors
 
 parser = argparse.ArgumentParser(
     description='Model single-cell transcript counts using deep learning.',
