@@ -35,7 +35,7 @@ from analyses.prediction import (
 
 from auxiliary import (
     title, subtitle, heading,
-    normalise_string, proper_string, enumerate_list_of_strings,
+    normalise_string, proper_string, enumerate_strings,
     remove_empty_directories
 )
 from models.auxiliary import (
@@ -407,7 +407,8 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
             evaluation_title_parts.append("prediction")
         evaluation_title_parts.append("analysis")
     
-    evaluation_title = enumerate_list_of_strings(evaluation_title_parts)
+    evaluation_title = enumerate_strings(
+        evaluation_title_parts, conjunction="and")
     
     print(title(evaluation_title.capitalize()))
     
@@ -519,8 +520,8 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
         and model_stopped_early(model, run_id = run_id):
             model_parameter_set_names.append("early stopping")
     
-    print("Model parameter sets: {}.".format(enumerate_list_of_strings(
-        model_parameter_set_names)))
+    print("Model parameter sets: {}.".format(enumerate_strings(
+        model_parameter_set_names, conjunction="and")))
     
     print()
     

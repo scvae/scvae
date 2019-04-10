@@ -108,16 +108,23 @@ def capitalise_string(original_string):
     return capitalised_string
 
 
-def enumerate_list_of_strings(list_of_strings):
-    if len(list_of_strings) == 1:
-        enumerated_string = list_of_strings[0]
-    elif len(list_of_strings) == 2:
-        enumerated_string = " and ".join(list_of_strings)
-    elif len(list_of_strings) >= 3:
-        enumerated_string = "{}, and {}".format(
-            ", ".join(list_of_strings[:-1]),
-            list_of_strings[-1]
+def enumerate_strings(strings, conjunction="and"):
+    if not isinstance(strings, list):
+        raise ValueError("`strings` should be a list of strings.")
+    conjunction = conjunction.strip()
+    n_strings = len(strings)
+    if n_strings == 1:
+        enumerated_string = strings[0]
+    elif n_strings == 2:
+        enumerated_string = " {} ".format(conjunction).join(strings)
+    elif n_strings >= 3:
+        enumerated_string = "{}, {} {}".format(
+            ", ".join(strings[:-1]),
+            conjunction,
+            strings[-1]
         )
+    else:
+        raise ValueError("`strings` does not contain any strings.")
     return enumerated_string
 
 
