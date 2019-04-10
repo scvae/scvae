@@ -29,7 +29,7 @@ import numpy
 import tensorflow as tf
 from tensorflow.contrib.layers import fully_connected, batch_norm, dropout
 
-from auxiliary import capitalise_string, normalise_string
+from auxiliary import capitalise_string, enumerate_strings, normalise_string
 
 
 # Wrapper layer for inserting batch normalisation in between linear and
@@ -793,57 +793,37 @@ def validate_model_parameters(model_type, latent_distribution,
     validity = True
     errors = []
 
-    # Validate likelihood
-    likelihood_validity = True
-    likelihood_error = ""
-
+    # Validate piecewise categorical likelihood
     if number_of_reconstruction_classes > 0:
-        likelihood_error = "Reconstruction classification with"
-
-        likelihood_error_list = []
+        piecewise_categorical_likelihood_errors = []
 
         if reconstruction_distribution == "bernoulli":
-            likelihood_error_list.append("the Bernoulli distribution")
-            likelihood_validity = False
+            piecewise_categorical_likelihood_errors.append(
+                "the Bernoulli distribution")
 
         if "zero-inflated" in reconstruction_distribution:
-            likelihood_error_list.append("zero-inflated distributions")
-            likelihood_validity = False
+            piecewise_categorical_likelihood_errors.append(
+                "zero-inflated distributions")
 
         if "constrained" in reconstruction_distribution:
-            likelihood_error_list.append("constrained distributions")
-            likelihood_validity = False
+            piecewise_categorical_likelihood_errors.append(
+                "constrained distributions")
 
-        if "multinomial" in reconstruction_distribution:
-            likelihood_error_list.append("the multinomial distribution")
-            likelihood_validity = False
-
-        number_of_distributions = len(likelihood_error_list)
-
-        if number_of_distributions == 1:
-            likelihood_error_distribution = likelihood_error_list[0]
-        elif number_of_distributions == 2:
-            likelihood_error_distribution = " or ".join(likelihood_error_list)
-        elif number_of_distributions >= 2:
-            likelihood_error_distribution = (
-                ", ".join(likelihood_error_list[:-1]) + ", or"
-                + likelihood_error_list[-1])
-
-        if likelihood_validity:
-            likelihood_error = ""
-        else:
-            likelihood_error += " " + likelihood_error_distribution + "."
-
-    validity = validity and likelihood_validity
-
-    if not likelihood_validity:
-        errors.append(likelihood_error)
+        if len(piecewise_categorical_likelihood_errors) > 0:
+            piecewise_categorical_likelihood_error = (
+                "{} cannot be piecewise categorical.".format(
+                    capitalise_string(
+                        enumerate_strings(
+                            piecewise_categorical_likelihood_errors,
+                            conjunction="or"
+                        )
+                    )
+                )
+            )
+            errors.append(piecewise_categorical_likelihood_error)
 
     # Validate parameterisation of latent posterior for VAE
     if "VAE" in model_type:
-        parameterise_validity = True
-        parameterise_error = ""
-
         if (not (model_type in ["VAE"]
                  and latent_distribution == "gaussian mixture")
                 and parameterise_latent_posterior):
@@ -852,12 +832,10 @@ def validate_model_parameters(model_type, latent_distribution,
                 "Cannot parameterise latent posterior parameters for {} or {} "
                 "distribution.".format(model_type, latent_distribution)
             )
-            parameterise_validity = False
-
-        validity = validity and parameterise_validity
-
-        if not parameterise_validity:
             errors.append(parameterise_error)
+
+    if len(errors) > 0:
+        validity = False
 
     return validity, errors
 
