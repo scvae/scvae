@@ -27,7 +27,7 @@ from models import (
     GaussianMixtureVariationalAutoencoder
 )
 
-from distributions import DISTRIBUTIONS, LATENT_DISTRIBUTIONS
+from distributions.auxiliary import parse_distribution
 
 from analyses.prediction import (
     predict, PREDICTION_METHOD_NAMES, PREDICTION_METHOD_SPECIFICATIONS
@@ -104,9 +104,9 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     
     ## Distributions
     
-    reconstruction_distribution = parseDistribution(
+    reconstruction_distribution = parse_distribution(
         reconstruction_distribution)
-    latent_distribution = parseDistribution(latent_distribution)
+    latent_distribution = parse_distribution(latent_distribution)
     
     ## Model configuration validation
     
@@ -709,15 +709,6 @@ def parseModelVersions(proposed_versions):
                 )
     
     return parsed_versions
-
-def parseDistribution(distribution):
-    distribution = normalise_string(distribution)
-    distribution_names = list(DISTRIBUTIONS.keys())
-    distribution_names += list(LATENT_DISTRIBUTIONS.keys())
-    for distribution_name in distribution_names:
-        if normalise_string(distribution_name) == distribution:
-            return distribution_name
-    raise ValueError("Distribution `{}` not found.".format(distribution))
 
 def parseSampleLists(list_with_number_of_samples):
     
