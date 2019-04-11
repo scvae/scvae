@@ -38,17 +38,23 @@ from models.auxiliary import (
     early_stopping_status, load_learning_curves,
     generate_unique_run_id_for_model, check_run_id,
     correct_model_checkpoint_path, remove_old_checkpoints,
-    copy_model_directory, clear_log_directory
+    copy_model_directory, clear_log_directory,
+    parse_numbers_of_samples
 )
 
 # Infinitesimal to avoid over- and underflow
 EPSILON = 1e-6
 
+DEFAULT_NUMBER_OF_SAMPLES = {
+    "training": 1,
+    "evaluation": 1
+}
 
-# TODO Let number of samples be optional
+
 class VariationalAutoencoder:
     def __init__(self, feature_size, latent_size, hidden_sizes,
-                 number_of_monte_carlo_samples, number_of_importance_samples,
+                 number_of_monte_carlo_samples=None,
+                 number_of_importance_samples=None,
                  reconstruction_distribution=None,
                  number_of_reconstruction_classes=None,
                  latent_distribution="gaussian", number_of_latent_clusters=1,
@@ -88,8 +94,19 @@ class VariationalAutoencoder:
 
         # Dictionary holding number of samples needed for the Monte Carlo
         # estimator and importance weighting during both train and test time
-        self.number_of_importance_samples = number_of_importance_samples
+        if number_of_monte_carlo_samples is None:
+            number_of_monte_carlo_samples = DEFAULT_NUMBER_OF_SAMPLES
+        else:
+            number_of_monte_carlo_samples = parse_numbers_of_samples(
+                number_of_monte_carlo_samples)
         self.number_of_monte_carlo_samples = number_of_monte_carlo_samples
+
+        if number_of_importance_samples is None:
+            number_of_importance_samples = DEFAULT_NUMBER_OF_SAMPLES
+        else:
+            number_of_importance_samples = parse_numbers_of_samples(
+                number_of_importance_samples)
+        self.number_of_importance_samples = number_of_importance_samples
 
         self.generative_architecture = generative_architecture.upper()
         self.reconstruction_distribution_name = reconstruction_distribution

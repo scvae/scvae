@@ -64,8 +64,8 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     split_data_set = True,
     splitting_method = "default", splitting_fraction = 0.9,
     model_type = "VAE", latent_size = 50, hidden_sizes = [500],
-    number_of_importance_samples = [5],
-    number_of_monte_carlo_samples = [10],
+    number_of_importance_samples = None,
+    number_of_monte_carlo_samples = None,
     inference_architecture = "MLP",
     latent_distribution = "gaussian",
     number_of_classes = None,
@@ -236,10 +236,12 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     feature_size = training_set.number_of_features
     
     # Parse numbers of samples
-    number_of_monte_carlo_samples = parse_numbers_of_samples(
-        number_of_monte_carlo_samples)
-    number_of_importance_samples = parse_numbers_of_samples(
-        number_of_importance_samples)
+    if number_of_monte_carlo_samples:
+        number_of_monte_carlo_samples = parse_numbers_of_samples(
+            number_of_monte_carlo_samples)
+    if number_of_importance_samples:
+        number_of_importance_samples = parse_numbers_of_samples(
+            number_of_importance_samples)
     
     # Use analytical KL term for single-Gaussian-VAE
     if "VAE" in model_type:
@@ -800,14 +802,14 @@ parser.add_argument(
     "--number-of-importance-samples",
     type = int,
     nargs = "+",
-    default = [1],
+    default = None,
     help = "the number of importance weighted samples (if two numbers given, the first will be used for training and the second for evaluation)"
 )
 parser.add_argument(
     "--number-of-monte-carlo-samples",
     type = int,
     nargs = "+",
-    default = [1],
+    default = None,
     help = "the number of Monte Carlo samples (if two numbers given, the first will be used for training and the second for evaluation)"
 )
 parser.add_argument(
