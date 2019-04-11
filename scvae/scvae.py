@@ -41,7 +41,7 @@ from auxiliary import (
 from models.auxiliary import (
     check_run_id,
     better_model_exists, model_stopped_early,
-    parse_model_versions, parse_sample_lists, validate_model_parameters
+    parse_model_versions, parse_numbers_of_samples, validate_model_parameters
 )
 
 import os
@@ -236,9 +236,9 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
     feature_size = training_set.number_of_features
     
     # Parse numbers of samples
-    number_of_monte_carlo_samples = parse_sample_lists(
+    number_of_monte_carlo_samples = parse_numbers_of_samples(
         number_of_monte_carlo_samples)
-    number_of_importance_samples = parse_sample_lists(
+    number_of_importance_samples = parse_numbers_of_samples(
         number_of_importance_samples)
     
     # Use analytical KL term for single-Gaussian-VAE

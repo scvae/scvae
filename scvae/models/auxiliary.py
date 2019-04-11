@@ -764,25 +764,59 @@ def parse_model_versions(proposed_versions):
     return parsed_versions
 
 
-def parse_sample_lists(list_with_number_of_samples):
+def parse_numbers_of_samples(proposed_numbers_of_samples):
+    required_scenarios = ["training", "evaluation"]
 
-    if len(list_with_number_of_samples) == 2:
-        number_of_samples = {
-            "training": list_with_number_of_samples[0],
-            "evaluation": list_with_number_of_samples[1]
+    if isinstance(proposed_numbers_of_samples, (int, float)):
+        proposed_numbers_of_samples = [_parse_number_of_samples(
+            proposed_numbers_of_samples)]
+
+    if isinstance(proposed_numbers_of_samples, list):
+        if len(proposed_numbers_of_samples) == 1:
+            proposed_numbers_of_samples *= 2
+        elif len(proposed_numbers_of_samples) > 2:
+            raise ValueError(
+                "List of number of samples can only contain one or two "
+                "numbers."
+            )
+        parsed_numbers_of_samples = {
+            scenario: _parse_number_of_samples(number)
+            for scenario, number in zip(
+                required_scenarios, proposed_numbers_of_samples)
         }
 
-    elif len(list_with_number_of_samples) == 1:
-        number_of_samples = {
-            "training": list_with_number_of_samples[0],
-            "evaluation": list_with_number_of_samples[0]
-        }
+    elif isinstance(proposed_numbers_of_samples, dict):
+        valid = True
+        for scenario in required_scenarios:
+            scenario_number = proposed_numbers_of_samples.get(scenario)
+            try:
+                scenario_number = _parse_number_of_samples(scenario_number)
+            except TypeError as sample_number_parsing_error:
+                if "integer" in sample_number_parsing_error:
+                    valid = False
+            finally:
+                proposed_numbers_of_samples[scenario] = scenario_number
+        if valid:
+            parsed_numbers_of_samples = proposed_numbers_of_samples
+        else:
+            raise ValueError(
+                "To supply the numbers of samples as a dictionary, the "
+                "dictionary must contain the keys {} with the number of "
+                "samples for each given as an integer.".format(
+                    enumerate_strings(
+                        ["`{}`".format(s) for s in required_scenarios],
+                        conjunction="and"
+                    )
+                )
+            )
 
     else:
-        raise ValueError(
-            "List of number of samples can only contain one or two numbers.")
+        raise TypeError(
+            "Expected an `int`, `list`, or `dict`; got `{}`.".format(
+                type(proposed_numbers_of_samples))
+        )
 
-    return number_of_samples
+    return parsed_numbers_of_samples
 
 
 def validate_model_parameters(model_type, latent_distribution,
@@ -903,3 +937,14 @@ def _generate_run_id(timestamp=None, number_of_letters=2):
     run_id = formatted_timestamp + "_" + letters
 
     return run_id
+
+
+def _parse_number_of_samples(number):
+    if isinstance(number, int):
+        pass
+    elif (isinstance(number, float)
+            and number.is_integer()):
+        number = int(number)
+    else:
+        raise TypeError("Number of samples should be an integer.")
+    return number
