@@ -60,6 +60,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                  reconstruction_distribution=None,
                  number_of_reconstruction_classes=None,
                  number_of_latent_clusters=1,
+                 prior_probabilities_method=None,
                  prior_probabilities=None,
                  batch_normalisation=True,
                  analytical_kl_term=False,
@@ -84,12 +85,21 @@ class GaussianMixtureVariationalAutoencoder(object):
             LATENT_DISTRIBUTIONS[latent_distribution]
         )
 
-        if prior_probabilities:
-            self.prior_probabilities_method = prior_probabilities["method"]
-            self.prior_probabilities = prior_probabilities["values"]
+        if prior_probabilities_method is None:
+            prior_probabilities_method = "uniform"
+        if prior_probabilities_method == "uniform":
+            prior_probabilities = None
+        elif prior_probabilities_method == "inferred":
+            if prior_probabilities is None:
+                raise TypeError(
+                    "No prior probabilities supplied for `inferred` method.")
         else:
-            self.prior_probabilities_method = "uniform"
-            self.prior_probabilities = None
+            raise NotImplementedError(
+                "`{}` method for setting prior probabilities not implemented."
+                .format(prior_probabilities_method)
+            )
+        self.prior_probabilities_method = prior_probabilities_method
+        self.prior_probabilities = prior_probabilities
 
         if self.prior_probabilities:
             self.n_clusters = len(self.prior_probabilities)

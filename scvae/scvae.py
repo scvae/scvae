@@ -299,21 +299,16 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
         
         if prior_probabilities_method == "uniform":
             prior_probabilities = None
-        elif prior_probabilities_method == "infer":
+        elif prior_probabilities_method == "inferred":
             prior_probabilities = training_set.class_probabilities
         else:
             prior_probabilities = None
         
         if not prior_probabilities:
             prior_probabilities_method = "uniform"
-            prior_probabilities_values = None
+            prior_probabilities = None
         else:
-            prior_probabilities_values = list(prior_probabilities.values())
-        
-        prior_probabilities = {
-            "method": prior_probabilities_method,
-            "values": prior_probabilities_values
-        }
+            prior_probabilities = list(prior_probabilities.values())
         
         model = GaussianMixtureVariationalAutoencoder(
             feature_size = feature_size,
@@ -322,6 +317,7 @@ def main(input_file_or_name, data_format = None, data_directory = "data",
             number_of_monte_carlo_samples = number_of_monte_carlo_samples,
             number_of_importance_samples = number_of_importance_samples, 
             analytical_kl_term = analytical_kl_term,
+            prior_probabilities_method = prior_probabilities_method,
             prior_probabilities = prior_probabilities,
             number_of_latent_clusters = number_of_classes,
             proportion_of_free_nats_for_y_kl_divergence = proportion_of_free_nats_for_y_kl_divergence,
