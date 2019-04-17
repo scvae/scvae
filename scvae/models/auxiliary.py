@@ -29,7 +29,8 @@ import numpy
 import tensorflow as tf
 from tensorflow.contrib.layers import fully_connected, batch_norm, dropout
 
-from auxiliary import capitalise_string, enumerate_strings, normalise_string
+from scvae.auxiliary import (
+    capitalise_string, enumerate_strings, normalise_string)
 
 
 # Wrapper layer for inserting batch normalisation in between linear and

@@ -22,8 +22,8 @@ import scipy
 import seaborn
 from matplotlib import pyplot
 
-from analyses.figures import saving, style
-from auxiliary import normalise_string, capitalise_string
+from scvae.analyses.figures import saving, style
+from scvae.auxiliary import normalise_string, capitalise_string
 
 
 def plot_series(series, x_label, y_label, sort=False, scale="linear",

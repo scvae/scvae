@@ -21,11 +21,11 @@ from time import time
 
 import scipy.sparse
 
-from auxiliary import (
+from scvae.auxiliary import (
     format_duration, normalise_string,
     download_file, copy_file
 )
-from data.loaders import LOADERS
+from scvae.data.loaders import LOADERS
 
 
 def acquire_data_set(title, urls, directory):

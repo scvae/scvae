@@ -23,14 +23,14 @@ from time import time
 import numpy
 import scipy
 
-from analyses import figures
-from analyses.figures import style
-from analyses.figures.auxiliary import _axis_label_for_symbol
-from auxiliary import (
+from scvae.analyses import figures
+from scvae.analyses.figures import style
+from scvae.analyses.figures.auxiliary import _axis_label_for_symbol
+from scvae.auxiliary import (
     format_duration,
     normalise_string, proper_string, capitalise_string
 )
-from analyses.decomposition import (
+from scvae.analyses.decomposition import (
     decompose,
     DECOMPOSITION_METHOD_NAMES,
     DEFAULT_DECOMPOSITION_METHOD

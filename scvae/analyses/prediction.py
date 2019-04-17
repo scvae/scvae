@@ -24,7 +24,7 @@ from kneed import KneeLocator
 from sklearn.cluster import KMeans, MiniBatchKMeans, DBSCAN
 from sklearn.neighbors import NearestNeighbors
 
-from auxiliary import proper_string, format_duration
+from scvae.auxiliary import proper_string, format_duration
 
 PREDICTION_METHOD_NAMES = {
     "k-means": ["k_means", "kmeans"],

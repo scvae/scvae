@@ -22,7 +22,7 @@ import numpy
 import PIL
 import scipy.sparse
 
-from analyses.figures import saving
+from scvae.analyses.figures import saving
 
 IMAGE_EXTENSION = ".png"
 DEFAULT_NUMBER_OF_RANDOM_EXAMPLES_FOR_COMBINED_IMAGES = 100

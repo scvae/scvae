@@ -21,8 +21,8 @@ import numpy
 import seaborn
 from matplotlib import pyplot
 
-from analyses.figures import saving, style
-from auxiliary import capitalise_string
+from scvae.analyses.figures import saving, style
+from scvae.auxiliary import capitalise_string
 
 MAXIMUM_NUMBER_OF_BINS_FOR_HISTOGRAMS = 20000
 

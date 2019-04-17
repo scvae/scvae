@@ -24,7 +24,7 @@ import sklearn
 from matplotlib import pyplot
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from analyses.figures import saving, style
+from scvae.analyses.figures import saving, style
 
 
 def plot_heat_map(values, x_name, y_name, z_name=None, z_symbol=None,

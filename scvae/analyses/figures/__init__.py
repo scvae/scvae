@@ -37,20 +37,22 @@ __all__ = [
     "save_figure"
 ]
 
-from analyses.figures.histograms import (
+from scvae.analyses.figures.histograms import (
     plot_histogram, plot_cutoff_count_histogram,
     plot_class_histogram, plot_probabilities
 )
-from analyses.figures.learning_curves import (
+from scvae.analyses.figures.learning_curves import (
     plot_learning_curves, plot_separate_learning_curves,
     plot_accuracy_evolution, plot_kl_divergence_evolution,
     plot_centroid_probabilities_evolution, plot_centroid_means_evolution,
     plot_centroid_covariance_matrices_evolution,
 )
-from analyses.figures.matrices import plot_matrix, plot_heat_map
-from analyses.figures.saving import save_figure
-from analyses.figures.scatter import plot_values, plot_variable_correlations
-from analyses.figures.series import plot_series, plot_profile_comparison
-from analyses.figures.style import reset_plot_look
+from scvae.analyses.figures.matrices import plot_matrix, plot_heat_map
+from scvae.analyses.figures.saving import save_figure
+from scvae.analyses.figures.scatter import (
+    plot_values, plot_variable_correlations
+)
+from scvae.analyses.figures.series import plot_series, plot_profile_comparison
+from scvae.analyses.figures.style import reset_plot_look
 
 reset_plot_look()

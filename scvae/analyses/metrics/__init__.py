@@ -26,10 +26,10 @@ __all__ = [
     "accuracy"
 ]
 
-from analyses.metrics.summary import (
+from scvae.analyses.metrics.summary import (
     summary_statistics, format_summary_statistics
 )
-from analyses.metrics.clustering import (
+from scvae.analyses.metrics.clustering import (
     compute_clustering_metrics,
     adjusted_rand_index,
     adjusted_mutual_information,

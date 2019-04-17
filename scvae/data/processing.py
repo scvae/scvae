@@ -23,8 +23,8 @@ import numpy
 import scipy
 import sklearn.preprocessing
 
-from auxiliary import normalise_string, format_duration
-from data.sparse import SparseRowMatrix
+from scvae.auxiliary import normalise_string, format_duration
+from scvae.data.sparse import SparseRowMatrix
 
 PREPROCESSERS = {}
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ======================================================================== #
 #
 # Copyright (c) 2017 - 2019 scVAE authors
@@ -16,14 +17,10 @@
 #
 # ======================================================================== #
 
-__all__ = [
-    "analyse_data",
-    "analyse_model",
-    "analyse_intermediate_results",
-    "analyse_results"
-]
+import sys
 
-from scvae.analyses.analyses import (
-    analyse_data, analyse_model,
-    analyse_intermediate_results, analyse_results
-)
+from scvae.cli import main
+
+if __name__ == '__main__':
+    status = main()
+    sys.exit(status)

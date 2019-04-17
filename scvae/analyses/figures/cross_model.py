@@ -20,7 +20,7 @@ import numpy
 import seaborn
 from matplotlib import pyplot
 
-from analyses.figures import saving, style
+from scvae.analyses.figures import saving, style
 
 
 def plot_elbo_heat_map(data_frame, x_label, y_label, z_label=None,

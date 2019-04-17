@@ -42,15 +42,19 @@ All included data sets are downloaded and processed automatically as needed.
 
 ## Installation ##
 
-This tool is not available as a Python package yet. In the meantime you will first need to install its dependencies by yourself. This can be done by running
+You will first need to install its dependencies by yourself. This can be done by running
 
-	$ pip install numpy scipy scikit-learn kneed tensorflow-gpu tensorflow-probability-gpu pandas tables beautifulsoup4 stemming matplotlib seaborn pillow
+	$ pip install numpy scipy scikit-learn tensorflow-gpu tensorflow-probability-gpu pandas tables matplotlib seaborn pillow
 
 (If you do not have a GPU supported by TensorFlow, install the standard version by replacing `tensorflow-gpu` and `tensorflow-probability-gpu` with `tensorflow` and `tensorflow-probability`, respectively.)
 
 After this, you can clone this tool to an appropriate folder:
 
 	$ git clone https://github.com/chgroenbech/scVAE.git
+
+You can now install it by running
+
+	$ pip3 install -e scVAE
 
 ## Running ##
 
@@ -60,7 +64,7 @@ Per default, data is downloaded to the subfolder `data/`, models are saved in th
 
 To see how to change the standard configuration or use another data set, run the following command:
 
-	$ ./main.py -h
+	$ python3 -m scvae -h
 
 ### Examples ###
 
@@ -68,15 +72,15 @@ To reproduce the main results from our paper, you can run the following commands
 
 * Combined [PBMC data set][PBMC] (under "Single Cell 3′ Paper: Zheng et al. 2017") from 10x Genomics:
 
-		$ ./main.py -i 10x-PBMC-PP -m GMVAE -r negative_binomial -l 100 -H 100 100 -w 200 -e 500 --decomposition-methods pca tsne
+		$ python3 -m scvae -i 10x-PBMC-PP -m GMVAE -r negative_binomial -l 100 -H 100 100 -w 200 -e 500 --decomposition-methods pca tsne
 
 * [TCGA data set][TCGA]:
 
-		$ ./main.py -i TCGA-RSEM --map-features --feature-selection keep_highest_variances 5000 -m GMVAE -r negative_binomial -l 50 -H 1000 1000 -e 500 --decomposition-methods pca tsne
+		$ python3 -m scvae -i TCGA-RSEM --map-features --feature-selection keep_highest_variances 5000 -m GMVAE -r negative_binomial -l 50 -H 1000 1000 -e 500 --decomposition-methods pca tsne
 
 * [MBC data set][MBC] from 10x Genomics:
 
-		$ ./main.py -i 10x-MBC -m GMVAE -K 10 -r zero_inflated_negative_binomial -l 25 -H 250 250 -e 500 --decomposition-methods pca tsne
+		$ python3 -m scvae -i 10x-MBC -m GMVAE -K 10 -r zero_inflated_negative_binomial -l 25 -H 250 250 -e 500 --decomposition-methods pca tsne
 
 [PBMC]: https://support.10xgenomics.com/single-cell-gene-expression/datasets/
 [TCGA]: https://xenabrowser.net/datapages/?dataset=tcga_gene_expected_count&host=https://toil.xenahubs.net
@@ -106,7 +110,7 @@ By default, a number of analyses are conducted of the models and saved in the su
 
 You can also model the MNIST data set. Three different versions are supported: [the original][MNIST-original], [the normalised][MNIST-normalised], and [the binarised][MNIST-binarised]. To run the GMVAE model for, e.g., the binarised version, issue the following command:
 
-	$ ./main.py -i mnist_binarised -m GMVAE -r bernoulli -l 10 -H 200 200 -e 500 --decomposition-methods pca tsne
+	$ python3 -m scvae -i mnist_binarised -m GMVAE -r bernoulli -l 10 -H 200 200 -e 500 --decomposition-methods pca tsne
 
 [MNIST-original]: http://yann.lecun.com/exdb/mnist/
 [MNIST-normalised]: http://deeplearning.net/data/mnist/

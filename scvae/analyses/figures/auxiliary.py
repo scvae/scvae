@@ -19,8 +19,8 @@
 import matplotlib.patches
 import numpy
 
-from auxiliary import normalise_string, proper_string
-from analyses.decomposition import (
+from scvae.auxiliary import normalise_string, proper_string
+from scvae.analyses.decomposition import (
     DECOMPOSITION_METHOD_NAMES,
     DECOMPOSITION_METHOD_LABEL
 )

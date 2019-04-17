@@ -32,13 +32,13 @@ import numpy
 import pandas
 from scipy.stats import pearsonr
 
-from analyses import figures
-from analyses.figures.cross_model import (
+from scvae.analyses import figures
+from scvae.analyses.figures.cross_model import (
     plot_correlations, plot_elbo_heat_map,
     plot_model_metrics, plot_model_metric_sets
 )
-from analyses.metrics import format_summary_statistics
-from auxiliary import (
+from scvae.analyses.metrics import format_summary_statistics
+from scvae.auxiliary import (
     format_time,
     normalise_string, proper_string, capitalise_string,
     title, subtitle, heading, subheading

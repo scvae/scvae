@@ -21,7 +21,7 @@ import os
 
 import importlib_resources as resources
 
-from auxiliary import normalise_string
+from scvae.auxiliary import normalise_string
 
 
 def parse_input(input_file_or_name):
@@ -100,7 +100,7 @@ def find_data_set(name, directory):
 
 
 def _load_data_set_metadata():
-    with resources.open_text("data", "data_sets.json") as metadata_file:
+    with resources.open_text("scvae.data", "data_sets.json") as metadata_file:
         data_sets = json.load(metadata_file)
     return data_sets
 

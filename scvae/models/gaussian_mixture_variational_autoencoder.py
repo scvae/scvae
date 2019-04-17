@@ -26,23 +26,22 @@ import scipy.sparse
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from analyses.metrics.clustering import accuracy
-from analyses.prediction import map_cluster_ids_to_label_ids
-from auxiliary import (
+from scvae.analyses.metrics.clustering import accuracy
+from scvae.analyses.prediction import map_cluster_ids_to_label_ids
+from scvae.auxiliary import (
     format_duration, format_time,
-    normalise_string, capitalise_string
-)
-from data.data_set import DataSet
-from distributions import DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised
-from models.auxiliary import (
+    normalise_string, capitalise_string)
+from scvae.data.data_set import DataSet
+from scvae.distributions import (
+    DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised)
+from scvae.models.auxiliary import (
     dense_layer, dense_layers,
     build_training_string, build_data_string,
     load_learning_curves, early_stopping_status,
     generate_unique_run_id_for_model, check_run_id,
     correct_model_checkpoint_path, remove_old_checkpoints,
     copy_model_directory, clear_log_directory,
-    parse_numbers_of_samples
-)
+    parse_numbers_of_samples)
 
 # Infinitesimal to avoid over- and underflow
 EPSILON = 1e-6

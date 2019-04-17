@@ -23,7 +23,7 @@ __all__ = [
     "DEFAULT_DECOMPOSITION_METHOD"
 ]
 
-from analyses.decomposition.decomposition import (
+from scvae.analyses.decomposition.decomposition import (
     decompose,
     DECOMPOSITION_METHOD_NAMES, DECOMPOSITION_METHOD_LABEL,
     DEFAULT_DECOMPOSITION_METHOD

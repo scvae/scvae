@@ -23,7 +23,7 @@ import numpy
 import scipy
 import tables
 
-from auxiliary import normalise_string, format_duration
+from scvae.auxiliary import normalise_string, format_duration
 
 
 def load_data_dictionary(path):

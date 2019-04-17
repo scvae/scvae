@@ -21,8 +21,8 @@ import scipy
 from sklearn.decomposition import PCA, FastICA, TruncatedSVD
 from sklearn.manifold import TSNE
 
-from analyses.decomposition.incremental_pca import IncrementalPCA
-from auxiliary import normalise_string, proper_string
+from scvae.analyses.decomposition.incremental_pca import IncrementalPCA
+from scvae.auxiliary import normalise_string, proper_string
 
 DECOMPOSITION_METHOD_NAMES = {
     "PCA": ["pca"],

@@ -23,15 +23,15 @@ from time import time
 
 import numpy
 
-from analyses import figures, images, metrics, subanalyses
-from analyses.decomposition import decompose
-from analyses.figures.auxiliary import _axis_label_for_symbol
-from auxiliary import (
+from scvae.analyses import figures, images, metrics, subanalyses
+from scvae.analyses.decomposition import decompose
+from scvae.analyses.figures.auxiliary import _axis_label_for_symbol
+from scvae.auxiliary import (
     format_time, format_duration,
     normalise_string, capitalise_string, subheading
 )
-from data.auxiliary import indices_for_evaluation_subset
-from models.auxiliary import (
+from scvae.data.auxiliary import indices_for_evaluation_subset
+from scvae.models.auxiliary import (
     load_number_of_epochs_trained, load_learning_curves, load_accuracies,
     load_centroids, load_kl_divergences,
     check_run_id

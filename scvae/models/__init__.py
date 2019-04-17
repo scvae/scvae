@@ -16,8 +16,8 @@
 #
 # ======================================================================== #
 
-from models.variational_autoencoder import VariationalAutoencoder
-from models.gaussian_mixture_variational_autoencoder import (
+from scvae.models.variational_autoencoder import VariationalAutoencoder
+from scvae.models.gaussian_mixture_variational_autoencoder import (
     GaussianMixtureVariationalAutoencoder)
 
 __all__ = [

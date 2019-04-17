@@ -21,9 +21,9 @@ import scipy
 import seaborn
 from matplotlib import pyplot
 
-from analyses.figures import saving, style
-from analyses.figures.auxiliary import _covariance_matrix_as_ellipse
-from auxiliary import normalise_string
+from scvae.analyses.figures import saving, style
+from scvae.analyses.figures.auxiliary import _covariance_matrix_as_ellipse
+from scvae.auxiliary import normalise_string
 
 
 def plot_values(values, colour_coding=None, colouring_data_set=None,
