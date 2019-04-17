@@ -38,7 +38,7 @@ from scvae.analyses.figures.cross_model import (
     plot_model_metrics, plot_model_metric_sets
 )
 from scvae.analyses.metrics import format_summary_statistics
-from scvae.auxiliary import (
+from scvae.utilities import (
     format_time,
     normalise_string, proper_string, capitalise_string,
     title, subtitle, heading, subheading

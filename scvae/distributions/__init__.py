@@ -16,18 +16,18 @@
 #
 # ======================================================================== #
 
-from scvae.distributions.auxiliary import DISTRIBUTIONS, LATENT_DISTRIBUTIONS
 from scvae.distributions.categorised import Categorised
 from scvae.distributions.exponentially_modified_normal import (
     ExponentiallyModifiedNormal)
 from scvae.distributions.lomax import Lomax
 from scvae.distributions.zero_inflated import ZeroInflated
+from scvae.distributions.utilities import DISTRIBUTIONS, LATENT_DISTRIBUTIONS
 
 __all__ = [
-    "DISTRIBUTIONS",
-    "LATENT_DISTRIBUTIONS",
     "Categorised",
     "ExponentiallyModifiedNormal",
     "Lomax",
-    "ZeroInflated"
+    "ZeroInflated",
+    "DISTRIBUTIONS",
+    "LATENT_DISTRIBUTIONS"
 ]

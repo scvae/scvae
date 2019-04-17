@@ -29,7 +29,7 @@ import numpy
 import tensorflow as tf
 from tensorflow.contrib.layers import fully_connected, batch_norm, dropout
 
-from scvae.auxiliary import (
+from scvae.utilities import (
     capitalise_string, enumerate_strings, normalise_string)
 
 

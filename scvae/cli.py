@@ -24,24 +24,24 @@ from scvae import analyses
 from scvae.analyses.prediction import (
     predict, PREDICTION_METHOD_NAMES, PREDICTION_METHOD_SPECIFICATIONS
 )
-from scvae.auxiliary import (
-    title, subtitle, heading,
-    normalise_string, proper_string, enumerate_strings,
-    remove_empty_directories
-)
 from scvae.data.data_set import DataSet
-from scvae.data.auxiliary import (
+from scvae.data.utilities import (
     build_directory_path, indices_for_evaluation_subset
 )
-from scvae.distributions.auxiliary import parse_distribution
+from scvae.distributions.utilities import parse_distribution
 from scvae.models import (
     VariationalAutoencoder,
     GaussianMixtureVariationalAutoencoder
 )
-from scvae.models.auxiliary import (
+from scvae.models.utilities import (
     check_run_id,
     better_model_exists, model_stopped_early,
     parse_model_versions, parse_numbers_of_samples, validate_model_parameters
+)
+from scvae.utilities import (
+    title, subtitle, heading,
+    normalise_string, proper_string, enumerate_strings,
+    remove_empty_directories
 )
 
 

@@ -24,8 +24,8 @@ from time import time
 import numpy
 import seaborn
 
-from scvae.auxiliary import format_duration, normalise_string
 from scvae.data import internal_io, loading, parsing, processing, sparse
+from scvae.utilities import format_duration, normalise_string
 
 PREPROCESS_SUFFIX = "preprocessed"
 ORIGINAL_SUFFIX = "original"

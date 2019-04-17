@@ -19,11 +19,11 @@
 import matplotlib.patches
 import numpy
 
-from scvae.auxiliary import normalise_string, proper_string
 from scvae.analyses.decomposition import (
     DECOMPOSITION_METHOD_NAMES,
     DECOMPOSITION_METHOD_LABEL
 )
+from scvae.utilities import normalise_string, proper_string
 
 
 def _axis_label_for_symbol(symbol, coordinate=None, decomposition_method=None,

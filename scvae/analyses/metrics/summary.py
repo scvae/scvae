@@ -18,8 +18,8 @@
 
 import numpy
 
-from scvae.data.auxiliary import standard_deviation
 from scvae.data.sparse import sparsity
+from scvae.data.utilities import standard_deviation
 
 MAXIMUM_NUMBER_OF_VALUES_FOR_NORMAL_STATISTICS_COMPUTATION = 5e8
 

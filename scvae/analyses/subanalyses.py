@@ -25,15 +25,15 @@ import scipy
 
 from scvae.analyses import figures
 from scvae.analyses.figures import style
-from scvae.analyses.figures.auxiliary import _axis_label_for_symbol
-from scvae.auxiliary import (
-    format_duration,
-    normalise_string, proper_string, capitalise_string
-)
+from scvae.analyses.figures.utilities import _axis_label_for_symbol
 from scvae.analyses.decomposition import (
     decompose,
     DECOMPOSITION_METHOD_NAMES,
     DEFAULT_DECOMPOSITION_METHOD
+)
+from scvae.utilities import (
+    format_duration,
+    normalise_string, proper_string, capitalise_string
 )
 
 MAXIMUM_NUMBER_OF_EXAMPLES_FOR_HEAT_MAPS = 10000

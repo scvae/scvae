@@ -26,13 +26,10 @@ import scipy.sparse
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from scvae.auxiliary import (
-    format_duration, format_time,
-    normalise_string, capitalise_string)
 from scvae.data.data_set import DataSet
 from scvae.distributions import (
     DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised)
-from scvae.models.auxiliary import (
+from scvae.models.utilities import (
     dense_layer, dense_layers, log_reduce_exp,
     build_training_string, build_data_string,
     early_stopping_status, load_learning_curves,
@@ -40,6 +37,9 @@ from scvae.models.auxiliary import (
     correct_model_checkpoint_path, remove_old_checkpoints,
     copy_model_directory, clear_log_directory,
     parse_numbers_of_samples)
+from scvae.utilities import (
+    format_duration, format_time,
+    normalise_string, capitalise_string)
 
 # Infinitesimal to avoid over- and underflow
 EPSILON = 1e-6

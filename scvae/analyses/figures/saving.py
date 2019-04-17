@@ -21,7 +21,7 @@ import os
 import numpy
 from matplotlib import pyplot
 
-from scvae.auxiliary import normalise_string
+from scvae.utilities import normalise_string
 
 FIGURE_EXTENSION = ".png"
 

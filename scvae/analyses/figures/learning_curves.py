@@ -24,8 +24,8 @@ import seaborn
 from matplotlib import pyplot
 
 from scvae.analyses.figures import saving, style
-from scvae.analyses.figures.auxiliary import _axis_label_for_symbol
-from scvae.auxiliary import normalise_string, capitalise_string
+from scvae.analyses.figures.utilities import _axis_label_for_symbol
+from scvae.utilities import normalise_string, capitalise_string
 
 
 def plot_learning_curves(curves, model_type, epoch_offset=0, name=None):

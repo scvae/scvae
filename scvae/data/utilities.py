@@ -20,7 +20,7 @@ import os
 
 import numpy
 
-from scvae.auxiliary import normalise_string
+from scvae.utilities import normalise_string
 
 EVALUATION_SUBSET_MAXIMUM_NUMBER_OF_EXAMPLES = 25
 EVALUATION_SUBSET_MAXIMUM_NUMBER_OF_EXAMPLES_PER_CLASS = 3

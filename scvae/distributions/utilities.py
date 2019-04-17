@@ -20,11 +20,11 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from scvae.auxiliary import normalise_string
 from scvae.distributions.exponentially_modified_normal import (
     ExponentiallyModifiedNormal)
 from scvae.distributions.lomax import Lomax
 from scvae.distributions.zero_inflated import ZeroInflated
+from scvae.utilities import normalise_string
 
 DISTRIBUTIONS = {
     "gaussian": {

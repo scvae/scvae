@@ -21,7 +21,7 @@ import os
 
 import importlib_resources as resources
 
-from scvae.auxiliary import normalise_string
+from scvae.utilities import normalise_string
 
 
 def parse_input(input_file_or_name):

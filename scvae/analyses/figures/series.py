@@ -23,7 +23,7 @@ import seaborn
 from matplotlib import pyplot
 
 from scvae.analyses.figures import saving, style
-from scvae.auxiliary import normalise_string, capitalise_string
+from scvae.utilities import normalise_string, capitalise_string
 
 
 def plot_series(series, x_label, y_label, sort=False, scale="linear",
