@@ -64,9 +64,8 @@ def variance(a, axis=None, ddof=0, batch_size=None):
     return var
 
 
-def build_directory_path(
-        base_directory, data_set, splitting_method, splitting_fraction,
-        preprocessing=True):
+def build_directory_path(base_directory, data_set, splitting_method=None,
+                         splitting_fraction=None, preprocessing=True):
 
     data_set_directory = os.path.join(base_directory, data_set.name)
 

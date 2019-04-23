@@ -29,6 +29,7 @@ import tensorflow_probability as tfp
 from scvae.analyses.metrics.clustering import accuracy
 from scvae.analyses.prediction import map_cluster_ids_to_label_ids
 from scvae.data.data_set import DataSet
+from scvae.defaults import defaults
 from scvae.distributions import (
     DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised)
 from scvae.models.utilities import (
@@ -38,36 +39,28 @@ from scvae.models.utilities import (
     generate_unique_run_id_for_model, check_run_id,
     correct_model_checkpoint_path, remove_old_checkpoints,
     copy_model_directory, clear_log_directory,
-    parse_numbers_of_samples)
+    parse_numbers_of_samples, validate_model_parameters)
 from scvae.utilities import (
     format_duration, format_time,
     normalise_string, capitalise_string)
 
-# Infinitesimal to avoid over- and underflow
-EPSILON = 1e-6
-
-DEFAULT_NUMBER_OF_SAMPLES = {
-    "training": 1,
-    "evaluation": 1
-}
-
 
 class GaussianMixtureVariationalAutoencoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
-                 number_of_monte_carlo_samples=None,
-                 number_of_importance_samples=None,
                  reconstruction_distribution=None,
                  number_of_reconstruction_classes=None,
-                 number_of_latent_clusters=1,
                  prior_probabilities_method=None,
                  prior_probabilities=None,
-                 batch_normalisation=True,
-                 analytical_kl_term=False,
-                 proportion_of_free_nats_for_y_kl_divergence=0.0,
+                 number_of_latent_clusters=None,
+                 number_of_monte_carlo_samples=None,
+                 number_of_importance_samples=None,
+                 batch_normalisation=None,
+                 proportion_of_free_nats_for_y_kl_divergence=None,
                  dropout_keep_probabilities=None,
-                 count_sum=True,
-                 number_of_warm_up_epochs=0, kl_weight=1,
-                 log_directory="log", results_directory="results"):
+                 count_sum=None,
+                 kl_weight=None,
+                 number_of_warm_up_epochs=None,
+                 log_directory=None):
 
         # Class setup
         super().__init__()
@@ -75,8 +68,31 @@ class GaussianMixtureVariationalAutoencoder(object):
         self.type = "GMVAE"
 
         self.feature_size = feature_size
+
+        if latent_size is None:
+            latent_size = defaults["models"]["latent_size"]
         self.latent_size = latent_size
+
+        if hidden_sizes is None:
+            hidden_sizes = defaults["models"]["hidden_sizes"]
         self.hidden_sizes = hidden_sizes
+
+        if reconstruction_distribution is None:
+            reconstruction_distribution = defaults["models"][
+                "reconstruction_distribution"]
+        self.reconstruction_distribution_name = reconstruction_distribution
+        self.reconstruction_distribution = DISTRIBUTIONS[
+            reconstruction_distribution]
+
+        # Number of categorical elements needed for reconstruction, e.g. K+1
+        if number_of_reconstruction_classes is None:
+            number_of_reconstruction_classes = defaults["models"][
+                "number_of_reconstruction_classes"]
+        self.number_of_reconstruction_classes = (
+            number_of_reconstruction_classes + 1)
+        # K: For the sum over K-1 Categorical probabilities and the last K
+        #   count distribution pdf.
+        self.k_max = number_of_reconstruction_classes
 
         latent_distribution = "gaussian mixture"
         self.latent_distribution_name = latent_distribution
@@ -84,14 +100,22 @@ class GaussianMixtureVariationalAutoencoder(object):
             LATENT_DISTRIBUTIONS[latent_distribution]
         )
 
+        if number_of_latent_clusters is None:
+            raise ValueError(
+                "For the GMVAE model, "
+                "the number of latent clusters has to be set."
+            )
+        self.n_clusters = number_of_latent_clusters
+
         if prior_probabilities_method is None:
-            prior_probabilities_method = "uniform"
+            prior_probabilities_method = defaults["models"][
+                "prior_probabilities_method"]
         if prior_probabilities_method == "uniform":
             prior_probabilities = None
-        elif prior_probabilities_method == "inferred":
+        elif prior_probabilities_method == "infer":
             if prior_probabilities is None:
                 raise TypeError(
-                    "No prior probabilities supplied for `inferred` method.")
+                    "No prior probabilities supplied for `infer` method.")
         else:
             raise NotImplementedError(
                 "`{}` method for setting prior probabilities not implemented."
@@ -100,49 +124,45 @@ class GaussianMixtureVariationalAutoencoder(object):
         self.prior_probabilities_method = prior_probabilities_method
         self.prior_probabilities = prior_probabilities
 
-        if self.prior_probabilities:
-            self.n_clusters = len(self.prior_probabilities)
-        else:
-            self.n_clusters = number_of_latent_clusters
-
-        self.number_of_latent_clusters = self.n_clusters
-        self.analytical_kl_term = analytical_kl_term
-
-        self.proportion_of_free_nats_for_y_kl_divergence = (
-            proportion_of_free_nats_for_y_kl_divergence)
+        if (self.prior_probabilities
+                and len(self.prior_probabilities) != self.n_clusters):
+            raise ValueError(
+                "The number of provided prior probabilities has to be the "
+                "as the number of latent clusters."
+            )
 
         # Dictionary holding number of samples needed for the Monte Carlo
         # estimator and importance weighting during both train and test time
         if number_of_monte_carlo_samples is None:
-            number_of_monte_carlo_samples = DEFAULT_NUMBER_OF_SAMPLES
+            number_of_monte_carlo_samples = defaults["models"][
+                "number of samples"]
         else:
             number_of_monte_carlo_samples = parse_numbers_of_samples(
                 number_of_monte_carlo_samples)
         self.number_of_monte_carlo_samples = number_of_monte_carlo_samples
 
         if number_of_importance_samples is None:
-            number_of_importance_samples = DEFAULT_NUMBER_OF_SAMPLES
+            number_of_importance_samples = defaults["models"][
+                "number of samples"]
         else:
             number_of_importance_samples = parse_numbers_of_samples(
                 number_of_importance_samples)
         self.number_of_importance_samples = number_of_importance_samples
 
-        self.reconstruction_distribution_name = reconstruction_distribution
-        self.reconstruction_distribution = DISTRIBUTIONS[
-            reconstruction_distribution]
-
-        # Number of categorical elements needed for reconstruction, e.g. K+1
-        self.number_of_reconstruction_classes = (
-            number_of_reconstruction_classes + 1)
-        # K: For the sum over K-1 Categorical probabilities and the last K
-        #   count distribution pdf.
-        self.k_max = number_of_reconstruction_classes
-
+        if batch_normalisation is None:
+            batch_normalisation = defaults["models"]["batch_normalisation"]
         self.batch_normalisation = batch_normalisation
+
+        if proportion_of_free_nats_for_y_kl_divergence is None:
+            proportion_of_free_nats_for_y_kl_divergence = defaults["models"][
+                "proportion_of_free_nats_for_y_kl_divergence"]
+        self.proportion_of_free_nats_for_y_kl_divergence = (
+            proportion_of_free_nats_for_y_kl_divergence)
 
         # Dropout keep probabilities (p) for 3 different kinds of layers
         if dropout_keep_probabilities is None:
-            self.dropout_keep_probabilities = []
+            self.dropout_keep_probabilities = defaults["models"][
+                "dropout_keep_probabilities"]
         else:
             self.dropout_keep_probabilities = dropout_keep_probabilities
         self.dropout_keep_probability_y = False
@@ -168,17 +188,26 @@ class GaussianMixtureVariationalAutoencoder(object):
             if dropout_keep_probabilities and dropout_keep_probabilities != 1:
                 self.dropout_parts.append(str(dropout_keep_probabilities))
 
+        if count_sum is None:
+            count_sum = defaults["models"]["count_sum"]
         self.use_count_sum_as_feature = count_sum
         self.use_count_sum_as_parameter = (
             "constrained" in self.reconstruction_distribution_name
             or "multinomial" in self.reconstruction_distribution_name
         )
 
+        if kl_weight is None:
+            kl_weight = defaults["models"]["kl_weight"]
         self.kl_weight_value = kl_weight
+
+        if number_of_warm_up_epochs is None:
+            number_of_warm_up_epochs = defaults["models"][
+                "number_of_warm_up_epochs"]
         self.number_of_warm_up_epochs = number_of_warm_up_epochs
 
+        if log_directory is None:
+            log_directory = defaults["models"]["directory"]
         self.base_log_directory = log_directory
-        self.base_results_directory = results_directory
 
         # Early stopping
         self.early_stopping_rounds = 10
@@ -187,6 +216,11 @@ class GaussianMixtureVariationalAutoencoder(object):
         # Graph setup
         self.graph = tf.Graph()
         self.parameter_summary_list = []
+
+        validate_model_parameters(
+            reconstruction_distribution=self.reconstruction_distribution_name,
+            number_of_reconstruction_classes=self.k_max
+        )
 
         with self.graph.as_default():
 
@@ -308,9 +342,6 @@ class GaussianMixtureVariationalAutoencoder(object):
         reconstruction_parts.append(
             "iw_{}".format(self.number_of_importance_samples["training"]))
 
-        if self.analytical_kl_term:
-            reconstruction_parts.append("kl")
-
         if self.batch_normalisation:
             reconstruction_parts.append("bn")
 
@@ -388,9 +419,6 @@ class GaussianMixtureVariationalAutoencoder(object):
             description_parts.append(
                 "KL weight: {}".format(self.kl_weight_value))
 
-        if self.analytical_kl_term:
-            description_parts.append("using analytical KL term")
-
         if self.batch_normalisation:
             description_parts.append("using batch normalisation")
 
@@ -454,6 +482,8 @@ class GaussianMixtureVariationalAutoencoder(object):
 
         log_directory = os.path.join(base, self.name)
 
+        if run_id is None:
+            run_id = defaults["models"]["run_id"]
         if run_id:
             run_id = check_run_id(run_id)
             log_directory = os.path.join(
@@ -503,16 +533,31 @@ class GaussianMixtureVariationalAutoencoder(object):
 
         return stopped_early, epochs_with_no_improvement
 
-    def train(self, training_set, validation_set=None, number_of_epochs=100,
-              batch_size=100, learning_rate=1e-3,
+    def train(self, training_set, validation_set=None, number_of_epochs=None,
+              batch_size=None, learning_rate=None,
               intermediate_analyser=None, plotting_interval=None,
               run_id=None, new_run=False, reset_training=False,
-              temporary_log_directory=None):
+              results_directory=None, temporary_log_directory=None):
 
-        # Setup
+        if number_of_epochs is None:
+            number_of_epochs = defaults["models"]["number_of_epochs"]
+        if batch_size is None:
+            batch_size = defaults["models"]["batch_size"]
+        if learning_rate is None:
+            learning_rate = defaults["models"]["learning_rate"]
+        if run_id is None:
+            run_id = defaults["models"]["run_id"]
+        if new_run is None:
+            new_run = defaults["models"]["new_run"]
+        if reset_training is None:
+            reset_training = defaults["models"]["reset_training"]
+        if results_directory is None:
+            results_directory = defaults["analyses"]["directory"]
 
         start_time = time()
 
+        if run_id is None:
+            run_id = defaults["models"]["run_id"]
         if run_id:
             run_id = check_run_id(run_id)
             new_run = True
@@ -533,9 +578,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             clear_log_directory(permanent_log_directory)
 
         # Logging
-        status = {
-            "completed": False,
-            "message": None,
+        metadata_log = {
             "epochs trained": None,
             "start time": format_time(start_time),
             "training duration": None,
@@ -613,13 +656,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         # Stop, if model is already trained
         if epoch_start >= number_of_epochs:
             print(training_string)
-            print()
-            status["completed"] = True
-            status["training duration"] = "nan"
-            status["last epoch duration"] = "nan"
-            status["epochs trained"] = "{}-{}".format(
-                epoch_start, number_of_epochs)
-            return status, run_id
+            return 0
 
         # Copy log directory to temporary location, if necessary
         if (temporary_log_directory
@@ -821,8 +858,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     format_duration(initialising_duration)))
                 print()
 
-            status["epochs trained"] = "{}-{}".format(
-                epoch_start, number_of_epochs)
+            metadata_log["epochs trained"] = (epoch_start, number_of_epochs)
 
             print(training_string)
             print()
@@ -907,13 +943,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                             batch_loss))
 
                         if numpy.isnan(batch_loss):
-                            status["completed"] = False
-                            status["message"] = "loss became nan"
-                            status["training duration"] = format_duration(
-                                time() - training_time_start)
-                            status["last epoch duration"] = format_duration(
-                                time() - epoch_time_start)
-                            return status, run_id
+                            raise ArithmeticError("The loss became NaN.")
 
                 print()
 
@@ -1580,7 +1610,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                             centroids=centroids,
                             model_name=self.name,
                             run_id=run_id,
-                            results_directory=self.base_results_directory
+                            results_directory=results_directory
                         )
                         print()
                     else:
@@ -1591,7 +1621,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                             model_type=self.type,
                             model_name=self.name,
                             run_id=run_id,
-                            results_directory=self.base_results_directory
+                            results_directory=results_directory
                         )
                         print()
 
@@ -1624,11 +1654,28 @@ class GaussianMixtureVariationalAutoencoder(object):
 
                 print()
 
-            status["completed"] = True
-            status["training duration"] = format_duration(training_duration)
-            status["last epoch duration"] = format_duration(epoch_duration)
+            metadata_log["training duration"] = format_duration(
+                training_duration)
+            metadata_log["last epoch duration"] = format_duration(
+                epoch_duration)
 
-            return status, run_id
+            metadata_log_filename = "metadata_log"
+            epochs_trained = metadata_log.get("epochs trained")
+            if epochs_trained:
+                metadata_log_filename += "-" + "-".join(map(
+                    str, epochs_trained))
+            metadata_log_path = os.path.join(
+                self.log_directory(run_id=run_id),
+                metadata_log_filename + ".log"
+            )
+            with open(metadata_log_path, "w") as metadata_log_file:
+                metadata_log_file.write("\n".join(
+                    "{}: {}".format(metadata_field, metadata_value)
+                    for metadata_field, metadata_value in metadata_log.items()
+                    if metadata_value
+                ))
+
+            return 0
 
     def evaluate(self, evaluation_set, evaluation_subset_indices=None,
                  batch_size=100, predict_labels=True, run_id=None,
@@ -1637,6 +1684,8 @@ class GaussianMixtureVariationalAutoencoder(object):
 
         # Setup
 
+        if run_id is None:
+            run_id = defaults["models"]["run_id"]
         if run_id:
             run_id = check_run_id(run_id)
             model_string = "model for run {}".format(run_id)
@@ -2322,8 +2371,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                             num_outputs=self.latent_size,
                             activation_fn=lambda x: tf.clip_by_value(
                                 parameter_activation_function(x),
-                                p_min + EPSILON,
-                                p_max - EPSILON
+                                p_min + numpy.finfo(dtype=numpy.float32).tiny,
+                                p_max - numpy.finfo(dtype=numpy.float32).tiny
                             ),
                             is_training=self.is_training,
                             dropout_keep_probability=(
@@ -2372,8 +2421,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                             num_outputs=self.latent_size,
                             activation_fn=lambda x: tf.clip_by_value(
                                 parameter_activation_function(x),
-                                p_min + EPSILON,
-                                p_max - EPSILON
+                                p_min + numpy.finfo(dtype=numpy.float32).tiny,
+                                p_max - numpy.finfo(dtype=numpy.float32).tiny
                             ),
                             is_training=self.is_training,
                             dropout_keep_probability=(
@@ -2418,8 +2467,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                     num_outputs=self.n_clusters,
                     activation_fn=lambda x: tf.clip_by_value(
                         parameter_activation_function(x),
-                        p_min + EPSILON,
-                        p_max - EPSILON
+                        p_min + numpy.finfo(dtype=numpy.float32).tiny,
+                        p_max - numpy.finfo(dtype=numpy.float32).tiny
                     ),
                     is_training=self.is_training,
                     dropout_keep_probability=(
@@ -2475,8 +2524,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                     num_outputs=self.feature_size,
                     activation_fn=lambda x: tf.clip_by_value(
                         parameter_activation_function(x),
-                        p_min + EPSILON,
-                        p_max - EPSILON
+                        p_min + numpy.finfo(dtype=numpy.float32).tiny,
+                        p_max - numpy.finfo(dtype=numpy.float32).tiny
                     ),
                     is_training=self.is_training,
                     dropout_keep_probability=self.dropout_keep_probability_h,

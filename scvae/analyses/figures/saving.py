@@ -21,6 +21,7 @@ import os
 import numpy
 from matplotlib import pyplot
 
+from scvae.defaults import defaults
 from scvae.utilities import normalise_string
 
 FIGURE_EXTENSION = ".png"
@@ -68,10 +69,10 @@ def save_figure(figure, name=None, options=None, directory=None):
         name = "figure"
 
     if options is None:
-        options = []
+        options = defaults["analyses"]["export_options"]
 
     if directory is None:
-        directory = "."
+        directory = defaults["analyses"]["directory"]
 
     if not os.path.exists(directory):
         os.makedirs(directory)

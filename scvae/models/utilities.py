@@ -729,7 +729,7 @@ def parse_model_versions(proposed_versions):
 
     version_alias_sets = {
         "end_of_training": ["eot", "end", "finish", "finished"],
-        "best_model": ["bm", "best", "optimal", "optimal_parameters", "op"],
+        "best_model": ["bm", "best", "optimal_parameters", "op", "optimal"],
         "early_stopping": ["es", "early", "stop", "stopped"]
     }
 
@@ -820,59 +820,54 @@ def parse_numbers_of_samples(proposed_numbers_of_samples):
     return parsed_numbers_of_samples
 
 
-def validate_model_parameters(model_type, latent_distribution,
-                              reconstruction_distribution,
-                              number_of_reconstruction_classes,
-                              parameterise_latent_posterior):
-
-    validity = True
-    errors = []
+def validate_model_parameters(reconstruction_distribution=None,
+                              number_of_reconstruction_classes=None,
+                              model_type=None, latent_distribution=None,
+                              parameterise_latent_posterior=None):
 
     # Validate piecewise categorical likelihood
-    if number_of_reconstruction_classes > 0:
-        piecewise_categorical_likelihood_errors = []
+    if reconstruction_distribution and number_of_reconstruction_classes:
+        if number_of_reconstruction_classes > 0:
+            piecewise_categorical_likelihood_errors = []
 
-        if reconstruction_distribution == "bernoulli":
-            piecewise_categorical_likelihood_errors.append(
-                "the Bernoulli distribution")
+            if reconstruction_distribution == "bernoulli":
+                piecewise_categorical_likelihood_errors.append(
+                    "the Bernoulli distribution")
 
-        if "zero-inflated" in reconstruction_distribution:
-            piecewise_categorical_likelihood_errors.append(
-                "zero-inflated distributions")
+            if "zero-inflated" in reconstruction_distribution:
+                piecewise_categorical_likelihood_errors.append(
+                    "zero-inflated distributions")
 
-        if "constrained" in reconstruction_distribution:
-            piecewise_categorical_likelihood_errors.append(
-                "constrained distributions")
+            if "constrained" in reconstruction_distribution:
+                piecewise_categorical_likelihood_errors.append(
+                    "constrained distributions")
 
-        if len(piecewise_categorical_likelihood_errors) > 0:
-            piecewise_categorical_likelihood_error = (
-                "{} cannot be piecewise categorical.".format(
-                    capitalise_string(
-                        enumerate_strings(
-                            piecewise_categorical_likelihood_errors,
-                            conjunction="or"
+            if len(piecewise_categorical_likelihood_errors) > 0:
+                piecewise_categorical_likelihood_error = (
+                    "{} cannot be piecewise categorical.".format(
+                        capitalise_string(
+                            enumerate_strings(
+                                piecewise_categorical_likelihood_errors,
+                                conjunction="or"
+                            )
                         )
                     )
                 )
-            )
-            errors.append(piecewise_categorical_likelihood_error)
+                raise ValueError(piecewise_categorical_likelihood_error)
 
     # Validate parameterisation of latent posterior for VAE
-    if "VAE" in model_type:
-        if (not (model_type in ["VAE"]
-                 and latent_distribution == "gaussian mixture")
-                and parameterise_latent_posterior):
+    if model_type and latent_distribution and parameterise_latent_posterior:
+        if "VAE" in model_type:
+            if (not (model_type in ["VAE"]
+                     and latent_distribution == "gaussian mixture")
+                    and parameterise_latent_posterior):
 
-            parameterise_error = (
-                "Cannot parameterise latent posterior parameters for {} or {} "
-                "distribution.".format(model_type, latent_distribution)
-            )
-            errors.append(parameterise_error)
-
-    if len(errors) > 0:
-        validity = False
-
-    return validity, errors
+                parameterise_error = (
+                    "Cannot parameterise latent posterior parameters for {} "
+                    "or {} distribution.".format(
+                        model_type, latent_distribution)
+                )
+                raise ValueError(parameterise_error)
 
 
 def _summary_reader(log_directory, data_set_kinds, tag_searches):

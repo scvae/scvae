@@ -18,128 +18,137 @@
 
 import argparse
 import os
-import sys
 
 from scvae import analyses
-from scvae.analyses.prediction import (
-    predict, PREDICTION_METHOD_NAMES, PREDICTION_METHOD_SPECIFICATIONS
-)
 from scvae.data.data_set import DataSet
 from scvae.data.utilities import (
     build_directory_path, indices_for_evaluation_subset
 )
+from scvae.defaults import defaults
 from scvae.distributions.utilities import parse_distribution
 from scvae.models import (
     VariationalAutoencoder,
     GaussianMixtureVariationalAutoencoder
 )
 from scvae.models.utilities import (
-    check_run_id,
     better_model_exists, model_stopped_early,
-    parse_model_versions, parse_numbers_of_samples, validate_model_parameters
+    parse_model_versions
 )
 from scvae.utilities import (
     title, subtitle, heading,
-    normalise_string, proper_string, enumerate_strings,
+    normalise_string, enumerate_strings,
     remove_empty_directories
 )
 
 
-# TODO Split into separate functions
-def load_model_analyse(input_file_or_name, data_format=None,
-                       data_directory="data", log_directory="log",
-                       results_directory="results",
-                       temporary_log_directory=None,
-                       map_features=False, feature_selection=None,
-                       example_filter=None,
-                       preprocessing_methods=None,
-                       noisy_preprocessing_methods=None,
-                       split_data_set=True, splitting_method="default",
-                       splitting_fraction=0.9,
-                       model_type="VAE", latent_size=None, hidden_sizes=None,
-                       number_of_importance_samples=None,
-                       number_of_monte_carlo_samples=None,
-                       inference_architecture="MLP",
-                       latent_distribution="gaussian",
-                       number_of_classes=None,
-                       parameterise_latent_posterior=False,
-                       generative_architecture="MLP",
-                       reconstruction_distribution="poisson",
-                       number_of_reconstruction_classes=0,
-                       prior_probabilities_method="uniform",
-                       number_of_warm_up_epochs=0, kl_weight=1,
-                       proportion_of_free_nats_for_y_kl_divergence=0.0,
-                       batch_normalisation=True,
-                       dropout_keep_probabilities=None, count_sum=True,
-                       number_of_epochs=200,
-                       plotting_interval_during_training=None,
-                       batch_size=100, learning_rate=1e-4,
-                       run_id=None, new_run=False,
-                       prediction_method=None,
-                       prediction_training_set_name="training",
-                       decomposition_methods=None,
-                       highlight_feature_indices=None,
-                       reset_training=False, skip_modelling=False,
-                       model_versions="all",
-                       analyse=True, analyse_data=False,
-                       evaluation_set_name="test",
-                       included_analyses=None, analysis_level="normal",
-                       fast_analysis=False, export_options=None):
+def analyse(data_set_file_or_name, data_format=None, data_directory=None,
+            map_features=None, feature_selection=None, example_filter=None,
+            preprocessing_methods=None, split_data_set=None,
+            splitting_method=None, splitting_fraction=None,
+            included_analyses=None, analysis_level=None,
+            decomposition_methods=None, highlight_feature_indices=None,
+            export_options=None, analyses_directory=None,
+            **keyword_arguments):
+    """Analyse data set."""
 
-    model_versions = parse_model_versions(model_versions)
+    if split_data_set is None:
+        split_data_set = defaults["data"]["split_data_set"]
+    if splitting_method is None:
+        splitting_method = defaults["data"]["splitting_method"]
+    if splitting_fraction is None:
+        splitting_fraction = defaults["data"]["splitting_fraction"]
+    if analyses_directory is None:
+        analyses_directory = defaults["analyses"]["directory"]
 
-    if fast_analysis:
-        analyse = True
-        included_analyses = ["simple"]
-        analysis_level = "limited"
+    print(title("Data"))
+
+    data_set = DataSet(
+        data_set_file_or_name,
+        data_format=data_format,
+        directory=data_directory,
+        map_features=map_features,
+        feature_selection=feature_selection,
+        example_filter=example_filter,
+        preprocessing_methods=preprocessing_methods,
+    )
+    data_set.load()
+
+    if split_data_set:
+        training_set, validation_set, test_set = data_set.split(
+            method=splitting_method, fraction=splitting_fraction)
+        all_data_sets = [data_set, training_set, validation_set, test_set]
+    else:
+        all_data_sets = [data_set]
+
+    analyses_directory = build_directory_path(
+        analyses_directory,
+        data_set=data_set,
+        splitting_method=splitting_method,
+        splitting_fraction=splitting_fraction,
+        preprocessing=False
+    )
+
+    print(subtitle("Analysing data"))
+
+    analyses.analyse_data(
+        data_sets=all_data_sets,
+        decomposition_methods=decomposition_methods,
+        highlight_feature_indices=highlight_feature_indices,
+        included_analyses=included_analyses,
+        analysis_level=analysis_level,
+        export_options=export_options,
+        results_directory=analyses_directory
+    )
+
+    return 0
+
+
+def train(data_set_file_or_name, data_format=None, data_directory=None,
+          map_features=None, feature_selection=None, example_filter=None,
+          noisy_preprocessing_methods=None, preprocessing_methods=None,
+          split_data_set=None, splitting_method=None, splitting_fraction=None,
+          model_type=None, latent_size=None, hidden_sizes=None,
+          number_of_importance_samples=None,
+          number_of_monte_carlo_samples=None,
+          inference_architecture=None, latent_distribution=None,
+          number_of_classes=None, parameterise_latent_posterior=False,
+          prior_probabilities_method=None,
+          generative_architecture=None, reconstruction_distribution=None,
+          number_of_reconstruction_classes=None, count_sum=None,
+          proportion_of_free_nats_for_y_kl_divergence=None,
+          batch_normalisation=None, dropout_keep_probabilities=None,
+          number_of_warm_up_epochs=None, kl_weight=None,
+          number_of_epochs=None, batch_size=None, learning_rate=None,
+          run_id=None, new_run=False, reset_training=None,
+          models_directory=None, caches_directory=None,
+          analyses_directory=None, **keyword_arguments):
+    """Train model on data set."""
+
+    if split_data_set is None:
+        split_data_set = defaults["data"]["split_data_set"]
+    if splitting_method is None:
+        splitting_method = defaults["data"]["splitting_method"]
+    if splitting_fraction is None:
+        splitting_fraction = defaults["data"]["splitting_fraction"]
+    if models_directory is None:
+        models_directory = defaults["models"]["directory"]
 
     reconstruction_distribution = parse_distribution(
         reconstruction_distribution)
     latent_distribution = parse_distribution(latent_distribution)
 
-    if not skip_modelling:
-        if run_id:
-            run_id = check_run_id(run_id)
-        model_valid, model_errors = validate_model_parameters(
-            model_type, latent_distribution,
-            reconstruction_distribution, number_of_reconstruction_classes,
-            parameterise_latent_posterior
-        )
-        if not model_valid:
-            print("Model configuration is invalid:")
-            for model_error in model_errors:
-                print("    ", model_error)
-            print()
-            if analyse_data:
-                print("Skipping modelling.")
-                print("")
-                skip_modelling = True
-            else:
-                print("Modelling cancelled.")
-                return 1
+    print(title("Data"))
 
     binarise_values = False
     if reconstruction_distribution == "bernoulli":
         if noisy_preprocessing_methods:
             if noisy_preprocessing_methods[-1] != "binarise":
                 noisy_preprocessing_methods.append("binarise")
-                print(
-                    "Appended binarisation method to noisy preprocessing, "
-                    "because of the Bernoulli distribution.\n"
-                )
         else:
             binarise_values = True
 
-    if (not split_data_set or analyse_data or evaluation_set_name == "full"
-            or prediction_training_set_name == "full"):
-        full_data_set_needed = True
-    else:
-        full_data_set_needed = False
-
-    print(title("Data"))
-
     data_set = DataSet(
-        input_file_or_name,
+        data_set_file_or_name,
         data_format=data_format,
         directory=data_directory,
         map_features=map_features,
@@ -150,107 +159,343 @@ def load_model_analyse(input_file_or_name, data_format=None,
         noisy_preprocessing_methods=noisy_preprocessing_methods
     )
 
-    if full_data_set_needed:
+    if split_data_set:
+        training_set, validation_set, __ = data_set.split(
+            method=splitting_method, fraction=splitting_fraction)
+    else:
+        data_set.load()
+        splitting_method = None
+        splitting_fraction = None
+        training_set = data_set
+        validation_set = None
+
+    models_directory = build_directory_path(
+        models_directory,
+        data_set=data_set,
+        splitting_method=splitting_method,
+        splitting_fraction=splitting_fraction
+    )
+
+    if analyses_directory:
+        analyses_directory = build_directory_path(
+            analyses_directory,
+            data_set=data_set,
+            splitting_method=splitting_method,
+            splitting_fraction=splitting_fraction
+        )
+
+    model_caches_directory = None
+    if caches_directory:
+        model_caches_directory = os.path.join(caches_directory, "log")
+        model_caches_directory = build_directory_path(
+            model_caches_directory,
+            data_set=data_set,
+            splitting_method=splitting_method,
+            splitting_fraction=splitting_fraction
+        )
+
+    print(title("Model"))
+
+    model = _setup_model(
+        data_set=training_set,
+        model_type=model_type,
+        latent_size=latent_size,
+        hidden_sizes=hidden_sizes,
+        number_of_importance_samples=number_of_importance_samples,
+        number_of_monte_carlo_samples=number_of_monte_carlo_samples,
+        inference_architecture=inference_architecture,
+        latent_distribution=latent_distribution,
+        number_of_classes=number_of_classes,
+        parameterise_latent_posterior=parameterise_latent_posterior,
+        prior_probabilities_method=prior_probabilities_method,
+        generative_architecture=generative_architecture,
+        reconstruction_distribution=reconstruction_distribution,
+        number_of_reconstruction_classes=number_of_reconstruction_classes,
+        count_sum=count_sum,
+        proportion_of_free_nats_for_y_kl_divergence=(
+            proportion_of_free_nats_for_y_kl_divergence),
+        batch_normalisation=batch_normalisation,
+        dropout_keep_probabilities=dropout_keep_probabilities,
+        number_of_warm_up_epochs=number_of_warm_up_epochs,
+        kl_weight=kl_weight,
+        models_directory=models_directory
+    )
+
+    print(model.description)
+    print()
+
+    print(model.parameters)
+    print()
+
+    print(subtitle("Training"))
+
+    if analyses_directory:
+        intermediate_analyser = analyses.analyse_intermediate_results
+    else:
+        intermediate_analyser = None
+
+    model.train(
+        training_set,
+        validation_set,
+        number_of_epochs=number_of_epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        intermediate_analyser=intermediate_analyser,
+        run_id=run_id,
+        new_run=new_run,
+        reset_training=reset_training,
+        results_directory=analyses_directory,
+        temporary_log_directory=model_caches_directory
+    )
+
+    # Remove temporary directories created and emptied during training
+    if model_caches_directory and os.path.exists(caches_directory):
+        remove_empty_directories(caches_directory)
+
+    return 0
+
+
+def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
+             map_features=None, feature_selection=None, example_filter=None,
+             noisy_preprocessing_methods=None, preprocessing_methods=None,
+             split_data_set=None, splitting_method=None,
+             splitting_fraction=None,
+             model_type=None, latent_size=None, hidden_sizes=None,
+             number_of_importance_samples=None,
+             number_of_monte_carlo_samples=None,
+             inference_architecture=None, latent_distribution=None,
+             number_of_classes=None, parameterise_latent_posterior=False,
+             prior_probabilities_method=None,
+             generative_architecture=None, reconstruction_distribution=None,
+             number_of_reconstruction_classes=None, count_sum=None,
+             proportion_of_free_nats_for_y_kl_divergence=None,
+             batch_normalisation=None, dropout_keep_probabilities=None,
+             number_of_warm_up_epochs=None, kl_weight=None,
+             batch_size=None, run_id=None, models_directory=None,
+             included_analyses=None, analysis_level=None,
+             decomposition_methods=None, highlight_feature_indices=None,
+             export_options=None, analyses_directory=None,
+             evaluation_set_kind=None, model_versions=None,
+             **keyword_arguments):
+    """Evaluate model on data set."""
+
+    if split_data_set is None:
+        split_data_set = defaults["data"]["split_data_set"]
+    if splitting_method is None:
+        splitting_method = defaults["data"]["splitting_method"]
+    if splitting_fraction is None:
+        splitting_fraction = defaults["data"]["splitting_fraction"]
+    if models_directory is None:
+        models_directory = defaults["models"]["directory"]
+    if evaluation_set_kind is None:
+        evaluation_set_kind = defaults["evaluation"]["data_set_name"]
+    if model_versions is None:
+        model_versions = defaults["evaluation"]["model_versions"]
+    if analyses_directory is None:
+        analyses_directory = defaults["analyses"]["directory"]
+
+    evaluation_set_kind = normalise_string(evaluation_set_kind)
+    model_versions = parse_model_versions(model_versions)
+
+    reconstruction_distribution = parse_distribution(
+        reconstruction_distribution)
+    latent_distribution = parse_distribution(latent_distribution)
+
+    print(title("Data"))
+
+    binarise_values = False
+    if reconstruction_distribution == "bernoulli":
+        if noisy_preprocessing_methods:
+            if noisy_preprocessing_methods[-1] != "binarise":
+                noisy_preprocessing_methods.append("binarise")
+        else:
+            binarise_values = True
+
+    data_set = DataSet(
+        data_set_file_or_name,
+        data_format=data_format,
+        directory=data_directory,
+        map_features=map_features,
+        feature_selection=feature_selection,
+        example_filter=example_filter,
+        preprocessing_methods=preprocessing_methods,
+        binarise_values=binarise_values,
+        noisy_preprocessing_methods=noisy_preprocessing_methods
+    )
+
+    if not split_data_set or evaluation_set_kind == "full":
         data_set.load()
 
     if split_data_set:
         training_set, validation_set, test_set = data_set.split(
-            splitting_method, splitting_fraction)
-        all_data_sets = [data_set, training_set, validation_set, test_set]
+            method=splitting_method, fraction=splitting_fraction)
+        data_subsets = [data_set, training_set, validation_set, test_set]
+        for data_subset in data_subsets:
+            if data_subset.kind == evaluation_set_kind:
+                evaluation_set = data_subset
+            else:
+                data_subset.clear()
     else:
         splitting_method = None
-        training_set = data_set
-        validation_set = None
-        test_set = data_set
-        all_data_sets = [data_set]
-        evaluation_set_name = "full"
-        prediction_training_set_name = "full"
+        splitting_fraction = None
+        evaluation_set = data_set
 
-    data_results_directory = build_directory_path(
-        results_directory, data_set, splitting_method, splitting_fraction,
-        preprocessing=False)
-    log_directory = build_directory_path(
-        log_directory, data_set, splitting_method, splitting_fraction)
-    results_directory = build_directory_path(
-        results_directory, data_set, splitting_method, splitting_fraction)
+    evaluation_subset_indices = indices_for_evaluation_subset(
+        evaluation_set)
 
-    if temporary_log_directory:
-        main_temporary_log_directory = temporary_log_directory
-        temporary_log_directory = build_directory_path(
-            temporary_log_directory, data_set, splitting_method,
-            splitting_fraction)
+    models_directory = build_directory_path(
+        models_directory,
+        data_set=data_set,
+        splitting_method=splitting_method,
+        splitting_fraction=splitting_fraction
+    )
+    analyses_directory = build_directory_path(
+        analyses_directory,
+        data_set=data_set,
+        splitting_method=splitting_method,
+        splitting_fraction=splitting_fraction
+    )
 
-    if analyse and analyse_data:
-        print(subtitle("Analysing data"))
-        analyses.analyse_data(
-            data_sets=all_data_sets,
-            decomposition_methods=decomposition_methods,
-            highlight_feature_indices=highlight_feature_indices,
-            included_analyses=included_analyses,
-            analysis_level=analysis_level,
-            export_options=export_options,
-            results_directory=data_results_directory
+    print(title("Model"))
+
+    model = _setup_model(
+        data_set=evaluation_set,
+        model_type=model_type,
+        latent_size=latent_size,
+        hidden_sizes=hidden_sizes,
+        number_of_importance_samples=number_of_importance_samples,
+        number_of_monte_carlo_samples=number_of_monte_carlo_samples,
+        inference_architecture=inference_architecture,
+        latent_distribution=latent_distribution,
+        number_of_classes=number_of_classes,
+        parameterise_latent_posterior=parameterise_latent_posterior,
+        prior_probabilities_method=prior_probabilities_method,
+        generative_architecture=generative_architecture,
+        reconstruction_distribution=reconstruction_distribution,
+        number_of_reconstruction_classes=number_of_reconstruction_classes,
+        count_sum=count_sum,
+        proportion_of_free_nats_for_y_kl_divergence=(
+            proportion_of_free_nats_for_y_kl_divergence),
+        batch_normalisation=batch_normalisation,
+        dropout_keep_probabilities=dropout_keep_probabilities,
+        number_of_warm_up_epochs=number_of_warm_up_epochs,
+        kl_weight=kl_weight,
+        models_directory=models_directory
+    )
+
+    if ("best_model" in model_versions
+            and not better_model_exists(model, run_id=run_id)):
+        model_versions.remove("best_model")
+
+    if ("early_stopping" in model_versions
+            and not model_stopped_early(model, run_id=run_id)):
+        model_versions.remove("early_stopping")
+
+    print(subtitle("Analysis"))
+
+    analyses.analyse_model(
+        model=model,
+        run_id=run_id,
+        included_analyses=included_analyses,
+        analysis_level=analysis_level,
+        export_options=export_options,
+        results_directory=analyses_directory
+    )
+
+    print(title("Results"))
+
+    print("Evaluation set: {} set.".format(evaluation_set.kind))
+    print("Model version{}: {}.".format(
+        "" if len(model_versions) == 1 else "s",
+        enumerate_strings(
+            [v.replace("_", " ") for v in model_versions], conjunction="and")))
+
+    print()
+
+    for model_version in model_versions:
+
+        use_best_model = False
+        use_early_stopping_model = False
+        if model_version == "best_model":
+            use_best_model = True
+        elif model_version == "early_stopping":
+            use_early_stopping_model = True
+
+        print(subtitle(model_version.replace("_", " ").capitalize()))
+
+        print(heading("{} evaluation".format(
+            model_version.replace("_", "-").capitalize())))
+
+        (
+            transformed_evaluation_set,
+            reconstructed_evaluation_set,
+            latent_evaluation_sets
+        ) = model.evaluate(
+            evaluation_set=evaluation_set,
+            evaluation_subset_indices=evaluation_subset_indices,
+            batch_size=batch_size,
+            run_id=run_id,
+            use_best_model=use_best_model,
+            use_early_stopping_model=use_early_stopping_model
         )
         print()
 
-    if not full_data_set_needed:
-        data_set.clear()
+        print(heading("{} analysis".format(
+            model_version.replace("_", "-").capitalize())))
 
-    if skip_modelling:
-        print("Modelling skipped.")
-        return 0
-
-    print(title("Modelling"))
-
-    feature_size = training_set.number_of_features
-    if latent_size is None:
-        latent_size = 2
-    if hidden_sizes is None:
-        hidden_sizes = [100]
-
-    if number_of_monte_carlo_samples:
-        number_of_monte_carlo_samples = parse_numbers_of_samples(
-            number_of_monte_carlo_samples)
-    if number_of_importance_samples:
-        number_of_importance_samples = parse_numbers_of_samples(
-            number_of_importance_samples)
-
-    if "VAE" in model_type:
-        if latent_distribution == "gaussian":
-            analytical_kl_term = True
-        else:
-            analytical_kl_term = False
-
-    if model_type == "GMVAE" and latent_distribution != "gaussian mixture":
-        latent_distribution = "gaussian mixture"
-        print(
-            "The latent distribution was changed to a Gaussian-mixture model, "
-            "because of the model chosen.\n"
+        analyses.analyse_results(
+            evaluation_set=transformed_evaluation_set,
+            reconstructed_evaluation_set=reconstructed_evaluation_set,
+            latent_evaluation_sets=latent_evaluation_sets,
+            model=model,
+            run_id=run_id,
+            decomposition_methods=decomposition_methods,
+            evaluation_subset_indices=evaluation_subset_indices,
+            highlight_feature_indices=highlight_feature_indices,
+            best_model=use_best_model,
+            early_stopping=use_early_stopping_model,
+            included_analyses=included_analyses,
+            analysis_level=analysis_level,
+            export_options=export_options,
+            results_directory=analyses_directory
         )
 
-    if not number_of_classes:
-        if training_set.has_labels:
+    return 0
+
+
+def _setup_model(data_set, model_type=None,
+                 latent_size=None, hidden_sizes=None,
+                 number_of_importance_samples=None,
+                 number_of_monte_carlo_samples=None,
+                 inference_architecture=None, latent_distribution=None,
+                 number_of_classes=None, parameterise_latent_posterior=False,
+                 prior_probabilities_method=None,
+                 generative_architecture=None,
+                 reconstruction_distribution=None,
+                 number_of_reconstruction_classes=None, count_sum=None,
+                 proportion_of_free_nats_for_y_kl_divergence=None,
+                 batch_normalisation=None, dropout_keep_probabilities=None,
+                 number_of_warm_up_epochs=None, kl_weight=None,
+                 models_directory=None):
+
+    if model_type is None:
+        model_type = defaults["model"]["type"]
+
+    feature_size = data_set.number_of_features
+
+    if number_of_classes is None:
+        if data_set.has_labels:
             number_of_classes = (
-                training_set.number_of_classes
-                - training_set.number_of_excluded_classes)
-        elif "mixture" in latent_distribution:
-            raise ValueError(
-                "For a mixture model and a data set without labels, "
-                "the number of classes has to be set."
-            )
-        else:
-            number_of_classes = 1
+                data_set.number_of_classes
+                - data_set.number_of_excluded_classes)
 
-    print(subtitle("Model setup"))
-
-    if model_type == "VAE":
+    if normalise_string(model_type) == "vae":
         model = VariationalAutoencoder(
             feature_size=feature_size,
             latent_size=latent_size,
             hidden_sizes=hidden_sizes,
             number_of_monte_carlo_samples=number_of_monte_carlo_samples,
             number_of_importance_samples=number_of_importance_samples,
-            analytical_kl_term=analytical_kl_term,
             inference_architecture=inference_architecture,
             latent_distribution=latent_distribution,
             number_of_latent_clusters=number_of_classes,
@@ -263,23 +508,16 @@ def load_model_analyse(input_file_or_name, data_format=None,
             count_sum=count_sum,
             number_of_warm_up_epochs=number_of_warm_up_epochs,
             kl_weight=kl_weight,
-            log_directory=log_directory,
-            results_directory=results_directory
+            log_directory=models_directory
         )
 
-    elif model_type == "GMVAE":
+    elif normalise_string(model_type) == "gmvae":
         if prior_probabilities_method == "uniform":
             prior_probabilities = None
-        elif prior_probabilities_method == "inferred":
-            prior_probabilities = training_set.class_probabilities
+        elif prior_probabilities_method == "infer":
+            prior_probabilities = data_set.class_probabilities
         else:
             prior_probabilities = None
-
-        if not prior_probabilities:
-            prior_probabilities_method = "uniform"
-            prior_probabilities = None
-        else:
-            prior_probabilities = list(prior_probabilities.values())
 
         model = GaussianMixtureVariationalAutoencoder(
             feature_size=feature_size,
@@ -287,7 +525,6 @@ def load_model_analyse(input_file_or_name, data_format=None,
             hidden_sizes=hidden_sizes,
             number_of_monte_carlo_samples=number_of_monte_carlo_samples,
             number_of_importance_samples=number_of_importance_samples,
-            analytical_kl_term=analytical_kl_term,
             prior_probabilities_method=prior_probabilities_method,
             prior_probabilities=prior_probabilities,
             number_of_latent_clusters=number_of_classes,
@@ -300,744 +537,423 @@ def load_model_analyse(input_file_or_name, data_format=None,
             count_sum=count_sum,
             number_of_warm_up_epochs=number_of_warm_up_epochs,
             kl_weight=kl_weight,
-            log_directory=log_directory,
-            results_directory=results_directory
+            log_directory=models_directory
         )
 
     else:
         raise ValueError("Model type not found: `{}`.".format(model_type))
 
-    print(model.description)
-    print()
+    return model
 
-    print(model.parameters)
-    print()
 
-    print(subtitle("Model training"))
-
-    status, run_id = model.train(
-        training_set,
-        validation_set,
-        number_of_epochs=number_of_epochs,
-        batch_size=batch_size,
-        learning_rate=learning_rate,
-        intermediate_analyser=analyses.analyse_intermediate_results,
-        plotting_interval=plotting_interval_during_training,
-        run_id=run_id,
-        new_run=new_run,
-        reset_training=reset_training,
-        temporary_log_directory=temporary_log_directory
-    )
-
-    # Remove temporary directories created and emptied during training
-    if temporary_log_directory and os.path.exists(
-            main_temporary_log_directory):
-        remove_empty_directories(main_temporary_log_directory)
-
-    if not status["completed"]:
-        print(status["message"])
-        return 1
-
-    status_filename = "status"
-    if "epochs trained" in status:
-        status_filename += "-" + status["epochs trained"]
-    status_path = os.path.join(
-        model.log_directory(run_id=run_id),
-        status_filename + ".log"
-    )
-    with open(status_path, "w") as status_file:
-        for status_field, status_value in status.items():
-            if status_value:
-                status_file.write(
-                    status_field + ": " + str(status_value) + "\n"
-                )
-    print()
-
-    if analyse:
-        if prediction_method:
-            predict_labels_using_model = False
-        elif "GM" in model.type:
-            predict_labels_using_model = True
-            prediction_method = "model"
-        else:
-            predict_labels_using_model = False
-    else:
-        predict_labels_using_model = False
-
-    evaluation_title_parts = ["evaluation"]
-    if analyse:
-        if prediction_method:
-            evaluation_title_parts.append("prediction")
-        evaluation_title_parts.append("analysis")
-    evaluation_title = enumerate_strings(
-        evaluation_title_parts, conjunction="and")
-
-    print(title(evaluation_title.capitalize()))
-
-    for data_subset in all_data_sets:
-        clear_subset = True
-        if data_subset.kind == evaluation_set_name:
-            evaluation_set = data_subset
-            clear_subset = False
-        if (prediction_method
-                and data_subset.kind == prediction_training_set_name):
-            prediction_training_set = data_subset
-            clear_subset = False
-        if clear_subset:
-            data_subset.clear()
-
-    evaluation_subset_indices = indices_for_evaluation_subset(
-        evaluation_set)
-
-    print("Evaluation set: {} set.".format(evaluation_set.kind))
-
-    if prediction_method:
-        prediction_method = proper_string(
-            prediction_method,
-            PREDICTION_METHOD_NAMES
-        )
-
-        prediction_method_specifications = (
-            PREDICTION_METHOD_SPECIFICATIONS.get(prediction_method, {}))
-        prediction_method_inference = prediction_method_specifications.get(
-            "inference", None)
-        prediction_method_fixed_number_of_clusters = (
-            prediction_method_specifications.get(
-                "fixed number of clusters", None))
-
-        if prediction_method_fixed_number_of_clusters:
-            number_of_clusters = number_of_classes
-        else:
-            number_of_clusters = None
-
-        if (prediction_method_inference
-                and prediction_method_inference == "transductive"):
-            prediction_training_set = None
-            prediction_training_set_name = None
-        else:
-            prediction_training_set_name = prediction_training_set.kind
-
-        prediction_details = {
-            "method": prediction_method,
-            "number_of_classes": number_of_clusters,
-            "training_set_name": prediction_training_set_name,
-        }
-
-        print("Prediction method: {}.".format(prediction_method))
-
-        if number_of_clusters:
-            print("Number of clusters: {}.".format(number_of_clusters))
-
-        if prediction_training_set:
-            print("Prediction training set: {} set.".format(
-                prediction_training_set.kind))
-
-        prediction_id_parts = []
-
-        prediction_id_parts.append(prediction_method)
-
-        if number_of_clusters:
-            prediction_id_parts.append(number_of_clusters)
-
-        if (prediction_training_set
-                and prediction_training_set.kind != "training"):
-            prediction_id_parts.append(prediction_training_set.kind)
-
-        prediction_id = "_".join(map(
-            lambda s: normalise_string(str(s)).replace("_", ""),
-            prediction_id_parts
-        ))
-        prediction_details["id"] = prediction_id
-
-    else:
-        prediction_details = {}
-
-    model_parameter_set_names = []
-    if "end_of_training" in model_versions:
-        model_parameter_set_names.append("end of training")
-    if ("best_model" in model_versions
-            and better_model_exists(model, run_id=run_id)):
-        model_parameter_set_names.append("best model")
-    if ("early_stopping" in model_versions
-            and model_stopped_early(model, run_id=run_id)):
-        model_parameter_set_names.append("early stopping")
-    print("Model parameter sets: {}.".format(enumerate_strings(
-        model_parameter_set_names, conjunction="and")))
-    print()
-
-    if analyse:
-        print(subtitle("Model analysis"))
-        analyses.analyse_model(
-            model=model,
-            run_id=run_id,
-            included_analyses=included_analyses,
-            analysis_level=analysis_level,
-            export_options=export_options,
-            results_directory=results_directory
-        )
-
-    # Results evaluation, prediction, and analysis
-    for model_parameter_set_name in model_parameter_set_names:
-
-        if model_parameter_set_name == "best model":
-            use_best_model = True
-        else:
-            use_best_model = False
-
-        if model_parameter_set_name == "early stopping":
-            use_early_stopping_model = True
-        else:
-            use_early_stopping_model = False
-
-        model_parameter_set_name = model_parameter_set_name.capitalize()
-        print(subtitle(model_parameter_set_name))
-
-        model_parameter_set_name = model_parameter_set_name.replace(" ", "-")
-        print(heading("{} evaluation".format(model_parameter_set_name)))
-
-        if "VAE" in model.type:
-            (
-                transformed_evaluation_set,
-                reconstructed_evaluation_set,
-                latent_evaluation_sets
-            ) = model.evaluate(
-                evaluation_set=evaluation_set,
-                evaluation_subset_indices=evaluation_subset_indices,
-                batch_size=batch_size,
-                predict_labels=predict_labels_using_model,
-                run_id=run_id,
-                use_best_model=use_best_model,
-                use_early_stopping_model=use_early_stopping_model
-            )
-        else:
-            transformed_evaluation_set, reconstructed_evaluation_set = (
-                model.evaluate(
-                    evaluation_set=evaluation_set,
-                    evaluation_subset_indices=evaluation_subset_indices,
-                    batch_size=batch_size,
-                    run_id=run_id,
-                    use_best_model=use_best_model,
-                    use_early_stopping_model=use_early_stopping_model
-                )
-            )
-            latent_evaluation_sets = None
-
-        print()
-
-        if (analyse and "VAE" in model.type and prediction_method
-                and not transformed_evaluation_set.has_predictions):
-            print(heading("{} prediction".format(model_parameter_set_name)))
-
-            latent_prediction_evaluation_set = latent_evaluation_sets["z"]
-
-            if (prediction_method_inference
-                    and prediction_method_inference == "inductive"):
-                latent_prediction_training_sets = model.evaluate(
-                    evaluation_set=prediction_training_set,
-                    batch_size=batch_size,
-                    run_id=run_id,
-                    use_best_model=use_best_model,
-                    use_early_stopping_model=use_early_stopping_model,
-                    output_versions="latent",
-                    log_results=False
-                )
-                latent_prediction_training_set = (
-                    latent_prediction_training_sets["z"])
-                print()
-            else:
-                latent_prediction_training_set = None
-
-            cluster_ids, predicted_labels, predicted_superset_labels = predict(
-                latent_prediction_training_set,
-                latent_prediction_evaluation_set,
-                prediction_method,
-                number_of_clusters
-            )
-
-            transformed_evaluation_set.update_predictions(
-                predicted_cluster_ids=cluster_ids,
-                predicted_labels=predicted_labels,
-                predicted_superset_labels=predicted_superset_labels
-            )
-            reconstructed_evaluation_set.update_predictions(
-                predicted_cluster_ids=cluster_ids,
-                predicted_labels=predicted_labels,
-                predicted_superset_labels=predicted_superset_labels
-            )
-
-            for variable in latent_evaluation_sets:
-                latent_evaluation_sets[variable].update_predictions(
-                    predicted_cluster_ids=cluster_ids,
-                    predicted_labels=predicted_labels,
-                    predicted_superset_labels=predicted_superset_labels
-                )
-            print()
-
-        if analyse:
-            print(heading("{} results analysis".format(
-                model_parameter_set_name)))
-
-            analyses.analyse_results(
-                evaluation_set=transformed_evaluation_set,
-                reconstructed_evaluation_set=reconstructed_evaluation_set,
-                latent_evaluation_sets=latent_evaluation_sets,
-                model=model,
-                run_id=run_id,
-                decomposition_methods=decomposition_methods,
-                evaluation_subset_indices=evaluation_subset_indices,
-                highlight_feature_indices=highlight_feature_indices,
-                prediction_details=prediction_details,
-                best_model=use_best_model,
-                early_stopping=use_early_stopping_model,
-                included_analyses=included_analyses,
-                analysis_level=analysis_level,
-                export_options=export_options,
-                results_directory=results_directory
-            )
-
-        # Clean up
-        if transformed_evaluation_set.version == "original":
-            transformed_evaluation_set.reset_predictions()
-
-    return 0
+def _parse_default(default):
+    if not isinstance(default, bool) and default != 0 and not default:
+        default = None
+    return default
 
 
 def main():
     parser = argparse.ArgumentParser(
+        prog="scvae",
         description="Model single-cell transcript counts using deep learning.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument(
-        "--input", "-i",
-        type=str,
-        dest="input_file_or_name",
-        help="input: data set name or path to input file"
-    )
-    parser.add_argument(
-        "--format", "-f",
-        type=str,
-        dest="data_format",
-        help="format of the data set"
-    )
-    parser.add_argument(
-        "--data-directory", "-D",
-        type=str,
-        default="data",
-        help="directory where data are placed"
-    )
-    parser.add_argument(
-        "--log-directory", "-L",
-        type=str,
-        default="log",
-        help="directory where models are stored"
-    )
-    parser.add_argument(
-        "--results-directory", "-R",
-        type=str,
-        default="results",
-        help="directory where results are saved"
-    )
-    parser.add_argument(
-        "--temporary-log-directory", "-T",
-        type=str,
-        help="directory for temporary storage"
-    )
-    parser.add_argument(
-        "--map-features",
-        action="store_true",
-        help="map features using a feature mapping if available"
-    )
-    parser.add_argument(
-        "--skip-mapping-features",
-        dest="map_features",
-        action="store_false",
-        help="do not map features using any feature mapping"
-    )
-    parser.set_defaults(map_features=False)
-    parser.add_argument(
-        "--feature-selection", "-F",
-        type=str,
-        nargs="*",
-        default=None,
-        help="method for selecting features"
-    )
-    parser.add_argument(
-        "--example-filter", "-E",
-        type=str,
-        nargs="*",
-        default=None,
-        help="method for filtering examples, optionally followed by parameters"
-    )
-    parser.add_argument(
-        "--preprocessing-methods", "-p",
-        type=str,
-        nargs="*",
-        default=None,
-        help="methods for preprocessing data (applied in order)"
-    )
-    parser.add_argument(
-        "--noisy-preprocessing-methods", "-N",
-        type=str,
-        nargs="*",
-        default=None,
-        help=(
-            "methods for noisily preprocessing data at every epoch (applied "
-            "in order)"
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    subparsers = parser.add_subparsers(help="commands")
+
+    data_set_subparsers = []
+    model_subparsers = []
+    training_subparsers = []
+    evaluation_subparsers = []
+    analysis_subparsers = []
+
+    parser_analyse = subparsers.add_parser(
+        name="analyse",
+        description="Analyse single-cell transcript counts.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_analyse.set_defaults(func=analyse)
+    data_set_subparsers.append(parser_analyse)
+    analysis_subparsers.append(parser_analyse)
+
+    parser_train = subparsers.add_parser(
+        name="train",
+        description="Train model on single-cell transcript counts.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_train.set_defaults(func=train)
+    data_set_subparsers.append(parser_train)
+    model_subparsers.append(parser_train)
+    training_subparsers.append(parser_train)
+
+    parser_evaluate = subparsers.add_parser(
+        name="evaluate",
+        description="Evaluate model on single-cell transcript counts.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_evaluate.set_defaults(func=evaluate)
+    data_set_subparsers.append(parser_evaluate)
+    model_subparsers.append(parser_evaluate)
+    evaluation_subparsers.append(parser_evaluate)
+    analysis_subparsers.append(parser_evaluate)
+
+    for subparser in data_set_subparsers:
+        subparser.add_argument(
+            dest="data_set_file_or_name",
+            help="data set name or path to data set file"
         )
-    )
-    parser.add_argument(
-        "--split-data-set",
-        action="store_true",
-        help="split data set"
-    )
-    parser.add_argument(
-        "--skip-splitting-data-set",
-        dest="split_data_set",
-        action="store_false",
-        help="do not split data set"
-    )
-    parser.set_defaults(split_data_set=True)
-    parser.add_argument(
-        "--splitting-method",
-        type=str,
-        default="default",
-        help=(
-            "method for splitting data into training, validation, and test "
-            "sets"
+        subparser.add_argument(
+            "--format", "-f",
+            dest="data_format",
+            metavar="FORMAT",
+            default=_parse_default(defaults["data"]["format"]),
+            help="format of the data set"
         )
-    )
-    parser.add_argument(
-        "--splitting-fraction",
-        type=float,
-        default=0.9,
-        help=(
-            "fraction to use when splitting data into training, validation, "
-            "and test sets"
+        subparser.add_argument(
+            "--data-directory", "-D",
+            metavar="DIRECTORY",
+            default=_parse_default(defaults["data"]["directory"]),
+            help="directory where data are placed or copied"
         )
-    )
-    parser.add_argument(
-        "--model-type", "-m",
-        type=str,
-        default="VAE",
-        help="type of model"
-    )
-    parser.add_argument(
-        "--latent-size", "-l",
-        type=int,
-        default=50,
-        help="size of latent space"
-    )
-    parser.add_argument(
-        "--hidden-sizes", "-H",
-        type=int,
-        nargs="+",
-        default=[250, 250],
-        help="sizes of hidden layers"
-    )
-    parser.add_argument(
-        "--number-of-importance-samples",
-        type=int,
-        nargs="+",
-        default=None,
-        help=(
-            "the number of importance weighted samples (if two numbers given, "
-            "the first will be used for training and the second for "
-            "evaluation)"
+        subparser.add_argument(
+            "--map-features",
+            action="store_true",
+            default=_parse_default(defaults["data"]["map_features"]),
+            help="map features using a feature mapping, if available"
         )
-    )
-    parser.add_argument(
-        "--number-of-monte-carlo-samples",
-        type=int,
-        nargs="+",
-        default=None,
-        help=(
-            "the number of Monte Carlo samples (if two numbers given, the "
-            "first will be used for training and the second for evaluation)"
+        subparser.add_argument(
+            "--feature-selection", "-F",
+            metavar="SELECTION",
+            nargs="+",
+            default=_parse_default(defaults["data"]["feature_selection"]),
+            help="method for selecting features"
         )
-    )
-    parser.add_argument(
-        "--inference-architecture",
-        type=str,
-        default="MLP",
-        help="architecture of the inference model"
-    )
-    parser.add_argument(
-        "--latent-distribution", "-q",
-        type=str,
-        default="gaussian",
-        help="distribution for the latent variables"
-    )
-    parser.add_argument(
-        "--number-of-classes", "-K",
-        type=int,
-        help="number of proposed clusters in data set"
-    )
-    parser.add_argument(
-        "--parameterise-latent-posterior",
-        action="store_true",
-        help="parameterise latent posterior parameters if possible"
-    )
-    parser.add_argument(
-        "--do-not-parameterise-latent-posterior",
-        dest="parameterise_latent_posterior",
-        action="store_false",
-        help="do not parameterise latent posterior parameters"
-    )
-    parser.set_defaults(parameterise_latent_posterior=False)
-    parser.add_argument(
-        "--generative-architecture",
-        type=str,
-        default="MLP",
-        help="architecture of the generative model"
-    )
-    parser.add_argument(
-        "--reconstruction-distribution", "-r",
-        type=str,
-        default="poisson",
-        help="distribution for the reconstructions"
-    )
-    parser.add_argument(
-        "--number-of-reconstruction-classes", "-k",
-        type=int,
-        default=0,
-        help="the maximum count for which to use classification"
-    )
-    parser.add_argument(
-        "--prior-probabilities-method",
-        type=str,
-        default="uniform",
-        help="method to set prior probabilities"
-    )
-    parser.add_argument(
-        "--number-of-epochs", "-e",
-        type=int,
-        default=200,
-        help="number of epochs for which to train"
-    )
-    parser.add_argument(
-        "--plotting-interval-during-training",
-        type=int,
-        nargs="?",
-        help=(
-            "number of training epochs between each intermediate plot "
-            "starting at the first"
+        subparser.add_argument(
+            "--example-filter", "-E",
+            metavar="FILTER",
+            nargs="+",
+            default=_parse_default(defaults["data"]["example_filter"]),
+            help=(
+                "method for filtering examples, optionally followed by "
+                "parameters"
+            )
         )
-    )
-    parser.add_argument(
-        "--batch-size", "-M",
-        type=int,
-        default=100,
-        help="batch size used when training"
-    )
-    parser.add_argument(
-        "--learning-rate",
-        type=float,
-        default=1e-4,
-        help="learning rate when training"
-    )
-    parser.add_argument(
-        "--number-of-warm-up-epochs", "-w",
-        type=int,
-        default=0,
-        help="number of epochs with a linear weight on the KL divergence"
-    )
-    parser.add_argument(
-        "--kl-weight",
-        type=float,
-        default=1,
-        help="weighting of KL divergence"
-    )
-    parser.add_argument(
-        "--proportion-of-free-nats-for-y-kl-divergence",
-        type=float,
-        nargs="?",
-        default=0.0,
-        help=(
-            "proportion of maximum y KL divergence, which has constant term "
-            "and zero gradients, for the GMVAE (free-bits method)"
+        subparser.add_argument(
+            "--preprocessing-methods", "-p",
+            metavar="METHOD",
+            nargs="+",
+            default=_parse_default(defaults["data"]["preprocessing_methods"]),
+            help="methods for preprocessing data (applied in order)"
         )
-    )
-    parser.add_argument(
-        "--batch-normalisation", "-b",
-        action="store_true",
-        help="use batch normalisation"
-    )
-    parser.add_argument(
-        "--no-batch-normalisation", "-B",
-        dest="batch_normalisation",
-        action="store_false",
-        help="do not use batch normalisation"
-    )
-    parser.set_defaults(batch_normalisation=True)
-    parser.add_argument(
-        "--dropout-keep-probabilities", "-d",
-        type=float,
-        nargs="*",
-        default=[],
-        help=(
-            "list of probabilities, p, of keeping connections when using "
-            "dropout (interval: ]0, 1[, where p in {0, 1, False} means no "
-            "dropout)"
+        subparser.add_argument(
+            "--split-data-set",
+            action="store_true",
+            default=_parse_default(defaults["data"]["split_data_set"]),
+            help="split data set into training, validation, and test sets"
         )
-    )
-    parser.add_argument(
-        "--count-sum", "-s",
-        action="store_true",
-        help="use count sum"
-    )
-    parser.add_argument(
-        "--no-count-sum", "-S",
-        dest="count_sum",
-        action="store_false",
-        help="do not use count sum"
-    )
-    parser.set_defaults(count_sum=False)
-    parser.add_argument(
-        "--run-id",
-        type=str,
-        nargs="?",
-        default=None,
-        help=(
-            "ID for separate run of the model (can only contrain alphanumeric "
-            "characters)"
+        subparser.add_argument(
+            "--splitting-method",
+            metavar="METHOD",
+            default=_parse_default(defaults["data"]["splitting_method"]),
+            help=(
+                "method for splitting data into training, validation, and "
+                "test sets"
+            )
         )
-    )
-    parser.add_argument(
-        "--new-run",
-        action="store_true",
-        help="train a model anew as a separate run with a generated run ID"
-    )
-    parser.add_argument(
-        "--prediction-method", "-P",
-        type=str,
-        nargs="?",
-        default=None,
-        help="method for predicting labels"
-    )
-    parser.add_argument(
-        "--prediction-training-set-name",
-        type=str,
-        default="training",
-        help=(
-            "name of the subset on which to train prediction method: training "
-            "(default), validation, test, or full"
+        subparser.add_argument(
+            "--splitting-fraction",
+            metavar="FRACTION",
+            type=float,
+            default=_parse_default(defaults["data"]["splitting_fraction"]),
+            help=(
+                "fraction to use when splitting data into training, "
+                "validation, and test sets"
+            )
         )
-    )
-    parser.add_argument(
-        "--decomposition-methods",
-        type=str,
-        nargs="*",
-        default=["PCA"],
-        help="methods use to decompose values"
-    )
-    parser.add_argument(
-        "--highlight-feature-indices",
-        type=int,
-        nargs="*",
-        default=[],
-        help="feature indices to highlight in analyses"
-    )
-    parser.add_argument(
-        "--reset-training",
-        action="store_true",
-        help="reset already trained model"
-    )
-    parser.add_argument(
-        "--perform-modelling",
-        dest="skip_modelling",
-        action="store_false",
-        help="perform modelling"
-    )
-    parser.add_argument(
-        "--skip-modelling",
-        action="store_true",
-        help="skip modelling"
-    )
-    parser.set_defaults(skip_modelling=False)
-    parser.add_argument(
-        "--model-versions",
-        type=str,
-        nargs="+",
-        default=["all"],
-        help=(
-            "model versions to evaluate: end-of-training, best model, "
-            "early-stopping"
+
+    for subparser in model_subparsers:
+        subparser.add_argument(
+            "--model-type", "-m",
+            metavar="TYPE",
+            default=_parse_default(defaults["models"]["type"]),
+            help="type of model"
         )
-    )
-    parser.add_argument(
-        "--analyse",
-        action="store_true",
-        help="perform analysis"
-    )
-    parser.add_argument(
-        "--skip-analyses",
-        dest="analyse",
-        action="store_false",
-        help="skip analysis"
-    )
-    parser.set_defaults(analyse=True)
-    parser.add_argument(
-        "--evaluation-set-name",
-        type=str,
-        default="test",
-        help=(
-            "name of the subset to evaluate and analyse: "
-            "training, validation, test (default), or full"
+        subparser.add_argument(
+            "--latent-size", "-l",
+            metavar="SIZE",
+            type=int,
+            default=_parse_default(defaults["models"]["latent_size"]),
+            help="size of latent space"
         )
-    )
-    parser.add_argument(
-        "--analyse-data",
-        action="store_true",
-        help="perform data analysis"
-    )
-    parser.add_argument(
-        "--skip-data-analyses",
-        dest="analyse_data",
-        action="store_false",
-        help="skip data analysis"
-    )
-    parser.set_defaults(analyse_data=False)
-    parser.add_argument(
-        "--included-analyses",
-        type=str,
-        nargs="+",
-        default=["default"],
-        help=(
-            "analyses to perform, which can be specified individually or as "
-            "groups: simple, default, all"
+        subparser.add_argument(
+            "--hidden-sizes", "-H",
+            metavar="SIZE",
+            type=int,
+            nargs="+",
+            default=_parse_default(defaults["models"]["hidden_sizes"]),
+            help="sizes of hidden layers"
         )
-    )
-    parser.add_argument(
-        "--analysis-level",
-        type=str,
-        default="normal",
-        help=(
-            "level to which analyses are performed: "
-            "limited, normal (default), extensive"
+        subparser.add_argument(
+            "--number-of-importance-samples",
+            metavar="NUMBER",
+            type=int,
+            nargs="+",
+            default=_parse_default(defaults["models"]["number_of_samples"]),
+            help=(
+                "the number of importance weighted samples (if two numbers "
+                "are given, the first will be used for training and the "
+                "second for evaluation)"
+            )
         )
-    )
-    parser.add_argument(
-        "--fast-analysis",
-        action="store_true",
-        help=(
-            "perform fast analysis; equivalent to: "
-            "`--included-analyses simple --analysis-level limited`"
+        subparser.add_argument(
+            "--number-of-monte-carlo-samples",
+            metavar="NUMBER",
+            type=int,
+            nargs="+",
+            default=_parse_default(defaults["models"]["number_of_samples"]),
+            help=(
+                "the number of Monte Carlo samples (if two numbers are given, "
+                "the first will be used for training and the second for "
+                "evaluation)"
+            )
         )
-    )
-    parser.set_defaults(fast_analysis=False)
-    parser.add_argument(
-        "--export-options",
-        type=str,
-        nargs="?",
-        default=[],
-        help="analyse model evolution for video"
-    )
+        subparser.add_argument(
+            "--inference-architecture",
+            metavar="KIND",
+            default=_parse_default(defaults["models"][
+                "inference_architecture"]),
+            help="architecture of the inference model"
+        )
+        subparser.add_argument(
+            "--latent-distribution", "-q",
+            metavar="DISTRIBUTION",
+            default=_parse_default(defaults["models"]["latent_distribution"]),
+            help="distribution for the latent variable(s)"
+        )
+        subparser.add_argument(
+            "--number-of-classes", "-K",
+            metavar="NUMBER",
+            type=int,
+            help="number of proposed clusters in data set"
+        )
+        subparser.add_argument(
+            "--parameterise-latent-posterior",
+            action="store_true",
+            default=_parse_default(defaults["models"][
+                "parameterise_latent_posterior"]),
+            help="parameterise latent posterior parameters, if possible"
+        )
+        subparser.add_argument(
+            "--generative-architecture",
+            metavar="KIND",
+            default=_parse_default(defaults["models"][
+                "generative_architecture"]),
+            help="architecture of the generative model"
+        )
+        subparser.add_argument(
+            "--reconstruction-distribution", "-r",
+            metavar="DISTRIBUTION",
+            default=_parse_default(defaults["models"][
+                "reconstruction_distribution"]),
+            help="distribution for the reconstructions"
+        )
+        subparser.add_argument(
+            "--number-of-reconstruction-classes", "-k",
+            metavar="NUMBER",
+            type=int,
+            default=_parse_default(defaults["models"][
+                "number_of_reconstruction_classes"]),
+            help="the maximum count for which to use classification"
+        )
+        subparser.add_argument(
+            "--prior-probabilities-method",
+            metavar="METHOD",
+            default=_parse_default(defaults["models"][
+                "prior_probabilities_method"]),
+            help="method to set prior probabilities"
+        )
+
+        subparser.add_argument(
+            "--number-of-warm-up-epochs", "-w",
+            metavar="NUMBER",
+            type=int,
+            default=_parse_default(defaults["models"][
+                "number_of_warm_up_epochs"]),
+            help="number of epochs with a linear weight on the KL divergence"
+        )
+        subparser.add_argument(
+            "--kl-weight",
+            metavar="WEIGHT",
+            type=float,
+            default=_parse_default(defaults["models"]["kl_weight"]),
+            help="weighting of KL divergence"
+        )
+        subparser.add_argument(
+            "--proportion-of-free-nats-for-y-kl-divergence",
+            metavar="PROPORTION",
+            type=float,
+            default=_parse_default(defaults["models"][
+                "proportion_of_free_nats_for_y_kl_divergence"]),
+            help=(
+                "proportion of maximum y KL divergence, which has constant "
+                "term and zero gradients, for the GMVAE (free-bits method)"
+            )
+        )
+        subparser.add_argument(
+            "--batch-normalisation", "-b",
+            action="store_true",
+            default=_parse_default(defaults["models"]["batch_normalisation"]),
+            help="use batch normalisation"
+        )
+        subparser.add_argument(
+            "--dropout-keep-probabilities",
+            metavar="PROBABILITY",
+            type=float,
+            nargs="+",
+            default=_parse_default(defaults["models"][
+                "dropout_keep_probabilities"]),
+            help=(
+                "list of probabilities, p, of keeping connections when using "
+                "dropout (interval: ]0, 1[, where p in {0, 1, False} means no "
+                "dropout)"
+            )
+        )
+        subparser.add_argument(
+            "--count-sum",
+            action="store_true",
+            default=_parse_default(defaults["models"]["count_sum"]),
+            help="use count sum"
+        )
+        subparser.add_argument(
+            "--batch-size", "-B",
+            metavar="SIZE",
+            type=int,
+            default=_parse_default(defaults["models"]["batch_size"]),
+            help="batch size used when training"
+        )
+        subparser.add_argument(
+            "--run-id",
+            metavar="ID",
+            type=str,
+            default=_parse_default(defaults["models"]["run_id"]),
+            help=(
+                "ID for separate run of the model (can only contain "
+                "alphanumeric characters)"
+            )
+        )
+        subparser.add_argument(
+            "--models-directory", "-M",
+            metavar="DIRECTORY",
+            default=_parse_default(defaults["models"]["directory"]),
+            help="directory where models are stored"
+        )
+
+    for subparser in training_subparsers:
+        subparser.add_argument(
+            "--number-of-epochs", "-e",
+            metavar="NUMBER",
+            type=int,
+            default=_parse_default(defaults["models"]["number_of_epochs"]),
+            help="number of epochs for which to train"
+        )
+        subparser.add_argument(
+            "--learning-rate",
+            metavar="RATE",
+            type=float,
+            default=_parse_default(defaults["models"]["learning_rate"]),
+            help="learning rate when training"
+        )
+        subparser.add_argument(
+            "--new-run",
+            action="store_true",
+            default=_parse_default(defaults["models"]["new_run"]),
+            help="train a model anew as a separate run with a generated run ID"
+        )
+        subparser.add_argument(
+            "--reset-training",
+            action="store_true",
+            default=_parse_default(defaults["models"]["reset_training"]),
+            help="reset already trained model"
+        )
+        subparser.add_argument(
+            "--caches-directory", "-C",
+            metavar="DIRECTORY",
+            help="directory for temporary storage"
+        )
+        subparser.add_argument(
+            "--analyses-directory", "-A",
+            metavar="DIRECTORY",
+            default=None,
+            help="directory where analyses are saved"
+        )
+
+    for subparser in analysis_subparsers:
+        subparser.add_argument(
+            "--included-analyses",
+            metavar="ANALYSIS",
+            nargs="+",
+            default=_parse_default(defaults["analyses"]["included_analyses"]),
+            help=(
+                "analyses to perform, which can be specified individually or "
+                "as groups: simple, standard, all"
+            )
+        )
+        subparser.add_argument(
+            "--analysis-level",
+            metavar="LEVEL",
+            default=_parse_default(defaults["analyses"]["analysis_level"]),
+            help=(
+                "level to which analyses are performed: "
+                "limited, normal, extensive"
+            )
+        )
+        subparser.add_argument(
+            "--decomposition-methods",
+            metavar="METHOD",
+            nargs="+",
+            default=_parse_default(
+                defaults["analyses"]["decomposition_method"]),
+            help="methods use to decompose values"
+        )
+        subparser.add_argument(
+            "--highlight-feature-indices",
+            metavar="INDEX",
+            type=int,
+            nargs="+",
+            default=_parse_default(
+                defaults["analyses"]["highlight_feature_indices"]),
+            help="feature indices to highlight in analyses"
+        )
+        subparser.add_argument(
+            "--export-options",
+            metavar="OPTION",
+            nargs="+",
+            default=_parse_default(defaults["analyses"]["export_options"]),
+            help="export options for analyses"
+        )
+        subparser.add_argument(
+            "--analyses-directory", "-A",
+            metavar="DIRECTORY",
+            default=_parse_default(defaults["analyses"]["directory"]),
+            help="directory where analyses are saved"
+        )
+
+    for subparser in evaluation_subparsers:
+        subparser.add_argument(
+            "--evaluation-set-kind",
+            metavar="KIND",
+            default=_parse_default(defaults["evaluation"]["data_set_kind"]),
+            help=(
+                "kind of subset to evaluate and analyse: "
+                "training, validation, test (default), or full"
+            )
+        )
+        subparser.add_argument(
+            "--model-versions",
+            metavar="VERSION",
+            nargs="+",
+            default=_parse_default(defaults["evaluation"]["model_versions"]),
+            help=(
+                "model versions to evaluate: end-of-training, best-model, "
+                "early-stopping"
+            )
+        )
 
     arguments = parser.parse_args()
-    status = load_model_analyse(**vars(arguments))
+    status = arguments.func(**vars(arguments))
     return status
-
-
-if __name__ == "__main__":
-    status = main()
-    sys.exit(status)

@@ -28,9 +28,9 @@ from scvae.analyses.figures import style
 from scvae.analyses.figures.utilities import _axis_label_for_symbol
 from scvae.analyses.decomposition import (
     decompose,
-    DECOMPOSITION_METHOD_NAMES,
-    DEFAULT_DECOMPOSITION_METHOD
+    DECOMPOSITION_METHOD_NAMES
 )
+from scvae.defaults import defaults
 from scvae.utilities import (
     format_duration,
     normalise_string, proper_string, capitalise_string
@@ -47,11 +47,16 @@ MAXIMUM_NUMBER_OF_PCA_COMPONENTS_BEFORE_TSNE = 50
 
 def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
                           preprocessed=False, analysis_level="normal",
-                          export_options=None, results_directory="results"):
+                          export_options=None, results_directory=None):
 
     if not colouring_data_set:
         colouring_data_set = data_set
 
+    if analysis_level is None:
+        analysis_level = defaults["analyses"]["analysis_level"]
+
+    if results_directory is None:
+        results_directory = defaults["analyses"]["directory"]
     distribution_directory = os.path.join(results_directory, "histograms")
 
     data_set_title = data_set.kind + " set"
@@ -285,13 +290,15 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
 
 
 def analyse_matrices(data_set, plot_distances=False, name=None,
-                     export_options=None, results_directory="results"):
+                     export_options=None, results_directory=None):
 
     if plot_distances:
         base_name = "distances"
     else:
         base_name = "heat_maps"
 
+    if results_directory is None:
+        results_directory = defaults["analyses"]["directory"]
     results_directory = os.path.join(results_directory, base_name)
 
     if not name:
@@ -465,8 +472,11 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                            highlight_feature_indices=None,
                            prediction_details=None,
                            symbol=None, title="data set", specifier=None,
-                           analysis_level="normal", export_options=None,
-                           results_directory="results"):
+                           analysis_level=None, export_options=None,
+                           results_directory=None):
+
+    if analysis_level is None:
+        analysis_level = defaults["analyses"]["analysis_level"]
 
     centroids_original = centroids
 
@@ -492,7 +502,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
     base_symbol = symbol
 
     if decomposition_methods is None:
-        decomposition_methods = [DEFAULT_DECOMPOSITION_METHOD]
+        decomposition_methods = [defaults["decomposition_method"]]
     elif not isinstance(decomposition_methods, (list, tuple)):
         decomposition_methods = [decomposition_methods]
     else:
@@ -500,11 +510,15 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
     decomposition_methods.insert(0, None)
 
     if highlight_feature_indices is None:
-        highlight_feature_indices = []
+        highlight_feature_indices = defaults["analyses"][
+            "highlight_feature_indices"]
     elif not isinstance(highlight_feature_indices, (list, tuple)):
         highlight_feature_indices = [highlight_feature_indices]
     else:
         highlight_feature_indices = highlight_feature_indices.copy()
+
+    if results_directory is None:
+        results_directory = defaults["analyses"]["directory"]
 
     for data_set, other_data_set in zip(data_sets, other_data_sets):
 
@@ -940,15 +954,19 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
 
 
 def analyse_centroid_probabilities(centroids, name=None,
-                                   analysis_level="normal",
+                                   analysis_level=None,
                                    export_options=None,
-                                   results_directory="results"):
-
-    print("Plotting centroid probabilities.")
-    plot_time_start = time()
+                                   results_directory=None):
 
     if name:
         name = normalise_string(name)
+    if analysis_level is None:
+        analysis_level = defaults["analyses"]["analysis_level"]
+    if results_directory is None:
+        results_directory = defaults["analyses"]["directory"]
+
+    print("Plotting centroid probabilities.")
+    plot_time_start = time()
 
     posterior_probabilities = None
     prior_probabilities = None

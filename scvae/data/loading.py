@@ -72,8 +72,8 @@ def acquire_data_set(title, urls, directory):
 
                 if url.startswith("."):
                     raise Exception(
-                        "Data set file have to be manually placed "
-                        + "in correct folder."
+                        "Data set file have to be manually placed in "
+                        "correct folder."
                     )
                 if os.path.isfile(url):
 

@@ -24,6 +24,7 @@ import scipy
 import sklearn.preprocessing
 
 from scvae.data.sparse import SparseRowMatrix
+from scvae.defaults import defaults
 from scvae.utilities import normalise_string, format_duration
 
 PREPROCESSERS = {}
@@ -322,7 +323,12 @@ def build_preprocessor(preprocessing_methods, noisy=False):
     return preprocess
 
 
-def split_data_set(data_dictionary, method="default", fraction=0.9):
+def split_data_set(data_dictionary, method=None, fraction=None):
+
+    if method is None:
+        method = defaults["data"]["splitting_method"]
+    if fraction is None:
+        fraction = defaults["data"]["splitting_fraction"]
 
     print("Splitting data set.")
     start_time = time()

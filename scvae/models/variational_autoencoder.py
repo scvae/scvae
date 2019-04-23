@@ -27,6 +27,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 from scvae.data.data_set import DataSet
+from scvae.defaults import defaults
 from scvae.distributions import (
     DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised)
 from scvae.models.utilities import (
@@ -36,35 +37,30 @@ from scvae.models.utilities import (
     generate_unique_run_id_for_model, check_run_id,
     correct_model_checkpoint_path, remove_old_checkpoints,
     copy_model_directory, clear_log_directory,
-    parse_numbers_of_samples)
+    parse_numbers_of_samples, validate_model_parameters)
 from scvae.utilities import (
     format_duration, format_time,
     normalise_string, capitalise_string)
 
-# Infinitesimal to avoid over- and underflow
-EPSILON = 1e-6
-
-DEFAULT_NUMBER_OF_SAMPLES = {
-    "training": 1,
-    "evaluation": 1
-}
-
 
 class VariationalAutoencoder:
-    def __init__(self, feature_size, latent_size, hidden_sizes,
-                 number_of_monte_carlo_samples=None,
-                 number_of_importance_samples=None,
+    def __init__(self, feature_size, latent_size=None, hidden_sizes=None,
                  reconstruction_distribution=None,
                  number_of_reconstruction_classes=None,
-                 latent_distribution="gaussian", number_of_latent_clusters=1,
-                 parameterise_latent_posterior=False,
-                 inference_architecture="MLP", generative_architecture="MLP",
-                 batch_normalisation=True,
-                 analytical_kl_term=False,
+                 latent_distribution=None,
+                 parameterise_latent_posterior=None,
+                 number_of_latent_clusters=None,
+                 analytical_kl_term=None,
+                 number_of_monte_carlo_samples=None,
+                 number_of_importance_samples=None,
+                 inference_architecture=None,
+                 generative_architecture=None,
+                 batch_normalisation=None,
                  dropout_keep_probabilities=None,
-                 count_sum=True,
-                 number_of_warm_up_epochs=0, kl_weight=1,
-                 log_directory="log", results_directory="results"):
+                 count_sum=None,
+                 kl_weight=None,
+                 number_of_warm_up_epochs=None,
+                 log_directory=None):
 
         # Class setup
         super().__init__()
@@ -72,10 +68,31 @@ class VariationalAutoencoder:
         self.type = "VAE"
 
         self.feature_size = feature_size
+
+        if latent_size is None:
+            latent_size = defaults["models"]["latent_size"]
         self.latent_size = latent_size
+
+        if hidden_sizes is None:
+            hidden_sizes = defaults["models"]["hidden_sizes"]
         self.hidden_sizes = hidden_sizes
 
-        self.inference_architecture = inference_architecture.upper()
+        if reconstruction_distribution is None:
+            reconstruction_distribution = defaults["models"][
+                "reconstruction_distribution"]
+        self.reconstruction_distribution_name = reconstruction_distribution
+        self.reconstruction_distribution = DISTRIBUTIONS[
+            reconstruction_distribution]
+
+        # Number of categorical elements needed for reconstruction, e.g. K+1
+        if number_of_reconstruction_classes is None:
+            number_of_reconstruction_classes = defaults["models"][
+                "number_of_reconstruction_classes"]
+        self.number_of_reconstruction_classes = (
+            number_of_reconstruction_classes + 1)
+        # K: For the sum over K-1 Categorical probabilities and the last K
+        #   count distribution pdf.
+        self.k_max = number_of_reconstruction_classes
 
         if "mixture" in latent_distribution:
             raise NotImplementedError(
@@ -83,49 +100,70 @@ class VariationalAutoencoder:
                 "mixture models yet."
             )
 
+        if latent_distribution is None:
+            latent_distribution = defaults["models"]["latent_distribution"]
         self.latent_distribution_name = latent_distribution
         self.latent_distribution = copy.deepcopy(
             LATENT_DISTRIBUTIONS[latent_distribution]
         )
-        self.number_of_latent_clusters = number_of_latent_clusters
-        self.analytical_kl_term = analytical_kl_term
+        if parameterise_latent_posterior is None:
+            parameterise_latent_posterior = defaults["models"][
+                "parameterise_latent_posterior"]
         self.parameterise_latent_posterior = parameterise_latent_posterior
+
+        if number_of_latent_clusters is None:
+            if "mixture" in latent_distribution:
+                raise ValueError(
+                    "For a mixture latent distribution, "
+                    "the number of latent clusters has to be set."
+                )
+            else:
+                number_of_latent_clusters = 1
+        self.number_of_latent_clusters = number_of_latent_clusters
+
+        if analytical_kl_term is None:
+            if self.latent_distribution_name == "gaussian":
+                analytical_kl_term = True
+            else:
+                analytical_kl_term = False
+        self.analytical_kl_term = analytical_kl_term
 
         # Dictionary holding number of samples needed for the Monte Carlo
         # estimator and importance weighting during both train and test time
         if number_of_monte_carlo_samples is None:
-            number_of_monte_carlo_samples = DEFAULT_NUMBER_OF_SAMPLES
+            number_of_monte_carlo_samples = defaults["models"][
+                "number of samples"]
         else:
             number_of_monte_carlo_samples = parse_numbers_of_samples(
                 number_of_monte_carlo_samples)
         self.number_of_monte_carlo_samples = number_of_monte_carlo_samples
 
         if number_of_importance_samples is None:
-            number_of_importance_samples = DEFAULT_NUMBER_OF_SAMPLES
+            number_of_importance_samples = defaults["models"][
+                "number of samples"]
         else:
             number_of_importance_samples = parse_numbers_of_samples(
                 number_of_importance_samples)
         self.number_of_importance_samples = number_of_importance_samples
 
+        if inference_architecture is None:
+            inference_architecture = defaults["models"][
+                "inference_architecture"]
+        self.inference_architecture = inference_architecture.upper()
+        if generative_architecture is None:
+            generative_architecture = defaults["models"][
+                "generative_architecture"]
         self.generative_architecture = generative_architecture.upper()
-        self.reconstruction_distribution_name = reconstruction_distribution
-        self.reconstruction_distribution = DISTRIBUTIONS[
-            reconstruction_distribution]
 
-        # Number of categorical elements needed for reconstruction, e.g. K+1
-        self.number_of_reconstruction_classes = (
-            number_of_reconstruction_classes + 1)
-        # K: For the sum over K-1 Categorical probabilities and the last K
-        #   count distribution pdf.
-        self.k_max = number_of_reconstruction_classes
-
+        if batch_normalisation is None:
+            batch_normalisation = defaults["models"]["batch_normalisation"]
         self.batch_normalisation = batch_normalisation
 
         # Dropout keep probabilities (p) for 3 different kinds of layers
         if dropout_keep_probabilities is None:
-            self.dropout_keep_probabilities = []
-        else:
-            self.dropout_keep_probabilities = dropout_keep_probabilities
+            dropout_keep_probabilities = defaults["models"][
+                "dropout_keep_probabilities"]
+        self.dropout_keep_probabilities = dropout_keep_probabilities
         self.dropout_keep_probability_z = False
         self.dropout_keep_probability_x = False
         self.dropout_keep_probability_h = False
@@ -146,17 +184,26 @@ class VariationalAutoencoder:
             if dropout_keep_probabilities and dropout_keep_probabilities != 1:
                 self.dropout_parts.append(str(dropout_keep_probabilities))
 
+        if count_sum is None:
+            count_sum = defaults["models"]["count_sum"]
         self.use_count_sum_as_feature = count_sum
         self.use_count_sum_as_parameter = (
             "constrained" in self.reconstruction_distribution_name
             or "multinomial" in self.reconstruction_distribution_name
         )
 
+        if kl_weight is None:
+            kl_weight = defaults["models"]["kl_weight"]
         self.kl_weight_value = kl_weight
+
+        if number_of_warm_up_epochs is None:
+            number_of_warm_up_epochs = defaults["models"][
+                "number_of_warm_up_epochs"]
         self.number_of_warm_up_epochs = number_of_warm_up_epochs
 
+        if log_directory is None:
+            log_directory = defaults["models"]["directory"]
         self.base_log_directory = log_directory
-        self.base_results_directory = results_directory
 
         # Early stopping
         self.early_stopping_rounds = 10
@@ -165,6 +212,14 @@ class VariationalAutoencoder:
         # Graph setup
         self.graph = tf.Graph()
         self.parameter_summary_list = []
+
+        validate_model_parameters(
+            reconstruction_distribution=self.reconstruction_distribution_name,
+            number_of_reconstruction_classes=self.k_max,
+            model_type=self.type,
+            latent_distribution=self.latent_distribution_name,
+            parameterise_latent_posterior=self.parameterise_latent_posterior
+        )
 
         with self.graph.as_default():
 
@@ -417,6 +472,8 @@ class VariationalAutoencoder:
 
         log_directory = os.path.join(base, self.name)
 
+        if run_id is None:
+            run_id = defaults["models"]["run_id"]
         if run_id:
             run_id = check_run_id(run_id)
             log_directory = os.path.join(
@@ -465,14 +522,31 @@ class VariationalAutoencoder:
 
         return stopped_early, epochs_with_no_improvement
 
-    def train(self, training_set, validation_set=None, number_of_epochs=100,
-              batch_size=100, learning_rate=1e-3,
+    def train(self, training_set, validation_set=None, number_of_epochs=None,
+              batch_size=None, learning_rate=None,
               intermediate_analyser=None, plotting_interval=None,
-              run_id=None, new_run=False, reset_training=False,
-              temporary_log_directory=None):
+              run_id=None, new_run=None, reset_training=None,
+              results_directory=None, temporary_log_directory=None):
+
+        if number_of_epochs is None:
+            number_of_epochs = defaults["models"]["number_of_epochs"]
+        if batch_size is None:
+            batch_size = defaults["models"]["batch_size"]
+        if learning_rate is None:
+            learning_rate = defaults["models"]["learning_rate"]
+        if run_id is None:
+            run_id = defaults["models"]["run_id"]
+        if new_run is None:
+            new_run = defaults["models"]["new_run"]
+        if reset_training is None:
+            reset_training = defaults["models"]["reset_training"]
+        if results_directory is None:
+            results_directory = defaults["analyses"]["directory"]
 
         start_time = time()
 
+        if run_id is None:
+            run_id = defaults["models"]["run_id"]
         if run_id:
             run_id = check_run_id(run_id)
             new_run = True
@@ -493,9 +567,7 @@ class VariationalAutoencoder:
             clear_log_directory(permanent_log_directory)
 
         # Logging
-        status = {
-            "completed": False,
-            "message": None,
+        metadata_log = {
             "epochs trained": None,
             "start time": format_time(start_time),
             "training duration": None,
@@ -573,13 +645,7 @@ class VariationalAutoencoder:
         # Stop, if model is already trained
         if epoch_start >= number_of_epochs:
             print(training_string)
-            print()
-            status["completed"] = True
-            status["training duration"] = "nan"
-            status["last epoch duration"] = "nan"
-            status["epochs trained"] = "{}-{}".format(
-                epoch_start, number_of_epochs)
-            return status, run_id
+            return 0
 
         # Copy log directory to temporary location, if necessary
         if (temporary_log_directory
@@ -742,8 +808,7 @@ class VariationalAutoencoder:
                     format_duration(initialising_duration)))
                 print()
 
-            status["epochs trained"] = "{}-{}".format(
-                epoch_start, number_of_epochs)
+            metadata_log["epochs trained"] = (epoch_start, number_of_epochs)
 
             print(training_string)
             print()
@@ -828,13 +893,7 @@ class VariationalAutoencoder:
                             batch_loss))
 
                         if numpy.isnan(batch_loss):
-                            status["completed"] = False
-                            status["message"] = "loss became nan"
-                            status["training duration"] = format_duration(
-                                time() - training_time_start)
-                            status["last epoch duration"] = format_duration(
-                                time() - epoch_time_start)
-                            return status, run_id
+                            raise ArithmeticError("The loss became NaN.")
 
                 print()
 
@@ -1300,7 +1359,7 @@ class VariationalAutoencoder:
                             centroids=centroids,
                             model_name=self.name,
                             run_id=run_id,
-                            results_directory=self.base_results_directory
+                            results_directory=results_directory
                         )
                         print()
                     else:
@@ -1311,7 +1370,7 @@ class VariationalAutoencoder:
                             model_type=self.type,
                             model_name=self.name,
                             run_id=run_id,
-                            results_directory=self.base_results_directory
+                            results_directory=results_directory
                         )
                         print()
 
@@ -1344,18 +1403,40 @@ class VariationalAutoencoder:
 
                 print()
 
-            status["completed"] = True
-            status["training duration"] = format_duration(training_duration)
-            status["last epoch duration"] = format_duration(epoch_duration)
+            metadata_log["training duration"] = format_duration(
+                training_duration)
+            metadata_log["last epoch duration"] = format_duration(
+                epoch_duration)
 
-            return status, run_id
+            metadata_log_filename = "metadata_log"
+            epochs_trained = metadata_log.get("epochs trained")
+            if epochs_trained:
+                metadata_log_filename += "-" + "-".join(map(
+                    str, epochs_trained))
+            metadata_log_path = os.path.join(
+                self.log_directory(run_id=run_id),
+                metadata_log_filename + ".log"
+            )
+            with open(metadata_log_path, "w") as metadata_log_file:
+                metadata_log_file.write("\n".join(
+                    "{}: {}".format(metadata_field, metadata_value)
+                    for metadata_field, metadata_value in metadata_log.items()
+                    if metadata_value
+                ))
+
+            return 0
 
     def evaluate(self, evaluation_set, evaluation_subset_indices=None,
-                 batch_size=100, predict_labels=False, run_id=None,
+                 batch_size=None, predict_labels=False, run_id=None,
                  use_early_stopping_model=False, use_best_model=False,
                  use_deterministic_z=False, output_versions="all",
                  log_results=True):
 
+        if batch_size is None:
+            batch_size = defaults["models"]["batch_size"]
+
+        if run_id is None:
+            run_id = defaults["models"]["run_id"]
         if run_id:
             run_id = check_run_id(run_id)
             model_string = "model for run {}".format(run_id)
@@ -1780,8 +1861,8 @@ class VariationalAutoencoder:
                         def activation_function(x):
                             return tf.clip_by_value(
                                 parameter_activation_function(x),
-                                p_min + EPSILON,
-                                p_max - EPSILON
+                                p_min + numpy.finfo(dtype=numpy.float32).tiny,
+                                p_max - numpy.finfo(dtype=numpy.float32).tiny
                             )
                         if part_name == "posterior":
                             variable = dense_layer(
@@ -1960,8 +2041,8 @@ class VariationalAutoencoder:
                     num_outputs=self.feature_size,
                     activation_fn=lambda x: tf.clip_by_value(
                         parameter_activation_function(x),
-                        p_min + EPSILON,
-                        p_max - EPSILON
+                        p_min + numpy.finfo(dtype=numpy.float32).tiny,
+                        p_max - numpy.finfo(dtype=numpy.float32).tiny
                     ),
                     is_training=self.is_training,
                     dropout_keep_probability=self.dropout_keep_probability_h,

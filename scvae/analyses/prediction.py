@@ -20,6 +20,7 @@ from time import time
 
 import numpy
 import scipy.stats
+# TODO Remove DBSCAN and knee method
 from kneed import KneeLocator
 from sklearn.cluster import KMeans, MiniBatchKMeans, DBSCAN
 from sklearn.neighbors import NearestNeighbors

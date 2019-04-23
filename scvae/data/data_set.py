@@ -25,13 +25,14 @@ import numpy
 import seaborn
 
 from scvae.data import internal_io, loading, parsing, processing, sparse
+from scvae.defaults import defaults
 from scvae.utilities import format_duration, normalise_string
 
 PREPROCESS_SUFFIX = "preprocessed"
 ORIGINAL_SUFFIX = "original"
 PREPROCESSED_EXTENSION = ".sparse.h5"
 
-MAXIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING = 30
+MINIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING = 30
 
 DEFAULT_TAGS = {
     "example": "example",
@@ -47,32 +48,31 @@ GENERIC_CLASS_NAMES = ["Others", "Unknown", "No class", "Remaining"]
 
 
 class DataSet(object):
-    def __init__(
-            self,
-            input_file_or_name,
-            data_format=None,
-            title=None,
-            specifications=None,
-            values=None,
-            total_standard_deviations=None,
-            explained_standard_deviations=None,
-            preprocessed_values=None,
-            binarised_values=None,
-            labels=None,
-            class_names=None,
-            example_names=None,
-            feature_names=None,
-            map_features=False,
-            features_mapped=False,
-            feature_selection=None,
-            example_filter=None,
-            preprocessing_methods=None,
-            preprocessed=None,
-            binarise_values=False,
-            noisy_preprocessing_methods=None,
-            kind="full",
-            version="original",
-            directory="data"):
+    def __init__(self,
+                 input_file_or_name,
+                 data_format=None,
+                 title=None,
+                 specifications=None,
+                 values=None,
+                 total_standard_deviations=None,
+                 explained_standard_deviations=None,
+                 preprocessed_values=None,
+                 binarised_values=None,
+                 labels=None,
+                 class_names=None,
+                 example_names=None,
+                 feature_names=None,
+                 map_features=None,
+                 features_mapped=False,
+                 feature_selection=None,
+                 example_filter=None,
+                 preprocessing_methods=None,
+                 preprocessed=None,
+                 binarise_values=False,
+                 noisy_preprocessing_methods=None,
+                 kind="full",
+                 version="original",
+                 directory=None):
 
         super().__init__()
 
@@ -81,6 +81,8 @@ class DataSet(object):
             input_file_or_name)
 
         # Directories and paths for data set
+        if directory is None:
+            directory = defaults["data"]["directory"]
         self.directory = os.path.join(directory, self.name)
         self.preprocess_directory = os.path.join(
             self.directory, PREPROCESS_SUFFIX)
@@ -111,6 +113,8 @@ class DataSet(object):
         # Prioritise data format from metadata
         data_format_from_metadata = self.specifications.get("format")
         if data_format is None:
+            data_format = defaults["data"]["format"]
+        if data_format == "infer":
             data_format = data_format_from_metadata
         else:
             data_format = normalise_string(data_format)
@@ -208,6 +212,8 @@ class DataSet(object):
             sorted_superset_class_names)
 
         # Feature mapping
+        if map_features is None:
+            map_features = defaults["data"]["map_features"]
         self.map_features = map_features
         self.feature_mapping = None
         self.features_mapped = features_mapped
@@ -216,6 +222,8 @@ class DataSet(object):
             self.tags = _update_tag_for_mapped_features(self.tags)
 
         # Feature selection
+        if feature_selection is None:
+            feature_selection = defaults["data"]["feature_selection"]
         if feature_selection:
             self.feature_selection = feature_selection[0]
             if len(feature_selection) > 1:
@@ -227,6 +235,8 @@ class DataSet(object):
             self.feature_selection_parameters = None
 
         # Example filterering
+        if example_filter is None:
+            example_filter = defaults["data"]["example_filter"]
         if example_filter:
             self.example_filter = example_filter[0]
             if len(example_filter) > 1:
@@ -238,6 +248,8 @@ class DataSet(object):
             self.example_filter_parameters = None
 
         # Preprocessing methods
+        if preprocessing_methods is None:
+            preprocessing_methods = defaults["data"]["preprocessing_methods"]
         self.preprocessing_methods = preprocessing_methods
         self.binarise_values = binarise_values
 
@@ -264,10 +276,12 @@ class DataSet(object):
         self.version = version
 
         # Noisy preprocessing
-        self.noisy_preprocessing_methods = noisy_preprocessing_methods
-
+        if noisy_preprocessing_methods is None:
+            noisy_preprocessing_methods = defaults["data"][
+                "noisy_preprocessing_methods"]
         if self.preprocessed:
-            self.noisy_preprocessing_methods = []
+            noisy_preprocessing_methods = []
+        self.noisy_preprocessing_methods = noisy_preprocessing_methods
 
         if self.noisy_preprocessing_methods:
             self.noisy_preprocess = processing.build_preprocessor(
@@ -422,13 +436,12 @@ class DataSet(object):
         else:
             return "random"
 
-    def update(
-            self, values=None,
-            total_standard_deviations=None,
-            explained_standard_deviations=None,
-            preprocessed_values=None,
-            binarised_values=None, labels=None,
-            example_names=None, feature_names=None, class_names=None):
+    def update(self, values=None,
+               total_standard_deviations=None,
+               explained_standard_deviations=None,
+               preprocessed_values=None,
+               binarised_values=None, labels=None,
+               example_names=None, feature_names=None, class_names=None):
 
         if values is not None:
 
@@ -563,11 +576,10 @@ class DataSet(object):
         if binarised_values is not None:
             self.binarised_values = binarised_values
 
-    def update_predictions(
-            self, predicted_cluster_ids=None,
-            predicted_labels=None, predicted_class_names=None,
-            predicted_superset_labels=None,
-            predicted_superset_class_names=None):
+    def update_predictions(self, predicted_cluster_ids=None,
+                           predicted_labels=None, predicted_class_names=None,
+                           predicted_superset_labels=None,
+                           predicted_superset_class_names=None):
 
         if predicted_cluster_ids is not None:
             self.predicted_cluster_ids = predicted_cluster_ids
@@ -651,7 +663,7 @@ class DataSet(object):
 
             print()
 
-            if loading_duration > MAXIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING:
+            if loading_duration > MINIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING:
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
 
@@ -813,7 +825,7 @@ class DataSet(object):
             preprocessing_duration = time() - preprocessing_time_start
 
             if (preprocessing_duration
-                    > MAXIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING):
+                    > MINIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING):
 
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
@@ -905,7 +917,7 @@ class DataSet(object):
 
             binarising_duration = time() - binarising_time_start
 
-            if binarising_duration > MAXIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING:
+            if binarising_duration > MINIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING:
 
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)
@@ -917,7 +929,12 @@ class DataSet(object):
 
         self.update(binarised_values=data_dictionary["preprocessed values"])
 
-    def split(self, method="default", fraction=0.9):
+    def split(self, method=None, fraction=None):
+
+        if method is None:
+            method = defaults["data"]["splitting_method"]
+        if fraction is None:
+            fraction = defaults["data"]["splitting_fraction"]
 
         if method == "default":
             method = self.default_splitting_method
@@ -971,7 +988,7 @@ class DataSet(object):
 
             print()
 
-            if splitting_duration > MAXIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING:
+            if splitting_duration > MINIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING:
 
                 if not os.path.exists(self.preprocess_directory):
                     os.makedirs(self.preprocess_directory)

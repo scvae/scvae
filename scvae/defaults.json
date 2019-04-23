@@ -1,0 +1,57 @@
+{
+	"data": {
+		"format": "infer",
+		"directory": "data",
+		"map_features": false,
+		"feature_selection": [],
+		"example_filter": [],
+		"preprocessing_methods": [],
+		"noisy_preprocessing_methods": [],
+		"split_data_set": false,
+		"splitting_method": "default",
+		"splitting_fraction": 0.9
+	},
+	"analyses": {
+		"directory": "analyses",
+		"decomposition_method": "PCA",
+		"decomposition_dimensionality": 2,
+		"highlight_feature_indices": [],
+		"included_analyses": "standard",
+		"analysis_level": "normal",
+		"export_options": []
+	},
+	"models": {
+		"directory": "models",
+		"type": "VAE",
+		"latent_size": 2,
+		"hidden_sizes": [100],
+		"number_of_samples": {
+		    "training": 1,
+		    "evaluation": 1
+		},
+		"latent_distribution": "gaussian",
+		"number_of_classes": "infer",
+		"parameterise_latent_posterior": false,
+		"inference_architecture": "MLP",
+		"generative_architecture": "MLP",
+		"reconstruction_distribution": "poisson",
+		"number_of_reconstruction_classes": 0,
+		"prior_probabilities_method": "uniform",
+		"number_of_warm_up_epochs": 0,
+		"kl_weight": 1,
+		"proportion_of_free_nats_for_y_kl_divergence": 0.0,
+		"batch_normalisation": true,
+		"dropout_keep_probabilities": [],
+		"count_sum": false,
+		"number_of_epochs": 200,
+		"batch_size": 100,
+		"learning_rate": 1e-4,
+		"run_id": "",
+		"new_run": false,
+		"reset_training": false
+	},
+	"evaluation": {
+		"data_set_kind": "test",
+		"model_versions": "all"
+	}
+}

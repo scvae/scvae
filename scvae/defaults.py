@@ -16,13 +16,9 @@
 #
 # ======================================================================== #
 
-__all__ = [
-    "decompose",
-    "DECOMPOSITION_METHOD_NAMES",
-    "DECOMPOSITION_METHOD_LABEL"
-]
+import json
 
-from scvae.analyses.decomposition.decomposition import (
-    decompose,
-    DECOMPOSITION_METHOD_NAMES, DECOMPOSITION_METHOD_LABEL
-)
+import importlib_resources as resources
+
+with resources.open_text("scvae", "defaults.json") as defaults_file:
+    defaults = json.load(defaults_file)

@@ -26,26 +26,27 @@ import numpy
 from scvae.analyses import figures, images, metrics, subanalyses
 from scvae.analyses.decomposition import decompose
 from scvae.analyses.figures.utilities import _axis_label_for_symbol
-from scvae.utilities import (
-    format_time, format_duration,
-    normalise_string, capitalise_string, subheading
-)
 from scvae.data.utilities import indices_for_evaluation_subset
+from scvae.defaults import defaults
 from scvae.models.utilities import (
     load_number_of_epochs_trained, load_learning_curves, load_accuracies,
     load_centroids, load_kl_divergences,
     check_run_id
 )
+from scvae.utilities import (
+    format_time, format_duration,
+    normalise_string, capitalise_string, subheading
+)
 
 ANALYSIS_GROUPS = {
     "simple": ["metrics", "images", "learning_curves", "accuracies"],
-    "default": ["kl_heat_maps", "profile_comparisons", "distributions",
-                "distances", "decompositions", "latent_space"],
+    "standard": ["kl_heat_maps", "profile_comparisons", "distributions",
+                 "distances", "decompositions", "latent_space"],
     "all": ["heat_maps", "latent_distributions", "latent_correlations",
             "feature_value_standard_deviations"]
 }
-ANALYSIS_GROUPS["default"] += ANALYSIS_GROUPS["simple"]
-ANALYSIS_GROUPS["all"] += ANALYSIS_GROUPS["default"]
+ANALYSIS_GROUPS["standard"] += ANALYSIS_GROUPS["simple"]
+ANALYSIS_GROUPS["all"] += ANALYSIS_GROUPS["standard"]
 
 MAXIMUM_NUMBER_OF_VALUES_FOR_HEAT_MAPS = 5000 * 25000
 PROFILE_COMPARISON_COUNT_CUTOFF = 10.5
@@ -55,15 +56,22 @@ DEFAULT_CUTOFFS = range(1, 10)
 def analyse_data(data_sets,
                  decomposition_methods=None,
                  highlight_feature_indices=None,
-                 included_analyses=None, analysis_level="normal",
-                 export_options=None, results_directory="results"):
+                 included_analyses=None, analysis_level=None,
+                 export_options=None, results_directory=None):
 
+    if results_directory is None:
+        results_directory = defaults["analyses"]["directory"]
     results_directory = os.path.join(results_directory, "data")
 
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
 
+    if included_analyses is None:
+        included_analyses = defaults["analyses"]["included_analyses"]
     included_analyses = _parse_analyses(included_analyses)
+
+    if analysis_level is None:
+        analysis_level = defaults["analyses"]["analysis_level"]
 
     if not isinstance(data_sets, list):
         data_sets = [data_sets]
@@ -274,9 +282,11 @@ def analyse_data(data_sets,
 
 
 def analyse_model(model, run_id=None,
-                  included_analyses=None, analysis_level="normal",
+                  included_analyses=None, analysis_level=None,
                   export_options=None, results_directory="results"):
 
+    if run_id is None:
+        run_id = defaults["models"]["run_id"]
     if run_id:
         run_id = check_run_id(run_id)
 
@@ -284,6 +294,8 @@ def analyse_model(model, run_id=None,
         model, run_id=run_id)
     epochs_string = "e_" + str(number_of_epochs_trained)
 
+    if results_directory is None:
+        results_directory = defaults["analyses"]["directory"]
     results_directory = _build_path_for_result_directory(
         base_directory=results_directory,
         model_name=model.name,
@@ -294,7 +306,12 @@ def analyse_model(model, run_id=None,
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
 
+    if included_analyses is None:
+        included_analyses = defaults["analyses"]["included_analyses"]
     included_analyses = _parse_analyses(included_analyses)
+
+    if analysis_level is None:
+        analysis_level = defaults["analyses"]["analysis_level"]
 
     if "learning_curves" in included_analyses:
 
@@ -515,11 +532,15 @@ def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
                                  model_type=None, latent_values=None,
                                  data_set=None, centroids=None,
                                  model_name=None, run_id=None,
-                                 results_directory="results"):
+                                 results_directory=None):
 
+    if run_id is None:
+        run_id = defaults["models"]["run_id"]
     if run_id:
         run_id = check_run_id(run_id)
 
+    if results_directory is None:
+        results_directory = defaults["analyses"]["directory"]
     results_directory = _build_path_for_result_directory(
         base_directory=results_directory,
         model_name=model_name,
@@ -661,8 +682,8 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                     evaluation_subset_indices=None,
                     highlight_feature_indices=None, prediction_details=None,
                     early_stopping=False, best_model=False,
-                    included_analyses=None, analysis_level="normal",
-                    export_options=None, results_directory="results"):
+                    included_analyses=None, analysis_level=None,
+                    export_options=None, results_directory=None):
 
     if early_stopping and best_model:
         raise ValueError(
@@ -670,6 +691,8 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             "same time."
         )
 
+    if run_id is None:
+        run_id = defaults["models"]["run_id"]
     if run_id:
         run_id = check_run_id(run_id)
 
@@ -677,7 +700,12 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         evaluation_subset_indices = indices_for_evaluation_subset(
             evaluation_set)
 
+    if included_analyses is None:
+        included_analyses = defaults["analyses"]["included_analyses"]
     included_analyses = _parse_analyses(included_analyses)
+
+    if analysis_level is None:
+        analysis_level = defaults["analyses"]["analysis_level"]
 
     print("Setting up results analyses.")
     setup_time_start = time()
@@ -713,6 +741,8 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
 
     evaluation_directory = "-".join(evaluation_directory_parts)
 
+    if results_directory is None:
+        results_directory = defaults["analyses"]["directory"]
     results_directory = _build_path_for_result_directory(
         base_directory=results_directory,
         model_name=model.name,
@@ -1323,6 +1353,8 @@ def _build_path_for_result_directory(base_directory, model_name,
 
     results_directory = os.path.join(base_directory, model_name)
 
+    if run_id is None:
+        run_id = defaults["models"]["run_id"]
     if run_id:
         run_id = check_run_id(run_id)
         results_directory = os.path.join(
@@ -1340,23 +1372,26 @@ def _build_path_for_result_directory(base_directory, model_name,
     return results_directory
 
 
-def _parse_analyses(included_analyses):
+def _parse_analyses(included_analyses=None):
 
     if not included_analyses:
-        included_analyses = ANALYSIS_GROUPS["default"]
+        resulting_analyses = []
+    else:
+        if not isinstance(included_analyses, (list, tuple)):
+            included_analyses = [included_analyses]
 
-    resulting_analyses = set()
+        resulting_analyses = set()
 
-    for analysis in included_analyses:
-        if analysis in ANALYSIS_GROUPS:
-            group = analysis
-            resulting_analyses.update(map(
-                normalise_string, ANALYSIS_GROUPS[group]))
-        elif analysis in ANALYSIS_GROUPS["all"]:
-            resulting_analyses.add(normalise_string(analysis))
-        else:
-            raise ValueError("Analysis `{}` not found.".format(analysis))
+        for analysis in included_analyses:
+            if analysis in ANALYSIS_GROUPS:
+                group = analysis
+                resulting_analyses.update(map(
+                    normalise_string, ANALYSIS_GROUPS[group]))
+            elif analysis in ANALYSIS_GROUPS["all"]:
+                resulting_analyses.add(normalise_string(analysis))
+            else:
+                raise ValueError("Analysis `{}` not found.".format(analysis))
 
-    resulting_analyses = list(resulting_analyses)
+        resulting_analyses = list(resulting_analyses)
 
     return resulting_analyses

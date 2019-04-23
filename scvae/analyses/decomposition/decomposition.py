@@ -22,6 +22,7 @@ from sklearn.decomposition import PCA, FastICA, TruncatedSVD
 from sklearn.manifold import TSNE
 
 from scvae.analyses.decomposition.incremental_pca import IncrementalPCA
+from scvae.defaults import defaults
 from scvae.utilities import normalise_string, proper_string
 
 DECOMPOSITION_METHOD_NAMES = {
@@ -37,9 +38,6 @@ DECOMPOSITION_METHOD_LABEL = {
     "t-SNE": "tSNE"
 }
 
-DEFAULT_DECOMPOSITION_METHOD = "PCA"
-DEFAULT_DECOMPOSITION_DIMENSIONALITY = 2
-
 MAXIMUM_FEATURE_SIZE_FOR_NORMAL_PCA = 2000
 
 
@@ -47,12 +45,12 @@ def decompose(values, other_value_sets=[], centroids={}, method=None,
               number_of_components=None, random=False):
 
     if method is None:
-        method = DEFAULT_DECOMPOSITION_METHOD
+        method = defaults["decomposition_method"]
     method = proper_string(
         normalise_string(method), DECOMPOSITION_METHOD_NAMES)
 
     if number_of_components is None:
-        number_of_components = DEFAULT_DECOMPOSITION_DIMENSIONALITY
+        number_of_components = defaults["decomposition_dimensionality"]
 
     if (other_value_sets is not None
             and not isinstance(other_value_sets, (list, tuple))):
