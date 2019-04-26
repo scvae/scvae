@@ -28,8 +28,7 @@ from scvae.utilities import normalise_string
 
 def plot_values(values, colour_coding=None, colouring_data_set=None,
                 centroids=None, class_name=None, feature_index=None,
-                figure_labels=None, prediction_details=None,
-                example_tag=None, name="scatter"):
+                figure_labels=None, example_tag=None, name="scatter"):
 
     figure_name = name
 
@@ -51,8 +50,11 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
         colour_coding = normalise_string(colour_coding)
         figure_name += "-" + colour_coding
         if "predicted" in colour_coding:
-            if prediction_details:
-                figure_name += "-" + prediction_details["id"]
+            if colouring_data_set.prediction_specifications:
+                figure_name += "-" + (
+                    colouring_data_set.prediction_specifications.name)
+            else:
+                figure_name += "unknown_prediction_method"
         if colouring_data_set is None:
             raise ValueError("Colouring data set not given.")
 

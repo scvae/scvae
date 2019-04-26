@@ -52,6 +52,8 @@
 	},
 	"evaluation": {
 		"data_set_kind": "test",
+		"prediction_training_set_kind": "training",
+		"prediction_method": "",
 		"model_versions": "all"
 	}
 }

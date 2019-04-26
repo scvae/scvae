@@ -20,6 +20,9 @@ import argparse
 import os
 
 from scvae import analyses
+from scvae.analyses.prediction import (
+    PredictionSpecifications, predict_labels
+)
 from scvae.data.data_set import DataSet
 from scvae.data.utilities import (
     build_directory_path, indices_for_evaluation_subset
@@ -36,7 +39,8 @@ from scvae.models.utilities import (
 )
 from scvae.utilities import (
     title, subtitle, heading,
-    normalise_string, enumerate_strings,
+    normalise_string,  # proper_string,
+    enumerate_strings,
     remove_empty_directories
 )
 
@@ -196,6 +200,12 @@ def train(data_set_file_or_name, data_format=None, data_directory=None,
 
     print(title("Model"))
 
+    if number_of_classes is None:
+        if data_set.has_labels:
+            number_of_classes = (
+                data_set.number_of_classes
+                - data_set.number_of_excluded_classes)
+
     model = _setup_model(
         data_set=training_set,
         model_type=model_type,
@@ -275,7 +285,8 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
              included_analyses=None, analysis_level=None,
              decomposition_methods=None, highlight_feature_indices=None,
              export_options=None, analyses_directory=None,
-             evaluation_set_kind=None, model_versions=None,
+             evaluation_set_kind=None, prediction_method=None,
+             prediction_training_set_kind=None, model_versions=None,
              **keyword_arguments):
     """Evaluate model on data set."""
 
@@ -289,12 +300,19 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
         models_directory = defaults["models"]["directory"]
     if evaluation_set_kind is None:
         evaluation_set_kind = defaults["evaluation"]["data_set_name"]
+    if prediction_method is None:
+        prediction_method = defaults["evaluation"]["prediction_method"]
+    if prediction_training_set_kind is None:
+        prediction_training_set_kind = defaults["evaluation"][
+            "prediction_training_set_kind"]
     if model_versions is None:
         model_versions = defaults["evaluation"]["model_versions"]
     if analyses_directory is None:
         analyses_directory = defaults["analyses"]["directory"]
 
     evaluation_set_kind = normalise_string(evaluation_set_kind)
+    prediction_training_set_kind = normalise_string(
+        prediction_training_set_kind)
     model_versions = parse_model_versions(model_versions)
 
     reconstruction_distribution = parse_distribution(
@@ -331,14 +349,20 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
             method=splitting_method, fraction=splitting_fraction)
         data_subsets = [data_set, training_set, validation_set, test_set]
         for data_subset in data_subsets:
+            clear_data_subset = True
             if data_subset.kind == evaluation_set_kind:
                 evaluation_set = data_subset
-            else:
+                clear_data_subset = False
+            if data_subset.kind == prediction_training_set_kind:
+                prediction_training_set = data_subset
+                clear_data_subset = False
+            if clear_data_subset:
                 data_subset.clear()
     else:
         splitting_method = None
         splitting_fraction = None
         evaluation_set = data_set
+        prediction_training_set = data_set
 
     evaluation_subset_indices = indices_for_evaluation_subset(
         evaluation_set)
@@ -357,6 +381,12 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
     )
 
     print(title("Model"))
+
+    if number_of_classes is None:
+        if data_set.has_labels:
+            number_of_classes = (
+                data_set.number_of_classes
+                - data_set.number_of_excluded_classes)
 
     model = _setup_model(
         data_set=evaluation_set,
@@ -410,6 +440,19 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
         enumerate_strings(
             [v.replace("_", " ") for v in model_versions], conjunction="and")))
 
+    if prediction_method:
+        prediction_specifications = PredictionSpecifications(
+            method=prediction_method,
+            number_of_clusters=number_of_classes,
+            training_set_kind=prediction_training_set.kind
+        )
+        print("Prediction method: {}.".format(
+            prediction_specifications.method))
+        print("Number of clusters: {}.".format(
+            prediction_specifications.number_of_clusters))
+        print("Prediction training set: {} set.".format(
+            prediction_specifications.training_set_kind))
+
     print()
 
     for model_version in model_versions:
@@ -439,6 +482,42 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
             use_early_stopping_model=use_early_stopping_model
         )
         print()
+
+        if prediction_method:
+            print(heading("{} prediction".format(
+                model_version.replace("_", "-").capitalize())))
+
+            latent_prediction_training_sets = model.evaluate(
+                evaluation_set=prediction_training_set,
+                batch_size=batch_size,
+                run_id=run_id,
+                use_best_model=use_best_model,
+                use_early_stopping_model=use_early_stopping_model,
+                output_versions="latent",
+                log_results=False
+            )
+            print()
+
+            cluster_ids, predicted_labels, predicted_superset_labels = (
+                predict_labels(
+                    training_set=latent_prediction_training_sets["z"],
+                    evaluation_set=latent_evaluation_sets["z"],
+                    specifications=prediction_specifications
+                )
+            )
+
+            evaluation_set_versions = [
+                transformed_evaluation_set, reconstructed_evaluation_set
+            ] + list(latent_evaluation_sets.values())
+
+            for evaluation_set_version in evaluation_set_versions:
+                evaluation_set_version.update_predictions(
+                    prediction_specifications=prediction_specifications,
+                    predicted_cluster_ids=cluster_ids,
+                    predicted_labels=predicted_labels,
+                    predicted_superset_labels=predicted_superset_labels
+                )
+            print()
 
         print(heading("{} analysis".format(
             model_version.replace("_", "-").capitalize())))
@@ -482,12 +561,6 @@ def _setup_model(data_set, model_type=None,
         model_type = defaults["model"]["type"]
 
     feature_size = data_set.number_of_features
-
-    if number_of_classes is None:
-        if data_set.has_labels:
-            number_of_classes = (
-                data_set.number_of_classes
-                - data_set.number_of_excluded_classes)
 
     if normalise_string(model_type) == "vae":
         model = VariationalAutoencoder(
@@ -938,6 +1011,23 @@ def main():
             "--evaluation-set-kind",
             metavar="KIND",
             default=_parse_default(defaults["evaluation"]["data_set_kind"]),
+            help=(
+                "kind of subset to evaluate and analyse: "
+                "training, validation, test (default), or full"
+            )
+        )
+        subparser.add_argument(
+            "--prediction-method", "-P",
+            metavar="METHOD",
+            default=_parse_default(
+                defaults["evaluation"]["prediction_method"]),
+            help="method for predicting labels"
+        )
+        subparser.add_argument(
+            "--prediction-training-set-kind",
+            metavar="KIND",
+            default=_parse_default(
+                defaults["evaluation"]["prediction_training_set_kind"]),
             help=(
                 "kind of subset to evaluate and analyse: "
                 "training, validation, test (default), or full"

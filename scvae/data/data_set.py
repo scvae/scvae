@@ -189,6 +189,7 @@ class DataSet(object):
 
         # Predicted labels
 
+        self.prediction_specifications = None
         self.predicted_cluster_ids = None
 
         self.predicted_labels = None
@@ -576,10 +577,16 @@ class DataSet(object):
         if binarised_values is not None:
             self.binarised_values = binarised_values
 
-    def update_predictions(self, predicted_cluster_ids=None,
-                           predicted_labels=None, predicted_class_names=None,
+    def update_predictions(self,
+                           prediction_specifications=None,
+                           predicted_cluster_ids=None,
+                           predicted_labels=None,
+                           predicted_class_names=None,
                            predicted_superset_labels=None,
                            predicted_superset_class_names=None):
+
+        if prediction_specifications is not None:
+            self.prediction_specifications = prediction_specifications
 
         if predicted_cluster_ids is not None:
             self.predicted_cluster_ids = predicted_cluster_ids

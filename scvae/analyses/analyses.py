@@ -680,7 +680,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                     latent_evaluation_sets, model, run_id=None,
                     decomposition_methods=None,
                     evaluation_subset_indices=None,
-                    highlight_feature_indices=None, prediction_details=None,
+                    highlight_feature_indices=None,
                     early_stopping=False, best_model=False,
                     included_analyses=None, analysis_level=None,
                     export_options=None, results_directory=None):
@@ -881,10 +881,12 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         with gzip.open(metrics_dictionary_path, "w") as metrics_file:
             pickle.dump(metrics_dictionary, metrics_file)
 
-        if prediction_details:
+        if evaluation_set.prediction_specifications:
+            prediction_specifications = (
+                evaluation_set.prediction_specifications)
 
             prediction_log_filename = "{}-prediction-{}".format(
-                evaluation_set.kind, prediction_details["id"])
+                evaluation_set.kind, prediction_specifications.name)
             prediction_log_path = os.path.join(
                 results_directory, prediction_log_filename + ".log")
             prediction_dictionary_path = os.path.join(
@@ -895,20 +897,17 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                     metrics_saving_time_start)),
                 "Number of epochs trained: {}".format(
                     number_of_epochs_trained),
-                "Prediction method: {}".format(prediction_details["method"])
+                "Prediction method: {}".format(
+                    prediction_specifications.method),
+                "Number of classes: {}".format(
+                    prediction_specifications.number_of_clusters
+                )
             ]
 
-            if prediction_details["number_of_classes"]:
-                prediction_string_parts.append(
-                    "Number of classes: {}".format(
-                        prediction_details["number_of_classes"]
-                    )
-                )
-
-            if prediction_details["training_set_name"]:
+            if prediction_specifications.training_set_kind:
                 prediction_string_parts.append(
                     "Training set: {}".format(
-                        prediction_details["training_set_name"]
+                        prediction_specifications.training_set_kind
                     )
                 )
 
@@ -945,9 +944,10 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             prediction_dictionary = {
                 "timestamp": metrics_saving_time_start,
                 "number of epochs trained": number_of_epochs_trained,
-                "prediction method": prediction_details["method"],
-                "number of classes": prediction_details["number_of_classes"],
-                "training set": prediction_details["training_set_name"],
+                "prediction method": prediction_specifications.method,
+                "number of classes": (
+                    prediction_specifications.number_of_clusters),
+                "training set": prediction_specifications.training_set_kind,
                 "clustering metric values": clustering_metric_values
             }
 
@@ -1167,7 +1167,6 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             colouring_data_set=evaluation_set,
             decomposition_methods=decomposition_methods,
             highlight_feature_indices=highlight_feature_indices,
-            prediction_details=prediction_details,
             symbol="\\tilde{{x}}",
             title="reconstruction space",
             analysis_level=analysis_level,
@@ -1183,7 +1182,6 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                 colouring_data_set=evaluation_set,
                 decomposition_methods=decomposition_methods,
                 highlight_feature_indices=highlight_feature_indices,
-                prediction_details=prediction_details,
                 symbol="x",
                 title="original space",
                 analysis_level=analysis_level,
@@ -1300,7 +1298,6 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             colouring_data_set=evaluation_set,
             decomposition_methods=decomposition_methods,
             highlight_feature_indices=highlight_feature_indices,
-            prediction_details=prediction_details,
             title="latent space",
             specifier=lambda data_set: data_set.version,
             analysis_level=analysis_level,

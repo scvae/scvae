@@ -1427,7 +1427,7 @@ class VariationalAutoencoder:
             return 0
 
     def evaluate(self, evaluation_set, evaluation_subset_indices=None,
-                 batch_size=None, predict_labels=False, run_id=None,
+                 batch_size=None, run_id=None,
                  use_early_stopping_model=False, use_best_model=False,
                  use_deterministic_z=False, output_versions="all",
                  log_results=True):

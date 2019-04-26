@@ -32,6 +32,7 @@ from scvae.data.data_set import DataSet
 from scvae.defaults import defaults
 from scvae.distributions import (
     DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised)
+from scvae.analyses.prediction import PredictionSpecifications
 from scvae.models.utilities import (
     dense_layer, dense_layers,
     build_training_string, build_data_string,
@@ -1678,7 +1679,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             return 0
 
     def evaluate(self, evaluation_set, evaluation_subset_indices=None,
-                 batch_size=100, predict_labels=True, run_id=None,
+                 batch_size=100, run_id=None,
                  use_early_stopping_model=False, use_best_model=False,
                  output_versions="all", log_results=True):
 
@@ -2182,36 +2183,40 @@ class GaussianMixtureVariationalAutoencoder(object):
                 index = output_versions.index("latent")
                 output_sets[index] = latent_evaluation_sets
 
-            if predict_labels:
-                if evaluation_set.has_labels:
-                    predicted_evaluation_labels = class_ids_to_class_names(
-                        predicted_evaluation_label_ids)
-                else:
-                    predicted_evaluation_labels = None
+            prediction_specifications = PredictionSpecifications(
+                method="model",
+                number_of_clusters=self.n_clusters,
+                training_set_kind=None
+            )
 
-                if evaluation_set.has_superset_labels:
-                    predicted_evaluation_superset_labels = (
-                        superset_class_ids_to_superset_class_names(
-                            predicted_evaluation_superset_label_ids))
-                else:
-                    predicted_evaluation_superset_labels = None
+            if evaluation_set.has_labels:
+                predicted_evaluation_labels = class_ids_to_class_names(
+                    predicted_evaluation_label_ids)
+            else:
+                predicted_evaluation_labels = None
 
-                for output_set in output_sets:
-                    if isinstance(output_set, dict):
-                        for variable in output_set:
-                            output_set[variable].update_predictions(
-                                predicted_cluster_ids=evaluation_cluster_ids,
-                                predicted_labels=predicted_evaluation_labels,
-                                predicted_superset_labels=(
-                                    predicted_evaluation_superset_labels)
-                            )
-                    else:
-                        output_set.update_predictions(
-                            predicted_cluster_ids=evaluation_cluster_ids,
-                            predicted_labels=predicted_evaluation_labels,
-                            predicted_superset_labels=(
-                                predicted_evaluation_superset_labels)
-                        )
+            if evaluation_set.has_superset_labels:
+                predicted_evaluation_superset_labels = (
+                    superset_class_ids_to_superset_class_names(
+                        predicted_evaluation_superset_label_ids))
+            else:
+                predicted_evaluation_superset_labels = None
+
+            def update_predictions(subset):
+                subset.update_predictions(
+                    prediction_specifications=prediction_specifications,
+                    predicted_cluster_ids=evaluation_cluster_ids,
+                    predicted_labels=predicted_evaluation_labels,
+                    predicted_superset_labels=(
+                        predicted_evaluation_superset_labels)
+                )
+
+            for output_set in output_sets:
+                if isinstance(output_set, dict):
+                    for variable in output_set:
+                        update_predictions(output_set[variable])
+                else:
+                    update_predictions(output_set)
 
             if len(output_sets) == 1:
                 output_sets = output_sets[0]
