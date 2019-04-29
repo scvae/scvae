@@ -526,7 +526,7 @@ class VariationalAutoencoder:
               batch_size=None, learning_rate=None,
               intermediate_analyser=None, plotting_interval=None,
               run_id=None, new_run=None, reset_training=None,
-              results_directory=None, temporary_log_directory=None):
+              analyses_directory=None, temporary_log_directory=None):
 
         if number_of_epochs is None:
             number_of_epochs = defaults["models"]["number_of_epochs"]
@@ -540,8 +540,8 @@ class VariationalAutoencoder:
             new_run = defaults["models"]["new_run"]
         if reset_training is None:
             reset_training = defaults["models"]["reset_training"]
-        if results_directory is None:
-            results_directory = defaults["analyses"]["directory"]
+        if analyses_directory is None:
+            analyses_directory = defaults["analyses"]["directory"]
 
         start_time = time()
 
@@ -1359,7 +1359,7 @@ class VariationalAutoencoder:
                             centroids=centroids,
                             model_name=self.name,
                             run_id=run_id,
-                            results_directory=results_directory
+                            analyses_directory=analyses_directory
                         )
                         print()
                     else:
@@ -1370,7 +1370,7 @@ class VariationalAutoencoder:
                             model_type=self.type,
                             model_name=self.name,
                             run_id=run_id,
-                            results_directory=results_directory
+                            analyses_directory=analyses_directory
                         )
                         print()
 

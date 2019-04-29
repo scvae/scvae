@@ -246,7 +246,7 @@ CLUSTERING_METHOD_REPLACEMENTS = {
 }
 
 
-def cross_analyse(results_directory,
+def cross_analyse(analyses_directory,
                   data_set_included_strings=None,
                   data_set_excluded_strings=None,
                   model_included_strings=None,
@@ -299,7 +299,7 @@ def cross_analyse(results_directory,
     ]
 
     # Directory and filenames
-    results_directory = os.path.normpath(results_directory) + os.sep
+    analyses_directory = os.path.normpath(analyses_directory) + os.sep
     cross_analysis_name_parts = []
 
     for search_strings_set in search_strings_sets:
@@ -325,7 +325,7 @@ def cross_analyse(results_directory,
         cross_analysis_name = "all"
 
     cross_analysis_directory = os.path.join(
-        results_directory,
+        analyses_directory,
         "cross_analysis",
         cross_analysis_name
     )
@@ -370,8 +370,8 @@ def cross_analyse(results_directory,
     if log_summary:
         log_string_parts = [explanation_string + "\n"]
 
-    metrics_sets = _metrics_sets_in_results_directory(
-        results_directory,
+    metrics_sets = _metrics_sets_in_analyses_directory(
+        analyses_directory,
         data_set_included_strings,
         data_set_excluded_strings,
         model_included_strings,
@@ -520,7 +520,7 @@ def cross_analyse(results_directory,
         if other_methods:
             set_other_method_metrics = _metrics_for_other_methods(
                 data_set_directory=os.path.join(
-                    results_directory,
+                    analyses_directory,
                     data_set_path
                 ),
                 other_methods=other_methods,
@@ -1269,19 +1269,19 @@ def cross_analyse(results_directory,
     return 0
 
 
-def _metrics_sets_in_results_directory(results_directory,
-                                       data_set_included_strings=None,
-                                       data_set_excluded_strings=None,
-                                       model_included_strings=None,
-                                       model_excluded_strings=None):
+def _metrics_sets_in_analyses_directory(analyses_directory,
+                                        data_set_included_strings=None,
+                                        data_set_excluded_strings=None,
+                                        model_included_strings=None,
+                                        model_excluded_strings=None):
 
     metrics_filename = METRICS_BASENAME + ZIPPED_PICKLE_EXTENSION
 
     metrics_set = {}
 
-    for path, _, filenames in os.walk(results_directory):
+    for path, _, filenames in os.walk(analyses_directory):
 
-        data_set_model = path.replace(results_directory, "")
+        data_set_model = path.replace(analyses_directory, "")
         data_set_model_parts = data_set_model.split(os.sep)
         data_set = os.sep.join(data_set_model_parts[:3])
         model = os.sep.join(data_set_model_parts[3:])

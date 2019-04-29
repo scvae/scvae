@@ -101,7 +101,7 @@ def analyse(data_set_file_or_name, data_format=None, data_directory=None,
         included_analyses=included_analyses,
         analysis_level=analysis_level,
         export_options=export_options,
-        results_directory=analyses_directory
+        analyses_directory=analyses_directory
     )
 
     return 0
@@ -254,7 +254,7 @@ def train(data_set_file_or_name, data_format=None, data_directory=None,
         run_id=run_id,
         new_run=new_run,
         reset_training=reset_training,
-        results_directory=analyses_directory,
+        analyses_directory=analyses_directory,
         temporary_log_directory=model_caches_directory
     )
 
@@ -429,7 +429,7 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
         included_analyses=included_analyses,
         analysis_level=analysis_level,
         export_options=export_options,
-        results_directory=analyses_directory
+        analyses_directory=analyses_directory
     )
 
     print(title("Results"))
@@ -536,7 +536,7 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
             included_analyses=included_analyses,
             analysis_level=analysis_level,
             export_options=export_options,
-            results_directory=analyses_directory
+            analyses_directory=analyses_directory
         )
 
     return 0

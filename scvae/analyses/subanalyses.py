@@ -47,7 +47,7 @@ MAXIMUM_NUMBER_OF_PCA_COMPONENTS_BEFORE_TSNE = 50
 
 def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
                           preprocessed=False, analysis_level="normal",
-                          export_options=None, results_directory=None):
+                          export_options=None, analyses_directory=None):
 
     if not colouring_data_set:
         colouring_data_set = data_set
@@ -55,9 +55,9 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
     if analysis_level is None:
         analysis_level = defaults["analyses"]["analysis_level"]
 
-    if results_directory is None:
-        results_directory = defaults["analyses"]["directory"]
-    distribution_directory = os.path.join(results_directory, "histograms")
+    if analyses_directory is None:
+        analyses_directory = defaults["analyses"]["directory"]
+    distribution_directory = os.path.join(analyses_directory, "histograms")
 
     data_set_title = data_set.kind + " set"
     data_set_name = data_set.kind
@@ -290,16 +290,16 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
 
 
 def analyse_matrices(data_set, plot_distances=False, name=None,
-                     export_options=None, results_directory=None):
+                     export_options=None, analyses_directory=None):
 
     if plot_distances:
         base_name = "distances"
     else:
         base_name = "heat_maps"
 
-    if results_directory is None:
-        results_directory = defaults["analyses"]["directory"]
-    results_directory = os.path.join(results_directory, base_name)
+    if analyses_directory is None:
+        analyses_directory = defaults["analyses"]["directory"]
+    analyses_directory = os.path.join(analyses_directory, base_name)
 
     if not name:
         name = []
@@ -427,7 +427,7 @@ def analyse_matrices(data_set, plot_distances=False, name=None,
                 figure=figure,
                 name=figure_name,
                 options=export_options,
-                directory=results_directory
+                directory=analyses_directory
             )
 
             duration = time() - start_time
@@ -472,7 +472,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                            highlight_feature_indices=None,
                            symbol=None, title="data set", specifier=None,
                            analysis_level=None, export_options=None,
-                           results_directory=None):
+                           analyses_directory=None):
 
     if analysis_level is None:
         analysis_level = defaults["analyses"]["analysis_level"]
@@ -518,8 +518,8 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
     else:
         highlight_feature_indices = highlight_feature_indices.copy()
 
-    if results_directory is None:
-        results_directory = defaults["analyses"]["directory"]
+    if analyses_directory is None:
+        analyses_directory = defaults["analyses"]["directory"]
 
     for data_set, other_data_set in zip(data_sets, other_data_sets):
 
@@ -551,7 +551,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                 other_data_set.version, title)
             name = other_data_set.version + "-" + name
 
-        decompositions_directory = os.path.join(results_directory, name)
+        decompositions_directory = os.path.join(analyses_directory, name)
 
         for decomposition_method in decomposition_methods:
 
@@ -955,14 +955,14 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
 def analyse_centroid_probabilities(centroids, name=None,
                                    analysis_level=None,
                                    export_options=None,
-                                   results_directory=None):
+                                   analyses_directory=None):
 
     if name:
         name = normalise_string(name)
     if analysis_level is None:
         analysis_level = defaults["analyses"]["analysis_level"]
-    if results_directory is None:
-        results_directory = defaults["analyses"]["directory"]
+    if analyses_directory is None:
+        analyses_directory = defaults["analyses"]["directory"]
 
     print("Plotting centroid probabilities.")
     plot_time_start = time()
@@ -1021,7 +1021,7 @@ def analyse_centroid_probabilities(centroids, name=None,
         figure=figure,
         name=figure_name,
         options=export_options,
-        directory=results_directory
+        directory=analyses_directory
     )
 
     plot_duration = time() - plot_time_start

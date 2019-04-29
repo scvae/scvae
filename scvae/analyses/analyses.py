@@ -57,14 +57,14 @@ def analyse_data(data_sets,
                  decomposition_methods=None,
                  highlight_feature_indices=None,
                  included_analyses=None, analysis_level=None,
-                 export_options=None, results_directory=None):
+                 export_options=None, analyses_directory=None):
 
-    if results_directory is None:
-        results_directory = defaults["analyses"]["directory"]
-    results_directory = os.path.join(results_directory, "data")
+    if analyses_directory is None:
+        analyses_directory = defaults["analyses"]["directory"]
+    analyses_directory = os.path.join(analyses_directory, "data")
 
-    if not os.path.exists(results_directory):
-        os.makedirs(results_directory)
+    if not os.path.exists(analyses_directory):
+        os.makedirs(analyses_directory)
 
     if included_analyses is None:
         included_analyses = defaults["analyses"]["included_analyses"]
@@ -106,7 +106,7 @@ def analyse_data(data_sets,
         print("Metrics calculated ({}).".format(
             format_duration(metrics_duration)))
 
-        metrics_path = os.path.join(results_directory, "data_set_metrics.log")
+        metrics_path = os.path.join(analyses_directory, "data_set_metrics.log")
         metrics_saving_time_start = time()
 
         metrics_string_parts = [
@@ -158,7 +158,7 @@ def analyse_data(data_sets,
             images.save_image(
                 image=image,
                 name=image_name,
-                directory=results_directory
+                directory=analyses_directory
             )
             image_duration = time() - image_time_start
             print("Image saved ({}).".format(format_duration(image_duration)))
@@ -170,14 +170,14 @@ def analyse_data(data_sets,
                 cutoffs=DEFAULT_CUTOFFS,
                 analysis_level=analysis_level,
                 export_options=export_options,
-                results_directory=results_directory
+                analyses_directory=analyses_directory
             )
 
         if "heat_maps" in included_analyses:
             subanalyses.analyse_matrices(
                 data_set,
                 name=[data_set.kind],
-                results_directory=results_directory
+                analyses_directory=analyses_directory
             )
 
         if "distances" in included_analyses:
@@ -185,7 +185,7 @@ def analyse_data(data_sets,
                 data_set,
                 name=[data_set.kind],
                 plot_distances=True,
-                results_directory=results_directory
+                analyses_directory=analyses_directory
             )
 
         if "decompositions" in included_analyses:
@@ -198,7 +198,7 @@ def analyse_data(data_sets,
                 specifier=lambda data_set: data_set.kind,
                 analysis_level=analysis_level,
                 export_options=export_options,
-                results_directory=results_directory
+                analyses_directory=analyses_directory
             )
 
         if "feature_value_standard_deviations" in included_analyses:
@@ -206,7 +206,7 @@ def analyse_data(data_sets,
             print("Computing and plotting feature value standard deviations:")
 
             feature_value_standard_deviations_directory = os.path.join(
-                results_directory,
+                analyses_directory,
                 "feature_value_standard_deviations"
             )
 
@@ -283,7 +283,7 @@ def analyse_data(data_sets,
 
 def analyse_model(model, run_id=None,
                   included_analyses=None, analysis_level=None,
-                  export_options=None, results_directory="results"):
+                  export_options=None, analyses_directory="results"):
 
     if run_id is None:
         run_id = defaults["models"]["run_id"]
@@ -294,17 +294,17 @@ def analyse_model(model, run_id=None,
         model, run_id=run_id)
     epochs_string = "e_" + str(number_of_epochs_trained)
 
-    if results_directory is None:
-        results_directory = defaults["analyses"]["directory"]
-    results_directory = _build_path_for_result_directory(
-        base_directory=results_directory,
+    if analyses_directory is None:
+        analyses_directory = defaults["analyses"]["directory"]
+    analyses_directory = _build_path_for_analyses_directory(
+        base_directory=analyses_directory,
         model_name=model.name,
         run_id=run_id,
         subdirectories=[epochs_string]
     )
 
-    if not os.path.exists(results_directory):
-        os.makedirs(results_directory)
+    if not os.path.exists(analyses_directory):
+        os.makedirs(analyses_directory)
 
     if included_analyses is None:
         included_analyses = defaults["analyses"]["included_analyses"]
@@ -334,7 +334,7 @@ def analyse_model(model, run_id=None,
             figure=figure,
             name=figure_name,
             options=export_options,
-            directory=results_directory
+            directory=analyses_directory
         )
 
         if "VAE" in model.type:
@@ -355,7 +355,7 @@ def analyse_model(model, run_id=None,
                     figure=figure,
                     name=figure_name,
                     options=export_options,
-                    directory=results_directory
+                    directory=analyses_directory
                 )
 
         learning_curves_duration = time() - learning_curves_time_start
@@ -383,7 +383,7 @@ def analyse_model(model, run_id=None,
                 figure=figure,
                 name=figure_name,
                 options=export_options,
-                directory=results_directory
+                directory=analyses_directory
             )
 
             superset_accuracies = load_accuracies(
@@ -402,7 +402,7 @@ def analyse_model(model, run_id=None,
                     figure=figure,
                     name=figure_name,
                     options=export_options,
-                    directory=results_directory
+                    directory=analyses_directory
                 )
 
             accuracies_duration = time() - accuracies_time_start
@@ -429,7 +429,7 @@ def analyse_model(model, run_id=None,
             figure=figure,
             name=figure_name,
             options=export_options,
-            directory=results_directory
+            directory=analyses_directory
         )
 
         heat_map_duration = time() - heat_map_time_start
@@ -448,7 +448,7 @@ def analyse_model(model, run_id=None,
         )
 
         centroids_directory = os.path.join(
-            results_directory, "centroids_evolution")
+            analyses_directory, "centroids_evolution")
 
         for distribution, distribution_centroids in centroids.items():
             if distribution_centroids:
@@ -532,17 +532,17 @@ def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
                                  model_type=None, latent_values=None,
                                  data_set=None, centroids=None,
                                  model_name=None, run_id=None,
-                                 results_directory=None):
+                                 analyses_directory=None):
 
     if run_id is None:
         run_id = defaults["models"]["run_id"]
     if run_id:
         run_id = check_run_id(run_id)
 
-    if results_directory is None:
-        results_directory = defaults["analyses"]["directory"]
-    results_directory = _build_path_for_result_directory(
-        base_directory=results_directory,
+    if analyses_directory is None:
+        analyses_directory = defaults["analyses"]["directory"]
+    analyses_directory = _build_path_for_analyses_directory(
+        base_directory=analyses_directory,
         model_name=model_name,
         run_id=run_id,
         subdirectories=["intermediate"]
@@ -559,7 +559,7 @@ def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
     figures.save_figure(
         figure=figure,
         name=figure_name,
-        directory=results_directory
+        directory=analyses_directory
     )
 
     learning_curves_duration = time() - learning_curves_time_start
@@ -632,7 +632,7 @@ def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
             figures.save_figure(
                 figure=figure,
                 name=figure_name,
-                directory=results_directory
+                directory=analyses_directory
             )
             if data_set.label_superset is not None:
                 figure, figure_name = figures.plot_values(
@@ -646,7 +646,7 @@ def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
                 figures.save_figure(
                     figure=figure,
                     name=figure_name,
-                    directory=results_directory
+                    directory=analyses_directory
                 )
         else:
             figure, figure_name = figures.plot_values(
@@ -658,13 +658,13 @@ def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
             figures.save_figure(
                 figure=figure,
                 name=figure_name,
-                directory=results_directory
+                directory=analyses_directory
             )
 
         if centroids:
             subanalyses.analyse_centroid_probabilities(
                 centroids, epoch_name,
-                results_directory=results_directory
+                analyses_directory=analyses_directory
             )
 
         plot_duration = time() - plot_time_start
@@ -683,7 +683,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                     highlight_feature_indices=None,
                     early_stopping=False, best_model=False,
                     included_analyses=None, analysis_level=None,
-                    export_options=None, results_directory=None):
+                    export_options=None, analyses_directory=None):
 
     if early_stopping and best_model:
         raise ValueError(
@@ -741,21 +741,21 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
 
     evaluation_directory = "-".join(evaluation_directory_parts)
 
-    if results_directory is None:
-        results_directory = defaults["analyses"]["directory"]
-    results_directory = _build_path_for_result_directory(
-        base_directory=results_directory,
+    if analyses_directory is None:
+        analyses_directory = defaults["analyses"]["directory"]
+    analyses_directory = _build_path_for_analyses_directory(
+        base_directory=analyses_directory,
         model_name=model.name,
         run_id=run_id,
         subdirectories=[evaluation_directory]
     )
 
     if evaluation_set.kind != "test":
-        results_directory = os.path.join(
-            results_directory, evaluation_set.kind)
+        analyses_directory = os.path.join(
+            analyses_directory, evaluation_set.kind)
 
-    if not os.path.exists(results_directory):
-        os.makedirs(results_directory)
+    if not os.path.exists(analyses_directory):
+        os.makedirs(analyses_directory)
 
     setup_duration = time() - setup_time_start
     print("Finished setting up ({}).".format(format_duration(setup_duration)))
@@ -827,9 +827,9 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
 
         metrics_log_filename = "{}-metrics".format(evaluation_set.kind)
         metrics_log_path = os.path.join(
-            results_directory, metrics_log_filename + ".log")
+            analyses_directory, metrics_log_filename + ".log")
         metrics_dictionary_path = os.path.join(
-            results_directory, metrics_log_filename + ".pkl.gz")
+            analyses_directory, metrics_log_filename + ".pkl.gz")
 
         # Build metrics string
         metrics_string_parts = [
@@ -888,9 +888,9 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             prediction_log_filename = "{}-prediction-{}".format(
                 evaluation_set.kind, prediction_specifications.name)
             prediction_log_path = os.path.join(
-                results_directory, prediction_log_filename + ".log")
+                analyses_directory, prediction_log_filename + ".log")
             prediction_dictionary_path = os.path.join(
-                results_directory, prediction_log_filename + ".pkl.gz")
+                analyses_directory, prediction_log_filename + ".pkl.gz")
 
             prediction_string_parts = [
                 "Timestamp: {}".format(format_time(
@@ -1006,7 +1006,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         images.save_image(
             image=image,
             name=image_name,
-            directory=results_directory
+            directory=analyses_directory
         )
         image_duration = time() - image_time_start
         print("Image saved ({}).".format(format_duration(image_duration)))
@@ -1018,9 +1018,9 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         profile_comparisons_time_start = time()
 
         image_comparisons_directory = os.path.join(
-            results_directory, "image_comparisons")
+            analyses_directory, "image_comparisons")
         profile_comparisons_directory = os.path.join(
-            results_directory, "profile_comparisons")
+            analyses_directory, "profile_comparisons")
 
         y_cutoff = PROFILE_COMPARISON_COUNT_CUTOFF
 
@@ -1155,7 +1155,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             preprocessed=evaluation_set.preprocessing_methods,
             analysis_level=analysis_level,
             export_options=export_options,
-            results_directory=results_directory
+            analyses_directory=analyses_directory
         )
 
     if "decompositions" in included_analyses:
@@ -1171,7 +1171,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             title="reconstruction space",
             analysis_level=analysis_level,
             export_options=export_options,
-            results_directory=results_directory,
+            analyses_directory=analyses_directory,
         )
 
         if analysis_level == "extensive":
@@ -1186,7 +1186,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                 title="original space",
                 analysis_level=analysis_level,
                 export_options=export_options,
-                results_directory=results_directory,
+                analyses_directory=analyses_directory,
             )
 
     if "heat_maps" in included_analyses:
@@ -1194,12 +1194,12 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         subanalyses.analyse_matrices(
             reconstructed_evaluation_set,
             plot_distances=False,
-            results_directory=results_directory
+            analyses_directory=analyses_directory
         )
         subanalyses.analyse_matrices(
             latent_evaluation_sets["z"],
             plot_distances=False,
-            results_directory=results_directory
+            analyses_directory=analyses_directory
         )
 
         if (analysis_level == "extensive"
@@ -1207,7 +1207,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                 <= MAXIMUM_NUMBER_OF_VALUES_FOR_HEAT_MAPS):
 
             print("Plotting comparison heat maps.")
-            heat_maps_directory = os.path.join(results_directory, "heat_maps")
+            heat_maps_directory = os.path.join(analyses_directory, "heat_maps")
 
             # Differences
             heat_maps_time_start = time()
@@ -1264,12 +1264,12 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         subanalyses.analyse_matrices(
             reconstructed_evaluation_set,
             plot_distances=True,
-            results_directory=results_directory
+            analyses_directory=analyses_directory
         )
         subanalyses.analyse_matrices(
             latent_evaluation_sets["z"],
             plot_distances=True,
-            results_directory=results_directory
+            analyses_directory=analyses_directory
         )
 
     if "latent_space" in included_analyses and "VAE" in model.type:
@@ -1302,7 +1302,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             specifier=lambda data_set: data_set.version,
             analysis_level=analysis_level,
             export_options=export_options,
-            results_directory=results_directory,
+            analyses_directory=analyses_directory,
         )
 
         if centroids:
@@ -1310,14 +1310,14 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                 centroids,
                 analysis_level="normal",
                 export_options=export_options,
-                results_directory=results_directory
+                analyses_directory=analyses_directory
             )
             print()
 
     if "latent_correlations" in included_analyses and "VAE" in model.type:
 
         correlations_directory = os.path.join(
-            results_directory, "latent_correlations")
+            analyses_directory, "latent_correlations")
         print(subheading("Latent correlations"))
         print("Plotting latent correlations.")
 
@@ -1345,17 +1345,17 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         print()
 
 
-def _build_path_for_result_directory(base_directory, model_name,
-                                     run_id=None, subdirectories=None):
+def _build_path_for_analyses_directory(base_directory, model_name,
+                                       run_id=None, subdirectories=None):
 
-    results_directory = os.path.join(base_directory, model_name)
+    analyses_directory = os.path.join(base_directory, model_name)
 
     if run_id is None:
         run_id = defaults["models"]["run_id"]
     if run_id:
         run_id = check_run_id(run_id)
-        results_directory = os.path.join(
-            results_directory,
+        analyses_directory = os.path.join(
+            analyses_directory,
             "run_{}".format(run_id)
         )
 
@@ -1364,9 +1364,9 @@ def _build_path_for_result_directory(base_directory, model_name,
         if not isinstance(subdirectories, list):
             subdirectories = [subdirectories]
 
-        results_directory = os.path.join(results_directory, *subdirectories)
+        analyses_directory = os.path.join(analyses_directory, *subdirectories)
 
-    return results_directory
+    return analyses_directory
 
 
 def _parse_analyses(included_analyses=None):
