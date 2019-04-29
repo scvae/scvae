@@ -369,13 +369,13 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
 
     models_directory = build_directory_path(
         models_directory,
-        data_set=data_set,
+        data_set=evaluation_set,
         splitting_method=splitting_method,
         splitting_fraction=splitting_fraction
     )
     analyses_directory = build_directory_path(
         analyses_directory,
-        data_set=data_set,
+        data_set=evaluation_set,
         splitting_method=splitting_method,
         splitting_fraction=splitting_fraction
     )
@@ -383,10 +383,10 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
     print(title("Model"))
 
     if number_of_classes is None:
-        if data_set.has_labels:
+        if evaluation_set.has_labels:
             number_of_classes = (
-                data_set.number_of_classes
-                - data_set.number_of_excluded_classes)
+                evaluation_set.number_of_classes
+                - evaluation_set.number_of_excluded_classes)
 
     model = _setup_model(
         data_set=evaluation_set,
