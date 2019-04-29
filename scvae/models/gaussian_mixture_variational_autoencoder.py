@@ -475,6 +475,10 @@ class GaussianMixtureVariationalAutoencoder(object):
 
         return parameters_string
 
+    @property
+    def number_of_latent_clusters(self):
+        return self.n_clusters
+
     def log_directory(self, base=None, run_id=None,
                       early_stopping=False, best_model=False):
 
