@@ -500,6 +500,8 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
 
     base_symbol = symbol
 
+    original_title = title
+
     if decomposition_methods is None:
         decomposition_methods = [defaults["decomposition_method"]]
     elif not isinstance(decomposition_methods, (list, tuple)):
@@ -524,6 +526,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
         if data_set.values.shape[1] <= 1:
             continue
 
+        title = original_title
         name = normalise_string(title)
 
         if specifier:
