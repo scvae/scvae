@@ -16,14 +16,12 @@
 #
 # ======================================================================== #
 
-import argparse
 import copy
 import gzip
 import os
 import pickle
 import re
 import statistics
-import sys
 import textwrap
 from itertools import product
 from string import ascii_uppercase
@@ -248,7 +246,6 @@ CLUSTERING_METHOD_REPLACEMENTS = {
 }
 
 
-# TODO Split into separate functions
 def cross_analyse(results_directory,
                   data_set_included_strings=None,
                   data_set_excluded_strings=None,
@@ -347,7 +344,7 @@ def cross_analyse(results_directory,
 
         if search_strings:
             explanation_string_parts.append("{} {}s with: {}.".format(
-                "Including" if search_inclusiveness else "Excluding",
+                "Only including" if search_inclusiveness else "Excluding",
                 search_kind,
                 ", ".join(search_strings)
             ))
@@ -2071,109 +2068,3 @@ def _create_specifications_sorter(order=None, detail_separator="",
         return key
 
     return specifications_sorter
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Cross-analyse models.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument(
-        "results_directory",
-        type=str,
-        help="directory where results were saved"
-    )
-    parser.add_argument(
-        "--include-data-sets", "-d",
-        dest="data_set_included_strings",
-        metavar="DATA_SETS",
-        type=str,
-        nargs="*",
-        help="text which data set should match"
-    )
-    parser.add_argument(
-        "--exclude-data-sets", "-D",
-        dest="data_set_excluded_strings",
-        metavar="DATA_SETS",
-        type=str,
-        nargs="*",
-        help="text which data set should not match"
-    )
-    parser.add_argument(
-        "--include-models", "-m",
-        dest="model_included_strings",
-        metavar="MODELS",
-        type=str,
-        nargs="*",
-        help="text which models should match"
-    )
-    parser.add_argument(
-        "--exclude-models", "-M",
-        dest="model_excluded_strings",
-        metavar="MODELS",
-        type=str,
-        nargs="*",
-        help="text which models should not match"
-    )
-    parser.add_argument(
-        "--include-clustering-methods", "-p",
-        dest="prediction_included_strings",
-        metavar="METHODS",
-        type=str,
-        nargs="*",
-        help="text which clustering methods should match"
-    )
-    parser.add_argument(
-        "--exclude-clustering-methods", "-P",
-        dest="prediction_excluded_strings",
-        metavar="METHODS",
-        type=str,
-        nargs="*",
-        help="text which clustering methods should not match"
-    )
-    parser.add_argument(
-        "--extra-specification-required-for-plots", "-a",
-        dest="additional_other_option",
-        metavar="SPECIFICATION",
-        type=str,
-        nargs="?",
-        help=(
-            "extra specification required for models in model metrics plots"
-        )
-    )
-    parser.add_argument(
-        "--epoch-cut-off", "-e",
-        dest="epoch_cut_off",
-        metavar="EPOCH_NUMBER",
-        type=int,
-        help="exclude models trained for longer than this number of epochs"
-    )
-    parser.add_argument(
-        "--other-methods", "-o",
-        dest="other_methods",
-        metavar="METHODS",
-        type=str,
-        nargs="*",
-        help="other methods to plot in model metrics plot, if available"
-    )
-    parser.add_argument(
-        "--export-options",
-        type=str,
-        nargs="?",
-        help="analyse model evolution for video"
-    )
-    parser.add_argument(
-        "--log-summary", "-s",
-        default=False,
-        action="store_true",
-        help="log summary (saved in results directory)"
-    )
-
-    arguments = parser.parse_args()
-    status = cross_analyse(**vars(arguments))
-    return status
-
-
-if __name__ == "__main__":
-    status = main()
-    sys.exit(status)

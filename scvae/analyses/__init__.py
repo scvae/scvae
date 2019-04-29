@@ -20,10 +20,12 @@ __all__ = [
     "analyse_data",
     "analyse_model",
     "analyse_intermediate_results",
-    "analyse_results"
+    "analyse_results",
+    "cross_analyse"
 ]
 
 from scvae.analyses.analyses import (
     analyse_data, analyse_model,
     analyse_intermediate_results, analyse_results
 )
+from scvae.analyses.cross_analysis import cross_analyse

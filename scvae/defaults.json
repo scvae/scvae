@@ -55,5 +55,8 @@
 		"prediction_training_set_kind": "training",
 		"prediction_method": "",
 		"model_versions": "all"
+	},
+	"cross_analysis": {
+		"log_summary": false
 	}
 }
