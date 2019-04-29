@@ -155,7 +155,7 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
                     key=(
                         lambda t: label_sorter(t[0])) if label_sorter else None
                 ))
-                class_label_maximum_width = max(*map(len, class_labels))
+                class_label_maximum_width = max(map(len, class_labels))
                 if class_label_maximum_width <= 5 and number_of_classes <= 20:
                     axis.legend(
                         class_handles, class_labels,
