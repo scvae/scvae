@@ -55,7 +55,7 @@ class VariationalAutoencoder:
                  number_of_importance_samples=None,
                  inference_architecture=None,
                  generative_architecture=None,
-                 batch_normalisation=None,
+                 minibatch_normalisation=None,
                  dropout_keep_probabilities=None,
                  count_sum=None,
                  kl_weight=None,
@@ -155,9 +155,10 @@ class VariationalAutoencoder:
                 "generative_architecture"]
         self.generative_architecture = generative_architecture.upper()
 
-        if batch_normalisation is None:
-            batch_normalisation = defaults["models"]["batch_normalisation"]
-        self.batch_normalisation = batch_normalisation
+        if minibatch_normalisation is None:
+            minibatch_normalisation = defaults["models"][
+                "minibatch_normalisation"]
+        self.minibatch_normalisation = minibatch_normalisation
 
         # Dropout keep probabilities (p) for 3 different kinds of layers
         if dropout_keep_probabilities is None:
@@ -345,7 +346,7 @@ class VariationalAutoencoder:
         if self.analytical_kl_term:
             minor_parts.append("kl")
 
-        if self.batch_normalisation:
+        if self.minibatch_normalisation:
             minor_parts.append("bn")
 
         if len(self.dropout_parts) > 0:
@@ -415,8 +416,9 @@ class VariationalAutoencoder:
         if self.analytical_kl_term:
             description_parts.append("using analytical KL term")
 
-        if self.batch_normalisation:
-            description_parts.append("using batch normalisation")
+        if self.minibatch_normalisation:
+            description_parts.append(
+                "using batch normalisation for minibatches")
 
         if self.number_of_warm_up_epochs:
             description_parts.append(
@@ -523,15 +525,15 @@ class VariationalAutoencoder:
         return stopped_early, epochs_with_no_improvement
 
     def train(self, training_set, validation_set=None, number_of_epochs=None,
-              batch_size=None, learning_rate=None,
+              minibatch_size=None, learning_rate=None,
               intermediate_analyser=None, plotting_interval=None,
               run_id=None, new_run=None, reset_training=None,
               analyses_directory=None, temporary_log_directory=None):
 
         if number_of_epochs is None:
             number_of_epochs = defaults["models"]["number_of_epochs"]
-        if batch_size is None:
-            batch_size = defaults["models"]["batch_size"]
+        if minibatch_size is None:
+            minibatch_size = defaults["models"]["minibatch_size"]
         if learning_rate is None:
             learning_rate = defaults["models"]["learning_rate"]
         if run_id is None:
@@ -573,7 +575,7 @@ class VariationalAutoencoder:
             "training duration": None,
             "last epoch duration": None,
             "learning rate": learning_rate,
-            "batch size": batch_size
+            "minibatch size": minibatch_size
         }
 
         # Earlier model
@@ -669,11 +671,11 @@ class VariationalAutoencoder:
         # New model
         checkpoint_file = os.path.join(log_directory, "model.ckpt")
 
-        # Adjust batch size to account for the number of samples
-        batch_size /= (
+        # Adjust minibatch size to account for the number of samples
+        minibatch_size /= (
             self.number_of_importance_samples["training"]
             * self.number_of_monte_carlo_samples["training"])
-        batch_size = int(numpy.ceil(batch_size))
+        minibatch_size = int(numpy.ceil(minibatch_size))
 
         print("Preparing data.")
         preparing_data_time_start = time()
@@ -725,7 +727,7 @@ class VariationalAutoencoder:
         print()
 
         # Display intervals during every epoch
-        steps_per_epoch = numpy.ceil(n_examples_train / batch_size)
+        steps_per_epoch = numpy.ceil(n_examples_train / minibatch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
 
         # Initialising lists for learning curves
@@ -843,17 +845,18 @@ class VariationalAutoencoder:
 
                 shuffled_indices = numpy.random.permutation(n_examples_train)
 
-                for i in range(0, n_examples_train, batch_size):
+                for i in range(0, n_examples_train, minibatch_size):
 
                     # Internal setup
                     step_time_start = time()
                     step = session.run(self.global_step)
 
-                    # Prepare batch
-                    batch_indices = shuffled_indices[i:(i + batch_size)]
+                    # Prepare minibatch
+                    minibatch_indices = shuffled_indices[
+                        i:(i + minibatch_size)]
 
-                    x_batch = x_train[batch_indices].toarray()
-                    t_batch = t_train[batch_indices].toarray()
+                    x_batch = x_train[minibatch_indices].toarray()
+                    t_batch = t_train[minibatch_indices].toarray()
 
                     feed_dict_batch = {
                         self.x: x_batch,
@@ -870,14 +873,14 @@ class VariationalAutoencoder:
 
                     if self.use_count_sum_as_parameter:
                         feed_dict_batch[self.count_sum_parameter] = (
-                            count_sum_parameter_train[batch_indices])
+                            count_sum_parameter_train[minibatch_indices])
 
                     if self.use_count_sum_as_feature:
                         feed_dict_batch[self.count_sum_feature] = (
-                            count_sum_feature_train[batch_indices])
+                            count_sum_feature_train[minibatch_indices])
 
-                    # Run the stochastic batch training operation
-                    _, batch_loss = session.run(
+                    # Run the stochastic minibatch training operation
+                    _, minibatch_loss = session.run(
                         [self.optimiser, self.lower_bound],
                         feed_dict=feed_dict_batch
                     )
@@ -890,9 +893,9 @@ class VariationalAutoencoder:
 
                         print("Step {:d} ({}): {:.5g}.".format(
                             int(step + 1), format_duration(step_duration),
-                            batch_loss))
+                            minibatch_loss))
 
-                        if numpy.isnan(batch_loss):
+                        if numpy.isnan(minibatch_loss):
                             raise ArithmeticError("The loss became NaN.")
 
                 print()
@@ -941,8 +944,9 @@ class VariationalAutoencoder:
                 else:
                     kl_divergence_neurons = numpy.zeros(shape=self.latent_size)
 
-                for i in range(0, n_examples_train, batch_size):
-                    subset = slice(i, min(i + batch_size, n_examples_train))
+                for i in range(0, n_examples_train, minibatch_size):
+                    subset = slice(
+                        i, min(i + minibatch_size, n_examples_train))
                     x_batch = x_train[subset].toarray()
                     t_batch = t_train[subset].toarray()
                     feed_dict_batch = {
@@ -989,11 +993,11 @@ class VariationalAutoencoder:
 
                     kl_divergence_neurons += kl_divergence_neurons_i
 
-                lower_bound_train /= n_examples_train / batch_size
-                kl_divergence_train /= n_examples_train / batch_size
-                reconstruction_error_train /= n_examples_train / batch_size
+                lower_bound_train /= n_examples_train / minibatch_size
+                kl_divergence_train /= n_examples_train / minibatch_size
+                reconstruction_error_train /= n_examples_train / minibatch_size
 
-                kl_divergence_neurons /= n_examples_train / batch_size
+                kl_divergence_neurons /= n_examples_train / minibatch_size
 
                 learning_curves["training"]["lower_bound"].append(
                     lower_bound_train)
@@ -1089,9 +1093,9 @@ class VariationalAutoencoder:
                         dtype=numpy.float32
                     )
 
-                    for i in range(0, n_examples_valid, batch_size):
+                    for i in range(0, n_examples_valid, minibatch_size):
                         subset = slice(
-                            i, min(i + batch_size, n_examples_valid))
+                            i, min(i + minibatch_size, n_examples_valid))
                         x_batch = x_valid[subset].toarray()
                         t_batch = t_valid[subset].toarray()
                         feed_dict_batch = {
@@ -1134,9 +1138,10 @@ class VariationalAutoencoder:
 
                         q_z_mean_valid[subset] = q_z_mean_i
 
-                    lower_bound_valid /= n_examples_valid / batch_size
-                    kl_divergence_valid /= n_examples_valid / batch_size
-                    reconstruction_error_valid /= n_examples_valid / batch_size
+                    lower_bound_valid /= n_examples_valid / minibatch_size
+                    kl_divergence_valid /= n_examples_valid / minibatch_size
+                    reconstruction_error_valid /= (
+                        n_examples_valid / minibatch_size)
 
                     learning_curves["validation"]["lower_bound"].append(
                         lower_bound_valid)
@@ -1427,13 +1432,13 @@ class VariationalAutoencoder:
             return 0
 
     def evaluate(self, evaluation_set, evaluation_subset_indices=None,
-                 batch_size=None, run_id=None,
+                 minibatch_size=None, run_id=None,
                  use_early_stopping_model=False, use_best_model=False,
                  use_deterministic_z=False, output_versions="all",
                  log_results=True):
 
-        if batch_size is None:
-            batch_size = defaults["models"]["batch_size"]
+        if minibatch_size is None:
+            minibatch_size = defaults["models"]["minibatch_size"]
 
         if run_id is None:
             run_id = defaults["models"]["run_id"]
@@ -1465,11 +1470,11 @@ class VariationalAutoencoder:
 
         evaluation_set_transformed = False
 
-        batch_size /= (
+        minibatch_size /= (
             self.number_of_importance_samples["evaluation"]
             * self.number_of_monte_carlo_samples["evaluation"]
         )
-        batch_size = int(numpy.ceil(batch_size))
+        minibatch_size = int(numpy.ceil(minibatch_size))
 
         if self.use_count_sum_as_parameter:
             count_sum_parameter_eval = evaluation_set.count_sum
@@ -1581,9 +1586,10 @@ class VariationalAutoencoder:
                 number_of_mc_samples = self.number_of_monte_carlo_samples[
                     "evaluation"]
 
-            for i in range(0, n_examples_eval, batch_size):
+            for i in range(0, n_examples_eval, minibatch_size):
 
-                indices = numpy.arange(i, min(i + batch_size, n_examples_eval))
+                indices = numpy.arange(
+                    i, min(i + minibatch_size, n_examples_eval))
 
                 subset_indices = numpy.array(list(
                     evaluation_subset_indices.intersection(indices)))
@@ -1652,9 +1658,9 @@ class VariationalAutoencoder:
                 if "latent" in output_versions:
                     q_z_mean_eval[indices] = q_z_mean_i
 
-            lower_bound_eval /= n_examples_eval / batch_size
-            kl_divergence_eval /= n_examples_eval / batch_size
-            reconstruction_error_eval /= n_examples_eval / batch_size
+            lower_bound_eval /= n_examples_eval / minibatch_size
+            kl_divergence_eval /= n_examples_eval / minibatch_size
+            reconstruction_error_eval /= n_examples_eval / minibatch_size
 
             evaluating_duration = time() - evaluating_time_start
 
@@ -1813,7 +1819,7 @@ class VariationalAutoencoder:
                 inputs=self.x,
                 num_outputs=self.hidden_sizes,
                 activation_fn=tf.nn.relu,
-                batch_normalisation=self.batch_normalisation,
+                minibatch_normalisation=self.minibatch_normalisation,
                 is_training=self.is_training,
                 input_dropout_keep_probability=self.dropout_keep_probability_x,
                 hidden_dropout_keep_probability=(
@@ -2010,7 +2016,7 @@ class VariationalAutoencoder:
                 num_outputs=self.hidden_sizes,
                 reverse_order=True,
                 activation_fn=tf.nn.relu,
-                batch_normalisation=self.batch_normalisation,
+                minibatch_normalisation=self.minibatch_normalisation,
                 is_training=self.is_training,
                 input_dropout_keep_probability=self.dropout_keep_probability_z,
                 hidden_dropout_keep_probability=(
@@ -2123,12 +2129,12 @@ class VariationalAutoencoder:
 
     def _setup_loss_function(self):
 
-        # Prepare replicated and reshaped arrays by replicating out batches in
-        # tiles per sample into a shape of (R * L * batchsize, D_x)
+        # Prepare replicated and reshaped arrays by replicating out
+        # minibatches in tiles per sample into a shape of (R * L * B, D_x)
         t_tiled = tf.tile(
             self.t,
             multiples=[self.number_of_iw_samples*self.number_of_mc_samples, 1])
-        # Reshape samples back to (R, L, batchsize, D_z)
+        # Reshape samples back to (R, L, B, D_z)
         z_reshaped = tf.reshape(
             self.z,
             shape=[
@@ -2140,10 +2146,10 @@ class VariationalAutoencoder:
         )
 
         # Reconstruction error
-        # 1. Evaluate all log(p(x|z)) (R * L * batchsize, D_x) target values
-        #    in the (R * L * batchsize, D_x) probability distributions learned
+        # 1. Evaluate all log(p(x|z)) (R * L * B, D_x) target values
+        #    in the (R * L * B, D_x) probability distributions learned
         # 2. Sum over all N_x features
-        # 3. and reshape it back to (R, L, batchsize)
+        # 3. and reshape it back to (R, L, B)
         p_x_given_z_log_prob = self.p_x_given_z.log_prob(t_tiled)
         log_p_x_given_z = tf.reshape(
             tf.reduce_sum(
@@ -2160,11 +2166,11 @@ class VariationalAutoencoder:
         # Recognition error
         if "mixture" in self.latent_distribution_name:
             # Evaluate Kullback-Leibler divergence numerically with sampling
-            # Evaluate all log(q(z|x)) and log(p(z)) on (R, L, batchsize, D_z)
+            # Evaluate all log(q(z|x)) and log(p(z)) on (R, L, B, D_z)
             # latent sample values.
-            # Shape: (R, L, batchsize, D_z)
+            # Shape: (R, L, B, D_z)
             log_q_z_given_x = self.q_z_given_x.log_prob(z_reshaped)
-            # Shape:  (R, L, batchsize, D_z)
+            # Shape:  (R, L, B, D_z)
             log_p_z = self.p_z.log_prob(z_reshaped)
 
             if "mixture" not in self.latent_distribution["posterior"]["name"]:
@@ -2191,11 +2197,11 @@ class VariationalAutoencoder:
                     self.q_z_given_x, self.p_z)
             else:
                 # Evaluate KL divergence numerically with sampling
-                # Evaluate all log(q(z|x)) and log(p(z)) on (R, L, batchsize,
+                # Evaluate all log(q(z|x)) and log(p(z)) on (R, L, B,
                 # D_z) latent sample values.
-                # Shape: (R, L, batchsize, D_z)
+                # Shape: (R, L, B, D_z)
                 log_q_z_given_x = self.q_z_given_x.log_prob(z_reshaped)
-                # Shape: (R, L, batchsize, D_z)
+                # Shape: (R, L, B, D_z)
                 log_p_z = self.p_z.log_prob(z_reshaped)
 
                 # Kullback-Leibler divergence:
@@ -2276,7 +2282,7 @@ class VariationalAutoencoder:
 
             self.p_x_stddev = tf.sqrt(self.p_x_variance)
 
-        # average over eq_samples, batch_size dimensions    -> shape: ()
+        # average over eq_samples, minibatch_size dimensions    -> shape: ()
         # log-mean-exp (to avoid over- and underflow) over iw_samples dimension
         self.lower_bound = tf.reduce_mean(
             log_reduce_exp(
@@ -2322,7 +2328,7 @@ class VariationalAutoencoder:
                 global_step=self.global_step
             )
 
-        # Make sure that the updates of the moving_averages in batch_norm
+        # Make sure that the updates of the moving_averages in minibatch_norm
         # layers are performed before the train_step
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 

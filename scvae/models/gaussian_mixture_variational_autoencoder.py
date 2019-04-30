@@ -55,7 +55,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                  number_of_latent_clusters=None,
                  number_of_monte_carlo_samples=None,
                  number_of_importance_samples=None,
-                 batch_normalisation=None,
+                 minibatch_normalisation=None,
                  proportion_of_free_nats_for_y_kl_divergence=None,
                  dropout_keep_probabilities=None,
                  count_sum=None,
@@ -150,9 +150,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                 number_of_importance_samples)
         self.number_of_importance_samples = number_of_importance_samples
 
-        if batch_normalisation is None:
-            batch_normalisation = defaults["models"]["batch_normalisation"]
-        self.batch_normalisation = batch_normalisation
+        if minibatch_normalisation is None:
+            minibatch_normalisation = defaults["models"][
+                "minibatch_normalisation"]
+        self.minibatch_normalisation = minibatch_normalisation
 
         if proportion_of_free_nats_for_y_kl_divergence is None:
             proportion_of_free_nats_for_y_kl_divergence = defaults["models"][
@@ -343,7 +344,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         reconstruction_parts.append(
             "iw_{}".format(self.number_of_importance_samples["training"]))
 
-        if self.batch_normalisation:
+        if self.minibatch_normalisation:
             reconstruction_parts.append("bn")
 
         if len(self.dropout_parts) > 0:
@@ -420,8 +421,9 @@ class GaussianMixtureVariationalAutoencoder(object):
             description_parts.append(
                 "KL weight: {}".format(self.kl_weight_value))
 
-        if self.batch_normalisation:
-            description_parts.append("using batch normalisation")
+        if self.minibatch_normalisation:
+            description_parts.append(
+                "using batch normalisation for minibatches")
 
         if self.number_of_warm_up_epochs:
             description_parts.append(
@@ -539,15 +541,15 @@ class GaussianMixtureVariationalAutoencoder(object):
         return stopped_early, epochs_with_no_improvement
 
     def train(self, training_set, validation_set=None, number_of_epochs=None,
-              batch_size=None, learning_rate=None,
+              minibatch_size=None, learning_rate=None,
               intermediate_analyser=None, plotting_interval=None,
               run_id=None, new_run=False, reset_training=False,
               analyses_directory=None, temporary_log_directory=None):
 
         if number_of_epochs is None:
             number_of_epochs = defaults["models"]["number_of_epochs"]
-        if batch_size is None:
-            batch_size = defaults["models"]["batch_size"]
+        if minibatch_size is None:
+            minibatch_size = defaults["models"]["minibatch_size"]
         if learning_rate is None:
             learning_rate = defaults["models"]["learning_rate"]
         if run_id is None:
@@ -589,7 +591,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             "training duration": None,
             "last epoch duration": None,
             "learning rate": learning_rate,
-            "batch size": batch_size
+            "minibatch size": minibatch_size
         }
 
         # Earlier model
@@ -778,7 +780,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         print()
 
         # Display intervals during every epoch
-        steps_per_epoch = numpy.ceil(n_examples_train / batch_size)
+        steps_per_epoch = numpy.ceil(n_examples_train / minibatch_size)
         output_at_step = numpy.round(numpy.linspace(0, steps_per_epoch, 11))
 
         # Initialising lists for learning curves
@@ -899,17 +901,18 @@ class GaussianMixtureVariationalAutoencoder(object):
 
                 shuffled_indices = numpy.random.permutation(n_examples_train)
 
-                for i in range(0, n_examples_train, batch_size):
+                for i in range(0, n_examples_train, minibatch_size):
 
                     # Internal setup
                     step_time_start = time()
                     step = session.run(self.global_step)
 
-                    # Prepare batch
-                    batch_indices = shuffled_indices[i:(i + batch_size)]
+                    # Prepare minibatch
+                    minibatch_indices = shuffled_indices[
+                        i:(i + minibatch_size)]
 
-                    x_batch = x_train[batch_indices].toarray()
-                    t_batch = t_train[batch_indices].toarray()
+                    x_batch = x_train[minibatch_indices].toarray()
+                    t_batch = t_train[minibatch_indices].toarray()
 
                     feed_dict_batch = {
                         self.x: x_batch,
@@ -925,14 +928,14 @@ class GaussianMixtureVariationalAutoencoder(object):
 
                     if self.use_count_sum_as_parameter:
                         feed_dict_batch[self.count_sum_parameter] = (
-                            count_sum_parameter_train[batch_indices])
+                            count_sum_parameter_train[minibatch_indices])
 
                     if self.use_count_sum_as_feature:
                         feed_dict_batch[self.count_sum_feature] = (
-                            count_sum_feature_train[batch_indices])
+                            count_sum_feature_train[minibatch_indices])
 
-                    # Run the stochastic batch training operation
-                    _, batch_loss = session.run(
+                    # Run the stochastic minibatch training operation
+                    _, minibatch_loss = session.run(
                         [self.optimiser, self.lower_bound],
                         feed_dict=feed_dict_batch
                     )
@@ -945,9 +948,9 @@ class GaussianMixtureVariationalAutoencoder(object):
 
                         print("Step {:d} ({}): {:.5g}.".format(
                             int(step + 1), format_duration(step_duration),
-                            batch_loss))
+                            minibatch_loss))
 
-                        if numpy.isnan(batch_loss):
+                        if numpy.isnan(minibatch_loss):
                             raise ArithmeticError("The loss became NaN.")
 
                 print()
@@ -1006,8 +1009,9 @@ class GaussianMixtureVariationalAutoencoder(object):
                 else:
                     kl_divergence_neurons = numpy.zeros(self.latent_size)
 
-                for i in range(0, n_examples_train, batch_size):
-                    subset = slice(i, min(i + batch_size, n_examples_train))
+                for i in range(0, n_examples_train, minibatch_size):
+                    subset = slice(
+                        i, min(i + minibatch_size, n_examples_train))
                     x_batch = x_train[subset].toarray()
                     t_batch = t_train[subset].toarray()
                     feed_dict_batch = {
@@ -1065,20 +1069,20 @@ class GaussianMixtureVariationalAutoencoder(object):
                     q_y_logits_train[subset] = q_y_logits_train_i
                     z_mean_train[subset] = z_mean_i
 
-                lower_bound_train /= n_examples_train / batch_size
-                kl_divergence_z_train /= n_examples_train / batch_size
-                kl_divergence_y_train /= n_examples_train / batch_size
-                reconstruction_error_train /= n_examples_train / batch_size
+                lower_bound_train /= n_examples_train / minibatch_size
+                kl_divergence_z_train /= n_examples_train / minibatch_size
+                kl_divergence_y_train /= n_examples_train / minibatch_size
+                reconstruction_error_train /= n_examples_train / minibatch_size
 
-                kl_divergence_neurons /= n_examples_train / batch_size
+                kl_divergence_neurons /= n_examples_train / minibatch_size
 
-                q_y_probabilities /= n_examples_train / batch_size
-                q_z_means /= n_examples_train / batch_size
-                q_z_variances /= n_examples_train / batch_size
+                q_y_probabilities /= n_examples_train / minibatch_size
+                q_z_means /= n_examples_train / minibatch_size
+                q_z_variances /= n_examples_train / minibatch_size
 
-                p_y_probabilities /= n_examples_train / batch_size
-                p_z_means /= n_examples_train / batch_size
-                p_z_variances /= n_examples_train / batch_size
+                p_y_probabilities /= n_examples_train / minibatch_size
+                p_z_means /= n_examples_train / minibatch_size
+                p_z_variances /= n_examples_train / minibatch_size
 
                 learning_curves["training"]["lower_bound"].append(
                     lower_bound_train)
@@ -1255,9 +1259,9 @@ class GaussianMixtureVariationalAutoencoder(object):
                         dtype=numpy.float32
                     )
 
-                    for i in range(0, n_examples_valid, batch_size):
+                    for i in range(0, n_examples_valid, minibatch_size):
                         subset = slice(
-                            i, min(i + batch_size, n_examples_valid))
+                            i, min(i + minibatch_size, n_examples_valid))
                         x_batch = x_valid[subset].toarray()
                         t_batch = t_valid[subset].toarray()
                         feed_dict_batch = {
@@ -1312,18 +1316,19 @@ class GaussianMixtureVariationalAutoencoder(object):
                         q_y_logits_valid[subset] = q_y_logits_i
                         z_mean_valid[subset] = z_mean_i
 
-                    lower_bound_valid /= n_examples_valid / batch_size
-                    kl_divergence_z_valid /= n_examples_valid / batch_size
-                    kl_divergence_y_valid /= n_examples_valid / batch_size
-                    reconstruction_error_valid /= n_examples_valid / batch_size
+                    lower_bound_valid /= n_examples_valid / minibatch_size
+                    kl_divergence_z_valid /= n_examples_valid / minibatch_size
+                    kl_divergence_y_valid /= n_examples_valid / minibatch_size
+                    reconstruction_error_valid /= (
+                        n_examples_valid / minibatch_size)
 
-                    q_y_probabilities /= n_examples_valid / batch_size
-                    q_z_means /= n_examples_valid / batch_size
-                    q_z_variances /= n_examples_valid / batch_size
+                    q_y_probabilities /= n_examples_valid / minibatch_size
+                    q_z_means /= n_examples_valid / minibatch_size
+                    q_z_variances /= n_examples_valid / minibatch_size
 
-                    p_y_probabilities /= n_examples_valid / batch_size
-                    p_z_means /= n_examples_valid / batch_size
-                    p_z_variances /= n_examples_valid / batch_size
+                    p_y_probabilities /= n_examples_valid / minibatch_size
+                    p_z_means /= n_examples_valid / minibatch_size
+                    p_z_variances /= n_examples_valid / minibatch_size
 
                     learning_curves["validation"]["lower_bound"].append(
                         lower_bound_valid)
@@ -1683,11 +1688,12 @@ class GaussianMixtureVariationalAutoencoder(object):
             return 0
 
     def evaluate(self, evaluation_set, evaluation_subset_indices=None,
-                 batch_size=100, run_id=None,
+                 minibatch_size=None, run_id=None,
                  use_early_stopping_model=False, use_best_model=False,
                  output_versions="all", log_results=True):
 
-        # Setup
+        if minibatch_size is None:
+            minibatch_size = defaults["models"]["minibatch_size"]
 
         if run_id is None:
             run_id = defaults["models"]["run_id"]
@@ -1884,9 +1890,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                     dtype=numpy.float32
                 )
 
-            for i in range(0, n_examples_eval, batch_size):
+            for i in range(0, n_examples_eval, minibatch_size):
 
-                indices = numpy.arange(i, min(i + batch_size, n_examples_eval))
+                indices = numpy.arange(
+                    i, min(i + minibatch_size, n_examples_eval))
 
                 subset_indices = numpy.array(list(
                     evaluation_subset_indices.intersection(indices)))
@@ -1959,18 +1966,18 @@ class GaussianMixtureVariationalAutoencoder(object):
                     y_mean_eval[indices] = y_mean_i
                     z_mean_eval[indices] = z_mean_i
 
-            lower_bound_eval /= n_examples_eval / batch_size
-            kl_divergence_z_eval /= n_examples_eval / batch_size
-            kl_divergence_y_eval /= n_examples_eval / batch_size
-            reconstruction_error_eval /= n_examples_eval / batch_size
+            lower_bound_eval /= n_examples_eval / minibatch_size
+            kl_divergence_z_eval /= n_examples_eval / minibatch_size
+            kl_divergence_y_eval /= n_examples_eval / minibatch_size
+            reconstruction_error_eval /= n_examples_eval / minibatch_size
 
             if log_results:
-                q_y_probabilities /= n_examples_eval / batch_size
-                q_z_means /= n_examples_eval / batch_size
-                q_z_variances /= n_examples_eval / batch_size
-                p_y_probabilities /= n_examples_eval / batch_size
-                p_z_means /= n_examples_eval / batch_size
-                p_z_variances /= n_examples_eval / batch_size
+                q_y_probabilities /= n_examples_eval / minibatch_size
+                q_z_means /= n_examples_eval / minibatch_size
+                q_z_variances /= n_examples_eval / minibatch_size
+                p_y_probabilities /= n_examples_eval / minibatch_size
+                p_z_means /= n_examples_eval / minibatch_size
+                p_z_variances /= n_examples_eval / minibatch_size
 
             if (self.number_of_importance_samples["evaluation"] == 1
                     and self.number_of_monte_carlo_samples["evaluation"] == 1):
@@ -2237,7 +2244,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         # Y latent space
         with tf.variable_scope("Y"):
             # p(y) = Cat(pi)
-            # Shape: (1, K), so first batch dimension can be broadcast to y
+            # Shape: (1, K), so first minibatch dimension can be broadcast to y
             with tf.variable_scope("P"):
                 if self.prior_probabilities_method != "uniform":
                     self.p_y_probabilities = tf.constant(
@@ -2359,7 +2366,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 inputs=xy,
                 num_outputs=self.hidden_sizes,
                 activation_fn=tf.nn.relu,
-                batch_normalisation=self.batch_normalisation,
+                minibatch_normalisation=self.minibatch_normalisation,
                 is_training=self.is_training,
                 input_dropout_keep_probability=self.dropout_keep_probability_x,
                 hidden_dropout_keep_probability=(
@@ -2460,7 +2467,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 inputs=self.x,
                 num_outputs=self.hidden_sizes,
                 activation_fn=tf.nn.relu,
-                batch_normalisation=self.batch_normalisation,
+                minibatch_normalisation=self.minibatch_normalisation,
                 is_training=self.is_training,
                 input_dropout_keep_probability=self.dropout_keep_probability_x,
                 hidden_dropout_keep_probability=(
@@ -2509,7 +2516,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             inputs=decoder,
             num_outputs=self.hidden_sizes[::-1],
             activation_fn=tf.nn.relu,
-            batch_normalisation=self.batch_normalisation,
+            minibatch_normalisation=self.minibatch_normalisation,
             is_training=self.is_training,
             input_dropout_keep_probability=self.dropout_keep_probability_z,
             hidden_dropout_keep_probability=self.dropout_keep_probability_h,
@@ -2595,10 +2602,10 @@ class GaussianMixtureVariationalAutoencoder(object):
 
     def _setup_loss_function(self):
         # Prepare replicated and reshaped arrays
-        # Replicate out batches in tiles per sample into shape
-        # (R * L * batchsize, N_x)
+        # Replicate out minibatches in tiles per sample into shape
+        # (R * L * B, N_x)
         t_tiled = tf.tile(self.t, [self.n_iw_samples*self.n_mc_samples, 1])
-        # Reshape samples back to shape (R, L, batchsize, N_z)
+        # Reshape samples back to shape (R, L, B, N_z)
         z_reshaped = [
             tf.reshape(
                 self.z[k],
@@ -2807,7 +2814,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 global_step=self.global_step
             )
 
-        # Make sure that the updates of the moving_averages in batch_norm
+        # Make sure that the updates of the moving_averages in minibatch_norm
         # layers are performed before the train_step.
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 

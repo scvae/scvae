@@ -120,9 +120,9 @@ def train(data_set_file_or_name, data_format=None, data_directory=None,
           generative_architecture=None, reconstruction_distribution=None,
           number_of_reconstruction_classes=None, count_sum=None,
           proportion_of_free_nats_for_y_kl_divergence=None,
-          batch_normalisation=None, dropout_keep_probabilities=None,
+          minibatch_normalisation=None, dropout_keep_probabilities=None,
           number_of_warm_up_epochs=None, kl_weight=None,
-          number_of_epochs=None, batch_size=None, learning_rate=None,
+          number_of_epochs=None, minibatch_size=None, learning_rate=None,
           run_id=None, new_run=False, reset_training=None,
           models_directory=None, caches_directory=None,
           analyses_directory=None, **keyword_arguments):
@@ -224,7 +224,7 @@ def train(data_set_file_or_name, data_format=None, data_directory=None,
         count_sum=count_sum,
         proportion_of_free_nats_for_y_kl_divergence=(
             proportion_of_free_nats_for_y_kl_divergence),
-        batch_normalisation=batch_normalisation,
+        minibatch_normalisation=minibatch_normalisation,
         dropout_keep_probabilities=dropout_keep_probabilities,
         number_of_warm_up_epochs=number_of_warm_up_epochs,
         kl_weight=kl_weight,
@@ -248,7 +248,7 @@ def train(data_set_file_or_name, data_format=None, data_directory=None,
         training_set,
         validation_set,
         number_of_epochs=number_of_epochs,
-        batch_size=batch_size,
+        minibatch_size=minibatch_size,
         learning_rate=learning_rate,
         intermediate_analyser=intermediate_analyser,
         run_id=run_id,
@@ -279,9 +279,9 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
              generative_architecture=None, reconstruction_distribution=None,
              number_of_reconstruction_classes=None, count_sum=None,
              proportion_of_free_nats_for_y_kl_divergence=None,
-             batch_normalisation=None, dropout_keep_probabilities=None,
+             minibatch_normalisation=None, dropout_keep_probabilities=None,
              number_of_warm_up_epochs=None, kl_weight=None,
-             batch_size=None, run_id=None, models_directory=None,
+             minibatch_size=None, run_id=None, models_directory=None,
              included_analyses=None, analysis_level=None,
              decomposition_methods=None, highlight_feature_indices=None,
              export_options=None, analyses_directory=None,
@@ -406,7 +406,7 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
         count_sum=count_sum,
         proportion_of_free_nats_for_y_kl_divergence=(
             proportion_of_free_nats_for_y_kl_divergence),
-        batch_normalisation=batch_normalisation,
+        minibatch_normalisation=minibatch_normalisation,
         dropout_keep_probabilities=dropout_keep_probabilities,
         number_of_warm_up_epochs=number_of_warm_up_epochs,
         kl_weight=kl_weight,
@@ -476,7 +476,7 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
         ) = model.evaluate(
             evaluation_set=evaluation_set,
             evaluation_subset_indices=evaluation_subset_indices,
-            batch_size=batch_size,
+            minibatch_size=minibatch_size,
             run_id=run_id,
             use_best_model=use_best_model,
             use_early_stopping_model=use_early_stopping_model
@@ -489,7 +489,7 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
 
             latent_prediction_training_sets = model.evaluate(
                 evaluation_set=prediction_training_set,
-                batch_size=batch_size,
+                minibatch_size=minibatch_size,
                 run_id=run_id,
                 use_best_model=use_best_model,
                 use_early_stopping_model=use_early_stopping_model,
@@ -553,7 +553,7 @@ def _setup_model(data_set, model_type=None,
                  reconstruction_distribution=None,
                  number_of_reconstruction_classes=None, count_sum=None,
                  proportion_of_free_nats_for_y_kl_divergence=None,
-                 batch_normalisation=None, dropout_keep_probabilities=None,
+                 minibatch_normalisation=None, dropout_keep_probabilities=None,
                  number_of_warm_up_epochs=None, kl_weight=None,
                  models_directory=None):
 
@@ -576,7 +576,7 @@ def _setup_model(data_set, model_type=None,
             generative_architecture=generative_architecture,
             reconstruction_distribution=reconstruction_distribution,
             number_of_reconstruction_classes=number_of_reconstruction_classes,
-            batch_normalisation=batch_normalisation,
+            minibatch_normalisation=minibatch_normalisation,
             dropout_keep_probabilities=dropout_keep_probabilities,
             count_sum=count_sum,
             number_of_warm_up_epochs=number_of_warm_up_epochs,
@@ -605,7 +605,7 @@ def _setup_model(data_set, model_type=None,
                 proportion_of_free_nats_for_y_kl_divergence),
             reconstruction_distribution=reconstruction_distribution,
             number_of_reconstruction_classes=number_of_reconstruction_classes,
-            batch_normalisation=batch_normalisation,
+            minibatch_normalisation=minibatch_normalisation,
             dropout_keep_probabilities=dropout_keep_probabilities,
             count_sum=count_sum,
             number_of_warm_up_epochs=number_of_warm_up_epochs,
@@ -868,10 +868,11 @@ def main():
             )
         )
         subparser.add_argument(
-            "--batch-normalisation", "-b",
+            "--minibatch-normalisation", "-b",
             action="store_true",
-            default=_parse_default(defaults["models"]["batch_normalisation"]),
-            help="use batch normalisation"
+            default=_parse_default(defaults["models"][
+                "minibatch_normalisation"]),
+            help="use batch normalisation for minibatches in models"
         )
         subparser.add_argument(
             "--dropout-keep-probabilities",
@@ -893,11 +894,11 @@ def main():
             help="use count sum"
         )
         subparser.add_argument(
-            "--batch-size", "-B",
+            "--minibatch-size", "-B",
             metavar="SIZE",
             type=int,
-            default=_parse_default(defaults["models"]["batch_size"]),
-            help="batch size used when training"
+            default=_parse_default(defaults["models"]["minibatch_size"]),
+            help="minibatch size for stochastic optimisation algorithm"
         )
         subparser.add_argument(
             "--run-id",

@@ -36,7 +36,7 @@ from scvae.utilities import (
 # Wrapper layer for inserting batch normalisation in between linear and
 # nonlinear activation layers
 def dense_layer(inputs, num_outputs, is_training=True, scope="layer",
-                activation_fn=None, batch_normalisation=False, decay=0.999,
+                activation_fn=None, minibatch_normalisation=False, decay=0.999,
                 center=True, scale=False, reuse=False,
                 dropout_keep_probability=False):
 
@@ -59,7 +59,7 @@ def dense_layer(inputs, num_outputs, is_training=True, scope="layer",
         )
 
         # Set up normalisation across examples with learned center and scale
-        if batch_normalisation:
+        if minibatch_normalisation:
             outputs = batch_norm(
                 inputs=outputs,
                 center=center,
@@ -80,7 +80,7 @@ def dense_layer(inputs, num_outputs, is_training=True, scope="layer",
 # and non-linear activation layers in given or reverse order
 def dense_layers(inputs, num_outputs, reverse_order=False, is_training=True,
                  scope="layers", layer_name=None, activation_fn=None,
-                 batch_normalisation=False, decay=0.999, center=True,
+                 minibatch_normalisation=False, decay=0.999, center=True,
                  scale=False, reuse=False,
                  input_dropout_keep_probability=False,
                  hidden_dropout_keep_probability=False):
@@ -115,7 +115,7 @@ def dense_layers(inputs, num_outputs, reverse_order=False, is_training=True,
                 is_training=is_training,
                 scope=layer_name + "{:d}".format(layer_number),
                 activation_fn=activation_fn,
-                batch_normalisation=batch_normalisation,
+                minibatch_normalisation=minibatch_normalisation,
                 decay=decay,
                 center=center,
                 scale=scale,
