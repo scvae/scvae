@@ -62,6 +62,7 @@ class DataSet(object):
                  class_names=None,
                  example_names=None,
                  feature_names=None,
+                 batch_indices=None,
                  map_features=None,
                  features_mapped=False,
                  feature_selection=None,
@@ -171,6 +172,7 @@ class DataSet(object):
         self.labels = None
         self.example_names = None
         self.feature_names = None
+        self.batch_indices = None
         self.class_names = None
         self.number_of_examples = None
         self.number_of_features = None
@@ -182,13 +184,13 @@ class DataSet(object):
             preprocessed_values=preprocessed_values,
             binarised_values=binarised_values,
             labels=labels,
+            class_names=class_names,
             example_names=example_names,
             feature_names=feature_names,
-            class_names=class_names
+            batch_indices=batch_indices
         )
 
         # Predicted labels
-
         self.prediction_specifications = None
         self.predicted_cluster_ids = None
 
@@ -440,9 +442,9 @@ class DataSet(object):
     def update(self, values=None,
                total_standard_deviations=None,
                explained_standard_deviations=None,
-               preprocessed_values=None,
-               binarised_values=None, labels=None,
-               example_names=None, feature_names=None, class_names=None):
+               preprocessed_values=None, binarised_values=None,
+               labels=None, class_names=None,
+               example_names=None, feature_names=None, batch_indices=None):
 
         if values is not None:
 
@@ -577,6 +579,9 @@ class DataSet(object):
         if binarised_values is not None:
             self.binarised_values = binarised_values
 
+        if batch_indices is not None:
+            self.batch_indices = batch_indices.reshape(-1, 1)
+
     def update_predictions(self,
                            prediction_specifications=None,
                            predicted_cluster_ids=None,
@@ -689,15 +694,14 @@ class DataSet(object):
             values=data_dictionary["values"],
             labels=data_dictionary["labels"],
             example_names=data_dictionary["example names"],
-            feature_names=data_dictionary["feature names"]
+            feature_names=data_dictionary["feature names"],
+            batch_indices=data_dictionary.get("batch indices")
         )
 
-        if "split indices" in data_dictionary:
-            self.split_indices = data_dictionary["split indices"]
+        self.split_indices = data_dictionary.get("split indices")
+        self.feature_mapping = data_dictionary.get("feature mapping")
 
-        if "feature mapping" in data_dictionary:
-            self.feature_mapping = data_dictionary["feature mapping"]
-        else:
+        if self.feature_mapping is None:
             self.map_features = False
 
         if not self.feature_selection_parameters:
@@ -796,7 +800,7 @@ class DataSet(object):
                 print()
 
             if self.example_filter:
-                values_dictionary, example_names, labels = (
+                values_dictionary, example_names, labels, batch_indices = (
                     processing.filter_examples(
                         {"original": values,
                          "preprocessed": preprocessed_values},
@@ -808,6 +812,7 @@ class DataSet(object):
                         superset_labels=self.superset_labels,
                         excluded_superset_classes=(
                             self.excluded_superset_classes),
+                        batch_indices=self.batch_indices,
                         count_sum=self.count_sum
                     )
                 )
@@ -828,6 +833,7 @@ class DataSet(object):
             if self.example_filter:
                 data_dictionary["example names"] = example_names
                 data_dictionary["labels"] = labels
+                data_dictionary["batch indices"] = batch_indices
 
             preprocessing_duration = time() - preprocessing_time_start
 
@@ -855,9 +861,11 @@ class DataSet(object):
         if self.example_filter:
             example_names = data_dictionary["example names"]
             labels = data_dictionary["labels"]
+            batch_indices = data_dictionary["batch indices"]
         else:
             example_names = self.example_names
             labels = self.labels
+            batch_indices = self.batch_indices
 
         values = sparse.SparseRowMatrix(values)
         preprocessed_values = sparse.SparseRowMatrix(preprocessed_values)
@@ -865,9 +873,10 @@ class DataSet(object):
         self.update(
             values=values,
             preprocessed_values=preprocessed_values,
-            feature_names=feature_names,
             example_names=example_names,
-            labels=labels
+            feature_names=feature_names,
+            labels=labels,
+            batch_indices=batch_indices
         )
 
     def binarise(self):
@@ -984,6 +993,7 @@ class DataSet(object):
                 "labels": self.labels,
                 "example names": self.example_names,
                 "feature names": self.feature_names,
+                "batch indices": self.batch_indices,
                 "class names": self.class_names,
                 "split indices": self.split_indices
             }
@@ -1031,6 +1041,8 @@ class DataSet(object):
             example_names=(
                 split_data_dictionary["training set"]["example names"]),
             feature_names=split_data_dictionary["feature names"],
+            batch_indices=(
+                split_data_dictionary["training set"]["batch indices"]),
             features_mapped=self.features_mapped,
             class_names=split_data_dictionary["class names"],
             feature_selection=self.feature_selection,
@@ -1054,6 +1066,8 @@ class DataSet(object):
             example_names=(
                 split_data_dictionary["validation set"]["example names"]),
             feature_names=split_data_dictionary["feature names"],
+            batch_indices=(
+                split_data_dictionary["training set"]["batch indices"]),
             features_mapped=self.features_mapped,
             class_names=split_data_dictionary["class names"],
             feature_selection=self.feature_selection,
@@ -1075,6 +1089,8 @@ class DataSet(object):
             labels=split_data_dictionary["test set"]["labels"],
             example_names=split_data_dictionary["test set"]["example names"],
             feature_names=split_data_dictionary["feature names"],
+            batch_indices=(
+                split_data_dictionary["training set"]["batch indices"]),
             features_mapped=self.features_mapped,
             class_names=split_data_dictionary["class names"],
             feature_selection=self.feature_selection,
@@ -1116,6 +1132,7 @@ class DataSet(object):
         self.labels = None
         self.example_names = None
         self.feature_names = None
+        self.batch_indices = None
         self.class_names = None
         self.number_of_examples = None
         self.number_of_features = None

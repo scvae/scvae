@@ -168,10 +168,11 @@ def select_features(values_dictionary, feature_names, feature_selection=None,
     return feature_selected_values, feature_selected_feature_names
 
 
-def filter_examples(values_dictionary, example_names, example_filter=None,
-                    example_filter_parameters=None, labels=None,
-                    excluded_classes=None, superset_labels=None,
-                    excluded_superset_classes=None, count_sum=None):
+def filter_examples(values_dictionary, example_names,
+                    example_filter=None, example_filter_parameters=None,
+                    labels=None, excluded_classes=None,
+                    superset_labels=None, excluded_superset_classes=None,
+                    batch_indices=None, count_sum=None):
 
     print("Filtering examples.")
     start_time = time()
@@ -279,6 +280,11 @@ def filter_examples(values_dictionary, example_names, example_filter=None,
     else:
         example_filtered_labels = None
 
+    if batch_indices is not None:
+        example_filtered_batch_indices = batch_indices[filter_indices]
+    else:
+        example_filtered_batch_indices = None
+
     n_examples_changed = len(example_filtered_example_names)
 
     duration = time() - start_time
@@ -289,7 +295,7 @@ def filter_examples(values_dictionary, example_names, example_filter=None,
     ))
 
     return (example_filtered_values, example_filtered_example_names,
-            example_filtered_labels)
+            example_filtered_labels, example_filtered_batch_indices)
 
 
 def build_preprocessor(preprocessing_methods, noisy=False):
@@ -404,7 +410,9 @@ def split_data_set(data_dictionary, method=None, fraction=None):
             "preprocessed values": None,
             "binarised values": None,
             "labels": None,
-            "example names": data_dictionary["example names"][training_indices]
+            "example names":
+                data_dictionary["example names"][training_indices],
+            "batch indices": None
         },
         "validation set": {
             "values": data_dictionary["values"][validation_indices],
@@ -412,14 +420,16 @@ def split_data_set(data_dictionary, method=None, fraction=None):
             "binarised values": None,
             "labels": None,
             "example names":
-                data_dictionary["example names"][validation_indices]
+                data_dictionary["example names"][validation_indices],
+            "batch indices": None
         },
         "test set": {
             "values": data_dictionary["values"][test_indices],
             "preprocessed values": None,
             "binarised values": None,
             "labels": None,
-            "example names": data_dictionary["example names"][test_indices]
+            "example names": data_dictionary["example names"][test_indices],
+            "batch indices": None
         },
         "feature names": data_dictionary["feature names"],
         "class names": data_dictionary["class names"]
@@ -435,7 +445,6 @@ def split_data_set(data_dictionary, method=None, fraction=None):
 
     if ("preprocessed values" in data_dictionary
             and data_dictionary["preprocessed values"] is not None):
-
         split_data_dictionary["training set"]["preprocessed values"] = (
             data_dictionary["preprocessed values"][training_indices])
         split_data_dictionary["validation set"]["preprocessed values"] = (
@@ -445,13 +454,21 @@ def split_data_set(data_dictionary, method=None, fraction=None):
 
     if ("binarised values" in data_dictionary
             and data_dictionary["binarised values"] is not None):
-
         split_data_dictionary["training set"]["binarised values"] = (
             data_dictionary["binarised values"][training_indices])
         split_data_dictionary["validation set"]["binarised values"] = (
             data_dictionary["binarised values"][validation_indices])
         split_data_dictionary["test set"]["binarised values"] = (
             data_dictionary["binarised values"][test_indices])
+
+    if ("batch indices" in data_dictionary
+            and data_dictionary["batch indices"] is not None):
+        split_data_dictionary["training set"]["batch indices"] = (
+            data_dictionary["batch indices"][training_indices])
+        split_data_dictionary["validation set"]["batch indices"] = (
+            data_dictionary["batch indices"][validation_indices])
+        split_data_dictionary["test set"]["batch indices"] = (
+            data_dictionary["batch indices"][test_indices])
 
     duration = time() - start_time
     print("Data set split ({}).".format(format_duration(duration)))
