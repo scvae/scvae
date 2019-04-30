@@ -41,6 +41,7 @@
 		"kl_weight": 1,
 		"proportion_of_free_nats_for_y_kl_divergence": 0.0,
 		"minibatch_normalisation": true,
+		"batch_correction": false,
 		"dropout_keep_probabilities": [],
 		"count_sum": false,
 		"number_of_epochs": 200,

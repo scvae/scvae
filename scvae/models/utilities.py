@@ -870,6 +870,14 @@ def validate_model_parameters(reconstruction_distribution=None,
                 raise ValueError(parameterise_error)
 
 
+def batch_indices_for_subset(subset):
+    batch_indices = subset.batch_indices
+    if batch_indices is None:
+        raise TypeError(
+            "No batch indices found in {} set.".format(subset.kind))
+    return batch_indices
+
+
 def _summary_reader(log_directory, data_set_kinds, tag_searches):
 
     scalars = None

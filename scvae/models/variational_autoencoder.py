@@ -37,7 +37,8 @@ from scvae.models.utilities import (
     generate_unique_run_id_for_model, check_run_id,
     correct_model_checkpoint_path, remove_old_checkpoints,
     copy_model_directory, clear_log_directory,
-    parse_numbers_of_samples, validate_model_parameters)
+    parse_numbers_of_samples, validate_model_parameters,
+    batch_indices_for_subset)
 from scvae.utilities import (
     format_duration, format_time,
     normalise_string, capitalise_string)
@@ -56,6 +57,7 @@ class VariationalAutoencoder:
                  inference_architecture=None,
                  generative_architecture=None,
                  minibatch_normalisation=None,
+                 batch_correction=None,
                  dropout_keep_probabilities=None,
                  count_sum=None,
                  kl_weight=None,
@@ -160,6 +162,10 @@ class VariationalAutoencoder:
                 "minibatch_normalisation"]
         self.minibatch_normalisation = minibatch_normalisation
 
+        if batch_correction is None:
+            batch_correction = defaults["models"]["batch_correction"]
+        self.batch_correction = batch_correction
+
         # Dropout keep probabilities (p) for 3 different kinds of layers
         if dropout_keep_probabilities is None:
             dropout_keep_probabilities = defaults["models"][
@@ -235,11 +241,19 @@ class VariationalAutoencoder:
                 name="T"
             )
 
+            if self.batch_correction:
+                self.batch_indices = tf.placeholder(
+                    dtype=tf.float32,
+                    shape=[None, 1],
+                    name="batch_indices"
+                )
+
             if self.use_count_sum_as_feature:
                 self.count_sum_feature = tf.placeholder(
                     dtype=tf.float32,
                     shape=[None, 1],
-                    name="count_sum_feature")
+                    name="count_sum_feature"
+                )
 
             if self.use_count_sum_as_parameter:
                 self.count_sum_parameter = tf.placeholder(
@@ -349,6 +363,9 @@ class VariationalAutoencoder:
         if self.minibatch_normalisation:
             minor_parts.append("bn")
 
+        if self.batch_correction:
+            minor_parts.append("bc")
+
         if len(self.dropout_parts) > 0:
             minor_parts.append("dropout_" + "_".join(self.dropout_parts))
 
@@ -419,6 +436,9 @@ class VariationalAutoencoder:
         if self.minibatch_normalisation:
             description_parts.append(
                 "using batch normalisation for minibatches")
+
+        if self.batch_correction:
+            description_parts.append("with batch correction")
 
         if self.number_of_warm_up_epochs:
             description_parts.append(
@@ -680,6 +700,12 @@ class VariationalAutoencoder:
         print("Preparing data.")
         preparing_data_time_start = time()
 
+        # Batch indices for batch correction
+        if self.batch_correction:
+            batch_indices_train = batch_indices_for_subset(training_set)
+            if validation_set:
+                batch_indices_valid = batch_indices_for_subset(validation_set)
+
         # Count sum for distributions
         if self.use_count_sum_as_parameter:
             count_sum_parameter_train = training_set.count_sum
@@ -871,6 +897,10 @@ class VariationalAutoencoder:
                             self.number_of_monte_carlo_samples["training"]
                     }
 
+                    if self.batch_correction:
+                        feed_dict_batch[self.batch_indices] = (
+                            batch_indices_train[minibatch_indices])
+
                     if self.use_count_sum_as_parameter:
                         feed_dict_batch[self.count_sum_parameter] = (
                             count_sum_parameter_train[minibatch_indices])
@@ -960,6 +990,11 @@ class VariationalAutoencoder:
                         self.number_of_mc_samples:
                             self.number_of_monte_carlo_samples["training"]
                     }
+
+                    if self.batch_correction:
+                        feed_dict_batch[self.batch_indices] = (
+                            batch_indices_train[subset])
+
                     if self.use_count_sum_as_parameter:
                         feed_dict_batch[self.count_sum_parameter] = (
                             count_sum_parameter_train[subset])
@@ -1109,6 +1144,11 @@ class VariationalAutoencoder:
                             self.number_of_mc_samples:
                                 self.number_of_monte_carlo_samples["training"]
                         }
+
+                        if self.batch_correction:
+                            feed_dict_batch[self.batch_indices] = (
+                                batch_indices_valid[subset])
+
                         if self.use_count_sum_as_parameter:
                             feed_dict_batch[self.count_sum_parameter] = (
                                 count_sum_parameter_valid[subset])
@@ -1476,6 +1516,9 @@ class VariationalAutoencoder:
         )
         minibatch_size = int(numpy.ceil(minibatch_size))
 
+        if self.batch_correction:
+            batch_indices_eval = batch_indices_for_subset(evaluation_set)
+
         if self.use_count_sum_as_parameter:
             count_sum_parameter_eval = evaluation_set.count_sum
 
@@ -1603,6 +1646,11 @@ class VariationalAutoencoder:
                     self.number_of_iw_samples: number_of_iw_samples,
                     self.number_of_mc_samples: number_of_mc_samples
                 }
+
+                if self.batch_correction:
+                    feed_dict_batch[self.batch_indices] = (
+                        batch_indices_eval[indices])
+
                 if self.use_count_sum_as_parameter:
                     feed_dict_batch[self.count_sum_parameter] = (
                         count_sum_parameter_eval[indices])
@@ -1958,7 +2006,8 @@ class VariationalAutoencoder:
                     lambda: tf.expand_dims(self.q_z_mean, axis=0),
                     lambda: self.q_z_given_x.sample(total_number_of_samples)
                 ),
-                shape=[-1, self.latent_size]
+                shape=[-1, self.latent_size],
+                name="Z"
             ),
             dtype=tf.float32
         )
@@ -1996,16 +2045,31 @@ class VariationalAutoencoder:
                     self.number_of_iw_samples*self.number_of_mc_samples, 1]
             )
 
+        decoder_inputs = [self.z]
+
+        if self.batch_correction:
+            replicated_batch_indices = tf.tile(
+                self.batch_indices,
+                multiples=[
+                    self.number_of_iw_samples*self.number_of_mc_samples, 1],
+                name="BATCH_INDICES"
+            )
+            decoder_inputs.append(replicated_batch_indices)
+
         if self.use_count_sum_as_feature:
             replicated_count_sum_feature = tf.tile(
                 self.count_sum_feature,
                 multiples=[
-                    self.number_of_iw_samples*self.number_of_mc_samples, 1]
+                    self.number_of_iw_samples*self.number_of_mc_samples, 1],
+                name="COUNT_SUM"
             )
+            decoder_inputs.append(replicated_count_sum_feature)
+
+        if len(decoder_inputs) > 1:
             decoder = tf.concat(
-                [self.z, replicated_count_sum_feature],
+                decoder_inputs,
                 axis=1,
-                name="Z_N"
+                name="-".join(i.name.replace(":0", "") for i in decoder_inputs)
             )
         else:
             decoder = self.z

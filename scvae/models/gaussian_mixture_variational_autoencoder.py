@@ -40,7 +40,8 @@ from scvae.models.utilities import (
     generate_unique_run_id_for_model, check_run_id,
     correct_model_checkpoint_path, remove_old_checkpoints,
     copy_model_directory, clear_log_directory,
-    parse_numbers_of_samples, validate_model_parameters)
+    parse_numbers_of_samples, validate_model_parameters,
+    batch_indices_for_subset)
 from scvae.utilities import (
     format_duration, format_time,
     normalise_string, capitalise_string)
@@ -56,6 +57,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                  number_of_monte_carlo_samples=None,
                  number_of_importance_samples=None,
                  minibatch_normalisation=None,
+                 batch_correction=None,
                  proportion_of_free_nats_for_y_kl_divergence=None,
                  dropout_keep_probabilities=None,
                  count_sum=None,
@@ -154,6 +156,10 @@ class GaussianMixtureVariationalAutoencoder(object):
             minibatch_normalisation = defaults["models"][
                 "minibatch_normalisation"]
         self.minibatch_normalisation = minibatch_normalisation
+
+        if batch_correction is None:
+            batch_correction = defaults["models"]["batch_correction"]
+        self.batch_correction = batch_correction
 
         if proportion_of_free_nats_for_y_kl_divergence is None:
             proportion_of_free_nats_for_y_kl_divergence = defaults["models"][
@@ -288,15 +294,18 @@ class GaussianMixtureVariationalAutoencoder(object):
                 name="number_of_mc_samples"
             )
 
+            if self.batch_correction:
+                self.batch_indices = tf.placeholder(
+                    dtype=tf.float32,
+                    shape=[None, 1],
+                    name="batch_indices"
+                )
+
             if self.use_count_sum_as_feature:
                 self.count_sum_feature = tf.placeholder(
                     dtype=tf.float32,
                     shape=[None, 1],
                     name="count_sum_feature"
-                )
-                self.replicated_count_sum_feature = tf.tile(
-                    self.count_sum_feature,
-                    multiples=[self.n_iw_samples * self.n_mc_samples, 1]
                 )
             if self.use_count_sum_as_parameter:
                 self.count_sum_parameter = tf.placeholder(
@@ -346,6 +355,9 @@ class GaussianMixtureVariationalAutoencoder(object):
 
         if self.minibatch_normalisation:
             reconstruction_parts.append("bn")
+
+        if self.batch_correction:
+            reconstruction_parts.append("bc")
 
         if len(self.dropout_parts) > 0:
             reconstruction_parts.append(
@@ -424,6 +436,9 @@ class GaussianMixtureVariationalAutoencoder(object):
         if self.minibatch_normalisation:
             description_parts.append(
                 "using batch normalisation for minibatches")
+
+        if self.batch_correction:
+            description_parts.append("with batch correction")
 
         if self.number_of_warm_up_epochs:
             description_parts.append(
@@ -690,6 +705,12 @@ class GaussianMixtureVariationalAutoencoder(object):
         print("Preparing data.")
         preparing_data_time_start = time()
 
+        # Batch indices for batch correction
+        if self.batch_correction:
+            batch_indices_train = batch_indices_for_subset(training_set)
+            if validation_set:
+                batch_indices_valid = batch_indices_for_subset(validation_set)
+
         # Count sum for distributions
         if self.use_count_sum_as_parameter:
             count_sum_parameter_train = training_set.count_sum
@@ -926,6 +947,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                             self.number_of_monte_carlo_samples["training"]
                     }
 
+                    if self.batch_correction:
+                        feed_dict_batch[self.batch_indices] = (
+                            batch_indices_train[minibatch_indices])
+
                     if self.use_count_sum_as_parameter:
                         feed_dict_batch[self.count_sum_parameter] = (
                             count_sum_parameter_train[minibatch_indices])
@@ -1024,6 +1049,11 @@ class GaussianMixtureVariationalAutoencoder(object):
                         self.n_mc_samples:
                             self.number_of_monte_carlo_samples["training"]
                     }
+
+                    if self.batch_correction:
+                        feed_dict_batch[self.batch_indices] = (
+                            batch_indices_train[subset])
+
                     if self.use_count_sum_as_parameter:
                         feed_dict_batch[self.count_sum_parameter] = (
                             count_sum_parameter_train[subset])
@@ -1274,6 +1304,11 @@ class GaussianMixtureVariationalAutoencoder(object):
                             self.n_mc_samples:
                                 self.number_of_monte_carlo_samples["training"]
                         }
+
+                        if self.batch_correction:
+                            feed_dict_batch[self.batch_indices] = (
+                                batch_indices_valid[subset])
+
                         if self.use_count_sum_as_parameter:
                             feed_dict_batch[self.count_sum_parameter] = (
                                 count_sum_parameter_valid[subset])
@@ -1725,6 +1760,9 @@ class GaussianMixtureVariationalAutoencoder(object):
 
         evaluation_set_transformed = False
 
+        if self.batch_correction:
+            batch_indices_eval = batch_indices_for_subset(evaluation_set)
+
         if self.use_count_sum_as_parameter:
             count_sum_parameter_eval = evaluation_set.count_sum
 
@@ -1908,6 +1946,11 @@ class GaussianMixtureVariationalAutoencoder(object):
                     self.n_mc_samples:
                         self.number_of_monte_carlo_samples["evaluation"]
                 }
+
+                if self.batch_correction:
+                    feed_dict_batch[self.batch_indices] = (
+                        batch_indices_eval[indices])
+
                 if self.use_count_sum_as_parameter:
                     feed_dict_batch[self.count_sum_parameter] = (
                         count_sum_parameter_eval[indices])
@@ -2414,7 +2457,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                 z = tf.cast(
                     tf.reshape(
                         z_samples,
-                        shape=[-1, self.latent_size]
+                        shape=[-1, self.latent_size],
+                        name="SAMPLES"
                     ),
                     dtype=tf.float32
                 )
@@ -2504,11 +2548,34 @@ class GaussianMixtureVariationalAutoencoder(object):
     def _build_graph_for_p_x_given_z(self, z, reuse=False):
         # Decoder - Generative model, p(x|z)
 
+        decoder_inputs = [z]
+
         # Make sure we use a replication per sample of the feature sum,
-        # when adding this to the features.
+        # when adding this to the features
+        if self.batch_correction:
+            replicated_batch_indices = tf.tile(
+                self.batch_indices,
+                multiples=[self.n_iw_samples * self.n_mc_samples, 1],
+                name="BATCH_INDICES"
+            )
+            decoder_inputs.append(replicated_batch_indices)
+
+        # Make sure we use a replication per sample of the feature sum,
+        # when adding this to the features
         if self.use_count_sum_as_feature:
+            replicated_count_sum_feature = tf.tile(
+                self.count_sum_feature,
+                multiples=[self.n_iw_samples * self.n_mc_samples, 1],
+                name="COUNT_SUM"
+            )
+            decoder_inputs.append(replicated_count_sum_feature)
+
+        if len(decoder_inputs) > 1:
             decoder = tf.concat(
-                [z, self.replicated_count_sum_feature], axis=-1, name="Z_N")
+                decoder_inputs,
+                axis=-1,
+                name="-".join(i.name.replace(":0", "") for i in decoder_inputs)
+            )
         else:
             decoder = z
 

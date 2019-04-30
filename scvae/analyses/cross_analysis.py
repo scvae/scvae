@@ -230,6 +230,7 @@ MISCELLANEOUS_MODEL_REPLACEMENTS = {
     "sum": "CS",
     "-kl-": "-",
     "bn": "BN",
+    "bc": "BC",
     r"dropout_([\d._]+)": lambda match: "dropout: {}".format(
         match.group(1).replace("_", ", ")),
     r"wu_(\d+)": lambda match: "WU({})".format(match.group(1)),

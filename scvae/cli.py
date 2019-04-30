@@ -122,7 +122,8 @@ def train(data_set_file_or_name, data_format=None, data_directory=None,
           generative_architecture=None, reconstruction_distribution=None,
           number_of_reconstruction_classes=None, count_sum=None,
           proportion_of_free_nats_for_y_kl_divergence=None,
-          minibatch_normalisation=None, dropout_keep_probabilities=None,
+          minibatch_normalisation=None, batch_correction=None,
+          dropout_keep_probabilities=None,
           number_of_warm_up_epochs=None, kl_weight=None,
           number_of_epochs=None, minibatch_size=None, learning_rate=None,
           run_id=None, new_run=False, reset_training=None,
@@ -227,6 +228,7 @@ def train(data_set_file_or_name, data_format=None, data_directory=None,
         proportion_of_free_nats_for_y_kl_divergence=(
             proportion_of_free_nats_for_y_kl_divergence),
         minibatch_normalisation=minibatch_normalisation,
+        batch_correction=batch_correction,
         dropout_keep_probabilities=dropout_keep_probabilities,
         number_of_warm_up_epochs=number_of_warm_up_epochs,
         kl_weight=kl_weight,
@@ -281,7 +283,8 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
              generative_architecture=None, reconstruction_distribution=None,
              number_of_reconstruction_classes=None, count_sum=None,
              proportion_of_free_nats_for_y_kl_divergence=None,
-             minibatch_normalisation=None, dropout_keep_probabilities=None,
+             minibatch_normalisation=None, batch_correction=None,
+             dropout_keep_probabilities=None,
              number_of_warm_up_epochs=None, kl_weight=None,
              minibatch_size=None, run_id=None, models_directory=None,
              included_analyses=None, analysis_level=None,
@@ -409,6 +412,7 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
         proportion_of_free_nats_for_y_kl_divergence=(
             proportion_of_free_nats_for_y_kl_divergence),
         minibatch_normalisation=minibatch_normalisation,
+        batch_correction=batch_correction,
         dropout_keep_probabilities=dropout_keep_probabilities,
         number_of_warm_up_epochs=number_of_warm_up_epochs,
         kl_weight=kl_weight,
@@ -555,14 +559,22 @@ def _setup_model(data_set, model_type=None,
                  reconstruction_distribution=None,
                  number_of_reconstruction_classes=None, count_sum=None,
                  proportion_of_free_nats_for_y_kl_divergence=None,
-                 minibatch_normalisation=None, dropout_keep_probabilities=None,
+                 minibatch_normalisation=None, batch_correction=None,
+                 dropout_keep_probabilities=None,
                  number_of_warm_up_epochs=None, kl_weight=None,
                  models_directory=None):
 
     if model_type is None:
         model_type = defaults["model"]["type"]
+    if batch_correction is None:
+        batch_correction = defaults["model"]["batch_correction"]
 
     feature_size = data_set.number_of_features
+
+    if data_set.batch_indices is None:
+        batch_correction = False
+    else:
+        batch_correction = True
 
     if normalise_string(model_type) == "vae":
         model = VariationalAutoencoder(
@@ -579,6 +591,7 @@ def _setup_model(data_set, model_type=None,
             reconstruction_distribution=reconstruction_distribution,
             number_of_reconstruction_classes=number_of_reconstruction_classes,
             minibatch_normalisation=minibatch_normalisation,
+            batch_correction=batch_correction,
             dropout_keep_probabilities=dropout_keep_probabilities,
             count_sum=count_sum,
             number_of_warm_up_epochs=number_of_warm_up_epochs,
@@ -608,6 +621,7 @@ def _setup_model(data_set, model_type=None,
             reconstruction_distribution=reconstruction_distribution,
             number_of_reconstruction_classes=number_of_reconstruction_classes,
             minibatch_normalisation=minibatch_normalisation,
+            batch_correction=batch_correction,
             dropout_keep_probabilities=dropout_keep_probabilities,
             count_sum=count_sum,
             number_of_warm_up_epochs=number_of_warm_up_epochs,
@@ -875,6 +889,13 @@ def main():
             default=_parse_default(defaults["models"][
                 "minibatch_normalisation"]),
             help="use batch normalisation for minibatches in models"
+        )
+        subparser.add_argument(
+            "--batch-correction", "--bc",
+            action="store_true",
+            default=_parse_default(defaults["models"][
+                "batch_correction"]),
+            help="use batch correction in models"
         )
         subparser.add_argument(
             "--dropout-keep-probabilities",
