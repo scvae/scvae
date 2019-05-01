@@ -83,6 +83,8 @@ def analyse(data_set_file_or_name, data_format=None, data_directory=None,
         all_data_sets = [data_set, training_set, validation_set, test_set]
     else:
         all_data_sets = [data_set]
+        splitting_method = None
+        splitting_fraction = None
 
     analyses_directory = build_directory_path(
         analyses_directory,
