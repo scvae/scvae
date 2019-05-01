@@ -50,7 +50,7 @@ def acquire_data_set(title, urls, directory):
                 continue
 
             url_filename = os.path.split(url)[-1]
-            possible_extensions = url_filename.split(os.extsep)
+            possible_extensions = url_filename.split(os.extsep)[1:]
             extensions = []
 
             for possible_extension in reversed(possible_extensions):
@@ -60,7 +60,7 @@ def acquire_data_set(title, urls, directory):
                 else:
                     break
 
-            extension = os.extsep + ".".join(extensions)
+            extension = os.extsep + os.extsep.join(extensions)
 
             filename = "-".join(
                 map(normalise_string, [title, values_or_labels, kind]))
