@@ -22,6 +22,7 @@ import pickle
 import struct
 import tarfile
 
+import loompy
 import numpy
 import pandas
 import scipy
@@ -273,6 +274,59 @@ def _load_gtex_data_set(paths):
         "example names": example_names,
         "feature names": feature_ids,
         "feature mapping": feature_mapping
+    }
+
+    return data_dictionary
+
+
+@_register_loader("loom")
+def _load_loom_data_set(paths):
+
+    values = labels = example_names = feature_names = batch_indices = None
+
+    with loompy.connect(paths["all"]["full"]) as data_file:
+
+        values = data_file[:, :].T
+        n_examples, n_features = values.shape
+
+        if "ClusterID" in data_file.ca:
+            cluster_ids = data_file.ca["ClusterID"].flatten()
+
+            if "CellTypes" in data_file.attrs:
+                class_names = numpy.array(data_file.attrs["CellTypes"])
+                class_name_from_class_id = numpy.vectorize(
+                    lambda class_id: class_names[int(class_id)]
+                )
+                labels = class_name_from_class_id(cluster_ids)
+            else:
+                if issubclass(cluster_ids.dtype.type, numpy.float):
+                    float_is_integer = numpy.vectorize(
+                        lambda f: f.is_integer())
+                    if float_is_integer(cluster_ids).all():
+                        cluster_ids = cluster_ids.astype(int)
+                labels = cluster_ids
+
+        if "Cell" in data_file.ca:
+            example_names = data_file.ca["Cell"].flatten()
+        else:
+            example_names = numpy.array([
+                "Cell {}".format(j + 1) for j in range(n_examples)])
+
+        if "Gene" in data_file.ra:
+            feature_names = data_file.ra["Gene"].flatten()
+        else:
+            feature_names = numpy.array([
+                "Gene {}".format(j + 1) for j in range(n_features)])
+
+        if "BatchID" in data_file.ca:
+            batch_indices = data_file.ca["BatchID"].flatten()
+
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names,
+        "batch indices": batch_indices
     }
 
     return data_dictionary
