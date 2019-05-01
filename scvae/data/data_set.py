@@ -1279,9 +1279,15 @@ def _create_label_sorter(sorted_class_names=None):
 
         label = str(label)
 
+        if label.isdigit():
+            number = int(label)
+        elif label.isdecimal():
+            number = float(label)
+        else:
+            number = numpy.nan
+
         n_sorted = len(sorted_class_names)
         n_generic = len(GENERIC_CLASS_NAMES)
-        index_width = len(str(n_sorted+n_generic))
 
         if label in sorted_class_names:
             index = sorted_class_names.index(label)
@@ -1290,8 +1296,8 @@ def _create_label_sorter(sorted_class_names=None):
         else:
             index = n_sorted + n_generic
 
-        label = "{:{}d} {}".format(index, index_width, label)
+        sort_key = [number, index, label]
 
-        return label
+        return sort_key
 
     return sort_key_for_label
