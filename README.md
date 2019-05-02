@@ -44,9 +44,9 @@ All included data sets are downloaded and processed automatically as needed.
 
 You will first need to install its dependencies by yourself. This can be done by running
 
-	$ pip install numpy scipy scikit-learn tensorflow-gpu tensorflow-probability-gpu pandas tables matplotlib seaborn pillow
+	$ pip install numpy scipy scikit-learn tensorflow-gpu tensorflow-probability pandas tables loompy matplotlib seaborn pillow importlib_resources
 
-(If you do not have a GPU supported by TensorFlow, install the standard version by replacing `tensorflow-gpu` and `tensorflow-probability-gpu` with `tensorflow` and `tensorflow-probability`, respectively.)
+(If you do not have a GPU supported by TensorFlow, install the standard version by replacing `tensorflow-gpu` with `tensorflow`.)
 
 After this, you can clone this tool to an appropriate folder:
 
