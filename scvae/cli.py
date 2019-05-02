@@ -571,10 +571,8 @@ def _setup_model(data_set, model_type=None,
 
     feature_size = data_set.number_of_features
 
-    if data_set.batch_indices is None:
+    if not data_set.has_batches:
         batch_correction = False
-    else:
-        batch_correction = True
 
     if normalise_string(model_type) == "vae":
         model = VariationalAutoencoder(

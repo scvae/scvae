@@ -818,6 +818,34 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                             )
                         )
 
+            # Batches
+            if colouring_data_set.has_batches:
+                plot_time_start = time()
+                figure, figure_name = figures.plot_values(
+                    plot_values_decomposed,
+                    colour_coding="batches",
+                    colouring_data_set=colouring_data_set,
+                    centroids=centroids_decomposed,
+                    figure_labels=figure_labels,
+                    example_tag=data_set.tags["example"],
+                    name=name,
+                )
+                figures.save_figure(
+                    figure=figure,
+                    name=figure_name,
+                    options=export_options,
+                    directory=decompositions_directory
+                )
+                plot_duration = time() - plot_time_start
+                print(
+                    "    "
+                    "{} (with batches) plotted and saved ({})."
+                    .format(
+                        capitalise_string(title),
+                        format_duration(plot_duration)
+                    )
+                )
+
             # Cluster IDs
             if colouring_data_set.has_predicted_cluster_ids:
                 plot_time_start = time()

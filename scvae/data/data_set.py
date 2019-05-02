@@ -173,6 +173,8 @@ class DataSet(object):
         self.example_names = None
         self.feature_names = None
         self.batch_indices = None
+        self.batch_names = None
+        self.number_of_batches = None
         self.class_names = None
         self.number_of_examples = None
         self.number_of_features = None
@@ -398,6 +400,10 @@ class DataSet(object):
         return self.superset_labels is not None
 
     @property
+    def has_batches(self):
+        return self.batch_indices is not None
+
+    @property
     def has_predictions(self):
         return self.has_predicted_labels or self.has_predicted_cluster_ids
 
@@ -581,6 +587,8 @@ class DataSet(object):
 
         if batch_indices is not None:
             self.batch_indices = batch_indices.reshape(-1, 1)
+            self.batch_names = numpy.unique(self.batch_indices)
+            self.number_of_batches = len(self.batch_names)
 
     def update_predictions(self,
                            prediction_specifications=None,
@@ -1133,6 +1141,8 @@ class DataSet(object):
         self.example_names = None
         self.feature_names = None
         self.batch_indices = None
+        self.batch_names = None
+        self.number_of_batches = None
         self.class_names = None
         self.number_of_examples = None
         self.number_of_features = None

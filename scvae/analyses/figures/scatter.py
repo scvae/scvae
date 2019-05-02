@@ -83,7 +83,8 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
     if colour_coding and (
             "labels" in colour_coding
             or "ids" in colour_coding
-            or "class" in colour_coding):
+            or "class" in colour_coding
+            or colour_coding == "batches"):
 
         if colour_coding == "predicted_cluster_ids":
             labels = colouring_data_set.predicted_cluster_ids
@@ -110,6 +111,12 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
             number_of_classes = colouring_data_set.number_of_superset_classes
             class_palette = colouring_data_set.superset_class_palette
             label_sorter = colouring_data_set.superset_label_sorter
+        elif colour_coding == "batches":
+            labels = colouring_data_set.batch_indices.flatten()
+            class_names = colouring_data_set.batch_names
+            number_of_classes = colouring_data_set.number_of_batches
+            class_palette = None
+            label_sorter = None
         else:
             labels = colouring_data_set.labels
             class_names = colouring_data_set.class_names
@@ -127,7 +134,8 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
         # Examples are shuffled, so should their labels be
         labels = labels[shuffled_indices]
 
-        if "labels" in colour_coding or "ids" in colour_coding:
+        if ("labels" in colour_coding or "ids" in colour_coding
+                or colour_coding == "batches"):
             colours = []
             classes = set()
 
@@ -215,7 +223,7 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
                 handles, labels = axis.get_legend_handles_labels()
                 labels, handles = zip(*sorted(
                     zip(labels, handles),
-                    key=lambda t: label_sorter(t[0])
+                    key=lambda t: label_sorter(t[0]) if label_sorter else None
                 ))
                 axis.legend(
                     handles,
@@ -267,8 +275,12 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
         colour_bar.outline.set_linewidth(0)
         colour_bar.set_label(feature_name)
 
-    else:
+    elif colour_coding is None:
         axis.scatter(values[:, 0], values[:, 1], c=[style.NEUTRAL_COLOUR])
+
+    else:
+        raise ValueError(
+            "Colour coding `{}` not found.".format(colour_coding))
 
     if centroids:
         prior_centroids = centroids["prior"]
