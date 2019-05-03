@@ -47,6 +47,7 @@
 		"number_of_epochs": 200,
 		"minibatch_size": 100,
 		"learning_rate": 1e-4,
+		"sample_size": 0,
 		"run_id": "",
 		"new_run": false,
 		"reset_training": false

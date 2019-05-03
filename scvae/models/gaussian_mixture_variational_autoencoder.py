@@ -120,6 +120,8 @@ class GaussianMixtureVariationalAutoencoder(object):
             if prior_probabilities is None:
                 raise TypeError(
                     "No prior probabilities supplied for `infer` method.")
+            elif isinstance(prior_probabilities, dict):
+                prior_probabilities = list(prior_probabilities.values())
         else:
             raise NotImplementedError(
                 "`{}` method for setting prior probabilities not implemented."
@@ -326,6 +328,12 @@ class GaussianMixtureVariationalAutoencoder(object):
                     self.count_sum_parameter,
                     multiples=[self.n_iw_samples * self.n_mc_samples, 1]
                 )
+
+            self.sample_size = tf.placeholder(
+                dtype=tf.int32,
+                shape=[],
+                name="sample_size"
+            )
 
             self._setup_model_graph()
             self._setup_loss_function()
@@ -1731,6 +1739,198 @@ class GaussianMixtureVariationalAutoencoder(object):
 
             return 0
 
+    def sample(self, sample_size=None, minibatch_size=None, run_id=None,
+               use_early_stopping_model=False, use_best_model=False):
+
+        if sample_size is None:
+            sample_size = defaults["models"]["sample_size"]
+        if minibatch_size is None:
+            minibatch_size = defaults["models"]["minibatch_size"]
+
+        if run_id is None:
+            run_id = defaults["models"]["run_id"]
+        if run_id:
+            run_id = check_run_id(run_id)
+            model_string = "model for run {}".format(run_id)
+        else:
+            model_string = "model"
+
+        batch_indices_samples = None
+        if self.batch_correction:
+            raise NotImplementedError("Sampling with batch correction.")
+
+        if self.use_count_sum_as_parameter:
+            raise NotImplementedError(
+                "Sampling with count sum as reconstruction distribution "
+                "parameter.")
+
+        if self.use_count_sum_as_feature:
+            raise NotImplementedError(
+                "Sampling with count sum as additional latent feature.")
+
+        log_directory = self.log_directory(
+            run_id=run_id,
+            early_stopping=use_early_stopping_model,
+            best_model=use_best_model
+        )
+
+        checkpoint = tf.train.get_checkpoint_state(log_directory)
+
+        with tf.Session(graph=self.graph) as session:
+
+            if checkpoint:
+                model_checkpoint_path = correct_model_checkpoint_path(
+                    checkpoint.model_checkpoint_path,
+                    log_directory
+                )
+                self.saver.restore(session, model_checkpoint_path)
+            else:
+                raise Exception(
+                    "Cannot evaluate {} when it has not been trained.".format(
+                        model_string)
+                )
+
+            print("Sampling {} examples from {}.".format(
+                sample_size, model_string))
+            sampling_time_start = time()
+
+            y_samples = numpy.empty(
+                shape=(sample_size, self.n_clusters),
+                dtype=numpy.int32
+            )
+            z_mean_samples = numpy.empty(
+                shape=(sample_size, self.latent_size),
+                dtype=numpy.float32
+            )
+            x_mean = numpy.empty(
+                shape=(sample_size, self.feature_size),
+                dtype=numpy.float32
+            )
+
+            for i in range(0, sample_size, minibatch_size):
+
+                indices = numpy.arange(
+                    i, min(i + minibatch_size, sample_size))
+                minibatch_sample_size = len(indices)
+
+                (y_samples_i, z_mean_samples_i, z_samples_i) = session.run(
+                    [
+                        self.p_y_samples, self.p_z_mean_samples,
+                        self.p_z_samples
+                    ],
+                    feed_dict={self.sample_size: minibatch_sample_size}
+                )
+                y_samples[indices] = y_samples_i
+                z_mean_samples[indices] = z_mean_samples_i
+
+                feed_dict_batch = {
+                    self.y: y_samples_i,
+                    self.is_training: False,
+                    self.n_iw_samples: 1,
+                    self.n_mc_samples: 1
+                }
+                feed_dict_batch.update({
+                    self.z[k]: z_samples_i[k] for k in range(self.n_clusters)
+                })
+
+                # if self.batch_correction:
+                #     feed_dict_batch[self.batch_indices] = (
+                #         batch_indices_samples[indices])
+
+                # if self.use_count_sum_as_parameter:
+                #     feed_dict_batch[self.count_sum_parameter] = (
+                #         count_sum_parameter_samples[indices])
+
+                # if self.use_count_sum_as_feature:
+                #     feed_dict_batch[self.count_sum_feature] = (
+                #         count_sum_feature_samples[indices])
+
+                x_mean_i = session.run(
+                    self.p_x_mean,
+                    feed_dict=feed_dict_batch
+                )
+                x_mean[indices] = x_mean_i
+
+            sampling_duration = time() - sampling_time_start
+
+            # Print evaluation
+            print("Examples sampled ({}).".format(format_duration(
+                sampling_duration)))
+
+            # Data sets
+
+            title = "Sampled data set"
+            name = normalise_string(title)
+            specifications = dict()
+            sample_names = numpy.array([
+                "sample {}".format(i + 1) for i in range(sample_size)])
+            feature_names = numpy.array([
+                "feature {}".format(i + 1) for i in range(self.feature_size)])
+
+            sample_reconstruction_set = DataSet(
+                name,
+                title=title,
+                specifications=specifications,
+                values=x_mean,
+                preprocessed_values=None,
+                labels=None,
+                example_names=sample_names,
+                feature_names=feature_names,
+                batch_indices=batch_indices_samples,
+                feature_selection=None,
+                example_filter=None,
+                preprocessing_methods=None,
+                kind="sample",
+                version="reconstructed"
+            )
+
+            sample_z_set = DataSet(
+                name,
+                title=title,
+                specifications=specifications,
+                values=z_mean_samples,
+                preprocessed_values=None,
+                labels=None,
+                example_names=sample_names,
+                feature_names=numpy.array([
+                    "z variable {}".format(i + 1)
+                    for i in range(self.latent_size)
+                ]),
+                batch_indices=batch_indices_samples,
+                feature_selection=None,
+                example_filter=None,
+                preprocessing_methods=None,
+                kind="sample",
+                version="z"
+            )
+
+            sample_y_set = DataSet(
+                name,
+                title=title,
+                specifications=specifications,
+                values=y_samples,
+                preprocessed_values=None,
+                labels=None,
+                example_names=sample_names,
+                feature_names=numpy.array([
+                    "y variable {}".format(i + 1)
+                    for i in range(self.n_clusters)
+                ]),
+                batch_indices=batch_indices_samples,
+                feature_selection=None,
+                example_filter=None,
+                preprocessing_methods=None,
+                kind="sample",
+                version="y"
+            )
+
+            sample_latent_sets = {
+                "z": sample_z_set,
+                "y": sample_y_set
+            }
+
+            return sample_reconstruction_set, sample_latent_sets
+
     def evaluate(self, evaluation_set, evaluation_subset_indices=None,
                  minibatch_size=None, run_id=None,
                  use_early_stopping_model=False, use_best_model=False,
@@ -1881,11 +2081,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                 epoch = int(
                     os.path.split(model_checkpoint_path)[-1].split("-")[-1])
             else:
-                print(
+                raise Exception(
                     "Cannot evaluate {} when it has not been trained.".format(
                         model_string)
                 )
-                return [None] * len(output_versions)
 
             data_string = build_data_string(
                 evaluation_set, self.reconstruction_distribution_name)
@@ -2305,37 +2504,36 @@ class GaussianMixtureVariationalAutoencoder(object):
                 if self.prior_probabilities_method != "uniform":
                     self.p_y_probabilities = tf.constant(
                         self.prior_probabilities)
-                    self.p_y_logits = tf.reshape(
-                        tf.log(self.p_y_probabilities),
-                        shape=[1, self.n_clusters]
-                    )
-                    self.p_y = tfp.distributions.Categorical(
-                        logits=self.p_y_logits)
                 else:
                     self.p_y_probabilities = (
                         tf.ones(self.n_clusters) / self.n_clusters)
 
-                self.p_y_logits = tf.reshape(
+                p_y_logits = tf.reshape(
                     tf.log(self.p_y_probabilities),
-                    [1, 1, self.n_clusters]
+                    shape=[1, self.n_clusters]
+                )
+                self.p_y = tfp.distributions.Categorical(logits=p_y_logits)
+
+                p_y_samples = self.p_y.sample(sample_shape=(
+                    self.sample_size))
+                self.p_y_samples = tf.squeeze(
+                    tf.one_hot(
+                        indices=p_y_samples,
+                        depth=self.n_clusters
+                    ),
+                    axis=1
                 )
 
             # q(y|x) = Cat(pi(x))
-            self.y_ = tf.fill(
-                tf.stack(
-                    [tf.shape(self.x)[0], self.n_clusters],
-                    axis=0
-                ),
-                value=0.0
-            )
+            identity_matrix = numpy.eye(self.n_clusters)
             y = [
-                tf.add(
-                    self.y_,
+                tf.reshape(
                     tf.constant(
-                        numpy.eye(self.n_clusters)[k],
+                        identity_matrix[k],
                         name="hot_at_{:d}".format(k),
                         dtype=tf.float32
-                    )
+                    ),
+                    shape=(-1, self.n_clusters)
                 )
                 for k in range(self.n_clusters)
             ]
@@ -2381,9 +2579,20 @@ class GaussianMixtureVariationalAutoencoder(object):
                 self.q_z_variances.append(tf.reduce_mean(
                     tf.square(self.q_z_given_x_y[k].stddev()), axis=[0, 1, 2]))
 
-            self.q_y_given_x_probs = self.q_y_given_x.probs
+            self.y = self.q_y_given_x.probs
             self.z_mean = tf.add_n([
-                z_mean[k] * tf.expand_dims(self.q_y_given_x_probs[:, k], -1)
+                z_mean[k] * tf.expand_dims(self.y[:, k], -1)
+                for k in range(self.n_clusters)
+            ])
+
+            self.p_z_samples = [
+                tf.squeeze(
+                    self.p_z_given_y[k].sample(sample_shape=(self.sample_size))
+                ) for k in range(self.n_clusters)
+            ]
+            self.p_z_mean_samples = tf.add_n([
+                self.p_z_samples[k] * tf.expand_dims(
+                    self.p_y_samples[:, k], -1)
                 for k in range(self.n_clusters)
             ])
 
@@ -2400,7 +2609,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     self.z[k], reuse=reuse_weights)
 
         # (B, K)
-        self.y_mean = self.q_y_given_x_probs
+        self.y_mean = self.y
         # (R, L, Bs, K)
         self.q_y_logits = tf.reshape(
             self.q_y_given_x.logits, shape=[1, -1, self.n_clusters])
@@ -2417,6 +2626,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         # Encoder for q(z|x,y_i=1) = N(mu(x,y_i=1), sigma^2(x,y_i=1))
         with tf.variable_scope("Q"):
             distribution = DISTRIBUTIONS[distribution_name]
+            y = tf.broadcast_to(y, shape=(tf.shape(self.x)[0], tf.shape(y)[1]))
             xy = tf.concat((self.x, y), axis=-1)
             encoder = dense_layers(
                 inputs=xy,
@@ -2756,7 +2966,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             kl_divergence_z_mean[k] = tf.reduce_mean(
                 kl_divergence_z[k],
                 axis=(0, 1)
-            ) * self.q_y_given_x_probs[:, k]
+            ) * self.y[:, k]
 
             # (R, L, B, F)
             p_x_given_z_log_prob = self.p_x_given_z[k].log_prob(t_tiled)
@@ -2773,7 +2983,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             log_p_x_given_z_mean[k] = tf.reduce_mean(
                 log_p_x_given_z,
                 axis=(0, 1)
-            ) * self.q_y_given_x_probs[:, k]
+            ) * self.y[:, k]
 
             # (R * L * B, F) --> (R, L, B, F)
             p_x_given_z_mean = tf.reshape(
@@ -2793,7 +3003,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     axis=1
                 ),
                 axis=0
-            ) * tf.expand_dims(self.q_y_given_x_probs[:, k], -1)
+            ) * tf.expand_dims(self.y[:, k], -1)
 
             # Reconstruction standard deviation:
             #      sqrt(V[x]) = sqrt(E[V[x|z]] + V[E[x|z]])
@@ -2816,7 +3026,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     axis=1
                 ),
                 axis=0
-            ) * tf.expand_dims(self.q_y_given_x_probs[:, k], -1)
+            ) * tf.expand_dims(self.y[:, k], -1)
 
             # Estimated variance of likelihood expectation:
             # ^V[E[x|z]] = ( E[x|z_l] - Ê[x] )^2
@@ -2832,7 +3042,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     axis=1
                 ),
                 axis=0
-            ) * tf.expand_dims(self.q_y_given_x_probs[:, k], -1)
+            ) * tf.expand_dims(self.y[:, k], -1)
 
         # Marginalise y out in list by add_n and reshape from
         # K * [(B, F)] --> (B, F)

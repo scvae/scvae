@@ -327,6 +327,12 @@ class VariationalAutoencoder:
                 name="number_of_mc_samples"
             )
 
+            self.sample_size = tf.placeholder(
+                dtype=tf.int32,
+                shape=[],
+                name="sample_size"
+            )
+
             self._setup_model_graph()
             self._setup_loss_function()
             self._setup_optimiser()
@@ -1480,6 +1486,165 @@ class VariationalAutoencoder:
 
             return 0
 
+    def sample(self, sample_size=None, minibatch_size=None, run_id=None,
+               use_early_stopping_model=False, use_best_model=False):
+
+        if sample_size is None:
+            sample_size = defaults["models"]["sample_size"]
+        if minibatch_size is None:
+            minibatch_size = defaults["models"]["minibatch_size"]
+
+        if run_id is None:
+            run_id = defaults["models"]["run_id"]
+        if run_id:
+            run_id = check_run_id(run_id)
+            model_string = "model for run {}".format(run_id)
+        else:
+            model_string = "model"
+
+        batch_indices_samples = None
+        if self.batch_correction:
+            raise NotImplementedError("Sampling with batch correction.")
+
+        if self.use_count_sum_as_parameter:
+            raise NotImplementedError(
+                "Sampling with count sum as reconstruction distribution "
+                "parameter.")
+
+        if self.use_count_sum_as_feature:
+            raise NotImplementedError(
+                "Sampling with count sum as additional latent feature.")
+
+        log_directory = self.log_directory(
+            run_id=run_id,
+            early_stopping=use_early_stopping_model,
+            best_model=use_best_model
+        )
+
+        checkpoint = tf.train.get_checkpoint_state(log_directory)
+
+        with tf.Session(graph=self.graph) as session:
+
+            if checkpoint:
+                model_checkpoint_path = correct_model_checkpoint_path(
+                    checkpoint.model_checkpoint_path,
+                    log_directory
+                )
+                self.saver.restore(session, model_checkpoint_path)
+            else:
+                raise Exception(
+                    "Cannot evaluate {} when it has not been trained.".format(
+                        model_string)
+                )
+
+            print("Sampling {} examples from {}.".format(
+                sample_size, model_string))
+            sampling_time_start = time()
+
+            z_samples = numpy.empty(
+                shape=(sample_size, self.latent_size),
+                dtype=numpy.float32
+            )
+
+            x_mean = numpy.empty(
+                shape=(sample_size, self.feature_size),
+                dtype=numpy.float32
+            )
+
+            for i in range(0, sample_size, minibatch_size):
+
+                indices = numpy.arange(
+                    i, min(i + minibatch_size, sample_size))
+                minibatch_sample_size = len(indices)
+
+                z_samples_i = session.run(
+                    self.p_z_samples,
+                    feed_dict={self.sample_size: minibatch_sample_size}
+                )
+                z_samples[indices] = z_samples_i
+
+                feed_dict_batch = {
+                    self.z: z_samples[indices],
+                    self.is_training: False,
+                    self.number_of_iw_samples: 1,
+                    self.number_of_mc_samples: 1
+                }
+
+                # if self.batch_correction:
+                #     feed_dict_batch[self.batch_indices] = (
+                #         batch_indices_samples[indices])
+
+                # if self.use_count_sum_as_parameter:
+                #     feed_dict_batch[self.count_sum_parameter] = (
+                #         count_sum_parameter_samples[indices])
+
+                # if self.use_count_sum_as_feature:
+                #     feed_dict_batch[self.count_sum_feature] = (
+                #         count_sum_feature_samples[indices])
+
+                x_mean_i = session.run(
+                    self.p_x_mean,
+                    feed_dict=feed_dict_batch
+                )
+                x_mean[indices] = x_mean_i
+
+            sampling_duration = time() - sampling_time_start
+
+            # Print evaluation
+            print("Examples sampled ({}).".format(format_duration(
+                sampling_duration)))
+
+            # Data sets
+
+            title = "Sampled data set"
+            name = normalise_string(title)
+            specifications = dict()
+            sample_names = numpy.array([
+                "sample {}".format(i + 1) for i in range(sample_size)])
+            feature_names = numpy.array([
+                "feature {}".format(i + 1) for i in range(self.feature_size)])
+
+            sample_reconstruction_set = DataSet(
+                name,
+                title=title,
+                specifications=specifications,
+                values=x_mean,
+                preprocessed_values=None,
+                labels=None,
+                example_names=sample_names,
+                feature_names=feature_names,
+                batch_indices=batch_indices_samples,
+                feature_selection=None,
+                example_filter=None,
+                preprocessing_methods=None,
+                kind="sample",
+                version="reconstructed"
+            )
+
+            sample_z_set = DataSet(
+                name,
+                title=title,
+                specifications=specifications,
+                values=z_samples,
+                preprocessed_values=None,
+                labels=None,
+                example_names=sample_names,
+                feature_names=numpy.array(["latent variable {}".format(
+                    i + 1) for i in range(self.latent_size)]),
+                batch_indices=batch_indices_samples,
+                feature_selection=None,
+                example_filter=None,
+                preprocessing_methods=None,
+                kind="sample",
+                version="z"
+            )
+
+            sample_latent_sets = {
+                "z": sample_z_set
+            }
+
+            return sample_reconstruction_set, sample_latent_sets
+
     def evaluate(self, evaluation_set, evaluation_subset_indices=None,
                  minibatch_size=None, run_id=None,
                  use_early_stopping_model=False, use_best_model=False,
@@ -1593,11 +1758,10 @@ class VariationalAutoencoder:
                 epoch = int(
                     os.path.split(model_checkpoint_path)[-1].split("-")[-1])
             else:
-                print(
+                raise Exception(
                     "Cannot evaluate {} when it has not been trained.".format(
                         model_string)
                 )
-                return [None] * len(output_versions)
 
             data_string = build_data_string(
                 evaluation_set, self.reconstruction_distribution_name)
@@ -2045,6 +2209,9 @@ class VariationalAutoencoder:
             self.p_z_probabilities.append(tf.constant(1.))
             self.p_z_means.append(tf.squeeze(self.p_z.mean()))
             self.p_z_variances.append(tf.squeeze(self.p_z.stddev()))
+
+        self.p_z_samples = tf.squeeze(
+            self.p_z.sample(sample_shape=(self.sample_size, self.latent_size)))
 
         # Decoder - Generative model, p(x|z)
 
