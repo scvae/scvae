@@ -36,6 +36,7 @@ from scvae.analyses.figures.cross_model import (
     plot_model_metrics, plot_model_metric_sets
 )
 from scvae.analyses.metrics import format_summary_statistics
+from scvae.defaults import defaults
 from scvae.utilities import (
     format_time,
     normalise_string, proper_string, capitalise_string,
@@ -258,7 +259,10 @@ def cross_analyse(analyses_directory,
                   epoch_cut_off=None,
                   other_methods=None,
                   export_options=None,
-                  log_summary=False):
+                  log_summary=None):
+
+    if log_summary is None:
+        log_summary = defaults["cross_analysis"]["log_summary"]
 
     search_strings_sets = [
         {

@@ -39,8 +39,7 @@ from scvae.models.utilities import (
 )
 from scvae.utilities import (
     title, subtitle, heading,
-    normalise_string,  # proper_string,
-    enumerate_strings,
+    normalise_string, enumerate_strings,
     remove_empty_directories
 )
 
@@ -548,6 +547,35 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
     return 0
 
 
+def cross_analyse(analyses_directory,
+                  include_data_sets=None, exclude_data_sets=None,
+                  include_models=None, exclude_models=None,
+                  include_prediction_methods=None,
+                  exclude_prediction_methods=None,
+                  extra_model_specification_for_plots=None,
+                  epoch_cut_off=None, other_methods=None,
+                  export_options=None, log_summary=None,
+                  **keyword_arguments):
+    """Cross-analyse models and results for split data sets."""
+
+    analyses.cross_analysis.cross_analyse(
+        analyses_directory=analyses_directory,
+        data_set_included_strings=include_data_sets,
+        data_set_excluded_strings=exclude_data_sets,
+        model_included_strings=include_models,
+        model_excluded_strings=exclude_models,
+        prediction_included_strings=include_prediction_methods,
+        prediction_excluded_strings=exclude_prediction_methods,
+        additional_other_option=extra_model_specification_for_plots,
+        epoch_cut_off=epoch_cut_off,
+        other_methods=other_methods,
+        export_options=export_options,
+        log_summary=log_summary
+    )
+
+    return 0
+
+
 def _setup_model(data_set, model_type=None,
                  latent_size=None, hidden_sizes=None,
                  number_of_importance_samples=None,
@@ -678,6 +706,12 @@ def main():
     model_subparsers.append(parser_evaluate)
     evaluation_subparsers.append(parser_evaluate)
     analysis_subparsers.append(parser_evaluate)
+
+    parser_cross_analyse = subparsers.add_parser(
+        name="cross-analyse",
+        description="Cross-analyse models and results on withheld data sets.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_cross_analyse.set_defaults(func=cross_analyse)
 
     for subparser in data_set_subparsers:
         subparser.add_argument(
@@ -1065,6 +1099,80 @@ def main():
                 "early-stopping"
             )
         )
+
+    parser_cross_analyse.add_argument(
+        "analyses_directory",
+        metavar="ANALYSES_DIRECTORY",
+        help="directory where analyses were saved"
+    )
+    parser_cross_analyse.add_argument(
+        "--include-data-sets", "-d",
+        metavar="TEXT",
+        nargs="+",
+        help="only include data set that match TEXT"
+    )
+    parser_cross_analyse.add_argument(
+        "--exclude-data-sets", "-D",
+        metavar="TEXT",
+        nargs="+",
+        help="exclude data sets that match TEXT"
+    )
+    parser_cross_analyse.add_argument(
+        "--include-models", "-m",
+        metavar="TEXT",
+        nargs="+",
+        help="only include models that match TEXT"
+    )
+    parser_cross_analyse.add_argument(
+        "--exclude-models", "-M",
+        metavar="TEXT",
+        nargs="+",
+        help="exclude models that match TEXT"
+    )
+    parser_cross_analyse.add_argument(
+        "--include-prediction-methods", "-p",
+        metavar="TEXT",
+        nargs="+",
+        help="only include prediction methods that match TEXT"
+    )
+    parser_cross_analyse.add_argument(
+        "--exclude-prediction-methods", "-P",
+        metavar="TEXT",
+        nargs="+",
+        help="exclude prediction methods that match TEXT"
+    )
+    parser_cross_analyse.add_argument(
+        "--extra-model-specification-for-plots", "-a",
+        metavar="SPECIFICATION",
+        help=(
+            "extra model specification required in model metrics plots"
+        )
+    )
+    parser_cross_analyse.add_argument(
+        "--epoch-cut-off", "-e",
+        metavar="EPOCH_NUMBER",
+        type=int,
+        help="exclude models trained for longer than this number of epochs"
+    )
+    parser_cross_analyse.add_argument(
+        "--other-methods", "-o",
+        metavar="METHOD",
+        nargs="+",
+        help="other methods to plot in model metrics plot, if available"
+    )
+    parser_cross_analyse.add_argument(
+        "--export-options",
+        metavar="OPTION",
+        nargs="+",
+        default=_parse_default(defaults["analyses"]["export_options"]),
+        help="export options for cross-analyses"
+    )
+    parser_cross_analyse.add_argument(
+        "--log-summary", "-s",
+        action="store_true",
+        default=_parse_default(defaults["cross_analysis"]["log_summary"]),
+        help="log summary (saved in ANALYSES_DIRECTORY)"
+    )
 
     arguments = parser.parse_args()
     status = arguments.func(**vars(arguments))
