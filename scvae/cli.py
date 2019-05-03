@@ -289,9 +289,9 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
              included_analyses=None, analysis_level=None,
              decomposition_methods=None, highlight_feature_indices=None,
              export_options=None, analyses_directory=None,
-             evaluation_set_kind=None, prediction_method=None,
-             prediction_training_set_kind=None, model_versions=None,
-             **keyword_arguments):
+             evaluation_set_kind=None, sample_size=None,
+             prediction_method=None, prediction_training_set_kind=None,
+             model_versions=None, **keyword_arguments):
     """Evaluate model on data set."""
 
     if split_data_set is None:
@@ -304,6 +304,8 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
         models_directory = defaults["models"]["directory"]
     if evaluation_set_kind is None:
         evaluation_set_kind = defaults["evaluation"]["data_set_name"]
+    if sample_size is None:
+        sample_size = defaults["models"]["sample_size"]
     if prediction_method is None:
         prediction_method = defaults["evaluation"]["prediction_method"]
     if prediction_training_set_kind is None:
@@ -487,6 +489,21 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
             use_early_stopping_model=use_early_stopping_model
         )
         print()
+
+        if sample_size:
+            print(heading("{} sampling".format(
+                model_version.replace("_", "-").capitalize())))
+
+            sample_reconstruction_set, __ = model.sample(
+                sample_size=sample_size,
+                minibatch_size=minibatch_size,
+                run_id=run_id,
+                use_best_model=use_best_model,
+                use_early_stopping_model=use_early_stopping_model
+            )
+            print()
+        else:
+            sample_reconstruction_set = None
 
         if prediction_method:
             print(heading("{} prediction".format(
@@ -1074,6 +1091,13 @@ def main():
                 "kind of subset to evaluate and analyse: "
                 "training, validation, test (default), or full"
             )
+        )
+        subparser.add_argument(
+            "--sample-size",
+            metavar="SIZE",
+            type=int,
+            default=_parse_default(defaults["models"]["sample_size"]),
+            help="sample size for sampling model"
         )
         subparser.add_argument(
             "--prediction-method", "-P",
