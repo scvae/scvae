@@ -594,6 +594,11 @@ class DataSet(object):
             self.binarised_values = binarised_values
 
         if batch_indices is not None:
+            batch_indices_int = batch_indices.astype(int)
+            if (batch_indices == batch_indices_int).all():
+                batch_indices = batch_indices_int
+            else:
+                raise TypeError("Batch indices should be integers.")
             self.batch_indices = batch_indices.reshape(-1, 1)
 
             if batch_names is None:
