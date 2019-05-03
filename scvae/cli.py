@@ -598,6 +598,7 @@ def _setup_model(data_set, model_type=None,
         batch_correction = defaults["model"]["batch_correction"]
 
     feature_size = data_set.number_of_features
+    number_of_batches = data_set.number_of_batches
 
     if not data_set.has_batches:
         batch_correction = False
@@ -618,6 +619,7 @@ def _setup_model(data_set, model_type=None,
             number_of_reconstruction_classes=number_of_reconstruction_classes,
             minibatch_normalisation=minibatch_normalisation,
             batch_correction=batch_correction,
+            number_of_batches=number_of_batches,
             dropout_keep_probabilities=dropout_keep_probabilities,
             count_sum=count_sum,
             number_of_warm_up_epochs=number_of_warm_up_epochs,
@@ -648,6 +650,7 @@ def _setup_model(data_set, model_type=None,
             number_of_reconstruction_classes=number_of_reconstruction_classes,
             minibatch_normalisation=minibatch_normalisation,
             batch_correction=batch_correction,
+            number_of_batches=number_of_batches,
             dropout_keep_probabilities=dropout_keep_probabilities,
             count_sum=count_sum,
             number_of_warm_up_epochs=number_of_warm_up_epochs,

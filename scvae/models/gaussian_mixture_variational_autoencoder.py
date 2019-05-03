@@ -58,6 +58,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                  number_of_importance_samples=None,
                  minibatch_normalisation=None,
                  batch_correction=None,
+                 number_of_batches=None,
                  proportion_of_free_nats_for_y_kl_divergence=None,
                  dropout_keep_probabilities=None,
                  count_sum=None,
@@ -160,6 +161,14 @@ class GaussianMixtureVariationalAutoencoder(object):
         if batch_correction is None:
             batch_correction = defaults["models"]["batch_correction"]
         self.batch_correction = batch_correction
+
+        if self.batch_correction:
+            if number_of_batches is None:
+                raise TypeError(
+                    "The number of batches for batch correction was not "
+                    "provided"
+                )
+        self.number_of_batches = number_of_batches
 
         if proportion_of_free_nats_for_y_kl_divergence is None:
             proportion_of_free_nats_for_y_kl_divergence = defaults["models"][
@@ -296,7 +305,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
             if self.batch_correction:
                 self.batch_indices = tf.placeholder(
-                    dtype=tf.float32,
+                    dtype=tf.int32,
                     shape=[None, 1],
                     name="batch_indices"
                 )
@@ -2557,8 +2566,15 @@ class GaussianMixtureVariationalAutoencoder(object):
         # Make sure we use a replication per sample of the feature sum,
         # when adding this to the features
         if self.batch_correction:
+            batch_indices_one_hot = tf.squeeze(
+                tf.one_hot(
+                    indices=self.batch_indices,
+                    depth=self.number_of_batches
+                ),
+                axis=1
+            )
             replicated_batch_indices = tf.tile(
-                self.batch_indices,
+                batch_indices_one_hot,
                 multiples=[self.n_iw_samples * self.n_mc_samples, 1],
                 name="BATCH_INDICES"
             )

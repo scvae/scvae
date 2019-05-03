@@ -58,6 +58,7 @@ class VariationalAutoencoder:
                  generative_architecture=None,
                  minibatch_normalisation=None,
                  batch_correction=None,
+                 number_of_batches=None,
                  dropout_keep_probabilities=None,
                  count_sum=None,
                  kl_weight=None,
@@ -166,6 +167,14 @@ class VariationalAutoencoder:
             batch_correction = defaults["models"]["batch_correction"]
         self.batch_correction = batch_correction
 
+        if self.batch_correction:
+            if number_of_batches is None:
+                raise TypeError(
+                    "The number of batches for batch correction was not "
+                    "provided"
+                )
+        self.number_of_batches = number_of_batches
+
         # Dropout keep probabilities (p) for 3 different kinds of layers
         if dropout_keep_probabilities is None:
             dropout_keep_probabilities = defaults["models"][
@@ -243,7 +252,7 @@ class VariationalAutoencoder:
 
             if self.batch_correction:
                 self.batch_indices = tf.placeholder(
-                    dtype=tf.float32,
+                    dtype=tf.int32,
                     shape=[None, 1],
                     name="batch_indices"
                 )
@@ -2045,16 +2054,23 @@ class VariationalAutoencoder:
             replicated_count_sum_parameter = tf.tile(
                 self.count_sum_parameter,
                 multiples=[
-                    self.number_of_iw_samples*self.number_of_mc_samples, 1]
+                    self.number_of_iw_samples * self.number_of_mc_samples, 1]
             )
 
         decoder_inputs = [self.z]
 
         if self.batch_correction:
+            batch_indices_one_hot = tf.squeeze(
+                tf.one_hot(
+                    indices=self.batch_indices,
+                    depth=self.number_of_batches
+                ),
+                axis=1
+            )
             replicated_batch_indices = tf.tile(
-                self.batch_indices,
+                batch_indices_one_hot,
                 multiples=[
-                    self.number_of_iw_samples*self.number_of_mc_samples, 1],
+                    self.number_of_iw_samples * self.number_of_mc_samples, 1],
                 name="BATCH_INDICES"
             )
             decoder_inputs.append(replicated_batch_indices)
@@ -2063,7 +2079,7 @@ class VariationalAutoencoder:
             replicated_count_sum_feature = tf.tile(
                 self.count_sum_feature,
                 multiples=[
-                    self.number_of_iw_samples*self.number_of_mc_samples, 1],
+                    self.number_of_iw_samples * self.number_of_mc_samples, 1],
                 name="COUNT_SUM"
             )
             decoder_inputs.append(replicated_count_sum_feature)
