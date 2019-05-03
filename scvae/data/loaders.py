@@ -299,11 +299,6 @@ def _load_loom_data_set(paths):
                 )
                 labels = class_name_from_class_id(cluster_ids)
             else:
-                if issubclass(cluster_ids.dtype.type, numpy.float):
-                    float_is_integer = numpy.vectorize(
-                        lambda f: f.is_integer())
-                    if float_is_integer(cluster_ids).all():
-                        cluster_ids = cluster_ids.astype(int)
                 labels = cluster_ids
 
         if "Cell" in data_file.ca:

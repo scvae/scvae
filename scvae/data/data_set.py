@@ -508,6 +508,11 @@ class DataSet(object):
 
         if labels is not None:
 
+            if issubclass(labels.dtype.type, numpy.float):
+                labels_int = labels.astype(int)
+                if (labels == labels_int).all():
+                    labels = labels_int
+
             self.labels = labels
 
             if class_names is not None:
