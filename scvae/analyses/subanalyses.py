@@ -468,6 +468,7 @@ def analyse_matrices(data_set, plot_distances=False, name=None,
 
 def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                            colouring_data_set=None,
+                           sampled_data_set=None,
                            decomposition_methods=None,
                            highlight_feature_indices=None,
                            symbol=None, title="data set", specifier=None,
@@ -555,15 +556,20 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
 
         for decomposition_method in decomposition_methods:
 
+            other_values = None
+            sampled_values = None
+
             if other_data_set:
                 other_values = other_data_set.values
-            else:
-                other_values = None
+
+            if sampled_data_set:
+                sampled_values = sampled_data_set.values
 
             if not decomposition_method:
                 if data_set.number_of_features == 2:
                     values_decomposed = data_set.values
                     other_values_decomposed = other_values
+                    sampled_values_decomposed = sampled_values
                     centroids_decomposed = centroids
                 else:
                     continue
@@ -573,7 +579,16 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
 
                 values_decomposed = data_set.values
                 other_values_decomposed = other_values
+                sampled_values_decomposed = sampled_values
                 centroids_decomposed = centroids
+
+                other_value_sets_decomposed = {}
+                if other_values is not None:
+                    other_value_sets_decomposed["other"] = other_values
+                if sampled_values is not None:
+                    other_value_sets_decomposed["sampled"] = sampled_values
+                if not other_value_sets_decomposed:
+                    other_value_sets_decomposed = None
 
                 if decomposition_method == "t-SNE":
                     if (data_set.number_of_examples
@@ -609,11 +624,12 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                         )
                         decompose_time_start = time()
                         (
-                            values_decomposed, other_values_decomposed,
+                            values_decomposed,
+                            other_value_sets_decomposed,
                             centroids_decomposed
                         ) = decompose(
                             values_decomposed,
-                            other_value_sets=other_values_decomposed,
+                            other_value_sets=other_value_sets_decomposed,
                             centroids=centroids_decomposed,
                             method="pca",
                             number_of_components=(
@@ -629,17 +645,21 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                         if scipy.sparse.issparse(values_decomposed):
                             values_decomposed = values_decomposed.A
                         if scipy.sparse.issparse(other_values_decomposed):
-                            other_values_decomposed = values_decomposed.A
+                            other_values_decomposed = other_values_decomposed.A
+                        if scipy.sparse.issparse(sampled_values_decomposed):
+                            sampled_values_decomposed = (
+                                sampled_values_decomposed.A)
 
                 print("Decomposing {} using {}.".format(
                     title, decomposition_method))
                 decompose_time_start = time()
                 (
-                    values_decomposed, other_values_decomposed,
+                    values_decomposed,
+                    other_value_sets_decomposed,
                     centroids_decomposed
                 ) = decompose(
                     values_decomposed,
-                    other_value_sets=other_values_decomposed,
+                    other_value_sets=other_value_sets_decomposed,
                     centroids=centroids_decomposed,
                     method=decomposition_method,
                     number_of_components=2
@@ -650,6 +670,12 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     format_duration(decompose_duration)
                 ))
                 print()
+
+                if other_value_sets_decomposed:
+                    other_values_decomposed = other_value_sets_decomposed.get(
+                        "other")
+                    sampled_values_decomposed = (
+                        other_value_sets_decomposed.get("sampled"))
 
             if base_symbol:
                 symbol = base_symbol
@@ -692,6 +718,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
             figure, figure_name = figures.plot_values(
                 plot_values_decomposed,
                 centroids=centroids_decomposed,
+                sampled_values=sampled_values_decomposed,
                 figure_labels=figure_labels,
                 example_tag=data_set.tags["example"],
                 name=name
@@ -716,6 +743,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colour_coding="labels",
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
+                    sampled_values=sampled_values_decomposed,
                     figure_labels=figure_labels,
                     example_tag=data_set.tags["example"],
                     name=name
@@ -738,6 +766,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                         colour_coding="superset labels",
                         colouring_data_set=colouring_data_set,
                         centroids=centroids_decomposed,
+                        sampled_values=sampled_values_decomposed,
                         figure_labels=figure_labels,
                         example_tag=data_set.tags["example"],
                         name=name
@@ -768,6 +797,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                                 colour_coding="class",
                                 colouring_data_set=colouring_data_set,
                                 centroids=centroids_decomposed,
+                                sampled_values=sampled_values_decomposed,
                                 class_name=class_name,
                                 figure_labels=figure_labels,
                                 example_tag=data_set.tags["example"],
@@ -798,6 +828,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                                 colour_coding="superset class",
                                 colouring_data_set=colouring_data_set,
                                 centroids=centroids_decomposed,
+                                sampled_values=sampled_values_decomposed,
                                 class_name=superset_class_name,
                                 figure_labels=figure_labels,
                                 example_tag=data_set.tags["example"],
@@ -826,6 +857,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colour_coding="batches",
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
+                    sampled_values=sampled_values_decomposed,
                     figure_labels=figure_labels,
                     example_tag=data_set.tags["example"],
                     name=name,
@@ -854,6 +886,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colour_coding="predicted cluster IDs",
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
+                    sampled_values=sampled_values_decomposed,
                     figure_labels=figure_labels,
                     example_tag=data_set.tags["example"],
                     name=name,
@@ -882,6 +915,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colour_coding="predicted labels",
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
+                    sampled_values=sampled_values_decomposed,
                     figure_labels=figure_labels,
                     example_tag=data_set.tags["example"],
                     name=name,
@@ -909,6 +943,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colour_coding="predicted superset labels",
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
+                    sampled_values=sampled_values_decomposed,
                     figure_labels=figure_labels,
                     example_tag=data_set.tags["example"],
                     name=name,
@@ -935,6 +970,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                 colour_coding="count sum",
                 colouring_data_set=colouring_data_set,
                 centroids=centroids_decomposed,
+                sampled_values=sampled_values_decomposed,
                 figure_labels=figure_labels,
                 example_tag=data_set.tags["example"],
                 name=name
@@ -959,6 +995,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colour_coding="feature",
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
+                    sampled_values=sampled_values_decomposed,
                     feature_index=feature_index,
                     figure_labels=figure_labels,
                     example_tag=data_set.tags["example"],

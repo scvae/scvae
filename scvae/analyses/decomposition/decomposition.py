@@ -41,7 +41,7 @@ DECOMPOSITION_METHOD_LABEL = {
 MAXIMUM_FEATURE_SIZE_FOR_NORMAL_PCA = 2000
 
 
-def decompose(values, other_value_sets=[], centroids={}, method=None,
+def decompose(values, other_value_sets={}, centroids={}, method=None,
               number_of_components=None, random=False):
 
     if method is None:
@@ -52,9 +52,10 @@ def decompose(values, other_value_sets=[], centroids={}, method=None,
     if number_of_components is None:
         number_of_components = defaults["decomposition_dimensionality"]
 
-    if (other_value_sets is not None
-            and not isinstance(other_value_sets, (list, tuple))):
-        other_value_sets = [other_value_sets]
+    other_values_provided_as_dictionary = True
+    if other_value_sets is not None and not isinstance(other_value_sets, dict):
+        other_value_sets["unknown"] = other_value_sets
+        other_values_provided_as_dictionary = False
 
     if random:
         random_state = None
@@ -90,18 +91,22 @@ def decompose(values, other_value_sets=[], centroids={}, method=None,
     values_decomposed = model.fit_transform(values)
 
     if other_value_sets and method != "t_sne":
-        other_value_sets_decomposed = []
-        for other_values in other_value_sets:
-            other_value_decomposed = model.transform(other_values)
-            other_value_sets_decomposed.append(other_value_decomposed)
+        other_value_sets_decomposed = {}
+        for other_set_name, other_values in other_value_sets.items():
+            if other_values is not None:
+                other_value_decomposed = model.transform(other_values)
+            else:
+                other_value_decomposed = None
+            other_value_sets_decomposed[other_set_name] = (
+                other_value_decomposed)
     else:
         other_value_sets_decomposed = None
 
-    if other_value_sets_decomposed and len(other_value_sets_decomposed) == 1:
-        other_value_sets_decomposed = other_value_sets_decomposed[0]
+    if other_value_sets_decomposed and not other_values_provided_as_dictionary:
+        other_value_sets_decomposed = other_value_sets_decomposed["unknown"]
 
     # Only supports centroids without data sets as top levels
-    if centroids and method == "PCA":
+    if centroids is not None and method == "PCA":
         if "means" in centroids:
             centroids = {"unknown": centroids}
         components = model.components_
@@ -151,15 +156,12 @@ def decompose(values, other_value_sets=[], centroids={}, method=None,
     else:
         centroids_decomposed = None
 
-    if other_value_sets != [] and centroids != {}:
-        return (
-            values_decomposed,
-            other_value_sets_decomposed,
-            centroids_decomposed
-        )
-    elif other_value_sets != []:
-        return values_decomposed, other_value_sets_decomposed
-    elif centroids != {}:
-        return values_decomposed, centroids_decomposed
-    else:
-        return values_decomposed
+    output = [values_decomposed]
+
+    if other_value_sets != {}:
+        output.append(other_value_sets_decomposed)
+
+    if centroids != {}:
+        output.append(centroids_decomposed)
+
+    return output

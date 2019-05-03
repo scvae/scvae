@@ -27,8 +27,9 @@ from scvae.utilities import normalise_string
 
 
 def plot_values(values, colour_coding=None, colouring_data_set=None,
-                centroids=None, class_name=None, feature_index=None,
-                figure_labels=None, example_tag=None, name="scatter"):
+                centroids=None, sampled_values=None, class_name=None,
+                feature_index=None, figure_labels=None, example_tag=None,
+                name="scatter"):
 
     figure_name = name
 
@@ -320,6 +321,22 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
                 )
                 axis.add_patch(ellipse_edge)
                 axis.add_patch(ellipse_fill)
+
+    if sampled_values is not None:
+        sampled_values = sampled_values.copy()[:, :2]
+        if scipy.sparse.issparse(sampled_values):
+            sampled_values = sampled_values.A
+
+        x_limits = axis.get_xlim()
+        y_limits = axis.get_ylim()
+        seaborn.kdeplot(
+            sampled_values[:, 0], sampled_values[:, 1],
+            shade=True, shade_lowest=False,
+            n_levels=30, cmap=style.STANDARD_COLOUR_MAP,
+            ax=axis, zorder=-100
+        )
+        axis.set_xlim(x_limits)
+        axis.set_ylim(y_limits)
 
     # Reset marker size
     style.reset_plot_look()

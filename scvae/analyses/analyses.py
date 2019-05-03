@@ -678,6 +678,7 @@ def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
 
 def analyse_results(evaluation_set, reconstructed_evaluation_set,
                     latent_evaluation_sets, model, run_id=None,
+                    sample_reconstruction_set=None,
                     decomposition_methods=None,
                     evaluation_subset_indices=None,
                     highlight_feature_indices=None,
@@ -1165,14 +1166,28 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         subanalyses.analyse_decompositions(
             reconstructed_evaluation_set,
             colouring_data_set=evaluation_set,
+            sampled_data_set=sample_reconstruction_set,
             decomposition_methods=decomposition_methods,
             highlight_feature_indices=highlight_feature_indices,
             symbol="\\tilde{{x}}",
-            title="reconstruction space",
+            title="reconstructions",
             analysis_level=analysis_level,
             export_options=export_options,
             analyses_directory=analyses_directory,
         )
+
+        if sample_reconstruction_set:
+            subanalyses.analyse_decompositions(
+                evaluation_set,
+                sampled_data_set=sample_reconstruction_set,
+                decomposition_methods=decomposition_methods,
+                highlight_feature_indices=highlight_feature_indices,
+                symbol="x",
+                title="originals",
+                analysis_level=analysis_level,
+                export_options=export_options,
+                analyses_directory=analyses_directory,
+            )
 
         if analysis_level == "extensive":
             # Reconstructions plotted in original decomposed space
@@ -1183,7 +1198,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                 decomposition_methods=decomposition_methods,
                 highlight_feature_indices=highlight_feature_indices,
                 symbol="x",
-                title="original space",
+                title="originals",
                 analysis_level=analysis_level,
                 export_options=export_options,
                 analyses_directory=analyses_directory,
