@@ -1794,6 +1794,7 @@ class VariationalAutoencoder:
                         example_names=evaluation_set.example_names,
                         feature_names=evaluation_set.feature_names,
                         batch_indices=evaluation_set.batch_indices,
+                        batch_names=evaluation_set.batch_names,
                         feature_selection=evaluation_set.feature_selection,
                         example_filter=evaluation_set.example_filter,
                         preprocessing_methods=(
@@ -1820,6 +1821,7 @@ class VariationalAutoencoder:
                     example_names=evaluation_set.example_names,
                     feature_names=evaluation_set.feature_names,
                     batch_indices=evaluation_set.batch_indices,
+                    batch_names=evaluation_set.batch_names,
                     feature_selection=evaluation_set.feature_selection,
                     example_filter=evaluation_set.example_filter,
                     preprocessing_methods=evaluation_set.preprocessing_methods,
@@ -1841,6 +1843,7 @@ class VariationalAutoencoder:
                     feature_names=numpy.array(["latent variable {}".format(
                         i + 1) for i in range(self.latent_size)]),
                     batch_indices=evaluation_set.batch_indices,
+                    batch_names=evaluation_set.batch_names,
                     feature_selection=evaluation_set.feature_selection,
                     example_filter=evaluation_set.example_filter,
                     preprocessing_methods=evaluation_set.preprocessing_methods,
