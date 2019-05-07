@@ -203,10 +203,10 @@ def train(data_set_file_or_name, data_format=None, data_directory=None,
     print(title("Model"))
 
     if number_of_classes is None:
-        if data_set.has_labels:
+        if training_set.has_labels:
             number_of_classes = (
-                data_set.number_of_classes
-                - data_set.number_of_excluded_classes)
+                training_set.number_of_classes
+                - training_set.number_of_excluded_classes)
 
     model = _setup_model(
         data_set=training_set,
