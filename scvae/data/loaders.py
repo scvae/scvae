@@ -497,11 +497,11 @@ def _load_values_and_labels_from_matrix(paths, orientation=None):
 
     if orientation == "fbe":
         values = values.T
-        example_names = numpy.array(column_headers)
-        feature_names = numpy.array(row_indices)
+        example_names = column_headers
+        feature_names = row_indices
     elif orientation == "ebf":
-        example_names = numpy.array(row_indices)
-        feature_names = numpy.array(column_headers)
+        example_names = row_indices
+        feature_names = column_headers
     elif orientation is None:
         raise ValueError(" ".join[
             "Orientation of matrix not set."
@@ -511,8 +511,16 @@ def _load_values_and_labels_from_matrix(paths, orientation=None):
     else:
         raise ValueError("`{}` not a valid orientation.".format(orientation))
 
-    example_names = example_names.flatten()
-    feature_names = feature_names.flatten()
+    n_examples, n_features = values.shape
+
+    if example_names is None:
+        example_names = ["example {}".format(i + 1) for i in range(n_examples)]
+
+    if feature_names is None:
+        feature_names = ["feature {}".format(j + 1) for j in range(n_features)]
+
+    example_names = numpy.array(example_names).flatten()
+    feature_names = numpy.array(feature_names).flatten()
 
     # Labels
 
@@ -625,10 +633,9 @@ def _load_tab_separated_matrix(tsv_path, data_type=None):
 
     values = []
     row_indices = []
+    column_headers = None
 
     with open_file(tsv_path, mode="rt") as tsv_file:
-
-        column_headers = None
 
         while not column_headers:
 
@@ -644,24 +651,29 @@ def _load_tab_separated_matrix(tsv_path, data_type=None):
                     and all([element.isdigit() for element in row_elements])):
                 continue
 
+            elif all(_is_float(element) for element in row_elements):
+                break
+
             column_headers = row_elements
 
-        row_elements = next(tsv_file).split()
+        if column_headers:
+            row_elements = next(tsv_file).split()
 
         for i, element in enumerate(row_elements):
             if _is_float(element):
                 column_offset = i
                 break
 
-        column_header_offset = column_offset - (
-            len(row_elements) - len(column_headers)
-        )
-
-        column_headers = column_headers[column_header_offset:]
+        if column_headers:
+            column_header_offset = column_offset - (
+                len(row_elements) - len(column_headers)
+            )
+            column_headers = column_headers[column_header_offset:]
 
         def parse_row_elements(row_elements):
             row_index = row_elements[:column_offset]
-            row_indices.append(row_index)
+            if row_index:
+                row_indices.append(row_index)
             row_values = list(map(float, row_elements[column_offset:]))
             values.append(row_values)
 
@@ -672,13 +684,16 @@ def _load_tab_separated_matrix(tsv_path, data_type=None):
 
     values = numpy.array(values, data_type)
 
+    if not row_indices:
+        row_indices = None
+
     return values, column_headers, row_indices
 
 
 def _load_labels_from_delimiter_separeted_values(
-        path, label_column=1,
-        example_column=0, example_names=None, delimiter=None,
-        header="infer", dtype=None, default_label="No class"):
+        path, label_column=1, example_column=0,
+        example_names=None, delimiter=None,
+        header="infer", dtype=None, default_label=None):
 
     if not delimiter:
         if path.endswith(".csv"):
@@ -686,23 +701,46 @@ def _load_labels_from_delimiter_separeted_values(
         else:
             delimiter = "\t"
 
+    if path.endswith(".gz"):
+        open_file = gzip.open
+    else:
+        open_file = open
+
+    with open_file(path, mode="rt") as labels_file:
+        first_row_elements = next(labels_file).split()
+        second_row_elements = next(labels_file).split()
+
+    if len(first_row_elements) == 1 and len(second_row_elements) == 1:
+        label_column = 0
+        index_column = None
+        use_columns = None
+        example_names = None
+        if header == "infer":
+            header = None
+    else:
+        index_column = example_column
+        use_columns = [example_column, label_column]
+        if isinstance(label_column, int):
+            label_column -= 1
+
     metadata = pandas.read_csv(
         path,
-        index_col=example_column,
-        usecols=[example_column, label_column],
+        index_col=index_column,
+        usecols=use_columns,
         delimiter=delimiter,
         header=header
     )
 
     if isinstance(label_column, int):
-        label_column = metadata.columns[0]
+        label_column = metadata.columns[label_column]
 
     unordered_labels = metadata[label_column]
 
     if example_names is not None:
 
         labels = numpy.zeros(example_names.shape, unordered_labels.dtype)
-        labels[labels == 0] = default_label
+        if default_label:
+            labels[labels == 0] = default_label
 
         for example_name, label in unordered_labels.items():
             labels[example_names == example_name] = label
