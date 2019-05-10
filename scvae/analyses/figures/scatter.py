@@ -326,17 +326,9 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
         sampled_values = sampled_values.copy()[:, :2]
         if scipy.sparse.issparse(sampled_values):
             sampled_values = sampled_values.A
-
-        x_limits = axis.get_xlim()
-        y_limits = axis.get_ylim()
-        seaborn.kdeplot(
+        axis.scatter(
             sampled_values[:, 0], sampled_values[:, 1],
-            shade=True, shade_lowest=False,
-            n_levels=30, cmap=style.STANDARD_COLOUR_MAP,
-            ax=axis, zorder=-100
-        )
-        axis.set_xlim(x_limits)
-        axis.set_ylim(y_limits)
+            c=[style.NEUTRAL_COLOUR], zorder=-100)
 
     # Reset marker size
     style.reset_plot_look()
