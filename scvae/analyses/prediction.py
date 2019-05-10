@@ -47,7 +47,10 @@ def predict_labels(training_set, evaluation_set, specifications=None,
 
     predict = PREDICTION_METHODS[specifications.method]["function"]
 
-    print("Predicting labels for evaluation set using {}".format(method))
+    print(
+        "Predicting labels for evaluation set using {} with {} components."
+        .format(method, number_of_clusters)
+    )
     prediction_time_start = time()
 
     if evaluation_set.has_labels:
