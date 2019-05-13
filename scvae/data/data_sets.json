@@ -122,7 +122,7 @@
 				"CD4+/CD45RA+/CD25- naïve T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_t/naive_t_filtered_gene_bc_matrices.tar.gz"
 			}
 		},
-		"format": "10x-combine",
+		"format": "10x_combine",
 		"example type": "counts"
 	},
 
@@ -147,7 +147,7 @@
 				"CD8+/CD45RA+ naïve cytotoxic T cells": "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/naive_cytotoxic/naive_cytotoxic_filtered_gene_bc_matrices.tar.gz"
 			}
 		},
-		"format": "10x-combine",
+		"format": "10x_combine",
 		"example type": "counts"
 	},
 

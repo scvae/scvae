@@ -78,16 +78,17 @@ def _load_10x_data_set(paths):
     example_names = data_dictionary["example names"]
     feature_names = data_dictionary["feature names"]
 
-    if "labels" in paths and "full" in paths["labels"]:
+    labels = None
+    labels_paths = paths.get("labels", {})
+    full_labels_path = labels_paths.get("full")
+    if full_labels_path:
         labels = _load_labels_from_delimiter_separeted_values(
-            path=paths["labels"]["full"],
+            path=full_labels_path,
             label_column="celltype",
             example_column="barcodes",
             example_names=example_names,
             dtype="U"
         )
-    else:
-        labels = None
 
     data_dictionary = {
         "values": values,
