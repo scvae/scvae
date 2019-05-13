@@ -256,6 +256,7 @@ def cross_analyse(analyses_directory,
                   prediction_included_strings=None,
                   prediction_excluded_strings=None,
                   additional_other_option=None,
+                  no_prediction_methods_for_gmvae_in_plots=False,
                   epoch_cut_off=None,
                   other_methods=None,
                   export_options=None,
@@ -923,9 +924,7 @@ def cross_analyse(analyses_directory,
                         field_values = set(field_value.split("; "))
 
                         if additional_other_option:
-                            field_values.discard(
-                                additional_other_option
-                            )
+                            field_values.discard(additional_other_option)
 
                         filter_value = "; ".join(sorted(filter_values))
                         field_value = "; ".join(sorted(field_values))
@@ -938,7 +937,6 @@ def cross_analyse(analyses_directory,
                 discard_model = True
 
             runs = model_fields["runs"]
-
             if runs == "D":
                 discard_model = True
 
@@ -963,6 +961,11 @@ def cross_analyse(analyses_directory,
                 method = "-".join(method_parts)
             else:
                 method = "---"
+
+            if (no_prediction_methods_for_gmvae_in_plots
+                    and model_type.startswith("GMVAE")
+                    and clustering_method and clustering_method != "M"):
+                continue
 
             # Extract likelihood distribution
             likelihood = model_fields.get("likelihood")

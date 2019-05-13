@@ -571,6 +571,7 @@ def cross_analyse(analyses_directory,
                   include_prediction_methods=None,
                   exclude_prediction_methods=None,
                   extra_model_specification_for_plots=None,
+                  no_prediction_methods_for_gmvae_in_plots=False,
                   epoch_cut_off=None, other_methods=None,
                   export_options=None, log_summary=None,
                   **keyword_arguments):
@@ -585,6 +586,8 @@ def cross_analyse(analyses_directory,
         prediction_included_strings=include_prediction_methods,
         prediction_excluded_strings=exclude_prediction_methods,
         additional_other_option=extra_model_specification_for_plots,
+        no_prediction_methods_for_gmvae_in_plots=(
+            no_prediction_methods_for_gmvae_in_plots),
         epoch_cut_off=epoch_cut_off,
         other_methods=other_methods,
         export_options=export_options,
@@ -1174,6 +1177,15 @@ def main():
         metavar="SPECIFICATION",
         help=(
             "extra model specification required in model metrics plots"
+        )
+    )
+    parser_cross_analyse.add_argument(
+        "--no-prediction-methods-for-gmvae-in-plots",
+        action="store_true",
+        default=False,
+        help=(
+            "do not include prediction methods for GMVAE in model metrics "
+            "plots"
         )
     )
     parser_cross_analyse.add_argument(
