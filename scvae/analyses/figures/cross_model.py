@@ -384,7 +384,7 @@ def plot_model_metric_sets(metrics_sets, x_key, y_key,
                     ymin=y_mean - y_sd,
                     ymax=y_mean + y_sd,
                     facecolor=style.STANDARD_PALETTE[-1],
-                    alpha=0.4,
+                    alpha=0.1,
                     edgecolor=None,
                     label=method_name,
                     zorder=-2

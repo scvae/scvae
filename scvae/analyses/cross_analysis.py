@@ -120,9 +120,13 @@ LIKELIHOOD_DISRIBUTION_ORDER = [
 FACTOR_ANALYSIS_MODEL_TYPE = "VAE(G, g: LFM)"
 FACTOR_ANALYSIS_MODEL_TYPE_ALIAS = "FA"
 
+BASELINE_METHOD_TYPE = "Factor Analysis + k-means"
+BASELINE_METHOD_TYPE_ALIAS = "Baseline"
+
 OTHER_METHOD_NAMES = {
     "k-means": ["k_means", "kmeans"],
-    "Seurat": ["seurat"]
+    "Seurat": ["seurat"],
+    "Factor Analysis": ["factor_analysis"]
 }
 OTHER_METHOD_SPECIFICATIONS = {
     "Seurat": {
@@ -1388,6 +1392,9 @@ def _metrics_for_other_methods(data_set_directory,
         other_method_data_set_directory = data_set_directory
         other_method_prediction_basename = PREDICTION_BASENAME
 
+        other_method_parts = other_method.split("-")
+        other_method = other_method_parts.pop(0)
+
         other_method = proper_string(
             normalise_string(other_method),
             OTHER_METHOD_NAMES
@@ -1429,6 +1436,9 @@ def _metrics_for_other_methods(data_set_directory,
                     )
                 )
 
+        if other_method_parts:
+            directory_name = "-".join([directory_name] + other_method_parts)
+
         method_directory = os.path.join(
             other_method_data_set_directory,
             directory_name
@@ -1459,6 +1469,12 @@ def _metrics_for_other_methods(data_set_directory,
                     method = prediction.get("prediction method", None)
                     clustering_metric_values = prediction.get(
                         "clustering metric values", [])
+
+                    if method != other_method:
+                        method = " + ".join([other_method, method])
+
+                    if method == BASELINE_METHOD_TYPE:
+                        method = BASELINE_METHOD_TYPE_ALIAS
 
                     for metric_name, metric_set in (
                             clustering_metric_values.items()):
