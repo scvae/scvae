@@ -1,6 +1,6 @@
 # ======================================================================== #
 #
-# Copyright (c) 2017 - 2018 scVAE authors
+# Copyright (c) 2017 - 2019 scVAE authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 import argparse
 import os
 
+import scvae
 from scvae import analyses
 from scvae.analyses.prediction import (
     PredictionSpecifications, predict_labels
@@ -693,10 +694,15 @@ def _parse_default(default):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="scvae",
-        description="Model single-cell transcript counts using deep learning.",
+        prog=scvae.__title__,
+        description=scvae.__description__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    subparsers = parser.add_subparsers(help="commands")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version='%(prog)s {version}'.format(version=scvae.__version__))
+    subparsers = parser.add_subparsers(
+        help="commands", dest="command", required=True)
 
     data_set_subparsers = []
     model_subparsers = []

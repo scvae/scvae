@@ -1,21 +1,56 @@
+#!/usr/bin/env python3
+
 import setuptools
+
+import scvae
+
+NAME = scvae.__title__
+DESCRIPTION = scvae.__description__
+URL = scvae.__url__
+AUTHOR = scvae.__author__
+EMAIL = scvae.__email__
+VERSION = scvae.__version__
+LICENSE = scvae.__license__
+REQUIRED_PYTHON_VERSION = ">=3.6.0"
+
+REQUIRED_PACKAGES = [
+    "importlib_resources>=1.0",
+    "loompy>=2.0",
+    "matplotlib>=2.0",
+    "numpy>=1.13",
+    "pandas>=0.21",
+    "pillow>=5.4",
+    "scikit-learn>=0.19",
+    "scipy>=1.1",
+    "seaborn>=0.9",
+    "tables>=3.5",
+    "tensorflow>=1.12",
+    "tensorflow-probability>=0.6"
+]
 
 with open("README.md", "r") as readme_file:
     long_description = readme_file.read()
 
 setuptools.setup(
-    name="scvae",
-    version="2.0",
-    author="Christopher Heje Grønbech",
-    author_email="christopher.heje.groenbech@regionh.dk",
-    description="Model single-cell transcript counts using deep learning",
+    name=NAME,
+    version=VERSION,
+    author=AUTHOR,
+    author_email=EMAIL,
+    description=DESCRIPTION,
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/chgroenbech/scVAE",
+    url=URL,
     packages=setuptools.find_packages(),
+    include_package_data=True,
+    entry_points={
+        "console_scripts": ["scvae=scvae.__main__:main"],
+    },
+    python_requires=REQUIRED_PYTHON_VERSION,
+    install_requires=REQUIRED_PACKAGES,
+    license=LICENSE,
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
-    ],
+    ]
 )
