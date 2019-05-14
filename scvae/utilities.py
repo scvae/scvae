@@ -162,6 +162,25 @@ def suppress_stdout():
             sys.stdout = old_stdout
 
 
+def extension(filename):
+    extension = None
+    if not filename.startswith(os.extsep):
+        possible_extensions = filename.split(os.extsep)[1:]
+        extensions = []
+
+        for possible_extension in reversed(possible_extensions):
+            if (len(possible_extension) < 10
+                    and possible_extension.isalnum()):
+                extensions.insert(0, possible_extension)
+            else:
+                break
+
+        if extensions:
+            extension = os.extsep + os.extsep.join(extensions)
+
+    return extension
+
+
 def copy_file(url, path):
     shutil.copyfile(url, path)
 

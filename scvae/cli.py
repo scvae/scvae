@@ -24,7 +24,7 @@ from scvae import analyses
 from scvae.analyses.prediction import (
     PredictionSpecifications, predict_labels
 )
-from scvae.data.data_set import DataSet
+from scvae.data import DataSet
 from scvae.data.utilities import (
     build_directory_path, indices_for_evaluation_subset
 )

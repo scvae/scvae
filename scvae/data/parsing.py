@@ -21,7 +21,9 @@ import os
 
 import importlib_resources as resources
 
-from scvae.utilities import normalise_string
+from scvae.utilities import normalise_string, extension
+
+DATA_FORMAT_INCLUDING_LABELS = ["loom"]
 
 
 def parse_input(input_file_or_name):
@@ -51,9 +53,13 @@ def parse_input(input_file_or_name):
 
     elif os.path.isfile(input_file_or_name):
         file_path = input_file_or_name
+        filename = os.path.basename(file_path)
+        file_extension = extension(filename)
+        data_format = file_extension[1:] if file_extension else None
         name = _base_name(file_path)
         data_set_dictionary = {
-            "values": file_path
+            "values": file_path,
+            "format": data_format
         }
     else:
         name = input_file_or_name
@@ -82,16 +88,16 @@ def find_data_set(name, directory):
     title = None
     data_set = None
 
-    for data_set_title, data_set_specifications in data_sets.items():
-        if normalise_string(data_set_title) == normalise_string(name):
-            title = data_set_title
-            data_set = data_set_specifications
-            break
+    json_path = os.path.join(directory, name, name + ".json")
+    if os.path.exists(json_path):
+        title, data_set = _data_set_from_json_file(json_path)
 
     if not title:
-        json_path = os.path.join(directory, name, name + ".json")
-        if os.path.exists(json_path):
-            title, data_set = _data_set_from_json_file(json_path)
+        for data_set_title, data_set_specifications in data_sets.items():
+            if normalise_string(data_set_title) == normalise_string(name):
+                title = data_set_title
+                data_set = data_set_specifications
+                break
 
     if not title:
         raise KeyError("Data set not found.")
@@ -110,10 +116,8 @@ def _data_set_from_json_file(json_path):
     with open(json_path, "r") as json_file:
         data_set = json.load(json_file)
 
-    if "title" in data_set:
-        title = data_set["title"]
-    else:
-        title = _base_name(json_path)
+    title = data_set.get("title", _base_name(json_path))
+    data_format = data_set.get("format")
 
     if "URLs" not in data_set:
 
@@ -125,16 +129,25 @@ def _data_set_from_json_file(json_path):
                 "containing values and optionally labels."
             )
 
-        data_set["URLs"] = {
-            "values": {
-                "full": data_set["values"]
+        if data_format in DATA_FORMAT_INCLUDING_LABELS:
+            urls = {
+                "all": {
+                    "full": data_set["values"]
+                }
             }
-        }
+        else:
+            urls = {
+                "values": {
+                    "full": data_set["values"]
+                }
+            }
 
-        if "labels" in data_set:
-            data_set["URLs"]["labels"] = {
-                "full": data_set["labels"]
-            }
+            if "labels" in data_set:
+                urls["labels"] = {
+                    "full": data_set["labels"]
+                }
+
+        data_set["URLs"] = urls
 
     return title, data_set
 

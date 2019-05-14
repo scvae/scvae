@@ -24,7 +24,7 @@ import scipy.sparse
 from scvae.data.loaders import LOADERS
 from scvae.utilities import (
     format_duration, normalise_string,
-    download_file, copy_file
+    extension, download_file, copy_file
 )
 
 
@@ -50,21 +50,11 @@ def acquire_data_set(title, urls, directory):
                 continue
 
             url_filename = os.path.split(url)[-1]
-            possible_extensions = url_filename.split(os.extsep)[1:]
-            extensions = []
-
-            for possible_extension in reversed(possible_extensions):
-                if (len(possible_extension) < 8
-                        and possible_extension.isalnum()):
-                    extensions.insert(0, possible_extension)
-                else:
-                    break
-
-            extension = os.extsep + os.extsep.join(extensions)
+            file_extension = extension(url_filename)
 
             filename = "-".join(
                 map(normalise_string, [title, values_or_labels, kind]))
-            path = os.path.join(directory, filename) + extension
+            path = os.path.join(directory, filename) + file_extension
 
             paths[values_or_labels][kind] = path
 
@@ -111,6 +101,8 @@ def load_original_data_set(paths, data_format):
 
     if data_format is None:
         raise ValueError("Data format not specified.")
+    elif data_format.startswith("tsv"):
+        data_format = "matrix_ebf"
 
     load = LOADERS.get(data_format)
 
