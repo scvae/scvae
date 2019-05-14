@@ -22,6 +22,7 @@ import sys
 import shutil
 import time
 import urllib.request
+from contextlib import contextmanager
 from math import floor
 
 
@@ -148,6 +149,17 @@ def subtitle(string, plain=False):
 def subheading(string, plain=False):
     underline_symbol = "╌"
     return heading(string, underline_symbol, plain)
+
+
+@contextmanager
+def suppress_stdout():
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        sys.stdout = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
 
 
 def copy_file(url, path):

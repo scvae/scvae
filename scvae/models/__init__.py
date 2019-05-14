@@ -16,11 +16,24 @@
 #
 # ======================================================================== #
 
-from scvae.models.variational_autoencoder import VariationalAutoencoder
-from scvae.models.gaussian_mixture_variational_autoencoder import (
-    GaussianMixtureVariationalAutoencoder)
-
 __all__ = [
     "VariationalAutoencoder",
     "GaussianMixtureVariationalAutoencoder"
 ]
+
+import importlib
+import os
+
+import tensorflow
+
+from scvae.utilities import suppress_stdout
+with suppress_stdout():
+    importlib.import_module("tensorflow.contrib.layers")
+
+from scvae.models.variational_autoencoder import (
+    VariationalAutoencoder)  # noqa: E402
+from scvae.models.gaussian_mixture_variational_autoencoder import (
+    GaussianMixtureVariationalAutoencoder)  # noqa: E402
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
+tensorflow.logging.set_verbosity(tensorflow.logging.ERROR)

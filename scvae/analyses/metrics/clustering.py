@@ -114,7 +114,7 @@ def adjusted_mutual_information(labels, predicted_labels,
     labels, predicted_labels = _exclude_classes_from_label_set(
         labels, predicted_labels, excluded_classes=excluded_classes)
     return sklearn.metrics.cluster.adjusted_mutual_info_score(
-        labels, predicted_labels)
+        labels, predicted_labels, average_method="arithmetic")
 
 
 @_register_clustering_metric(name="silhouette score", kind="unsupervised")
