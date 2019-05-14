@@ -114,7 +114,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         if prior_probabilities_method is None:
             prior_probabilities_method = defaults["models"][
                 "prior_probabilities_method"]
-        if prior_probabilities_method == "uniform":
+        if prior_probabilities_method in ["uniform", "learn"]:
             prior_probabilities = None
         elif prior_probabilities_method == "infer":
             if prior_probabilities is None:
@@ -1218,7 +1218,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     )
 
                 # Training centroid summaries
-                if validation_set:
+                if validation_set is None:
                     for k in range(self.n_clusters):
                         summary.value.add(
                             tag="prior/cluster_{}/probability".format(k),
@@ -2501,18 +2501,26 @@ class GaussianMixtureVariationalAutoencoder(object):
             # p(y) = Cat(pi)
             # Shape: (1, K), so first minibatch dimension can be broadcast to y
             with tf.variable_scope("P"):
-                if self.prior_probabilities_method != "uniform":
-                    self.p_y_probabilities = tf.constant(
-                        self.prior_probabilities)
-                else:
-                    self.p_y_probabilities = (
+                if self.prior_probabilities_method == "infer":
+                    p_y_probabilities = tf.constant(self.prior_probabilities)
+                    p_y_logits = tf.log(p_y_probabilities)
+                elif self.prior_probabilities_method == "learn":
+                    p_y_logits = tf.Variable(
+                        initial_value=tf.zeros(shape=(self.n_clusters)),
+                        name="LOGITS"
+                    )
+                elif self.prior_probabilities_method == "uniform":
+                    p_y_probabilities = (
                         tf.ones(self.n_clusters) / self.n_clusters)
+                    p_y_logits = tf.log(p_y_probabilities)
 
                 p_y_logits = tf.reshape(
-                    tf.log(self.p_y_probabilities),
+                    p_y_logits,
                     shape=[1, self.n_clusters]
                 )
                 self.p_y = tfp.distributions.Categorical(logits=p_y_logits)
+                self.p_y_probabilities = tf.reshape(
+                    self.p_y.probs, shape=[self.n_clusters])
 
                 p_y_samples = self.p_y.sample(sample_shape=(
                     self.sample_size))

@@ -441,91 +441,99 @@ def analyse_model(model, run_id=None,
 
         print(subheading("Latent distributions"))
 
-        centroids = load_centroids(
+        kind_centroids = load_centroids(
             model=model,
-            data_set_kinds="validation",
+            data_set_kinds=["training", "validation"],
             run_id=run_id
         )
 
-        centroids_directory = os.path.join(
-            analyses_directory, "centroids_evolution")
+        for set_kind, centroids in kind_centroids.items():
 
-        for distribution, distribution_centroids in centroids.items():
-            if distribution_centroids:
+            centroids_directory = os.path.join(
+                analyses_directory,
+                "-".join(["centroids_evolution", set_kind])
+            )
 
-                centroids_time_start = time()
+            for distribution, distribution_centroids in centroids.items():
+                if distribution_centroids:
 
-                centroid_probabilities = distribution_centroids[
-                    "probabilities"]
-                centroid_means = distribution_centroids["means"]
-                centroid_covariance_matrices = distribution_centroids[
-                    "covariance_matrices"]
+                    centroids_time_start = time()
 
-                __, n_clusters, latent_size = centroid_means.shape
+                    centroid_probabilities = distribution_centroids[
+                        "probabilities"]
+                    centroid_means = distribution_centroids["means"]
+                    centroid_covariance_matrices = distribution_centroids[
+                        "covariance_matrices"]
 
-                if n_clusters <= 1:
-                    continue
+                    __, n_clusters, latent_size = centroid_means.shape
 
-                print("Plotting evolution of latent {} parameters.".format(
-                    distribution))
+                    if n_clusters <= 1:
+                        continue
 
-                if latent_size > 2:
-                    _, distribution_centroids_decomposed = decompose(
-                        centroid_means[-1],
-                        centroids=distribution_centroids
+                    print("Plotting evolution of latent {} parameters.".format(
+                        distribution))
+
+                    if latent_size > 2:
+                        _, distribution_centroids_decomposed = decompose(
+                            centroid_means[-1],
+                            centroids=distribution_centroids
+                        )
+                        decomposed = True
+                    else:
+                        distribution_centroids_decomposed = (
+                            distribution_centroids)
+                        decomposed = False
+
+                    centroid_means_decomposed = (
+                        distribution_centroids_decomposed["means"])
+
+                    figure, figure_name = (
+                        figures.plot_centroid_probabilities_evolution(
+                            centroid_probabilities,
+                            distribution=distribution
+                        )
                     )
-                    decomposed = True
-                else:
-                    distribution_centroids_decomposed = distribution_centroids
-                    decomposed = False
-
-                centroid_means_decomposed = (
-                    distribution_centroids_decomposed["means"])
-
-                figure, figure_name = (
-                    figures.plot_centroid_probabilities_evolution(
-                        centroid_probabilities,
-                        distribution=distribution
+                    figures.save_figure(
+                        figure=figure,
+                        name=figure_name,
+                        options=export_options,
+                        directory=centroids_directory
                     )
-                )
-                figures.save_figure(
-                    figure=figure,
-                    name=figure_name,
-                    options=export_options,
-                    directory=centroids_directory
-                )
 
-                figure, figure_name = figures.plot_centroid_means_evolution(
-                    centroid_means_decomposed,
-                    distribution=distribution,
-                    decomposed=decomposed
-                )
-                figures.save_figure(
-                    figure=figure,
-                    name=figure_name,
-                    options=export_options,
-                    directory=centroids_directory
-                )
-
-                figure, figure_name = (
-                    figures.plot_centroid_covariance_matrices_evolution(
-                        centroid_covariance_matrices,
-                        distribution=distribution
+                    figure, figure_name = (
+                        figures.plot_centroid_means_evolution(
+                            centroid_means_decomposed,
+                            distribution=distribution,
+                            decomposed=decomposed
+                        )
                     )
-                )
-                figures.save_figure(
-                    figure=figure,
-                    name=figure_name,
-                    options=export_options,
-                    directory=centroids_directory
-                )
+                    figures.save_figure(
+                        figure=figure,
+                        name=figure_name,
+                        options=export_options,
+                        directory=centroids_directory
+                    )
 
-                centroids_duration = time() - centroids_time_start
-                print(
-                    "Evolution of latent {} parameters plotted and saved ({})"
-                    .format(distribution, format_duration(centroids_duration))
-                )
-                print()
+                    figure, figure_name = (
+                        figures.plot_centroid_covariance_matrices_evolution(
+                            centroid_covariance_matrices,
+                            distribution=distribution
+                        )
+                    )
+                    figures.save_figure(
+                        figure=figure,
+                        name=figure_name,
+                        options=export_options,
+                        directory=centroids_directory
+                    )
+
+                    centroids_duration = time() - centroids_time_start
+                    print(
+                        "Evolution of latent {} parameters plotted and saved "
+                        "({})".format(
+                            distribution, format_duration(centroids_duration))
+                    )
+                    print()
 
 
 def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
