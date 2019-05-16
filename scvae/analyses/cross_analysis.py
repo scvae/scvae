@@ -319,7 +319,7 @@ def cross_analyse(analyses_directory,
         if search_strings:
             cross_analysis_name_parts.append("{}_{}".format(
                 search_abbreviation,
-                "_".join(search_strings)
+                "_".join(s.replace("/", "") for s in search_strings)
             ))
 
     if additional_other_option:
