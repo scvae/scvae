@@ -1,139 +1,177 @@
 # scVAE: Single-cell variational auto-encoders #
 
-This software tool implements two variants of variational auto-encoders: one with a Gaussian prior and another with a Gaussian-mixture prior. In addition, several discrete probability functions and derivations are included to handle sparse count data like single-cell gene expression data. Easy access to recent single-cell and traditional gene expression data sets are also provided. Lastly, the tool can also produce relevant analytics of the data sets and the models.
+scVAE is a command-line tool for modelling single-cell transcript counts using variational auto-encoders.
 
-The methods used by this tool is described and examined in the paper ["scVAE: Variational auto-encoders for single-cell gene expression data"][scVAE-paper] by [Christopher Heje Grønbech][Chris], [Maximillian Fornitz Vording][Max], [Pascal Nordgren Timshel][Pascal], [Casper Kaae Sønderby][Casper], [Tune Hannes Pers][Tune], and [Ole Winther][Ole].
+scVAE was developed by Christopher Heje Grønbech and Maximillian Fornitz Vording, and it is being developed further by Christopher. The methods used by scVAE is described and examined in Grønbech *et al.* (2018).
 
-The tool has been developed by Christopher and Maximillian at [Section for Cognitive Systems][CogSys] at [DTU Compute][] with help from Casper and [Lars Maaløe][Lars] supervised by Ole and in collaboration with [Pers Lab][]. It is being further developed by Christopher at [Centre for Genomic Medicine][GM] (only available in Danish) at [Rigshospitalet][RH].
+scVAE requires Python 3.5 or later, which can be installed by itself in [several ways][Python-installation-guides] or using [Miniconda][].
 
-[scVAE-paper]: https://www.biorxiv.org/content/10.1101/318295v2
-[Chris]: https://github.com/chgroenbech
-[Max]: https://github.com/maximillian91
-[Pascal]: https://github.com/pascaltimshel
-[Casper]: https://casperkaae.github.io
-[Tune]: http://cbmr.ku.dk/research/section-for-metabolic-genetics/pers-group/
-[Ole]: http://cogsys.imm.dtu.dk/staff/winther/
-
-[Lars]: http://github.com/larsmaaloee
-
-[CogSys]: https://github.com/DTUComputeCognitiveSystems
-[DTU Compute]: http://compute.dtu.dk
-[Pers Lab]: https://github.com/perslab
-[GM]: https://www.rigshospitalet.dk/afdelinger-og-klinikker/diagnostisk/genomisk-medicin/Sider/default.aspx
-[RH]: https://www.rigshospitalet.dk/english/Pages/default.aspx
-
-## Setup ##
-
-The tool is implemented in Python (versions 3.3--3.6) using [TensorFlow][]. [Pandas][], [PyTables][], [Beautiful Soup][], and the [stemming][] package are used for importing and preprocessing data. Analyses of the models and the results are performed using [NumPy][], [SciPy][], and [scikit-learn][], and figures are made using [matplotlib][], [Seaborn][], and [Pillow][].
-
-[TensorFlow]: https://www.tensorflow.org
-[Pandas]: http://pandas.pydata.org
-[PyTables]: http://www.pytables.org
-[Beautiful Soup]: https://www.crummy.com/software/BeautifulSoup/
-[stemming]: https://bitbucket.org/mchaput/stemming
-[NumPy]: http://www.numpy.org
-[SciPy]: https://www.scipy.org
-[scikit-learn]: http://scikit-learn.org
-[matplotlib]: http://matplotlib.org
-[Seaborn]: http://seaborn.pydata.org
-[Pillow]: http://python-pillow.org
-
-All included data sets are downloaded and processed automatically as needed.
+[Python-installation-guides]: https://realpython.com/installing-python/
+[Miniconda]: https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html
 
 ## Installation ##
 
-You will first need to install its dependencies by yourself. This can be done by running
+Install scVAE using pip:
 
-	$ pip install numpy scipy scikit-learn tensorflow-gpu tensorflow-probability pandas tables loompy matplotlib seaborn pillow importlib_resources
+	$ pip install scvae
 
-(If you do not have a GPU supported by TensorFlow, install the standard version by replacing `tensorflow-gpu` with `tensorflow`.)
+Note: scVAE depends on TensorFlow, and by default the CPU-enabled version of TensorFlow is installed, if the required version of TensorFlow is not already installed. If you have a Nvidia GPU, you should install the GPU-enabled version of TensorFlow beforehand, since this is significantly faster:
 
-After this, you can clone this tool to an appropriate folder:
+	$ pip install tensorflow-gpu
 
-	$ git clone https://github.com/chgroenbech/scVAE.git
+## Using scVAE ##
 
-You can now install it by running
+In general, scVAE is used in the following way:
 
-	$ pip3 install scVAE
+	$ scvae $COMMAND $DATA_SET
 
-## Running ##
+where `$COMMAND` can be `analyse` (data analysis), `train` ([model training][Training a model]), or `evaluate` ([model evaluation and analysis][Evaluating a model]). `$DATA_SET` is a path to a data set file or a short name for a data set.
 
-The tool can be run with the standard configuration by issuing
+By default, data are placed and cached in the subfolder `data/`, models are saved in the subfolder `models/`, and analyses are saved in the subfolder `analyses/`.
 
-	$ python3 -m scvae $verb $DATA_SET
+In the following, the most relevant options are described. Use the help option to list all options for each command:
 
-where `$verb` is a subcommand and `$DATA_SET` is a path to a data set file or a short name for a data set. Subcommands include `analyse` (data analysis), `train` (model training), `evaluate` (model and result analyses), and `cross-analyse` (comparison across models).
+	$ scvae $COMMAND --help
 
-Be aware that it might take some time to load and preprocess the data the first time for large data sets. Also note that to load and analyse the largest data set, which is made available by 10x Genomics and consists of 1.3 million mouse brain cells, 47 GB of memory is required (32 GB for the original data set in sparse representation and 15 GB for the reconstructed test set).
+### Data sets ###
 
-Per default, data is downloaded to the subfolder `data/`, models are saved in the subfolder `models/`, and analyses are saved in the subfolder `analyses/`.
+Several data sets are already included in scVAE:
 
-To see how to change the standard configuration or use another data set, run the following command:
+* `Macosko-MRC`: [GSE63472][Macosko-MRC].
+* `10x-MBC`: [1.3 Million Brain Cells from E18 Mice][10x-MBC] from [10x Genomics][10x].
+	* `10x-MBC-20k`: 20&nbsp;000 sampled cells.
+* `10x-PBMC-PP`: Nine data sets of [purified PBMC populations][10x-PBMC-PP] from 10x Genomics as specified in Grønbech *et al.* (2018).
+* `10x-PBMC-68k`: [Fresh 68k PBMCs (Donor A)][10x-PBMC-68k] from 10x Genomics.
+* `TCGA-RSEM`: ["transcript expression RNAseq - TOIL RSEM expected_count"][TCGA-RSEM] data set from the [TCGA Pan-Cancer (PANCAN)][TCGA-PANCAN] cohort.
 
-	$ python3 -m scvae -h
+[Macosko-MRC]: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE63472
+[10x-MBC]: https://support.10xgenomics.com/single-cell-gene-expression/datasets/1.3.0/1M_neurons
+[10x]: https://www.10xgenomics.com
+[10x-PBMC-PP]: https://support.10xgenomics.com/single-cell-gene-expression/datasets/
+[10x-PBMC-68k]: https://support.10xgenomics.com/single-cell-gene-expression/datasets/1.1.0/fresh_68k_pbmc_donor_a
+[TCGA-RSEM]: https://xenabrowser.net/datapages/?dataset=tcga_expected_count&host=https%3A%2F%2Ftoil.xenahubs.net&removeHub=https%3A%2F%2Fxena.treehouse.gi.ucsc.edu%3A443
+[TCGA-PANCAN]: https://xenabrowser.net/datapages/?cohort=TCGA%20Pan-Cancer%20(PANCAN)&removeHub=https%3A%2F%2Fxena.treehouse.gi.ucsc.edu%3A443
 
-### Examples ###
+Data sets will be cached in the data directory, which defaults to `data/`. This can be changed using the option `--data-directory` (or `-D`).
 
-To reproduce the main results from our paper, you can run the following commands:
+Be aware that it might take some time to load and preprocess the data the first time for large data sets. Also note that to load and analyse the `10x-MBC` data set, 47 GB of memory is required (32 GB for the original data set in sparse representation and 15 GB for the reconstructed test set in dense representation).
 
-* Combined [PBMC data set][PBMC] (under "Single Cell 3′ Paper: Zheng et al. 2017") from 10x Genomics:
+The default model can be trained on, for example, the `10x-PBMC-PP` data set like this:
 
-		$ python3 -m scvae train 10x-PBMC-PP -m GMVAE -r negative_binomial -l 100 -H 100 100 -w 200 -e 500
-		$ python3 -m scvae evaluate 10x-PBMC-PP -m GMVAE -r negative_binomial -l 100 -H 100 100 -w 200 --decomposition-methods pca tsne
+	$ scvae train 10x-PBMC-PP
 
-* [TCGA data set][TCGA]:
+#### Custom data sets ####
 
-		$ python3 -m scvae train TCGA-RSEM --map-features --feature-selection keep_highest_variances 5000 -m GMVAE -r negative_binomial -l 50 -H 1000 1000 -e 500
-		$ python3 -m scvae evaluate TCGA-RSEM --map-features --feature-selection keep_highest_variances 5000 -m GMVAE -r negative_binomial -l 50 -H 1000 1000 --decomposition-methods pca tsne
+scVAE can read Loom files and read count from a TSV file without further configuration:
 
-* [MBC data set][MBC] from 10x Genomics:
+	$ scvae train PBMC.loom
 
-		$ python3 -m scvae train 10x-MBC -m GMVAE -K 10 -r zero_inflated_negative_binomial -l 25 -H 250 250 -e 500
-		$ python3 -m scvae evaluate 10x-MBC -m GMVAE -K 10 -r zero_inflated_negative_binomial -l 25 -H 250 250 --decomposition-methods pca tsne
+The TSV files can be compressed using gzip, but each row should represent a cell or sample and each column a gene (for the reverse case, see below). If a header row and/or a header column is provided they are as gene IDs/names and/or cell/sample names, respectively.
 
-[PBMC]: https://support.10xgenomics.com/single-cell-gene-expression/datasets/
-[TCGA]: https://xenabrowser.net/datapages/?dataset=tcga_gene_expected_count&host=https://toil.xenahubs.net
-[MBC]: https://support.10xgenomics.com/single-cell-gene-expression/datasets/1.3.0/1M_neurons
+scVAE also supports the following formats (supplied using the `--format` option):
 
-You can change the model setup using the following argument options:
+* `10x`: Output format for 10x Genomics's Cell Ranger.
+* `GTEx`: Format for data sets from [GTEx][].
+* `Loom`: Loom format.
+* `matrix_ebf`: (gzip compressed) TSV file with cells/samples/examples as rows and gene/features as columns (examples-by-features).
+* `matrix_fbe`: (gzip compressed) TSV file with gene/features as rows and cells/samples/examples as columns (features-by-examples).
+
+[GTEx]: https://gtexportal.org/home/index.html
+
+The last of these formats can be used to read a TSV file, which is in reverse order of the default case:
+
+	$ scvae train PBMC.tsv.gz --format matrix_fbe
+
+Using the Loom format, included cell types and batch indices can also be imported without further configuration. Cell types for other formats can be imported in TSV format by instead providing a [JSON][] file with a `values` field with the filename for the read counts, a `labels` field with the filename the cell types, and `format` field with the format.
+
+[JSON]: https://en.wikipedia.org/wiki/JSON
+
+A JSON file for a GTEx data set would look like this:
+
+	{
+		"values": "GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_reads.gct.gz",
+		"labels": "GTEx_v7_Annotations_SampleAttributesDS.txt",
+		"format": "gtex"
+	}
+
+The GTEx data set can then be imported and modelled:
+
+	$ scvae train gtex.json
+
+#### Withheld data ####
+
+The data set can split into a training, a validation, and a test set using the `--split-data-set` option. Then, the training set is used to train the model, the validation set is used for early stopping, and the test set is used when evaluating the model.
+
+### Training a model ###
+
+The command `train` is used to train a model on a data set:
+
+	$ scvae train 10x-PBMC-PP
+
+The default model can be changed by using the following options:
 
 * `-m`: The model type, either `VAE` or `GMVAE`.
-* `-r`: Likelihood function (or reconstruction distribution). Choose from:
+* `-r`: Likelihood function (or reconstruction distribution):
 	* `poisson`,
 	* `negative binomial`,
 	* `zero_inflated_poisson`,
 	* `zero_inflated_negative binomial`,
 	* `constrained_poisson`,
 	* `bernoulli`,
-	* `gaussian`,
+	* `gaussian` or (`softplus gaussian`),
 	* `log_normal`, and
 	* `lomax`.
-* `-k`: The threshold for the piecewise categorical distibution (denoted by *K* in the paper).
+* `-k`: The threshold for the piecewise categorical distribution (denoted by *k*<sub>max</sub> in the paper).
 * `-l`: The dimension of the latent variable.
 * `-H`: The number of hidden units in each layer separated by spaces. For example, `-H 200 100` will make both the inference (encoder) and the generative (decoder) networks two-layered with the first inference layer and the last generative layer consisting of 200 hidden units and the last inference layer and the first generative layer consisting of 100 hidden units.
 * `-K`: The number of components for the GMVAE (if possible, this is inferred from labelled data, but it can be overridden using this option).
-* `-e`: The number of epochs to train the model.
 * `-w`: The number of epochs during training where the warm-up optimisation scheme is used.
 
-By default, a number of analyses are conducted of the models and saved in the subdirectory `results/`. These can be skipped using the option `--skip-analyses`. Among the anlyses are visualisations of the latent representations and the reconstructions, and the method to visualise these can be customised using the option `--decomposition-methods`.
+The training procedure can further changed using the following options (applicable only to the `train` command):
 
-You can also model the MNIST data set. Three different versions are supported: [the original][MNIST-original], [the normalised][MNIST-normalised], and [the binarised][MNIST-binarised]. To run the GMVAE model for, e.g., the binarised version, issue the following command:
+* `-e`: The number of epochs to train the model.
+* `--learning-rate`: The learning rate of the model.
 
-	$ python3 -m scvae train mnist_binarised -m GMVAE -r bernoulli -l 10 -H 200 200 -e 500
-	$ python3 -m scvae evaluate mnist_binarised -m GMVAE -r bernoulli -l 10 -H 200 200 --decomposition-methods pca tsne
+A GMVAE model with a negative binomial likelihood function, a 100-dimensional latent variable, two hidden layers of each 100 units, and 200 epochs using the warm-up scheme is trained for 500 epochs like this.
 
-[MNIST-original]: http://yann.lecun.com/exdb/mnist/
-[MNIST-normalised]: http://deeplearning.net/data/mnist/
-[MNIST-binarised]: http://www.cs.toronto.edu/~larocheh/publications/icml-2008-discriminative-rbm.pdf
+	$ scvae train 10x-PBMC-PP -m GMVAE -l 100 -H 100 100 -w 200 -e 500
 
-### Comparisons ###
+Trained models are saved, by default, saved to the subdirectory `models/`. This can be changed using the option `--models-directory` (or `-M`).
 
-The script `cross_analysis.py` is provided to compare different models. After running several different models with different network architectures and likelihood functions, this can be run to compare these models.
+### Evaluating a model ###
 
-It requires the relative path to the results folder, so using the standard configuration, it is run using the following command:
+The command `evalate` is used to evaluate a model on a data set:
 
-	$ python3 -m scvae cross-analyse $ANALYSES_DIRECTORY
+	$ scvae evalaute 10x-PBMC-PP
 
-where  `$ANALYSES_DIRECTORY` should be replaced by the path to the directory, where the analyses were saved. By default, scVAE saves results in the subdirectory `analyses/`.
+Note the model has to have already been trained on the same data set.
 
-Logs can be saved by adding the `-s` argument, and these are saved together with produced figures in the results folder specified. Data sets, models, and prediction methods can also be included or excluded using specific arguments. For documentation on these, use the command `python3 -m scvae cross-analyse -h`.
+The model is specified in the same way as when training the model, and the model will be evaluated at the last epoch to which it was trained. If withheld data were used, the model will also be evaluated at the early-stopping epoch and epoch with the most optimal marginal log-likelihood lower bound (if available). A number of analyses are conducted of the models and results, and these saved in the subdirectory `analyses/`. This can be changed using the option `--analyses-directory` (or `-A`).
+
+Cell can be clustered and cell types can be predicted using the option `--prediction-method`. Currently only *k*-means clustering is supported. The GMVAE clusters cells and predict cell types using its built-in density-based clustering by default.
+
+To visualise the data sets or latent spaces thereof, these are decomposed using a decomposition method. By default, this method is PCA. This can be changed using the option `--decomposition-methods`, and as the name implies, multiple methods can be specified.
+
+The GMVAE model trained in the previous section is evaluated with PCA and *t*-SNE decomposition methods like this:
+
+	$ scvae evaluate 10x-PBMC-PP -m GMVAE -l 100 -H 100 100 -w 200 --decomposition-methods pca tsne
+
+### Examples ###
+
+To reproduce the main results from our paper, you can run the following commands:
+
+* Combined PBMC data set from 10x Genomics:
+
+		$ scvae train 10x-PBMC-PP --split-data-set -m GMVAE -r negative_binomial -l 100 -H 100 100 -w 200 -e 500
+		$ scvae evaluate 10x-PBMC-PP --split-data-set -m GMVAE -r negative_binomial -l 100 -H 100 100 -w 200 --decomposition-methods pca tsne
+
+* TCGA data set:
+
+		$ scvae train TCGA-RSEM --map-features --feature-selection keep_highest_variances 5000 --split-data-set -m GMVAE -r negative_binomial -l 50 -H 1000 1000 -e 500
+		$ scvae evaluate TCGA-RSEM --map-features --feature-selection keep_highest_variances 5000 --split-data-set -m GMVAE -r negative_binomial -l 50 -H 1000 1000 --decomposition-methods pca tsne
+
+## References ##
+
+Christopher Heje Grønbech, Maximillian Fornitz Vording, Pascal Nordgren Timshel, Casper Kaae Sønderby, Tune Hannes Pers, and Ole Winther. [scVAE: Variational auto-encoders for single-cell gene expression data][scVAE-paper]. bioRxiv, 2018.
+
+[scVAE-paper]: https://www.biorxiv.org/content/10.1101/318295v2
