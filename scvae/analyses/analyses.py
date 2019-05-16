@@ -1298,7 +1298,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
     if "latent_space" in included_analyses and "VAE" in model.type:
         print(subheading("Latent space"))
 
-        if model.latent_distribution_name == "gaussian mixture":
+        if "gaussian mixture" in model.latent_distribution_name:
             print("Loading centroids from model log directory.")
             loading_time_start = time()
             centroids = load_centroids(

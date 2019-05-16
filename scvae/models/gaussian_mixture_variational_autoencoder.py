@@ -31,7 +31,8 @@ from scvae.analyses.prediction import map_cluster_ids_to_label_ids
 from scvae.data.data_set import DataSet
 from scvae.defaults import defaults
 from scvae.distributions import (
-    DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised)
+    DISTRIBUTIONS, GAUSSIAN_MIXTURE_DISTRIBUTIONS, parse_distribution,
+    Categorised)
 from scvae.analyses.prediction import PredictionSpecifications
 from scvae.models.utilities import (
     dense_layer, dense_layers,
@@ -51,6 +52,7 @@ class GaussianMixtureVariationalAutoencoder(object):
     def __init__(self, feature_size, latent_size, hidden_sizes,
                  reconstruction_distribution=None,
                  number_of_reconstruction_classes=None,
+                 latent_distribution=None,
                  prior_probabilities_method=None,
                  prior_probabilities=None,
                  number_of_latent_clusters=None,
@@ -84,6 +86,8 @@ class GaussianMixtureVariationalAutoencoder(object):
         if reconstruction_distribution is None:
             reconstruction_distribution = defaults["models"][
                 "reconstruction_distribution"]
+        reconstruction_distribution = parse_distribution(
+            reconstruction_distribution)
         self.reconstruction_distribution_name = reconstruction_distribution
         self.reconstruction_distribution = DISTRIBUTIONS[
             reconstruction_distribution]
@@ -98,11 +102,17 @@ class GaussianMixtureVariationalAutoencoder(object):
         #   count distribution pdf.
         self.k_max = number_of_reconstruction_classes
 
-        latent_distribution = "gaussian mixture"
-        self.latent_distribution_name = latent_distribution
+        if latent_distribution is None:
+            latent_distribution = defaults["models"]["latent_distribution"][
+                self.type]
+        latent_distribution = parse_distribution(
+            latent_distribution, model_type=self.type)
         self.latent_distribution = copy.deepcopy(
-            LATENT_DISTRIBUTIONS[latent_distribution]
+            GAUSSIAN_MIXTURE_DISTRIBUTIONS[latent_distribution]
         )
+        if latent_distribution == "legacy gaussian mixture":
+            latent_distribution = "gaussian mixture"
+        self.latent_distribution_name = latent_distribution
 
         if number_of_latent_clusters is None:
             raise ValueError(
@@ -1037,6 +1047,14 @@ class GaussianMixtureVariationalAutoencoder(object):
                 p_z_variances = numpy.zeros(
                     shape=(self.n_clusters, self.latent_size))
 
+                if "full-covariance" in self.latent_distribution_name:
+                    q_z_covariances = numpy.zeros(
+                        shape=(self.n_clusters, self.latent_size,
+                               self.latent_size))
+                    p_z_covariances = numpy.zeros(
+                        shape=(self.n_clusters, self.latent_size,
+                               self.latent_size))
+
                 q_y_logits_train = numpy.zeros(
                     shape=(n_examples_train, self.n_clusters),
                     dtype=numpy.float32
@@ -1085,6 +1103,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                         kl_divergence_neurons_i,
                         q_y_probabilities_i, q_z_means_i, q_z_variances_i,
                         p_y_probabilities_i, p_z_means_i, p_z_variances_i,
+                        q_z_covariances_i, p_z_covariances_i,
                         q_y_logits_train_i, z_mean_i
                     ) = session.run(
                         [
@@ -1093,7 +1112,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                             self.kl_divergence_neurons, self.q_y_probabilities,
                             self.q_z_means, self.q_z_variances,
                             self.p_y_probabilities, self.p_z_means,
-                            self.p_z_variances, self.q_y_logits, self.z_mean
+                            self.p_z_variances, self.q_z_covariances,
+                            self.p_z_covariances, self.q_y_logits, self.z_mean
                         ],
                         feed_dict=feed_dict_batch
                     )
@@ -1113,6 +1133,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                     p_z_means += numpy.array(p_z_means_i)
                     p_z_variances += numpy.array(p_z_variances_i)
 
+                    if "full-covariance" in self.latent_distribution_name:
+                        q_z_covariances += numpy.array(q_z_covariances_i)
+                        p_z_covariances += numpy.array(p_z_covariances_i)
+
                     q_y_logits_train[subset] = q_y_logits_train_i
                     z_mean_train[subset] = z_mean_i
 
@@ -1130,6 +1154,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                 p_y_probabilities /= n_examples_train / minibatch_size
                 p_z_means /= n_examples_train / minibatch_size
                 p_z_variances /= n_examples_train / minibatch_size
+
+                if "full-covariance" in self.latent_distribution_name:
+                    q_z_covariances /= n_examples_train / minibatch_size
+                    p_z_covariances /= n_examples_train / minibatch_size
 
                 learning_curves["training"]["lower_bound"].append(
                     lower_bound_train)
@@ -1249,6 +1277,19 @@ class GaussianMixtureVariationalAutoencoder(object):
                                     "dimension_{}".format(k, l),
                                 simple_value=q_z_variances[k, l]
                             )
+                            if "full-covariance" in (
+                                    self.latent_distribution_name):
+                                for l_ in range(self.latent_size):
+                                    summary.value.add(
+                                        tag="prior/cluster_{}/covariance/"
+                                            "dimension_{}_{}".format(k, l, l_),
+                                        simple_value=p_z_covariances[k, l, l_]
+                                    )
+                                    summary.value.add(
+                                        tag="posterior/cluster_{}/covariance/"
+                                            "dimension_{}_{}".format(k, l, l_),
+                                        simple_value=q_z_covariances[k, l, l_]
+                                    )
 
                 # Writing training summaries
                 training_summary_writer.add_summary(
@@ -1297,6 +1338,14 @@ class GaussianMixtureVariationalAutoencoder(object):
                     p_z_variances = numpy.zeros(
                         shape=(self.n_clusters, self.latent_size))
 
+                    if "full-covariance" in self.latent_distribution_name:
+                        q_z_covariances = numpy.zeros(
+                            shape=(self.n_clusters, self.latent_size,
+                                   self.latent_size))
+                        p_z_covariances = numpy.zeros(
+                            shape=(self.n_clusters, self.latent_size,
+                                   self.latent_size))
+
                     q_y_logits_valid = numpy.zeros(
                         shape=(n_examples_valid, self.n_clusters),
                         dtype=numpy.float32
@@ -1339,6 +1388,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                             kl_divergence_z_i, kl_divergence_y_i,
                             q_y_probabilities_i, q_z_means_i, q_z_variances_i,
                             p_y_probabilities_i, p_z_means_i, p_z_variances_i,
+                            q_z_covariances_i, p_z_covariances_i,
                             q_y_logits_i, z_mean_i
                         ) = session.run(
                             [
@@ -1347,6 +1397,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                                 self.q_y_probabilities, self.q_z_means,
                                 self.q_z_variances, self.p_y_probabilities,
                                 self.p_z_means, self.p_z_variances,
+                                self.q_z_covariances, self.p_z_covariances,
                                 self.q_y_logits, self.z_mean
                             ],
                             feed_dict=feed_dict_batch
@@ -1365,6 +1416,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                         p_z_means += numpy.array(p_z_means_i)
                         p_z_variances += numpy.array(p_z_variances_i)
 
+                        if "full-covariance" in self.latent_distribution_name:
+                            q_z_covariances += numpy.array(q_z_covariances_i)
+                            p_z_covariances += numpy.array(p_z_covariances_i)
+
                         q_y_logits_valid[subset] = q_y_logits_i
                         z_mean_valid[subset] = z_mean_i
 
@@ -1381,6 +1436,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                     p_y_probabilities /= n_examples_valid / minibatch_size
                     p_z_means /= n_examples_valid / minibatch_size
                     p_z_variances /= n_examples_valid / minibatch_size
+
+                    if "full-covariance" in self.latent_distribution_name:
+                        q_z_covariances /= n_examples_valid / minibatch_size
+                        p_z_covariances /= n_examples_valid / minibatch_size
 
                     learning_curves["validation"]["lower_bound"].append(
                         lower_bound_valid)
@@ -1492,6 +1551,19 @@ class GaussianMixtureVariationalAutoencoder(object):
                                     "dimension_{}".format(k, l),
                                 simple_value=q_z_variances[k, l]
                             )
+                            if "full-covariance" in (
+                                    self.latent_distribution_name):
+                                for l_ in range(self.latent_size):
+                                    summary.value.add(
+                                        tag="prior/cluster_{}/covariance/"
+                                            "dimension_{}_{}".format(k, l, l_),
+                                        simple_value=p_z_covariances[k, l, l_]
+                                    )
+                                    summary.value.add(
+                                        tag="posterior/cluster_{}/covariance/"
+                                            "dimension_{}_{}".format(k, l, l_),
+                                        simple_value=q_z_covariances[k, l, l_]
+                                    )
 
                     # Writing validation summaries
                     validation_summary_writer.add_summary(
@@ -1629,27 +1701,29 @@ class GaussianMixtureVariationalAutoencoder(object):
                         if "mixture" in self.latent_distribution_name:
                             n_clusters = self.n_clusters
                             n_latent = self.latent_size
-                            p_z_covariance_matrices = numpy.empty(
-                                shape=[n_clusters, n_latent, n_latent])
-                            q_z_covariance_matrices = numpy.empty(
-                                shape=[n_clusters, n_latent, n_latent])
-                            for k in range(n_clusters):
-                                p_z_covariance_matrices[k] = numpy.diag(
-                                    p_z_variances[k])
-                                q_z_covariance_matrices[k] = numpy.diag(
-                                    q_z_variances[k])
+                            if "full-covariance" not in (
+                                    self.latent_distribution_name):
+                                p_z_covariances = numpy.empty(
+                                    shape=[n_clusters, n_latent, n_latent])
+                                q_z_covariances = numpy.empty(
+                                    shape=[n_clusters, n_latent, n_latent])
+                                for k in range(n_clusters):
+                                    p_z_covariances[k] = numpy.diag(
+                                        p_z_variances[k])
+                                    q_z_covariances[k] = numpy.diag(
+                                        q_z_variances[k])
                             centroids = {
                                 "prior": {
                                     "probabilities": p_y_probabilities,
                                     "means": numpy.stack(p_z_means),
                                     "covariance_matrices": (
-                                        p_z_covariance_matrices)
+                                        p_z_covariances)
                                 },
                                 "posterior": {
                                     "probabilities": q_y_probabilities,
                                     "means": q_z_means,
                                     "covariance_matrices": (
-                                        q_z_covariance_matrices)
+                                        q_z_covariances)
                                 }
                             }
                         else:
@@ -2108,6 +2182,13 @@ class GaussianMixtureVariationalAutoencoder(object):
                     shape=(self.n_clusters, self.latent_size))
                 p_z_variances = numpy.zeros(
                     shape=(self.n_clusters, self.latent_size))
+                if "full-covariance" in self.latent_distribution_name:
+                    q_z_covariances = numpy.zeros(
+                        shape=(self.n_clusters, self.latent_size,
+                               self.latent_size))
+                    p_z_covariances = numpy.zeros(
+                        shape=(self.n_clusters, self.latent_size,
+                               self.latent_size))
 
             q_y_logits = numpy.zeros(
                 shape=(n_examples_eval, self.n_clusters))
@@ -2172,6 +2253,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     kl_divergence_z_i, kl_divergence_y_i,
                     q_y_probabilities_i, q_z_means_i, q_z_variances_i,
                     p_y_probabilities_i, p_z_means_i, p_z_variances_i,
+                    q_z_covariances_i, p_z_covariances_i,
                     q_y_logits_i, p_x_mean_i,
                     p_x_stddev_i, stddev_of_p_x_given_z_mean_i,
                     y_mean_i, z_mean_i
@@ -2182,6 +2264,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                             self.q_y_probabilities, self.q_z_means,
                             self.q_z_variances, self.p_y_probabilities,
                             self.p_z_means, self.p_z_variances,
+                            self.q_z_covariances, self.p_z_covariances,
                             self.q_y_logits, self.p_x_mean,
                             self.p_x_stddev, self.stddev_of_p_x_given_z_mean,
                             self.y_mean, self.z_mean
@@ -2201,6 +2284,9 @@ class GaussianMixtureVariationalAutoencoder(object):
                     p_y_probabilities += numpy.array(p_y_probabilities_i)
                     p_z_means += numpy.array(p_z_means_i)
                     p_z_variances += numpy.array(p_z_variances_i)
+                    if "full-covariance" in self.latent_distribution_name:
+                        q_z_covariances += numpy.array(q_z_covariances_i)
+                        p_z_covariances += numpy.array(p_z_covariances_i)
 
                 q_y_logits[indices] = q_y_logits_i
 
@@ -2229,6 +2315,9 @@ class GaussianMixtureVariationalAutoencoder(object):
                 p_y_probabilities /= n_examples_eval / minibatch_size
                 p_z_means /= n_examples_eval / minibatch_size
                 p_z_variances /= n_examples_eval / minibatch_size
+                if "full-covariance" in self.latent_distribution_name:
+                    q_z_covariances /= n_examples_eval / minibatch_size
+                    p_z_covariances /= n_examples_eval / minibatch_size
 
             if (self.number_of_importance_samples["evaluation"] == 1
                     and self.number_of_monte_carlo_samples["evaluation"] == 1):
@@ -2324,6 +2413,18 @@ class GaussianMixtureVariationalAutoencoder(object):
                                 .format(k, l),
                             simple_value=q_z_variances[k, l]
                         )
+                        if "full-covariance" in self.latent_distribution_name:
+                            for l_ in range(self.latent_size):
+                                summary.value.add(
+                                    tag="prior/cluster_{}/covariance/"
+                                        "dimension_{}_{}".format(k, l, l_),
+                                    simple_value=p_z_covariances[k, l, l_]
+                                )
+                                summary.value.add(
+                                    tag="posterior/cluster_{}/covariance/"
+                                        "dimension_{}_{}".format(k, l, l_),
+                                    simple_value=q_z_covariances[k, l, l_]
+                                )
 
                 eval_summary_writer.add_summary(
                     summary, global_step=epoch + 1)
@@ -2559,8 +2660,10 @@ class GaussianMixtureVariationalAutoencoder(object):
             self.p_z_mean = [None]*self.n_clusters
             self.p_z_means = []
             self.p_z_variances = []
+            self.p_z_covariances = []
             self.q_z_means = []
             self.q_z_variances = []
+            self.q_z_covariances = []
             # Loop over parameter layers for all K gaussians.
             for k in range(self.n_clusters):
                 if k >= 1:
@@ -2571,11 +2674,16 @@ class GaussianMixtureVariationalAutoencoder(object):
                 # Latent prior distribution
                 self.q_z_given_x_y[k], z_mean[k], self.z[k] = (
                     self._build_graph_for_q_z_given_x_y(
-                        self.x, y[k], reuse=reuse_weights))
+                        self.x, y[k],
+                        distribution_name=self.latent_distribution[
+                            "z posterior"],
+                        reuse=reuse_weights))
                 # Latent prior distribution
                 self.p_z_given_y[k], self.p_z_mean[k] = (
                     self._build_graph_for_p_z_given_y(
-                        y[k], reuse=reuse_weights))
+                        y[k],
+                        distribution_name=self.latent_distribution["z prior"],
+                        reuse=reuse_weights))
 
                 self.p_z_means.append(
                     tf.reduce_mean(self.p_z_given_y[k].mean(), [0, 1, 2]))
@@ -2586,6 +2694,12 @@ class GaussianMixtureVariationalAutoencoder(object):
                     self.q_z_given_x_y[k].mean(), axis=[0, 1, 2]))
                 self.q_z_variances.append(tf.reduce_mean(
                     tf.square(self.q_z_given_x_y[k].stddev()), axis=[0, 1, 2]))
+
+                if "full-covariance" in self.latent_distribution_name:
+                    self.p_z_covariances.append(tf.reduce_mean(
+                        self.p_z_given_y[k].covariance(), axis=[0, 1, 2]))
+                    self.q_z_covariances.append(tf.reduce_mean(
+                        self.q_z_given_x_y[k].covariance(), axis=[0, 1, 2]))
 
             self.y = self.q_y_given_x.probs
             self.z_mean = tf.add_n([
@@ -2629,7 +2743,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         self.parameter_summary = tf.summary.merge(self.parameter_summary_list)
 
     def _build_graph_for_q_z_given_x_y(
-            self, x, y, distribution_name="modified gaussian", reuse=False):
+            self, x, y, distribution_name="softplus gaussian", reuse=False):
 
         # Encoder for q(z|x,y_i=1) = N(mu(x,y_i=1), sigma^2(x,y_i=1))
         with tf.variable_scope("Q"):
@@ -2659,10 +2773,15 @@ class GaussianMixtureVariationalAutoencoder(object):
                         parameter]["activation function"]
                     p_min, p_max = distribution["parameters"][parameter][
                         "support"]
+                    n_outputs = self.latent_size
+                    size_function = distribution["parameters"][parameter].get(
+                        "size function")
+                    if size_function:
+                        n_outputs = size_function(self.latent_size)
                     theta[parameter] = tf.expand_dims(tf.expand_dims(
                         dense_layer(
                             inputs=encoder,
-                            num_outputs=self.latent_size,
+                            num_outputs=n_outputs,
                             activation_fn=lambda x: tf.clip_by_value(
                                 parameter_activation_function(x),
                                 p_min + numpy.finfo(dtype=numpy.float32).tiny,
@@ -2697,7 +2816,7 @@ class GaussianMixtureVariationalAutoencoder(object):
         return q_z_given_x_y, z_mean, z
 
     def _build_graph_for_p_z_given_y(
-            self, y, distribution_name="modified gaussian", reuse=False):
+            self, y, distribution_name="softplus gaussian", reuse=False):
 
         with tf.variable_scope("P"):
             with tf.variable_scope(normalise_string(
@@ -2710,10 +2829,15 @@ class GaussianMixtureVariationalAutoencoder(object):
                         parameter]["activation function"]
                     p_min, p_max = distribution["parameters"][parameter][
                         "support"]
+                    n_outputs = self.latent_size
+                    size_function = distribution["parameters"][parameter].get(
+                        "size function")
+                    if size_function:
+                        n_outputs = size_function(self.latent_size)
                     theta[parameter] = tf.expand_dims(tf.expand_dims(
                         dense_layer(
                             inputs=y,
-                            num_outputs=self.latent_size,
+                            num_outputs=n_outputs,
                             activation_fn=lambda x: tf.clip_by_value(
                                 parameter_activation_function(x),
                                 p_min + numpy.finfo(dtype=numpy.float32).tiny,

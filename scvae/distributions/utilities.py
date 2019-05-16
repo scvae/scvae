@@ -23,6 +23,7 @@ import tensorflow_probability as tfp
 from scvae.distributions.exponentially_modified_normal import (
     ExponentiallyModifiedNormal)
 from scvae.distributions.lomax import Lomax
+from scvae.distributions.multivariate_normal import MultivariateNormalTriL
 from scvae.distributions.zero_inflated import ZeroInflated
 from scvae.utilities import normalise_string
 
@@ -46,7 +47,7 @@ DISTRIBUTIONS = {
         )
     },
 
-    "modified gaussian": {
+    "softplus gaussian": {
         "parameters": {
             "mean": {
                 "support": [-np.inf, np.inf],
@@ -62,6 +63,26 @@ DISTRIBUTIONS = {
         "class": lambda theta: tfp.distributions.Normal(
             loc=theta["mean"],
             scale=tf.sqrt(theta["variance"])
+        )
+    },
+
+    "multivariate gaussian": {
+        "parameters": {
+            "locations": {
+                "support": [-np.inf, np.inf],
+                "activation function": tf.identity,
+                "initial value": tf.zeros
+            },
+            "scales": {
+                "support": [0, np.inf],
+                "activation function": tf.nn.softplus,
+                "initial value": tf.ones,
+                "size function": lambda m: int(m * (m + 1) / 2)
+            }
+        },
+        "class": lambda theta: MultivariateNormalTriL(
+            loc=theta["locations"],
+            scale_tril=tfp.distributions.fill_triangular(theta["scales"])
         )
     },
 
@@ -277,6 +298,7 @@ DISTRIBUTIONS = {
         )
     }
 }
+DISTRIBUTIONS["modified gaussian"] = DISTRIBUTIONS["softplus gaussian"]
 
 LATENT_DISTRIBUTIONS = {
     "gaussian": {
@@ -339,12 +361,53 @@ LATENT_DISTRIBUTIONS = {
     }
 }
 
+GAUSSIAN_MIXTURE_DISTRIBUTIONS = {
+    "gaussian mixture": {
+        "z prior": "softplus gaussian",
+        "z posterior": "softplus gaussian"
+    },
+    "full-covariance gaussian mixture": {
+        "z prior": "multivariate gaussian",
+        "z posterior": "multivariate gaussian"
+    },
+    "legacy gaussian mixture": {
+        "z prior": "modified gaussian",
+        "z posterior": "modified gaussian"
+    }
+}
 
-def parse_distribution(distribution):
+
+def parse_distribution(distribution, model_type=None):
+
     distribution = normalise_string(distribution)
-    distribution_names = list(DISTRIBUTIONS.keys())
-    distribution_names += list(LATENT_DISTRIBUTIONS.keys())
+
+    if model_type is None:
+        kind = "reconstruction"
+        distributions = DISTRIBUTIONS
+
+    elif isinstance(model_type, str):
+        kind = "latent"
+        if model_type == "VAE":
+            distributions = LATENT_DISTRIBUTIONS
+        elif model_type == "GMVAE":
+            distributions = GAUSSIAN_MIXTURE_DISTRIBUTIONS
+        else:
+            raise ValueError("Model type not found.")
+
+    else:
+        raise TypeError("`model_type` should be a string.")
+
+    distribution_names = list(distributions.keys())
+    parsed_distribution_name = None
+
     for distribution_name in distribution_names:
         if normalise_string(distribution_name) == distribution:
-            return distribution_name
-    raise ValueError("Distribution `{}` not found.".format(distribution))
+            parsed_distribution_name = distribution_name
+
+    if parsed_distribution_name is None:
+        raise ValueError(
+            "{} distribution `{}` not supported{}.".format(
+                kind.capitalize(), distribution,
+                " for {}".format(model_type) if model_type else ""))
+
+    return parsed_distribution_name

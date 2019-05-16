@@ -29,7 +29,7 @@ import tensorflow_probability as tfp
 from scvae.data.data_set import DataSet
 from scvae.defaults import defaults
 from scvae.distributions import (
-    DISTRIBUTIONS, LATENT_DISTRIBUTIONS, Categorised)
+    DISTRIBUTIONS, LATENT_DISTRIBUTIONS, parse_distribution, Categorised)
 from scvae.models.utilities import (
     dense_layer, dense_layers, log_reduce_exp,
     build_training_string, build_data_string,
@@ -83,6 +83,9 @@ class VariationalAutoencoder:
         if reconstruction_distribution is None:
             reconstruction_distribution = defaults["models"][
                 "reconstruction_distribution"]
+        reconstruction_distribution = parse_distribution(
+            reconstruction_distribution)
+
         self.reconstruction_distribution_name = reconstruction_distribution
         self.reconstruction_distribution = DISTRIBUTIONS[
             reconstruction_distribution]
@@ -97,14 +100,11 @@ class VariationalAutoencoder:
         #   count distribution pdf.
         self.k_max = number_of_reconstruction_classes
 
-        if "mixture" in latent_distribution:
-            raise NotImplementedError(
-                "The VariationalAutoencoder class does not fully support "
-                "mixture models yet."
-            )
-
         if latent_distribution is None:
-            latent_distribution = defaults["models"]["latent_distribution"]
+            latent_distribution = defaults["models"]["latent_distribution"][
+                self.type]
+        latent_distribution = parse_distribution(
+            latent_distribution, model_type=self.type)
         self.latent_distribution_name = latent_distribution
         self.latent_distribution = copy.deepcopy(
             LATENT_DISTRIBUTIONS[latent_distribution]

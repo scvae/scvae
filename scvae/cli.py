@@ -29,7 +29,6 @@ from scvae.data.utilities import (
     build_directory_path, indices_for_evaluation_subset
 )
 from scvae.defaults import defaults
-from scvae.distributions.utilities import parse_distribution
 from scvae.models import (
     VariationalAutoencoder,
     GaussianMixtureVariationalAutoencoder
@@ -139,10 +138,6 @@ def train(data_set_file_or_name, data_format=None, data_directory=None,
         splitting_fraction = defaults["data"]["splitting_fraction"]
     if models_directory is None:
         models_directory = defaults["models"]["directory"]
-
-    reconstruction_distribution = parse_distribution(
-        reconstruction_distribution)
-    latent_distribution = parse_distribution(latent_distribution)
 
     print(title("Data"))
 
@@ -321,10 +316,6 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
     prediction_training_set_kind = normalise_string(
         prediction_training_set_kind)
     model_versions = parse_model_versions(model_versions)
-
-    reconstruction_distribution = parse_distribution(
-        reconstruction_distribution)
-    latent_distribution = parse_distribution(latent_distribution)
 
     print(title("Data"))
 
@@ -665,6 +656,7 @@ def _setup_model(data_set, model_type=None,
             number_of_importance_samples=number_of_importance_samples,
             prior_probabilities_method=prior_probabilities_method,
             prior_probabilities=prior_probabilities,
+            latent_distribution=latent_distribution,
             number_of_latent_clusters=number_of_classes,
             proportion_of_free_nats_for_y_kl_divergence=(
                 proportion_of_free_nats_for_y_kl_divergence),
@@ -822,7 +814,7 @@ def main():
             "--model-type", "-m",
             metavar="TYPE",
             default=_parse_default(defaults["models"]["type"]),
-            help="type of model"
+            help="type of model; either VAE or GMVAE"
         )
         subparser.add_argument(
             "--latent-size", "-l",
@@ -873,8 +865,9 @@ def main():
         subparser.add_argument(
             "--latent-distribution", "-q",
             metavar="DISTRIBUTION",
-            default=_parse_default(defaults["models"]["latent_distribution"]),
-            help="distribution for the latent variable(s)"
+            help=(
+                "distribution for the latent variable(s); defaults depends on "
+                "model type")
         )
         subparser.add_argument(
             "--number-of-classes", "-K",

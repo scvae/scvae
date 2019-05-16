@@ -21,7 +21,9 @@ from scvae.distributions.exponentially_modified_normal import (
     ExponentiallyModifiedNormal)
 from scvae.distributions.lomax import Lomax
 from scvae.distributions.zero_inflated import ZeroInflated
-from scvae.distributions.utilities import DISTRIBUTIONS, LATENT_DISTRIBUTIONS
+from scvae.distributions.utilities import (
+    DISTRIBUTIONS, LATENT_DISTRIBUTIONS, GAUSSIAN_MIXTURE_DISTRIBUTIONS,
+    parse_distribution)
 
 __all__ = [
     "Categorised",
@@ -29,5 +31,7 @@ __all__ = [
     "Lomax",
     "ZeroInflated",
     "DISTRIBUTIONS",
-    "LATENT_DISTRIBUTIONS"
+    "LATENT_DISTRIBUTIONS",
+    "GAUSSIAN_MIXTURE_DISTRIBUTIONS",
+    "parse_distribution"
 ]

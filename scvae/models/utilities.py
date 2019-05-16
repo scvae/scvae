@@ -435,7 +435,7 @@ def load_centroids(model, data_set_kinds="all", run_id=None,
             n_centroids = 1
             latent_size = model.latent_size
 
-            if "mixture" in model.latent_distribution[distribution]["name"]:
+            if model.type == "GMVAE":
                 n_centroids = model.number_of_latent_clusters
 
             z_probabilities = numpy.empty(shape=(n_epoch, n_centroids))
@@ -480,8 +480,26 @@ def load_centroids(model, data_set_kinds="all", run_id=None,
                         for scalar in variance_scalars:
                             z_variances[scalar.step - 1][k][l] = scalar.value
 
-                for e in range(n_epoch):
-                    z_covariance_matrices[e, k] = numpy.diag(z_variances[e, k])
+                    if "full-covariance" in model.latent_distribution_name:
+                        for l_ in range(latent_size):
+                            covariance_scalars = data_set_scalars[
+                                distribution
+                                + "/cluster_{}/covariance/dimension_{}_{}"
+                                .format(k, l, l_)
+                            ]
+                            if len(covariance_scalars) == 1:
+                                z_covariance_matrices[0, k, l, l_] = (
+                                    covariance_scalars[0].value)
+                            else:
+                                for scalar in covariance_scalars:
+                                    z_covariance_matrices[
+                                        scalar.step - 1, k, l, l_] = (
+                                            scalar.value)
+
+                if "full-covariance" not in model.latent_distribution_name:
+                    for e in range(n_epoch):
+                        z_covariance_matrices[e, k] = numpy.diag(
+                            z_variances[e, k])
 
             if data_set_kind == "evaluation":
                 z_probabilities = z_probabilities[0]
