@@ -690,7 +690,7 @@ def main():
         description=scvae.__description__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
-        "--version",
+        "--version", "-V",
         action="version",
         version='%(prog)s {version}'.format(version=scvae.__version__))
     subparsers = parser.add_subparsers(
