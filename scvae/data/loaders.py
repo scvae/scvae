@@ -50,7 +50,10 @@ def _load_macokso_data_set(paths):
     feature_column = 0
     feature_names = numpy.array(row_indices)[:, feature_column]
 
-    if paths["labels"]["full"]:
+    labels = None
+    labels_paths = paths.get("labels", {})
+    full_labels_path = labels_paths.get("full")
+    if full_labels_path:
         labels = _load_labels_from_delimiter_separeted_values(
             path=paths["labels"]["full"],
             label_column=1,
@@ -190,7 +193,10 @@ def _load_tcga_data_set(paths):
 
     # Labels
 
-    if paths["labels"]["full"]:
+    labels = None
+    labels_paths = paths.get("labels", {})
+    full_labels_path = labels_paths.get("full")
+    if full_labels_path:
         labels = _load_labels_from_delimiter_separeted_values(
             path=paths["labels"]["full"],
             label_column="_primary_site",
@@ -249,7 +255,10 @@ def _load_gtex_data_set(paths):
 
     # Labels
 
-    if paths["labels"]["full"]:
+    labels = None
+    labels_paths = paths.get("labels", {})
+    full_labels_path = labels_paths.get("full")
+    if full_labels_path:
         labels = _load_labels_from_delimiter_separeted_values(
             path=paths["labels"]["full"],
             label_column="SMTSD",
