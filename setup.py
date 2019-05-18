@@ -14,18 +14,18 @@ LICENSE = scvae.__license__
 REQUIRED_PYTHON_VERSION = ">=3.5.0"
 
 REQUIRED_PACKAGES = [
-    "importlib_resources>=1.0",
-    "loompy>=2.0",
-    "matplotlib>=2.0",
-    "numpy>=1.13",
-    "pandas>=0.21",
-    "pillow>=5.4",
-    "scikit-learn>=0.19",
-    "scipy>=1.1",
-    "seaborn>=0.9",
-    "tables>=3.5",
-    "tensorflow>=1.12",
-    "tensorflow-probability>=0.6"
+    "importlib_resources >= 1.0",
+    "loompy >= 2.0",
+    "matplotlib >= 2.0",
+    "numpy >= 1.16",
+    "pandas >= 0.24",
+    "pillow >= 5.4",
+    "scikit-learn >= 0.20",
+    "scipy >= 1.2",
+    "seaborn >= 0.9",
+    "tables >= 3.5",
+    "tensorflow >= 1.13",
+    "tensorflow-probability >= 0.6"
 ]
 
 with open("README.md", "r") as readme_file:
