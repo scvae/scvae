@@ -2,9 +2,9 @@
 
 scVAE is a command-line tool for modelling single-cell transcript counts using variational auto-encoders.
 
-scVAE was developed by Christopher Heje Grønbech and Maximillian Fornitz Vording, and it is being developed further by Christopher. The methods used by scVAE is described and examined in Grønbech *et al.* (2018).
+scVAE was developed by Christopher Heje Grønbech and Maximillian Fornitz Vording, and it is being developed further by Christopher Heje Grønbech. The methods used by scVAE is described and examined in Grønbech *et al.* (2018).
 
-scVAE requires Python 3.5 or later, which can be installed by itself in [several ways][Python-installation-guides] or using [Miniconda][].
+scVAE requires Python 3.5 or later, which can be installed in [several ways][Python-installation-guides], for example, using [Miniconda][].
 
 [Python-installation-guides]: https://realpython.com/installing-python/
 [Miniconda]: https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html
@@ -13,11 +13,11 @@ scVAE requires Python 3.5 or later, which can be installed by itself in [several
 
 Install scVAE using pip:
 
-	$ pip install scvae
+	$ python3 -m pip install scvae
 
 Note: scVAE depends on TensorFlow, and by default the CPU-enabled version of TensorFlow is installed, if the required version of TensorFlow is not already installed. If you have a Nvidia GPU, you should install the GPU-enabled version of TensorFlow beforehand, since this is significantly faster:
 
-	$ pip install tensorflow-gpu
+	$ python3 -m pip install tensorflow-gpu
 
 ## Using scVAE ##
 
@@ -25,7 +25,7 @@ In general, scVAE is used in the following way:
 
 	$ scvae $COMMAND $DATA_SET
 
-where `$COMMAND` can be `analyse` (data analysis), `train` ([model training][Training a model]), or `evaluate` ([model evaluation and analysis][Evaluating a model]). `$DATA_SET` is a path to a data set file or a short name for a data set.
+where `$COMMAND` can be `analyse` (data analysis), `train` (model training), or `evaluate` (model evaluation and analysis). `$DATA_SET` is a path to a data set file or a short name for a data set.
 
 By default, data are placed and cached in the subfolder `data/`, models are saved in the subfolder `models/`, and analyses are saved in the subfolder `analyses/`.
 
@@ -71,8 +71,8 @@ The TSV files can be compressed using gzip, but each row should represent a cell
 scVAE also supports the following formats (supplied using the `--format` option):
 
 * `10x`: Output format for 10x Genomics's Cell Ranger.
-* `GTEx`: Format for data sets from [GTEx][].
-* `Loom`: Loom format.
+* `gtex`: Format for data sets from [GTEx][].
+* `loom`: Loom format.
 * `matrix_ebf`: (gzip compressed) TSV file with cells/samples/examples as rows and gene/features as columns (examples-by-features).
 * `matrix_fbe`: (gzip compressed) TSV file with gene/features as rows and cells/samples/examples as columns (features-by-examples).
 
@@ -100,13 +100,19 @@ The GTEx data set can then be imported and modelled:
 
 #### Withheld data ####
 
-The data set can split into a training, a validation, and a test set using the `--split-data-set` option. Then, the training set is used to train the model, the validation set is used for early stopping, and the test set is used when evaluating the model.
+The data set can split into a training, a validation, and a test set using the `--split-data-set` option:
+
+	$ scvae train 10x-PBMC-PP --split-data-set
+
+Then, the training set is used to train the model, the validation set is used for early stopping, and the test set is used when evaluating the model.
 
 ### Training a model ###
 
 The command `train` is used to train a model on a data set:
 
 	$ scvae train 10x-PBMC-PP
+
+By default, a VAE model with a Poisson likelihood function, two-dimensional latent variable, and one hidden layer of 100 units will be trained on the specified data set for 200 epochs with a learning rate of 10<sup>-4</sup>.
 
 The default model can be changed by using the following options:
 
@@ -118,16 +124,18 @@ The default model can be changed by using the following options:
 	* `zero_inflated_negative binomial`,
 	* `constrained_poisson`,
 	* `bernoulli`,
-	* `gaussian` or (`softplus gaussian`),
-	* `log_normal`, and
-	* `lomax`.
-* `-k`: The threshold for the piecewise categorical distribution (denoted by *k*<sub>max</sub> in the paper).
+	* `gaussian`, and
+	* `log_normal`.
+* `-k`: The threshold for modelling low counts using discrete probabilities and high counts using a shifted likelihood function (denoted by *k*<sub>max</sub> in Grønbech *et al*, 2018). This turns the likelihood function into a corresponding piecewise categorical likehood function.
+* `-q`: The latent prior distribution. For the VAE model, this can only be a normal isotropic Gaussian distribution (`gaussian`) or one with unit variance (`unit_variance_gaussian`). For the GMVAE model, this can either be a Gaussian-mixture model with a diagonal covariance matrix (`gaussian_mixture`) or a full covariance matrix (`full_covariance_gaussian_mixture`). Note that a full covariance matrix should only be used for simpler GMVAE models.
+* `--prior-probabilites-method`: Method for how to set the mixture coefficients for the latent prior distribution of the GMVAE model. They can be fixed to either uniform values (`uniform`) or inferred values from labelled data (`infer`), or they can be learnt by the model (`learn`).
 * `-l`: The dimension of the latent variable.
 * `-H`: The number of hidden units in each layer separated by spaces. For example, `-H 200 100` will make both the inference (encoder) and the generative (decoder) networks two-layered with the first inference layer and the last generative layer consisting of 200 hidden units and the last inference layer and the first generative layer consisting of 100 hidden units.
 * `-K`: The number of components for the GMVAE (if possible, this is inferred from labelled data, but it can be overridden using this option).
-* `-w`: The number of epochs during training where the warm-up optimisation scheme is used.
+* `-w`: The number of epochs during the start of training with a linear weight on the KL divergence (the warm-up optimisation scheme described in Grønbech *et al*, 2018). This weight is gradually increased linearly from 0 to 1 for this number of epochs.
+* `--batch-correction`: Perform batch correction if batch indices are available in data set (currently only possible with Loom data sets).
 
-The training procedure can further changed using the following options (applicable only to the `train` command):
+The training procedure can be changed using the following options (only applicable to the `train` command):
 
 * `-e`: The number of epochs to train the model.
 * `--learning-rate`: The learning rate of the model.
@@ -136,11 +144,11 @@ A GMVAE model with a negative binomial likelihood function, a 100-dimensional la
 
 	$ scvae train 10x-PBMC-PP -m GMVAE -l 100 -H 100 100 -w 200 -e 500
 
-Trained models are saved, by default, saved to the subdirectory `models/`. This can be changed using the option `--models-directory` (or `-M`).
+Trained models are saved to the subdirectory `models/` by default. This can be changed using the option `--models-directory` (or `-M`).
 
 ### Evaluating a model ###
 
-The command `evalate` is used to evaluate a model on a data set:
+The command `evaluate` is used to evaluate a model on a data set:
 
 	$ scvae evalaute 10x-PBMC-PP
 
@@ -148,9 +156,9 @@ Note the model has to have already been trained on the same data set.
 
 The model is specified in the same way as when training the model, and the model will be evaluated at the last epoch to which it was trained. If withheld data were used, the model will also be evaluated at the early-stopping epoch and epoch with the most optimal marginal log-likelihood lower bound (if available). A number of analyses are conducted of the models and results, and these saved in the subdirectory `analyses/`. This can be changed using the option `--analyses-directory` (or `-A`).
 
-Cell can be clustered and cell types can be predicted using the option `--prediction-method`. Currently only *k*-means clustering is supported. The GMVAE clusters cells and predict cell types using its built-in density-based clustering by default.
+Cells can be clustered and cell types can be predicted using the option `--prediction-method`. Currently only *k*-means clustering (`kmeans`) is supported. The GMVAE clusters cells and predict cell types using its built-in density-based clustering by default.
 
-To visualise the data sets or latent spaces thereof, these are decomposed using a decomposition method. By default, this method is PCA. This can be changed using the option `--decomposition-methods`, and as the name implies, multiple methods can be specified.
+To visualise the data sets or latent spaces thereof, these are decomposed using a decomposition method. By default, this method is PCA. This can be changed using the option `--decomposition-methods`, and as the name implies, multiple methods can be specified: PCA (`pca`), ICA (`ica`), SVD (`svd`), and *t*-SNE (`tsne`).
 
 The GMVAE model trained in the previous section is evaluated with PCA and *t*-SNE decomposition methods like this:
 
@@ -158,7 +166,7 @@ The GMVAE model trained in the previous section is evaluated with PCA and *t*-SN
 
 ### Examples ###
 
-To reproduce the main results from our paper, you can run the following commands:
+To reproduce the main results from Grønbech *et al* (2018), you can run the following commands:
 
 * Combined PBMC data set from 10x Genomics:
 

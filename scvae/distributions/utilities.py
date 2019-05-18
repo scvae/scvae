@@ -328,36 +328,6 @@ LATENT_DISTRIBUTIONS = {
                 "log_sigma": 0.0
             }
         }
-    },
-    "gaussian mixture": {
-        "prior": {
-            "name": "gaussian mixture",
-            "parameters": {}
-        },
-        "posterior": {
-            "name": "gaussian mixture",
-            "parameters": {}
-        }
-    },
-    "half gaussian mixture": {
-        "prior": {
-            "name": "gaussian mixture",
-            "parameters": {}
-        },
-        "posterior": {
-            "name": "gaussian",
-            "parameters": {}
-        }
-    },
-    "fixed gaussian mixture": {
-        "prior": {
-            "name": "gaussian mixture",
-            "parameters": {}
-        },
-        "posterior": {
-            "name": "gaussian",
-            "parameters": {}
-        }
     }
 }
 

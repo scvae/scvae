@@ -918,7 +918,9 @@ def main():
             type=int,
             default=_parse_default(defaults["models"][
                 "number_of_warm_up_epochs"]),
-            help="number of epochs with a linear weight on the KL divergence"
+            help=(
+                "number of initial epochs with a linear weight on the "
+                "KL divergence")
         )
         subparser.add_argument(
             "--kl-weight",
