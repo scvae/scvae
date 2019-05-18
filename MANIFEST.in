@@ -1,2 +1,2 @@
-include README.md LICENSE.txt
+include README.md CHANGELOG.md LICENSE.txt
 recursive-include scvae *.json

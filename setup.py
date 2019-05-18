@@ -11,7 +11,7 @@ AUTHOR = scvae.__author__
 EMAIL = scvae.__email__
 VERSION = scvae.__version__
 LICENSE = scvae.__license__
-REQUIRED_PYTHON_VERSION = ">=3.6.0"
+REQUIRED_PYTHON_VERSION = ">=3.5.0"
 
 REQUIRED_PACKAGES = [
     "importlib_resources>=1.0",
@@ -29,7 +29,10 @@ REQUIRED_PACKAGES = [
 ]
 
 with open("README.md", "r") as readme_file:
-    long_description = readme_file.read()
+    readme = readme_file.read()
+
+with open("CHANGELOG.md", "r") as changelog_file:
+    changelog = changelog_file.read()
 
 setuptools.setup(
     name=NAME,
@@ -37,7 +40,7 @@ setuptools.setup(
     author=AUTHOR,
     author_email=EMAIL,
     description=DESCRIPTION,
-    long_description=long_description,
+    long_description="\n\n".join([readme, changelog]),
     long_description_content_type="text/markdown",
     url=URL,
     packages=setuptools.find_packages(),
