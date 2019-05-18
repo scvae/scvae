@@ -17,9 +17,10 @@
 # ======================================================================== #
 
 import matplotlib
+import numpy
 import seaborn
 
-STANDARD_PALETTE = seaborn.color_palette('Set2', 8)
+STANDARD_PALETTE = seaborn.color_palette("Set2", 8)
 STANDARD_COLOUR_MAP = seaborn.cubehelix_palette(light=.95, as_cmap=True)
 NEUTRAL_COLOUR = (0.7, 0.7, 0.7)
 

@@ -59,6 +59,9 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
         if colouring_data_set is None:
             raise ValueError("Colouring data set not given.")
 
+    if sampled_values is not None:
+        figure_name += "-samples"
+
     values = values.copy()[:, :2]
     if scipy.sparse.issparse(values):
         values = values.A
@@ -80,6 +83,10 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
     axis.set_ylabel(y_label)
 
     colour_map = seaborn.dark_palette(style.STANDARD_PALETTE[0], as_cmap=True)
+
+    alpha = 1
+    if sampled_values is not None:
+        alpha = 0.5
 
     if colour_coding and (
             "labels" in colour_coding
@@ -151,10 +158,11 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
                         values[i, 0],
                         values[i, 1],
                         color=colour,
-                        label=label
+                        label=label,
+                        alpha=alpha
                     )
 
-            axis.scatter(values[:, 0], values[:, 1], c=colours)
+            axis.scatter(values[:, 0], values[:, 1], c=colours, alpha=alpha)
 
             class_handles, class_labels = axis.get_legend_handles_labels()
 
@@ -218,6 +226,7 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
                     ordered_values[:, 1],
                     c=ordered_colours,
                     label=label,
+                    alpha=alpha,
                     zorder=z_order
                 )
 
@@ -243,7 +252,8 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
             values[:, 0],
             values[:, 1],
             c=n,
-            cmap=colour_map
+            cmap=colour_map,
+            alpha=alpha
         )
         colour_bar = figure.colorbar(scatter_plot)
         colour_bar.outline.set_linewidth(0)
@@ -270,14 +280,17 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
             values[:, 0],
             values[:, 1],
             c=f,
-            cmap=colour_map
+            cmap=colour_map,
+            alpha=alpha
         )
         colour_bar = figure.colorbar(scatter_plot)
         colour_bar.outline.set_linewidth(0)
         colour_bar.set_label(feature_name)
 
     elif colour_coding is None:
-        axis.scatter(values[:, 0], values[:, 1], c=[style.NEUTRAL_COLOUR])
+        axis.scatter(
+            values[:, 0], values[:, 1], c="k",
+            alpha=alpha, edgecolors="none")
 
     else:
         raise ValueError(
@@ -323,12 +336,27 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
                 axis.add_patch(ellipse_fill)
 
     if sampled_values is not None:
+
         sampled_values = sampled_values.copy()[:, :2]
         if scipy.sparse.issparse(sampled_values):
             sampled_values = sampled_values.A
-        axis.scatter(
+
+        sample_colour_map = seaborn.blend_palette(
+            ("white", "purple"), as_cmap=True)
+        
+        x_limits = axis.get_xlim()
+        y_limits = axis.get_ylim()
+
+        axis.hexbin(
             sampled_values[:, 0], sampled_values[:, 1],
-            c=[style.NEUTRAL_COLOUR], zorder=-100)
+            gridsize=75,
+            cmap=sample_colour_map,
+            linewidths=0., edgecolors="none",
+            zorder=-100
+        )
+
+        axis.set_xlim(x_limits)
+        axis.set_ylim(y_limits)
 
     # Reset marker size
     style.reset_plot_look()

@@ -718,7 +718,6 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
             figure, figure_name = figures.plot_values(
                 plot_values_decomposed,
                 centroids=centroids_decomposed,
-                sampled_values=sampled_values_decomposed,
                 figure_labels=figure_labels,
                 example_tag=data_set.tags["example"],
                 name=name
@@ -735,6 +734,29 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                 format_duration(plot_duration)
             ))
 
+            # Samples
+            if sampled_data_set:
+                plot_time_start = time()
+                figure, figure_name = figures.plot_values(
+                    plot_values_decomposed,
+                    centroids=centroids_decomposed,
+                    sampled_values=sampled_values_decomposed,
+                    figure_labels=figure_labels,
+                    example_tag=data_set.tags["example"],
+                    name=name
+                )
+                figures.save_figure(
+                    figure=figure,
+                    name=figure_name,
+                    options=export_options,
+                    directory=decompositions_directory
+                )
+                plot_duration = time() - plot_time_start
+                print("    {} (with samples) plotted and saved ({}).".format(
+                    capitalise_string(title),
+                    format_duration(plot_duration)
+                ))
+
             # Labels
             if colouring_data_set.labels is not None:
                 plot_time_start = time()
@@ -743,7 +765,6 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colour_coding="labels",
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
-                    sampled_values=sampled_values_decomposed,
                     figure_labels=figure_labels,
                     example_tag=data_set.tags["example"],
                     name=name
@@ -766,7 +787,6 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                         colour_coding="superset labels",
                         colouring_data_set=colouring_data_set,
                         centroids=centroids_decomposed,
-                        sampled_values=sampled_values_decomposed,
                         figure_labels=figure_labels,
                         example_tag=data_set.tags["example"],
                         name=name
@@ -797,7 +817,6 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                                 colour_coding="class",
                                 colouring_data_set=colouring_data_set,
                                 centroids=centroids_decomposed,
-                                sampled_values=sampled_values_decomposed,
                                 class_name=class_name,
                                 figure_labels=figure_labels,
                                 example_tag=data_set.tags["example"],
@@ -828,7 +847,6 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                                 colour_coding="superset class",
                                 colouring_data_set=colouring_data_set,
                                 centroids=centroids_decomposed,
-                                sampled_values=sampled_values_decomposed,
                                 class_name=superset_class_name,
                                 figure_labels=figure_labels,
                                 example_tag=data_set.tags["example"],
@@ -857,7 +875,6 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colour_coding="batches",
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
-                    sampled_values=sampled_values_decomposed,
                     figure_labels=figure_labels,
                     example_tag=data_set.tags["example"],
                     name=name,
@@ -886,7 +903,6 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colour_coding="predicted cluster IDs",
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
-                    sampled_values=sampled_values_decomposed,
                     figure_labels=figure_labels,
                     example_tag=data_set.tags["example"],
                     name=name,
@@ -915,7 +931,6 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colour_coding="predicted labels",
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
-                    sampled_values=sampled_values_decomposed,
                     figure_labels=figure_labels,
                     example_tag=data_set.tags["example"],
                     name=name,
@@ -943,7 +958,6 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colour_coding="predicted superset labels",
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
-                    sampled_values=sampled_values_decomposed,
                     figure_labels=figure_labels,
                     example_tag=data_set.tags["example"],
                     name=name,
@@ -970,7 +984,6 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                 colour_coding="count sum",
                 colouring_data_set=colouring_data_set,
                 centroids=centroids_decomposed,
-                sampled_values=sampled_values_decomposed,
                 figure_labels=figure_labels,
                 example_tag=data_set.tags["example"],
                 name=name
@@ -995,7 +1008,6 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colour_coding="feature",
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
-                    sampled_values=sampled_values_decomposed,
                     feature_index=feature_index,
                     figure_labels=figure_labels,
                     example_tag=data_set.tags["example"],
