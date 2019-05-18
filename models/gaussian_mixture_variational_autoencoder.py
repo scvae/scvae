@@ -577,7 +577,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 inputs = self.x,
                 num_outputs = self.hidden_sizes,
                 activation_fn = relu,
-                batch_normalisation = self.batch_normalisation,
+                batch_normalisation = self.batch_normalisation, 
                 is_training = self.is_training,
                 input_dropout_keep_probability =
                     self.dropout_keep_probability_x,
@@ -610,7 +610,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 )
             ### Parameterise q(y|x) = Cat(pi(x))
             q_y_given_x = distribution["class"](theta)
-        return q_y_given_x
+        return q_y_given_x 
 
     def p_x_given_z_graph(self, z, reuse = False):
         # Decoder - Generative model, p(x|z)
@@ -739,7 +739,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             
             self.q_y_given_x = self.q_y_given_x_graph(self.x)
             self.q_y_logits = self.q_y_given_x.logits
-            self.q_y_probabilities = tf.reduce_mean(self.q_y_given_x.probs, 0)
+            self.q_y_probabilities = tf.reduce_mean(self.q_y_given_x.probs, 0) 
         
         # Z latent space
         with tf.variable_scope("Z"):
@@ -846,7 +846,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             # (B)
             KL_y = p_y_entropy - q_y_given_x_entropy
         else:
-            KL_y = kl_divergence(self.q_y_given_x, self.p_y)
+            KL_y =kl_divergence(self.q_y_given_x, self.p_y)
             p_y_entropy = tf.squeeze(self.p_y.entropy())
 
         KL_y_threshhold = self.proportion_of_free_KL_nats * p_y_entropy
@@ -1025,10 +1025,6 @@ class GaussianMixtureVariationalAutoencoder(object):
         #     self.KL_z + KL_y_modified
         # )
         # tf.add_to_collection('losses', self.ELBO)
-        self.loss = self.ELBO_weighted + tf.nn.softmax_cross_entropy_with_logits(
-            labels=self.labels,
-            logits=self.q_y_logits
-        )
         
     
     def training(self):
