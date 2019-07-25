@@ -255,6 +255,12 @@ def filter_examples(values_dictionary, example_names,
         threshold = int(example_filter_parameters[0])
         filter_indices = filter_indices[count_sum.reshape(-1) <= threshold]
 
+    elif example_filter == "random":
+        n_samples = int(example_filter_parameters[0])
+        n_samples = min(n_samples, n_examples)
+        random_state = numpy.random.RandomState(90)
+        filter_indices = random_state.permutation(n_examples)[:n_samples]
+
     else:
         raise ValueError(
             "Example filter `{}` not found.".format(example_filter))
