@@ -92,10 +92,10 @@ def map_features(values, feature_ids, feature_mapping):
     return aggregated_values, feature_names
 
 
-def select_features(values_dictionary, feature_names, feature_selection=None,
-                    feature_selection_parameters=None):
+def select_features(values_dictionary, feature_names, method=None,
+                    parameters=None):
 
-    feature_selection = normalise_string(feature_selection)
+    method = normalise_string(method)
 
     print("Selecting features.")
     start_time = time()
@@ -105,42 +105,40 @@ def select_features(values_dictionary, feature_names, feature_selection=None,
 
     n_examples, n_features = values.shape
 
-    if feature_selection == "remove_zeros":
+    if method == "remove_zeros":
         total_feature_sum = values.sum(axis=0)
         if isinstance(total_feature_sum, numpy.matrix):
             total_feature_sum = total_feature_sum.A.squeeze()
         indices = total_feature_sum != 0
 
-    elif feature_selection == "keep_variances_above":
+    elif method == "keep_variances_above":
         variances = values.var(axis=0)
         if isinstance(variances, numpy.matrix):
             variances = variances.A.squeeze()
-        if feature_selection_parameters:
-            threshold = float(feature_selection_parameters[0])
+        if parameters:
+            threshold = float(parameters[0])
         else:
             threshold = 0.5
         indices = variances > threshold
 
-    elif feature_selection == "keep_highest_variances":
+    elif method == "keep_highest_variances":
         variances = values.var(axis=0)
         if isinstance(variances, numpy.matrix):
             variances = variances.A.squeeze()
         variance_sorted_indices = numpy.argsort(variances)
-        if feature_selection_parameters:
-            number_to_keep = int(feature_selection_parameters[0])
+        if parameters:
+            number_to_keep = int(parameters[0])
         else:
             number_to_keep = int(n_examples/2)
         indices = numpy.sort(variance_sorted_indices[-number_to_keep:])
 
     else:
         raise ValueError(
-            "Feature selection `{}` not found.".format(feature_selection))
+            "Feature selection `{}` not found.".format(method))
 
-    if feature_selection:
+    if method:
         error = Exception(
-            "No features excluded using feature selection {}."
-            .format(feature_selection)
-        )
+            "No features excluded using feature selection {}.".format(method))
         if indices.dtype == "bool" and all(indices):
             raise error
         elif indices.dtype != "bool" and len(indices) == n_features:
@@ -169,7 +167,7 @@ def select_features(values_dictionary, feature_names, feature_selection=None,
 
 
 def filter_examples(values_dictionary, example_names,
-                    example_filter=None, example_filter_parameters=None,
+                    method=None, parameters=None,
                     labels=None, excluded_classes=None,
                     superset_labels=None, excluded_superset_classes=None,
                     batch_indices=None, count_sum=None):
@@ -177,7 +175,7 @@ def filter_examples(values_dictionary, example_names,
     print("Filtering examples.")
     start_time = time()
 
-    example_filter = normalise_string(example_filter)
+    method = normalise_string(method)
 
     if superset_labels is not None:
         filter_labels = superset_labels.copy()
@@ -197,21 +195,21 @@ def filter_examples(values_dictionary, example_names,
 
     filter_indices = numpy.arange(n_examples)
 
-    if example_filter == "macosko":
+    if method == "macosko":
         minimum_number_of_non_zero_elements = 900
         number_of_non_zero_elements = (values != 0).sum(axis=1)
         filter_indices = numpy.nonzero(
             number_of_non_zero_elements > minimum_number_of_non_zero_elements
         )[0]
 
-    elif example_filter == "inverse_macosko":
+    elif method == "inverse_macosko":
         maximum_number_of_non_zero_elements = 900
         number_of_non_zero_elements = (values != 0).sum(axis=1)
         filter_indices = numpy.nonzero(
             number_of_non_zero_elements <= maximum_number_of_non_zero_elements
         )[0]
 
-    elif example_filter in ["keep", "remove", "excluded_classes"]:
+    elif method in ["keep", "remove", "excluded_classes"]:
 
         if filter_labels is None:
             raise ValueError(
@@ -219,14 +217,14 @@ def filter_examples(values_dictionary, example_names,
                 "since data set is unlabelled."
             )
 
-        if example_filter == "excluded_classes":
-            example_filter = "remove"
-            example_filter_parameters = filter_excluded_classes
+        if method == "excluded_classes":
+            method = "remove"
+            parameters = filter_excluded_classes
 
-        if example_filter == "keep":
+        if method == "keep":
             label_indices = set()
 
-            for parameter in example_filter_parameters:
+            for parameter in parameters:
                 for class_name in filter_class_names:
 
                     normalised_class_name = normalise_string(str(class_name))
@@ -238,9 +236,9 @@ def filter_examples(values_dictionary, example_names,
 
             filter_indices = filter_indices[list(label_indices)]
 
-        elif example_filter == "remove":
+        elif method == "remove":
 
-            for parameter in example_filter_parameters:
+            for parameter in parameters:
                 for class_name in filter_class_names:
 
                     normalised_class_name = normalise_string(str(class_name))
@@ -251,24 +249,24 @@ def filter_examples(values_dictionary, example_names,
                         filter_labels = filter_labels[label_indices]
                         filter_indices = filter_indices[label_indices]
 
-    elif example_filter == "remove_count_sum_above":
-        threshold = int(example_filter_parameters[0])
+    elif method == "remove_count_sum_above":
+        threshold = int(parameters[0])
         filter_indices = filter_indices[count_sum.reshape(-1) <= threshold]
 
-    elif example_filter == "random":
-        n_samples = int(example_filter_parameters[0])
+    elif method == "random":
+        n_samples = int(parameters[0])
         n_samples = min(n_samples, n_examples)
         random_state = numpy.random.RandomState(90)
         filter_indices = random_state.permutation(n_examples)[:n_samples]
 
     else:
         raise ValueError(
-            "Example filter `{}` not found.".format(example_filter))
+            "Example filter `{}` not found.".format(method))
 
-    if example_filter and len(filter_indices) == n_examples:
+    if method and len(filter_indices) == n_examples:
         raise Exception(
             "No examples filtered out using example filter `{}`."
-            .format(example_filter)
+            .format(method)
         )
 
     example_filtered_values = {}

@@ -95,19 +95,20 @@ def build_directory_path(base_directory, data_set, splitting_method=None,
 
     preprocessing_directory_parts = []
 
-    if data_set.map_features:
+    if data_set.features_mapped:
         preprocessing_directory_parts.append("features_mapped")
 
-    if data_set.feature_selection:
-        feature_selection_part = normalise_string(data_set.feature_selection)
+    if data_set.feature_selection_method:
+        feature_selection_part = normalise_string(
+            data_set.feature_selection_method)
         if data_set.feature_selection_parameters:
             for parameter in data_set.feature_selection_parameters:
                 feature_selection_part += "_" + normalise_string(str(
                     parameter))
         preprocessing_directory_parts.append(feature_selection_part)
 
-    if data_set.example_filter:
-        example_filter_part = normalise_string(data_set.example_filter)
+    if data_set.example_filter_method:
+        example_filter_part = normalise_string(data_set.example_filter_method)
         if data_set.example_filter_parameters:
             for parameter in data_set.example_filter_parameters:
                 example_filter_part += "_" + normalise_string(str(

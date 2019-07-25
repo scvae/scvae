@@ -231,27 +231,29 @@ class DataSet(object):
         # Feature selection
         if feature_selection is None:
             feature_selection = defaults["data"]["feature_selection"]
-        if feature_selection:
-            self.feature_selection = feature_selection[0]
-            if len(feature_selection) > 1:
-                self.feature_selection_parameters = feature_selection[1:]
+        self.feature_selection = feature_selection
+        if self.feature_selection:
+            self.feature_selection_method = self.feature_selection[0]
+            if len(self.feature_selection) > 1:
+                self.feature_selection_parameters = self.feature_selection[1:]
             else:
                 self.feature_selection_parameters = None
         else:
-            self.feature_selection = None
+            self.feature_selection_method = None
             self.feature_selection_parameters = None
 
         # Example filterering
         if example_filter is None:
             example_filter = defaults["data"]["example_filter"]
-        if example_filter:
-            self.example_filter = example_filter[0]
-            if len(example_filter) > 1:
-                self.example_filter_parameters = example_filter[1:]
+        self.example_filter = example_filter
+        if self.example_filter:
+            self.example_filter_method = self.example_filter[0]
+            if len(self.example_filter) > 1:
+                self.example_filter_parameters = self.example_filter[1:]
             else:
                 self.example_filter_parameters = None
         else:
-            self.example_filter = None
+            self.example_filter_method = None
             self.example_filter_parameters = None
 
         # Preprocessing methods
@@ -306,8 +308,8 @@ class DataSet(object):
             if self.map_features:
                 print("    feature mapping: if available")
 
-            if self.feature_selection:
-                print("    feature selection:", self.feature_selection)
+            if self.feature_selection_method:
+                print("    feature selection:", self.feature_selection_method)
                 if self.feature_selection_parameters:
                     print(
                         "        parameters:",
@@ -318,8 +320,8 @@ class DataSet(object):
             else:
                 print("    feature selection: none")
 
-            if self.example_filter:
-                print("    example filter:", self.example_filter)
+            if self.example_filter_method:
+                print("    example filter:", self.example_filter_method)
                 if self.example_filter_parameters:
                     print(
                         "        parameter(s):",
@@ -426,8 +428,8 @@ class DataSet(object):
 
         feature_selection_parameters = None
 
-        if self.feature_selection:
-            feature_selection = normalise_string(self.feature_selection)
+        if self.feature_selection_method:
+            feature_selection = normalise_string(self.feature_selection_method)
 
             if feature_selection == "keep_variances_above":
                 feature_selection_parameters = [0.5]
@@ -747,9 +749,9 @@ class DataSet(object):
         sparse_path = self._build_preprocessed_path(
             map_features=self.map_features,
             preprocessing_methods=self.preprocessing_methods,
-            feature_selection=self.feature_selection,
+            feature_selection_method=self.feature_selection_method,
             feature_selection_parameters=self.feature_selection_parameters,
-            example_filter=self.example_filter,
+            example_filter_method=self.example_filter_method,
             example_filter_parameters=self.example_filter_parameters
         )
 
@@ -815,8 +817,8 @@ class DataSet(object):
                     {"original": values,
                      "preprocessed": preprocessed_values},
                     self.feature_names,
-                    self.feature_selection,
-                    self.feature_selection_parameters
+                    method=self.feature_selection_method,
+                    parameters=self.feature_selection_parameters
                 )
 
                 values = values_dictionary["original"]
@@ -830,8 +832,8 @@ class DataSet(object):
                         {"original": values,
                          "preprocessed": preprocessed_values},
                         self.example_names,
-                        self.example_filter,
-                        self.example_filter_parameters,
+                        method=self.example_filter_method,
+                        parameters=self.example_filter_parameters,
                         labels=self.labels,
                         excluded_classes=self.excluded_classes,
                         superset_labels=self.superset_labels,
@@ -917,9 +919,9 @@ class DataSet(object):
         sparse_path = self._build_preprocessed_path(
             map_features=self.map_features,
             preprocessing_methods=binarise_preprocessing,
-            feature_selection=self.feature_selection,
+            feature_selection_method=self.feature_selection_method,
             feature_selection_parameters=self.feature_selection_parameters,
-            example_filter=self.example_filter,
+            example_filter_method=self.example_filter_method,
             example_filter_parameters=self.example_filter_parameters
         )
 
@@ -983,9 +985,9 @@ class DataSet(object):
         sparse_path = self._build_preprocessed_path(
             map_features=self.map_features,
             preprocessing_methods=self.preprocessing_methods,
-            feature_selection=self.feature_selection,
+            feature_selection_method=self.feature_selection_method,
             feature_selection_parameters=self.feature_selection_parameters,
-            example_filter=self.example_filter,
+            example_filter_method=self.example_filter_method,
             example_filter_parameters=self.example_filter_parameters,
             splitting_method=method,
             splitting_fraction=fraction,
@@ -1172,9 +1174,9 @@ class DataSet(object):
             self,
             map_features=None,
             preprocessing_methods=None,
-            feature_selection=None,
+            feature_selection_method=None,
             feature_selection_parameters=None,
-            example_filter=None,
+            example_filter_method=None,
             example_filter_parameters=None,
             splitting_method=None,
             splitting_fraction=None,
@@ -1187,16 +1189,16 @@ class DataSet(object):
         if map_features:
             filename_parts.append("features_mapped")
 
-        if feature_selection:
-            feature_selection_part = normalise_string(feature_selection)
+        if feature_selection_method:
+            feature_selection_part = normalise_string(feature_selection_method)
             if feature_selection_parameters:
                 for parameter in feature_selection_parameters:
                     feature_selection_part += "_" + normalise_string(str(
                         parameter))
             filename_parts.append(feature_selection_part)
 
-        if example_filter:
-            example_filter_part = normalise_string(example_filter)
+        if example_filter_method:
+            example_filter_part = normalise_string(example_filter_method)
             if example_filter_parameters:
                 for parameter in example_filter_parameters:
                     example_filter_part += "_" + normalise_string(str(
