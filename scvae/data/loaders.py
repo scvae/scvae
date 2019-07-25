@@ -202,7 +202,8 @@ def _load_tcga_data_set(paths):
             label_column="_primary_site",
             example_column="sampleID",
             example_names=example_names,
-            dtype="U"
+            dtype="U",
+            default_label="No class"
         )
 
     # Feature mapping
@@ -749,11 +750,12 @@ def _load_labels_from_delimiter_separeted_values(
     if example_names is not None:
 
         labels = numpy.zeros(example_names.shape, unordered_labels.dtype)
-        if default_label:
-            labels[labels == 0] = default_label
 
         for example_name, label in unordered_labels.items():
             labels[example_names == example_name] = label
+
+        if default_label:
+            labels[labels == 0] = default_label
 
     else:
         labels = unordered_labels.values
