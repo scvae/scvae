@@ -485,7 +485,7 @@ def _register_preprocessor(name):
 
 @_register_preprocessor("log")
 def _log(values):
-    return values.logp1()
+    return values.log1p()
 
 
 @_register_preprocessor("exp")
