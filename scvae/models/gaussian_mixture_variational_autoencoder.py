@@ -110,9 +110,12 @@ class GaussianMixtureVariationalAutoencoder(object):
         self.latent_distribution = copy.deepcopy(
             GAUSSIAN_MIXTURE_DISTRIBUTIONS[latent_distribution]
         )
+        analytical_kl_term = False
         if latent_distribution == "legacy gaussian mixture":
             latent_distribution = "gaussian mixture"
+            analytical_kl_term = True
         self.latent_distribution_name = latent_distribution
+        self.analytical_kl_term = analytical_kl_term
 
         if number_of_latent_clusters is None:
             raise ValueError(
@@ -379,6 +382,9 @@ class GaussianMixtureVariationalAutoencoder(object):
             "mc_{}".format(self.number_of_monte_carlo_samples["training"]))
         reconstruction_parts.append(
             "iw_{}".format(self.number_of_importance_samples["training"]))
+
+        if self.analytical_kl_term:
+            reconstruction_parts.append("kl")
 
         if self.minibatch_normalisation:
             reconstruction_parts.append("bn")
