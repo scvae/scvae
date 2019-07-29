@@ -29,6 +29,7 @@ __all__ = [
     "plot_centroid_means_evolution",
     "plot_centroid_covariance_matrices_evolution",
     "plot_matrix",
+    "plot_correlation_matrix",
     "plot_heat_map",
     "plot_values",
     "plot_variable_correlations",
@@ -47,7 +48,8 @@ from scvae.analyses.figures.learning_curves import (
     plot_centroid_probabilities_evolution, plot_centroid_means_evolution,
     plot_centroid_covariance_matrices_evolution,
 )
-from scvae.analyses.figures.matrices import plot_matrix, plot_heat_map
+from scvae.analyses.figures.matrices import (
+    plot_matrix, plot_correlation_matrix, plot_heat_map)
 from scvae.analyses.figures.saving import save_figure
 from scvae.analyses.figures.scatter import (
     plot_values, plot_variable_correlations

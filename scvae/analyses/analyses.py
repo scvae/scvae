@@ -49,6 +49,8 @@ ANALYSIS_GROUPS["standard"] += ANALYSIS_GROUPS["simple"]
 ANALYSIS_GROUPS["all"] += ANALYSIS_GROUPS["standard"]
 
 MAXIMUM_NUMBER_OF_VALUES_FOR_HEAT_MAPS = 5000 * 25000
+MAXIMUM_NUMBER_OF_CORRELATED_VARIABLE_PAIRS_TO_PLOT = 25
+MAXIMUM_NUMBER_OF_VARIABLES_FOR_CORRELATION_PLOT = 10
 PROFILE_COMPARISON_COUNT_CUTOFF = 10.5
 DEFAULT_CUTOFFS = range(1, 10)
 
@@ -1344,26 +1346,71 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
         print(subheading("Latent correlations"))
         print("Plotting latent correlations.")
 
-        for set_name in latent_evaluation_sets:
+        for set_name, latent_evaluation_set in latent_evaluation_sets.items():
+
             correlations_time_start = time()
-            latent_evaluation_set = latent_evaluation_sets[set_name]
-            figure, figure_name = figures.plot_variable_correlations(
-                latent_evaluation_set.values,
-                latent_evaluation_set.feature_names,
-                latent_evaluation_set,
-                name=["latent correlations", set_name]
-            )
+            latent_correlation_matrix = metrics.correlation_matrix(
+                latent_evaluation_set.values, axis="features")
+            figure, figure_name = figures.plot_correlation_matrix(
+                latent_correlation_matrix,
+                axis_label="Latent units",
+                name=["latent correlation matrix", set_name])
             figures.save_figure(
                 figure=figure,
                 name=figure_name,
                 options=export_options,
-                directory=correlations_directory
-            )
+                directory=correlations_directory)
             correlations_duration = time() - correlations_time_start
             print(
-                "    Latent correlations for {} plotted ({})."
+                "    Latent correlation matrix for {} plotted ({})."
+                .format(set_name, format_duration(correlations_duration)))
+
+            correlations_time_start = time()
+            most_correlated_latent_pairs = (
+                metrics.most_correlated_variable_pairs_from_correlation_matrix(
+                    latent_correlation_matrix,
+                    n_limit=(
+                        MAXIMUM_NUMBER_OF_CORRELATED_VARIABLE_PAIRS_TO_PLOT)))
+            for latent_pair in most_correlated_latent_pairs:
+                figure, figure_name = figures.plot_values(
+                    latent_evaluation_set.values[:, latent_pair],
+                    colour_coding="labels",
+                    colouring_data_set=latent_evaluation_set,
+                    figure_labels={
+                        "x label": "Latent variable {}".format(latent_pair[0]),
+                        "y label": "Latent variable {}".format(latent_pair[1])
+                    },
+                    name="latent_correlations-{}-pair_{}_{}".format(
+                        set_name, *latent_pair))
+                figures.save_figure(
+                    figure=figure,
+                    name=figure_name,
+                    options=export_options,
+                    directory=correlations_directory)
+            correlations_duration = time() - correlations_time_start
+            print(
+                "    Most correlated latent pairs for {} plotted ({})."
                 .format(set_name, format_duration(correlations_duration))
             )
+
+            if latent_evaluation_set.number_of_features <= (
+                    MAXIMUM_NUMBER_OF_VARIABLES_FOR_CORRELATION_PLOT):
+                correlations_time_start = time()
+                figure, figure_name = figures.plot_variable_correlations(
+                    latent_evaluation_set.values,
+                    latent_evaluation_set.feature_names,
+                    latent_evaluation_set,
+                    name=["latent correlations", set_name])
+                figures.save_figure(
+                    figure=figure,
+                    name=figure_name,
+                    options=export_options,
+                    directory=correlations_directory)
+                correlations_duration = time() - correlations_time_start
+                print(
+                    "    Latent correlations for {} plotted ({})."
+                    .format(set_name, format_duration(correlations_duration))
+                )
 
         print()
 

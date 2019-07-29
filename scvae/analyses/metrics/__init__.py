@@ -23,7 +23,9 @@ __all__ = [
     "adjusted_rand_index",
     "adjusted_mutual_information",
     "silhouette_score",
-    "accuracy"
+    "accuracy",
+    "correlation_matrix",
+    "most_correlated_variable_pairs_from_correlation_matrix"
 ]
 
 from scvae.analyses.metrics.summary import (
@@ -35,4 +37,8 @@ from scvae.analyses.metrics.clustering import (
     adjusted_mutual_information,
     silhouette_score,
     accuracy
+)
+from scvae.analyses.metrics.correlations import (
+    correlation_matrix,
+    most_correlated_variable_pairs_from_correlation_matrix,
 )

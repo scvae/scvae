@@ -259,3 +259,29 @@ def plot_matrix(feature_matrix, plot_distances=False, center_value=None,
         axis_heat_map.set_xlabel(feature_label)
 
     return figure, figure_name
+
+
+def plot_correlation_matrix(correlation_matrix, axis_label=None, name=None):
+
+    figure_name = saving.build_figure_name(name)
+
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+
+    colour_bar_dictionary = {"label": "Pearson correlation coefficient"}
+
+    seaborn.set(style="white")
+    seaborn.heatmap(
+        correlation_matrix,
+        vmin=-1, vmax=1, center=0,
+        xticklabels=False, yticklabels=False,
+        cbar=True, cbar_kws=colour_bar_dictionary,
+        square=True, ax=axis
+    )
+    style.reset_plot_look()
+
+    if axis_label:
+        axis.set_xlabel(axis_label)
+        axis.set_ylabel(axis_label)
+
+    return figure, figure_name

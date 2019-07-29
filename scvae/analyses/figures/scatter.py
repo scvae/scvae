@@ -34,9 +34,9 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
     figure_name = name
 
     if figure_labels:
-        title = figure_labels["title"]
-        x_label = figure_labels["x label"]
-        y_label = figure_labels["y label"]
+        title = figure_labels.get("title")
+        x_label = figure_labels.get("x label")
+        y_label = figure_labels.get("y label")
     else:
         title = "none"
         x_label = "$x$"
@@ -343,7 +343,7 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
 
         sample_colour_map = seaborn.blend_palette(
             ("white", "purple"), as_cmap=True)
-        
+
         x_limits = axis.get_xlim()
         y_limits = axis.get_ylim()
 
