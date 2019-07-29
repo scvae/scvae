@@ -1390,8 +1390,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             correlations_duration = time() - correlations_time_start
             print(
                 "    Most correlated latent pairs for {} plotted ({})."
-                .format(set_name, format_duration(correlations_duration))
-            )
+                .format(set_name, format_duration(correlations_duration)))
 
             if latent_evaluation_set.number_of_features <= (
                     MAXIMUM_NUMBER_OF_VARIABLES_FOR_CORRELATION_PLOT):
@@ -1399,7 +1398,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                 figure, figure_name = figures.plot_variable_correlations(
                     latent_evaluation_set.values,
                     latent_evaluation_set.feature_names,
-                    latent_evaluation_set,
+                    colouring_data_set=latent_evaluation_set,
                     name=["latent correlations", set_name])
                 figures.save_figure(
                     figure=figure,
@@ -1409,8 +1408,32 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                 correlations_duration = time() - correlations_time_start
                 print(
                     "    Latent correlations for {} plotted ({})."
-                    .format(set_name, format_duration(correlations_duration))
-                )
+                    .format(set_name, format_duration(correlations_duration)))
+
+            if latent_evaluation_set.has_labels:
+                correlations_time_start = time()
+                for latent_variable in range(
+                        latent_evaluation_set.number_of_features):
+                    figure, figure_name = (
+                        figures.plot_variable_label_correlations(
+                            latent_evaluation_set.values[:, latent_variable],
+                            variable_name="Latent variable {}".format(
+                                latent_variable),
+                            colouring_data_set=latent_evaluation_set,
+                            name=(
+                                "latent_correlations-{}-labels-"
+                                "latent_variable_{}".format(
+                                    set_name, latent_variable))))
+                    figures.save_figure(
+                        figure=figure,
+                        name=figure_name,
+                        options=export_options,
+                        directory=correlations_directory)
+                correlations_duration = time() - correlations_time_start
+                print(
+                    "    Labels correlated with latent variables for {} "
+                    "plotted ({}).".format(
+                        set_name, format_duration(correlations_duration)))
 
         print()
 

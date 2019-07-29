@@ -23,7 +23,7 @@ from matplotlib import pyplot
 
 from scvae.analyses.figures import saving, style
 from scvae.analyses.figures.utilities import _covariance_matrix_as_ellipse
-from scvae.utilities import normalise_string
+from scvae.utilities import normalise_string, capitalise_string
 
 
 def plot_values(values, colour_coding=None, colouring_data_set=None,
@@ -417,5 +417,60 @@ def plot_variable_correlations(values, variable_names=None,
                 axes[i, j].set_xlabel(variable_names[j])
 
         axes[i, 0].set_ylabel(variable_names[i])
+
+    return figure, figure_name
+
+
+def plot_variable_label_correlations(variable_vector, variable_name,
+                                     colouring_data_set,
+                                     name="variable_label_correlations"):
+
+    figure_name = saving.build_figure_name(name)
+    n_examples = variable_vector.shape[0]
+
+    class_names_to_class_ids = numpy.vectorize(
+        lambda class_name:
+        colouring_data_set.class_name_to_class_id[class_name]
+    )
+    class_ids_to_class_names = numpy.vectorize(
+        lambda class_name:
+        colouring_data_set.class_id_to_class_name[class_name]
+    )
+
+    labels = colouring_data_set.labels
+    class_names = colouring_data_set.class_names
+    number_of_classes = colouring_data_set.number_of_classes
+    class_palette = colouring_data_set.class_palette
+    label_sorter = colouring_data_set.label_sorter
+
+    if not class_palette:
+        index_palette = style.lighter_palette(number_of_classes)
+        class_palette = {
+            class_name: index_palette[i] for i, class_name in
+            enumerate(sorted(class_names, key=label_sorter))
+        }
+
+    random_state = numpy.random.RandomState(117)
+    shuffled_indices = random_state.permutation(n_examples)
+    variable_vector = variable_vector[shuffled_indices]
+
+    labels = labels[shuffled_indices]
+    label_ids = numpy.expand_dims(class_names_to_class_ids(labels), axis=-1)
+    colours = [class_palette[label] for label in labels]
+
+    unique_class_ids = numpy.unique(label_ids)
+    unique_class_names = class_ids_to_class_names(unique_class_ids)
+
+    figure = pyplot.figure()
+    axis = figure.add_subplot(1, 1, 1)
+    seaborn.despine()
+
+    axis.scatter(variable_vector, label_ids, c=colours, s=1)
+
+    axis.set_yticks(unique_class_ids)
+    axis.set_yticklabels(unique_class_names)
+
+    axis.set_xlabel(variable_name)
+    axis.set_ylabel(capitalise_string(colouring_data_set.tags["class"]))
 
     return figure, figure_name

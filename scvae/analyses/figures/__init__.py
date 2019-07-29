@@ -33,6 +33,7 @@ __all__ = [
     "plot_heat_map",
     "plot_values",
     "plot_variable_correlations",
+    "plot_variable_label_correlations",
     "plot_series",
     "plot_profile_comparison",
     "save_figure"
@@ -52,7 +53,7 @@ from scvae.analyses.figures.matrices import (
     plot_matrix, plot_correlation_matrix, plot_heat_map)
 from scvae.analyses.figures.saving import save_figure
 from scvae.analyses.figures.scatter import (
-    plot_values, plot_variable_correlations
+    plot_values, plot_variable_correlations, plot_variable_label_correlations
 )
 from scvae.analyses.figures.series import plot_series, plot_profile_comparison
 from scvae.analyses.figures.style import reset_plot_look
