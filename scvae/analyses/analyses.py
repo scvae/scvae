@@ -1377,8 +1377,10 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                     colour_coding="labels",
                     colouring_data_set=latent_evaluation_set,
                     figure_labels={
-                        "x label": "Latent variable {}".format(latent_pair[0]),
-                        "y label": "Latent variable {}".format(latent_pair[1])
+                        "x label":
+                            "Latent dimension {}".format(latent_pair[0]),
+                        "y label":
+                            "Latent dimension {}".format(latent_pair[1])
                     },
                     name="latent_correlations-{}-pair_{}_{}".format(
                         set_name, *latent_pair))
@@ -1412,18 +1414,18 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
 
             if latent_evaluation_set.has_labels:
                 correlations_time_start = time()
-                for latent_variable in range(
+                for latent_dimension in range(
                         latent_evaluation_set.number_of_features):
                     figure, figure_name = (
                         figures.plot_variable_label_correlations(
-                            latent_evaluation_set.values[:, latent_variable],
-                            variable_name="Latent variable {}".format(
-                                latent_variable),
+                            latent_evaluation_set.values[:, latent_dimension],
+                            variable_name="Latent dimension {}".format(
+                                latent_dimension),
                             colouring_data_set=latent_evaluation_set,
                             name=(
                                 "latent_correlations-{}-labels-"
-                                "latent_variable_{}".format(
-                                    set_name, latent_variable))))
+                                "latent_dimension_{}".format(
+                                    set_name, latent_dimension))))
                     figures.save_figure(
                         figure=figure,
                         name=figure_name,
@@ -1431,7 +1433,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                         directory=correlations_directory)
                 correlations_duration = time() - correlations_time_start
                 print(
-                    "    Labels correlated with latent variables for {} "
+                    "    Labels correlated with latent dimensions for {} "
                     "plotted ({}).".format(
                         set_name, format_duration(correlations_duration)))
 
