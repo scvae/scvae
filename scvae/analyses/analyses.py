@@ -1377,10 +1377,10 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                     colour_coding="labels",
                     colouring_data_set=latent_evaluation_set,
                     figure_labels={
-                        "x label":
-                            "Latent dimension {}".format(latent_pair[0]),
-                        "y label":
-                            "Latent dimension {}".format(latent_pair[1])
+                        "x label": _axis_label_for_symbol(
+                            symbol="z", coordinate=latent_pair[0] + 1),
+                        "y label": _axis_label_for_symbol(
+                            symbol="z", coordinate=latent_pair[1] + 1)
                     },
                     name="latent_correlations-{}-pair_{}_{}".format(
                         set_name, *latent_pair))
@@ -1419,8 +1419,8 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                     figure, figure_name = (
                         figures.plot_variable_label_correlations(
                             latent_evaluation_set.values[:, latent_dimension],
-                            variable_name="Latent dimension {}".format(
-                                latent_dimension),
+                            variable_name=_axis_label_for_symbol(
+                                symbol="z", coordinate=latent_dimension + 1),
                             colouring_data_set=latent_evaluation_set,
                             name=(
                                 "latent_correlations-{}-labels-"
