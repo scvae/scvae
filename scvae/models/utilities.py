@@ -520,11 +520,13 @@ def load_centroids(model, data_set_kinds="all", run_id=None,
     return centroids_sets
 
 
-def load_kl_divergences(model, run_id=None, early_stopping=False,
-                        best_model=False):
+def load_kl_divergences(model, data_set_kind=None, run_id=None,
+                        early_stopping=False, best_model=False):
+
+    if data_set_kind is None:
+        data_set_kind = "training"
 
     kl_neurons = None
-    data_set_kind = "training"
     kl_divergence_neurons_tag_prefix = "kl_divergence_neurons/"
     log_directory = model.log_directory(
         run_id=run_id,
@@ -554,7 +556,8 @@ def load_kl_divergences(model, run_id=None, early_stopping=False,
 
         n_epochs = len(scalars)
 
-        if "mixture" in model.latent_distribution_name:
+        if ("mixture" in model.latent_distribution_name
+                and data_set_kind == "training"):
             latent_size = 1
         else:
             latent_size = model.latent_size
@@ -572,9 +575,14 @@ def load_kl_divergences(model, run_id=None, early_stopping=False,
 
             if scalars:
                 for scalar in scalars:
-                    kl_neurons[scalar.step - 1, i] = scalar.value
+                    if data_set_kind == "training":
+                        kl_neurons[scalar.step - 1, i] = scalar.value
+                    else:
+                        kl_neurons[0, i] = scalar.value
             else:
                 kl_neurons[:, i] = numpy.full(n_epochs, numpy.nan)
+
+    kl_neurons = kl_neurons.squeeze(axis=0)
 
     return kl_neurons
 

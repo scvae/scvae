@@ -43,7 +43,7 @@ ANALYSIS_GROUPS = {
     "standard": ["kl_heat_maps", "profile_comparisons", "distributions",
                  "distances", "decompositions", "latent_space"],
     "all": ["heat_maps", "latent_distributions", "latent_correlations",
-            "feature_value_standard_deviations"]
+            "feature_value_standard_deviations", "latent_factors"]
 }
 ANALYSIS_GROUPS["standard"] += ANALYSIS_GROUPS["simple"]
 ANALYSIS_GROUPS["all"] += ANALYSIS_GROUPS["standard"]
@@ -1438,6 +1438,66 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                         set_name, format_duration(correlations_duration)))
 
         print()
+
+    if "latent_factors" in included_analyses and "VAE" in model.type:
+
+        latent_factors_directory = os.path.join(
+            analyses_directory, "latent_factors")
+        print(subheading("Latent factors"))
+        print("Plotting latent factors.")
+
+        kl_divergences = load_kl_divergences(
+            model=model,
+            data_set_kind="evaluation",
+            run_id=run_id,
+            early_stopping=early_stopping,
+            best_model=best_model
+        )
+        sorted_kl_divergences_indices = kl_divergences.argsort()
+        latent_factor_1 = sorted_kl_divergences_indices[0]
+        latent_factor_2 = sorted_kl_divergences_indices[1]
+
+        latent_factors_time_start = time()
+        figure, figure_name = figures.plot_values(
+            latent_evaluation_sets["z"].values[
+                :, [latent_factor_1, latent_factor_2]],
+            colour_coding="labels",
+            colouring_data_set=latent_evaluation_sets["z"],
+            figure_labels={
+                "x label": _axis_label_for_symbol(
+                    symbol="z", coordinate=1),
+                "y label": _axis_label_for_symbol(
+                    symbol="z", coordinate=2)
+            },
+            name="latent_factors-pair")
+        figures.save_figure(
+            figure=figure,
+            name=figure_name,
+            options=export_options,
+            directory=latent_factors_directory)
+        latent_factors_duration = time() - latent_factors_time_start
+        print(
+            "    Second latent factor against first one plotted ({})."
+            .format(format_duration(latent_factors_duration)))
+
+        if latent_evaluation_sets["z"].has_labels:
+            latent_factors_time_start = time()
+            figure, figure_name = (
+                figures.plot_variable_label_correlations(
+                    latent_evaluation_sets["z"].values[:, latent_factor_1],
+                    variable_name=_axis_label_for_symbol(
+                        symbol="z", coordinate=1),
+                    colouring_data_set=latent_evaluation_sets["z"],
+                    name="latent_factor-labels"))
+            figures.save_figure(
+                figure=figure,
+                name=figure_name,
+                options=export_options,
+                directory=latent_factors_directory)
+            latent_factors_duration = time() - latent_factors_time_start
+            print(
+                "    Labels against first latent factor ""plotted ({})."
+                .format(format_duration(latent_factors_duration)))
 
 
 def _build_path_for_analyses_directory(base_directory, model_name,

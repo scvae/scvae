@@ -2195,6 +2195,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     p_z_covariances = numpy.zeros(
                         shape=(self.n_clusters, self.latent_size,
                                self.latent_size))
+                kl_divergence_z_neurons = numpy.zeros(shape=self.latent_size)
 
             q_y_logits = numpy.zeros(
                 shape=(n_examples_eval, self.n_clusters))
@@ -2262,7 +2263,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     q_z_covariances_i, p_z_covariances_i,
                     q_y_logits_i, p_x_mean_i,
                     p_x_stddev_i, stddev_of_p_x_given_z_mean_i,
-                    y_mean_i, z_mean_i
+                    y_mean_i, z_mean_i, kl_divergence_z_neurons_i
                 ) = session.run(
                         [
                             self.lower_bound, self.reconstruction_error,
@@ -2273,7 +2274,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                             self.q_z_covariances, self.p_z_covariances,
                             self.q_y_logits, self.p_x_mean,
                             self.p_x_stddev, self.stddev_of_p_x_given_z_mean,
-                            self.y_mean, self.z_mean
+                            self.y_mean, self.z_mean,
+                            self.kl_divergence_z_neurons
                         ],
                         feed_dict=feed_dict_batch
                     )
@@ -2293,6 +2295,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                     if "full-covariance" in self.latent_distribution_name:
                         q_z_covariances += numpy.array(q_z_covariances_i)
                         p_z_covariances += numpy.array(p_z_covariances_i)
+                    kl_divergence_z_neurons += numpy.array(
+                        kl_divergence_z_neurons_i)
 
                 q_y_logits[indices] = q_y_logits_i
 
@@ -2324,6 +2328,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 if "full-covariance" in self.latent_distribution_name:
                     q_z_covariances /= n_examples_eval / minibatch_size
                     p_z_covariances /= n_examples_eval / minibatch_size
+                kl_divergence_z_neurons /= n_examples_eval / minibatch_size
 
             if (self.number_of_importance_samples["evaluation"] == 1
                     and self.number_of_monte_carlo_samples["evaluation"] == 1):
@@ -2431,9 +2436,15 @@ class GaussianMixtureVariationalAutoencoder(object):
                                         "dimension_{}_{}".format(k, l, l_),
                                     simple_value=q_z_covariances[k, l, l_]
                                 )
+                for l in range(self.latent_size):
+                    summary.value.add(
+                        tag="kl_divergence_neurons/{}".format(l),
+                        simple_value=kl_divergence_z_neurons[l]
+                    )
 
                 eval_summary_writer.add_summary(
-                    summary, global_step=epoch + 1)
+                    summary, global_step=epoch)
+                    # summary, global_step=epoch + 1)
                 eval_summary_writer.flush()
 
             evaluating_duration = time() - evaluating_time_start
@@ -3227,6 +3238,30 @@ class GaussianMixtureVariationalAutoencoder(object):
                 self.kl_divergence_z + kl_divergence_y_modified
             )
         )
+
+        kl_divergence_z_neurons = [None] * self.n_clusters
+        kl_divergence_z_neurons_mean = [None] * self.n_clusters
+
+        for k in range(self.n_clusters):
+            # (R, I, B, L)
+            log_q_z_given_x_y = self.q_z_given_x_y[k].log_prob(z_reshaped[k])
+
+            # (R, I, B, L)
+            log_p_z_given_y = self.p_z_given_y[k].log_prob(z_reshaped[k])
+
+            # (R, I, B, L)
+            kl_divergence_z_neurons[k] = log_q_z_given_x_y - log_p_z_given_y
+
+            # (R, I, B, L) --> (B, L)
+            kl_divergence_z_neurons_mean[k] = tf.reduce_mean(
+                kl_divergence_z_neurons[k],
+                axis=(0, 1)
+            ) * tf.expand_dims(self.y[:, k], -1)
+            # ) * tf.tile(self.y[:, k], [self.latent_size])
+
+        self.kl_divergence_z_neurons = tf.reduce_mean(
+            tf.add_n(kl_divergence_z_neurons_mean),
+            axis=0)
 
     def _setup_optimiser(self):
 
