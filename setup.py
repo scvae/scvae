@@ -11,21 +11,21 @@ AUTHOR = scvae.__author__
 EMAIL = scvae.__email__
 VERSION = scvae.__version__
 LICENSE = scvae.__license__
-REQUIRED_PYTHON_VERSION = ">=3.5.0"
+REQUIRED_PYTHON_VERSION = ">=3.6, <=3.7"
 
 REQUIRED_PACKAGES = [
     "importlib_resources >= 1.0",
     "loompy >= 2.0",
-    "matplotlib >= 2.0",
     "numpy >= 1.16",
+    "matplotlib >= 2.0",
     "pandas >= 0.24",
     "pillow >= 5.4",
     "scikit-learn >= 0.20",
     "scipy >= 1.2",
     "seaborn >= 0.9",
     "tables >= 3.5",
-    "tensorflow >= 1.13",
-    "tensorflow-probability >= 0.6"
+    "tensorflow == 1.15",
+    "tensorflow-probability == 0.7"
 ]
 
 with open("README.md", "r") as readme_file:

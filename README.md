@@ -4,7 +4,7 @@ scVAE is a command-line tool for modelling single-cell transcript counts using v
 
 scVAE was developed by Christopher Heje Grønbech and Maximillian Fornitz Vording, and it is being developed further by Christopher Heje Grønbech. The methods used by scVAE is described and examined in Grønbech *et al.* (2018).
 
-scVAE requires Python 3.5 or later, which can be installed in [several ways][Python-installation-guides], for example, using [Miniconda][].
+scVAE requires Python 3.6 or 3.7, which can be installed in [several ways][Python-installation-guides], for example, using [Miniconda][].
 
 [Python-installation-guides]: https://realpython.com/installing-python/
 [Miniconda]: https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html

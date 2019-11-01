@@ -36,4 +36,4 @@ from scvae.models.gaussian_mixture_variational_autoencoder import (
     GaussianMixtureVariationalAutoencoder)  # noqa: E402
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
-tensorflow.logging.set_verbosity(tensorflow.logging.ERROR)
+tensorflow.compat.v1.logging.set_verbosity(tensorflow.compat.v1.logging.ERROR)
