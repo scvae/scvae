@@ -693,8 +693,8 @@ def main():
         "--version", "-V",
         action="version",
         version='%(prog)s {version}'.format(version=scvae.__version__))
-    subparsers = parser.add_subparsers(
-        help="commands", dest="command", required=True)
+    subparsers = parser.add_subparsers(help="commands", dest="command")
+    subparsers.required = True
 
     data_set_subparsers = []
     model_subparsers = []
