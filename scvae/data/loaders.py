@@ -28,6 +28,22 @@ import pandas
 import scipy
 import tables
 
+from scvae.utilities import normalise_string
+
+# List name strings are normalised, so no need to check for
+# capitalisation or spacing variants
+LIST_NAME_GUESSES = {
+    "example": [
+        "barcodes", "cells", "cell_names", "cell_ids"
+        "samples", "sample_names", "sample_ids",
+        "examples", "example_names", "example_ids"
+    ],
+    "feature": [
+        "genes", "gene_names", "gene_ids",
+        "features", "feature_names", "feature_ids"
+    ]
+}
+
 LOADERS = {}
 
 
@@ -89,6 +105,35 @@ def _load_10x_data_set(paths):
             path=full_labels_path,
             label_column="celltype",
             example_column="barcodes",
+            example_names=example_names,
+            dtype="U"
+        )
+
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
+        "example names": example_names,
+        "feature names": feature_names
+    }
+
+    return data_dictionary
+
+
+@_register_loader("h5")
+def _load_10x_data_set(paths):
+
+    data_dictionary = _load_sparse_matrix_in_hdf5_format(
+        paths["values"]["full"])
+    values = data_dictionary["values"]
+    example_names = data_dictionary["example names"]
+    feature_names = data_dictionary["feature names"]
+
+    labels = None
+    labels_paths = paths.get("labels", {})
+    full_labels_path = labels_paths.get("full")
+    if full_labels_path:
+        labels = _load_labels_from_delimiter_separeted_values(
+            path=full_labels_path,
             example_names=example_names,
             dtype="U"
         )
@@ -560,7 +605,7 @@ def _load_values_from_10x_data_set(path):
     parent_paths = set()
 
     multiple_directories_error = NotImplementedError(
-        "Cannot handle data sets with multiple directories."
+        "Cannot handle 10x data sets with multiple directories."
     )
 
     if path.endswith(".h5"):
@@ -623,6 +668,65 @@ def _load_values_from_10x_data_set(path):
         "example names": example_names,
         "feature names": feature_names,
         "genome name": genome_name
+    }
+
+    return data_dictionary
+
+
+def _load_sparse_matrix_in_hdf5_format(path, example_names_key=None,
+                                       feature_names_key=None):
+
+    parent_paths = set()
+    table = {}
+
+    with tables.open_file(path, mode="r") as f:
+
+        for node in f.walk_nodes(where="/", classname="Array"):
+            node_path = node._v_pathname
+            parent_path, node_name = os.path.split(node_path)
+            parent_paths.add(parent_path)
+            if len(parent_paths) > 1:
+                raise NotImplementedError(
+                    "Cannot handle HDF5 data sets with multiple directories.")
+            table[node.name] = node.read()
+
+    values = scipy.sparse.csc_matrix(
+        (table["data"], table["indices"], table["indptr"]),
+        shape=table["shape"]
+    )
+    table.pop("data")
+    table.pop("indices")
+    table.pop("indptr")
+    table.pop("shape")
+
+    n_examples, n_features = values.shape
+    n = {
+        "example": n_examples,
+        "feature": n_features
+    }
+
+    def _find_list_of_names(list_name_guesses, kind):
+        if list_name_guesses is None:
+            list_name_guesses = LIST_NAME_GUESSES[kind]
+        elif not isinstance(list_name_guesses, list):
+            list_name_guesses = [list_name_guesses]
+        list_of_names = None
+        for list_name_guess in list_name_guesses:
+            for table_key in table:
+                if list_name_guess == normalise_string(table_key):
+                    list_of_names = table[table_key]
+            if list_of_names is not None:
+                break
+        list_of_names = numpy.array(
+            ["{} {}".format(kind, i + 1) for i in range(n[kind])])
+
+    example_names = _find_list_of_names(example_names_key, kind="example")
+    feature_names = _find_list_of_names(feature_names_key, kind="feature")
+
+    data_dictionary = {
+        "values": values,
+        "example names": example_names,
+        "feature names": feature_names
     }
 
     return data_dictionary
