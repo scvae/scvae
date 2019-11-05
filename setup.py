@@ -11,7 +11,7 @@ AUTHOR = scvae.__author__
 EMAIL = scvae.__email__
 VERSION = scvae.__version__
 LICENSE = scvae.__license__
-REQUIRED_PYTHON_VERSION = ">=3.6, <=3.7"
+REQUIRED_PYTHON_VERSION = ">=3.6, <3.8"
 
 REQUIRED_PACKAGES = [
     "importlib_resources >= 1.0",
