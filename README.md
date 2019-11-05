@@ -66,7 +66,11 @@ scVAE can read Loom files and read count from a TSV file without further configu
 
 	$ scvae train PBMC.loom
 
-The TSV files can be compressed using gzip, but each row should represent a cell or sample and each column a gene (for the reverse case, see below). If a header row and/or a header column is provided they are as gene IDs/names and/or cell/sample names, respectively.
+The TSV files can be compressed using gzip, but each row should represent a cell or sample and each column a gene (for the reverse case, see below). If a header row and/or a header column are provided, they are used as gene IDs/names and/or cell/sample names, respectively.
+
+For Loom files, scVAE follows [Loompy's conventions][Loom-conventions]: each column represent a cell or sample and each row a gene. Cell or sample names are specified using the column attribute "CellID" (or just "Cell"), and the row attribute "Gene" is used for gene names.
+
+[Loom-conventions]: http://linnarssonlab.org/loompy/conventions/index.html
 
 scVAE also supports the following formats (supplied using the `--format` option):
 
@@ -82,7 +86,7 @@ The last of these formats can be used to read a TSV file, which is in reverse or
 
 	$ scvae train PBMC.tsv.gz --format matrix_fbe
 
-Using the Loom format, included cell types and batch indices can also be imported without further configuration. Cell types for other formats can be imported in TSV format by instead providing a [JSON][] file with a `values` field with the filename for the read counts, a `labels` field with the filename the cell types, and `format` field with the format.
+Using the Loom format, included cell types and batch indices can also be imported without further configuration by using the column attributes "ClusterName" and "BatchID", respectively. Cell types for other formats can be imported in TSV format by instead providing a [JSON][] file with a `values` field with the filename for the read counts, a `labels` field with the filename the cell types, and `format` field with the format.
 
 [JSON]: https://en.wikipedia.org/wiki/JSON
 
