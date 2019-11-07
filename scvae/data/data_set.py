@@ -34,7 +34,7 @@ PREPROCESSED_EXTENSION = ".sparse.h5"
 
 MINIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING = 30
 
-DEFAULT_TAGS = {
+DEFAULT_TERMS = {
     "example": "example",
     "feature": "feature",
     "mapped feature": "mapped feature",
@@ -85,20 +85,20 @@ class DataSet(object):
         # Directories and paths for data set
         if directory is None:
             directory = defaults["data"]["directory"]
-        self.directory = os.path.join(directory, self.name)
-        self.preprocess_directory = os.path.join(
-            self.directory, PREPROCESS_SUFFIX)
-        self.original_directory = os.path.join(
-            self.directory, ORIGINAL_SUFFIX)
+        self._directory = os.path.join(directory, self.name)
+        self._preprocess_directory = os.path.join(
+            self._directory, PREPROCESS_SUFFIX)
+        self._original_directory = os.path.join(
+            self._directory, ORIGINAL_SUFFIX)
 
         # Save data set dictionary if necessary
         if data_set_dictionary:
-            if os.path.exists(self.directory):
-                shutil.rmtree(self.directory)
+            if os.path.exists(self._directory):
+                shutil.rmtree(self._directory)
             parsing.save_data_set_dictionary_as_json_file(
                 data_set_dictionary,
                 self.name,
-                self.directory
+                self._directory
             )
 
         # Find data set
@@ -131,9 +131,9 @@ class DataSet(object):
                 )
         self.data_format = data_format
 
-        # Tags (with names for examples, feature, and values) of data set
-        self.tags = _postprocess_tags(self.specifications.get(
-            "tags", DEFAULT_TAGS))
+        # Terms for data set
+        self.terms = _postprocess_terms(self.specifications.get(
+            "terms", DEFAULT_TERMS))
 
         # Example type for data set
         self.example_type = self.specifications.get("example type", "unknown")
@@ -226,7 +226,7 @@ class DataSet(object):
         self.features_mapped = features_mapped
 
         if self.features_mapped:
-            self.tags = _update_tag_for_mapped_features(self.tags)
+            self.terms = _update_tag_for_mapped_features(self.terms)
 
         # Feature selection
         if feature_selection is None:
@@ -690,7 +690,7 @@ class DataSet(object):
             original_paths = loading.acquire_data_set(
                 title=self.title,
                 urls=urls,
-                directory=self.original_directory
+                directory=self._original_directory
             )
 
             loading_time_start = time()
@@ -703,8 +703,8 @@ class DataSet(object):
             print()
 
             if loading_duration > MINIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING:
-                if not os.path.exists(self.preprocess_directory):
-                    os.makedirs(self.preprocess_directory)
+                if not os.path.exists(self._preprocess_directory):
+                    os.makedirs(self._preprocess_directory)
 
                 print("Saving data set.")
                 internal_io.save_data_dictionary(
@@ -762,7 +762,7 @@ class DataSet(object):
                 data_dictionary["preprocessed values"] = None
             if self.map_features:
                 self.features_mapped = True
-                self.tags = _update_tag_for_mapped_features(self.tags)
+                self.terms = _update_tag_for_mapped_features(self.terms)
             print()
         else:
 
@@ -784,7 +784,7 @@ class DataSet(object):
                     values, feature_names, self.feature_mapping)
 
                 self.features_mapped = True
-                self.tags = _update_tag_for_mapped_features(self.tags)
+                self.terms = _update_tag_for_mapped_features(self.terms)
 
                 duration = time() - start_time
                 print("Features mapped ({}).".format(format_duration(
@@ -867,8 +867,8 @@ class DataSet(object):
             if (preprocessing_duration
                     > MINIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING):
 
-                if not os.path.exists(self.preprocess_directory):
-                    os.makedirs(self.preprocess_directory)
+                if not os.path.exists(self._preprocess_directory):
+                    os.makedirs(self._preprocess_directory)
 
                 print("Saving preprocessed data set.")
                 internal_io.save_data_dictionary(data_dictionary, sparse_path)
@@ -962,8 +962,8 @@ class DataSet(object):
 
             if binarising_duration > MINIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING:
 
-                if not os.path.exists(self.preprocess_directory):
-                    os.makedirs(self.preprocess_directory)
+                if not os.path.exists(self._preprocess_directory):
+                    os.makedirs(self._preprocess_directory)
 
                 print("Saving binarised data set.")
                 internal_io.save_data_dictionary(data_dictionary, sparse_path)
@@ -1006,7 +1006,7 @@ class DataSet(object):
                 path=sparse_path)
             if self.map_features:
                 self.features_mapped = True
-                self.tags = _update_tag_for_mapped_features(self.tags)
+                self.terms = _update_tag_for_mapped_features(self.terms)
             print()
         else:
 
@@ -1034,8 +1034,8 @@ class DataSet(object):
 
             if splitting_duration > MINIMUM_NUMBER_OF_SECONDS_BEFORE_SAVING:
 
-                if not os.path.exists(self.preprocess_directory):
-                    os.makedirs(self.preprocess_directory)
+                if not os.path.exists(self._preprocess_directory):
+                    os.makedirs(self._preprocess_directory)
 
                 print("Saving split data sets.")
                 internal_io.save_data_dictionary(
@@ -1182,7 +1182,7 @@ class DataSet(object):
             splitting_fraction=None,
             split_indices=None):
 
-        base_path = os.path.join(self.preprocess_directory, self.name)
+        base_path = os.path.join(self._preprocess_directory, self.name)
 
         filename_parts = [base_path]
 
@@ -1225,20 +1225,20 @@ class DataSet(object):
         return path
 
 
-def _postprocess_tags(tags):
-    if "item" in tags and tags["item"]:
-        value_tag = tags["item"] + " " + tags["type"]
+def _postprocess_terms(terms):
+    if "item" in terms and terms["item"]:
+        value_tag = terms["item"] + " " + terms["type"]
     else:
-        value_tag = tags["type"]
-    tags["value"] = value_tag
-    return tags
+        value_tag = terms["type"]
+    terms["value"] = value_tag
+    return terms
 
 
-def _update_tag_for_mapped_features(tags):
-    mapped_feature_tag = tags.pop("mapped feature", None)
+def _update_tag_for_mapped_features(terms):
+    mapped_feature_tag = terms.pop("mapped feature", None)
     if mapped_feature_tag:
-        tags["feature"] = mapped_feature_tag
-    return tags
+        terms["feature"] = mapped_feature_tag
+    return terms
 
 
 def _map_labels_to_superset_labels(labels, label_superset):

@@ -126,7 +126,7 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
         figure, figure_name = figures.plot_histogram(
             series=series,
             excess_zero_count=excess_zero_count,
-            label=data_set.tags["value"].capitalize() + "s",
+            label=data_set.terms["value"].capitalize() + "s",
             discrete=data_set_discreteness,
             normed=True,
             x_scale=x_scale,
@@ -173,7 +173,7 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
     figure, figure_name = figures.plot_histogram(
         series=data_set.count_sum,
         label="Total number of {}s per {}".format(
-            data_set.tags["item"], data_set.tags["example"]
+            data_set.terms["item"], data_set.terms["example"]
         ),
         normed=True,
         y_scale="log",
@@ -235,7 +235,7 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
             figure, figure_name = figures.plot_histogram(
                 series=series,
                 excess_zero_count=excess_zero_count,
-                label=data_set.tags["value"].capitalize() + "s",
+                label=data_set.terms["value"].capitalize() + "s",
                 discrete=data_set_discreteness,
                 normed=True,
                 y_scale="log",
@@ -265,7 +265,7 @@ def analyse_distributions(data_set, colouring_data_set=None, cutoffs=None,
             figure, figure_name = figures.plot_histogram(
                 series=data_set.count_sum[class_indices],
                 label="Total number of {}s per {}".format(
-                    data_set.tags["item"], data_set.tags["example"]
+                    data_set.terms["item"], data_set.terms["example"]
                 ),
                 normed=True,
                 y_scale="log",
@@ -334,9 +334,9 @@ def analyse_matrices(data_set, plot_distances=False, name=None,
         }
 
     # Axis labels
-    example_label = data_set.tags["example"].capitalize() + "s"
-    feature_label = data_set.tags["feature"].capitalize() + "s"
-    value_label = data_set.tags["value"].capitalize() + "s"
+    example_label = data_set.terms["example"].capitalize() + "s"
+    feature_label = data_set.terms["feature"].capitalize() + "s"
+    value_label = data_set.terms["value"].capitalize() + "s"
 
     version = data_set.version
     symbol = None
@@ -400,7 +400,7 @@ def analyse_matrices(data_set, plot_distances=False, name=None,
             if sample_size:
                 indices = shuffled_indices[:sample_size]
                 example_label = "{} randomly sampled {}".format(
-                    sample_size, data_set.tags["example"] + "s")
+                    sample_size, data_set.terms["example"] + "s")
 
             figure, figure_name = figures.plot_matrix(
                 feature_matrix=data_set.values[indices],
@@ -414,7 +414,7 @@ def analyse_matrices(data_set, plot_distances=False, name=None,
                     data_set.labels[indices]
                     if data_set.labels is not None else None
                 ),
-                label_kind=data_set.tags["class"],
+                label_kind=data_set.terms["class"],
                 class_palette=class_palette,
                 feature_indices_for_plotting=feature_indices_for_plotting,
                 name_parts=name + [
@@ -719,7 +719,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                 plot_values_decomposed,
                 centroids=centroids_decomposed,
                 figure_labels=figure_labels,
-                example_tag=data_set.tags["example"],
+                example_tag=data_set.terms["example"],
                 name=name
             )
             figures.save_figure(
@@ -742,7 +742,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     centroids=centroids_decomposed,
                     sampled_values=sampled_values_decomposed,
                     figure_labels=figure_labels,
-                    example_tag=data_set.tags["example"],
+                    example_tag=data_set.terms["example"],
                     name=name
                 )
                 figures.save_figure(
@@ -766,7 +766,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
                     figure_labels=figure_labels,
-                    example_tag=data_set.tags["example"],
+                    example_tag=data_set.terms["example"],
                     name=name
                 )
                 figures.save_figure(
@@ -788,7 +788,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                         colouring_data_set=colouring_data_set,
                         centroids=centroids_decomposed,
                         figure_labels=figure_labels,
-                        example_tag=data_set.tags["example"],
+                        example_tag=data_set.terms["example"],
                         name=name
                     )
                     figures.save_figure(
@@ -819,7 +819,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                                 centroids=centroids_decomposed,
                                 class_name=class_name,
                                 figure_labels=figure_labels,
-                                example_tag=data_set.tags["example"],
+                                example_tag=data_set.terms["example"],
                                 name=name
                             )
                             figures.save_figure(
@@ -849,7 +849,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                                 centroids=centroids_decomposed,
                                 class_name=superset_class_name,
                                 figure_labels=figure_labels,
-                                example_tag=data_set.tags["example"],
+                                example_tag=data_set.terms["example"],
                                 name=name
                             )
                             figures.save_figure(
@@ -876,7 +876,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
                     figure_labels=figure_labels,
-                    example_tag=data_set.tags["example"],
+                    example_tag=data_set.terms["example"],
                     name=name,
                 )
                 figures.save_figure(
@@ -904,7 +904,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
                     figure_labels=figure_labels,
-                    example_tag=data_set.tags["example"],
+                    example_tag=data_set.terms["example"],
                     name=name,
                 )
                 figures.save_figure(
@@ -932,7 +932,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
                     figure_labels=figure_labels,
-                    example_tag=data_set.tags["example"],
+                    example_tag=data_set.terms["example"],
                     name=name,
                 )
                 figures.save_figure(
@@ -959,7 +959,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     colouring_data_set=colouring_data_set,
                     centroids=centroids_decomposed,
                     figure_labels=figure_labels,
-                    example_tag=data_set.tags["example"],
+                    example_tag=data_set.terms["example"],
                     name=name,
                 )
                 figures.save_figure(
@@ -985,7 +985,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                 colouring_data_set=colouring_data_set,
                 centroids=centroids_decomposed,
                 figure_labels=figure_labels,
-                example_tag=data_set.tags["example"],
+                example_tag=data_set.terms["example"],
                 name=name
             )
             figures.save_figure(
@@ -1010,7 +1010,7 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
                     centroids=centroids_decomposed,
                     feature_index=feature_index,
                     figure_labels=figure_labels,
-                    example_tag=data_set.tags["example"],
+                    example_tag=data_set.terms["example"],
                     name=name
                 )
                 figures.save_figure(

@@ -1,6 +1,6 @@
 {
 	"Macosko-MRC": {
-		"tags": {
+		"terms": {
 			"example": "cell",
 			"feature": "gene",
 			"class": "cell type",
@@ -49,7 +49,7 @@
 	},
 
 	"10x-MBC-20k": {
-		"tags": {
+		"terms": {
 			"example": "cell",
 			"feature": "gene",
 			"class": "cell type",
@@ -69,7 +69,7 @@
 	},
 
 	"10x-MBC": {
-		"tags": {
+		"terms": {
 			"example": "cell",
 			"feature": "gene",
 			"class": "cell type",
@@ -89,7 +89,7 @@
 	},
 
 	"10x-PBMC-PL": {
-		"tags": {
+		"terms": {
 			"example": "cell",
 			"feature": "gene",
 			"class": "cell type",
@@ -108,7 +108,7 @@
 	},
 
 	"10x-PBMC-PT": {
-		"tags": {
+		"terms": {
 			"example": "cell",
 			"feature": "gene",
 			"class": "cell type",
@@ -127,7 +127,7 @@
 	},
 
 	"10x-PBMC-PP": {
-		"tags": {
+		"terms": {
 			"example": "cell",
 			"feature": "gene",
 			"class": "cell type",
@@ -152,7 +152,7 @@
 	},
 
 	"10x-PBMC-68k": {
-		"tags": {
+		"terms": {
 			"example": "cell",
 			"feature": "gene",
 			"class": "cell type",
@@ -172,7 +172,7 @@
 	},
 
 	"TCGA-Kallisto": {
-		"tags": {
+		"terms": {
 			"example": "sample",
 			"feature": "gene ID",
 			"class": "tissue site",
@@ -196,7 +196,7 @@
 	},
 
 	"TCGA-RSEM": {
-		"tags": {
+		"terms": {
 			"example": "sample",
 			"feature": "gene ID",
 			"mapped feature": "gene",
@@ -220,7 +220,7 @@
 	},
 
 	"MNIST (original)": {
-		"tags": {
+		"terms": {
 			"example": "digit",
 			"feature": "pixel",
 			"class": "value",
@@ -247,7 +247,7 @@
 	},
 
 	"MNIST (normalised)": {
-		"tags": {
+		"terms": {
 			"example": "digit",
 			"feature": "pixel",
 			"class": "value",
@@ -265,7 +265,7 @@
 	},
 
 	"MNIST (binarised)": {
-		"tags": {
+		"terms": {
 			"example": "digit",
 			"feature": "pixel",
 			"class": "value",

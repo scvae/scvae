@@ -258,8 +258,8 @@ def plot_values(values, colour_coding=None, colouring_data_set=None,
         colour_bar = figure.colorbar(scatter_plot)
         colour_bar.outline.set_linewidth(0)
         colour_bar.set_label("Total number of {}s per {}".format(
-            colouring_data_set.tags["item"],
-            colouring_data_set.tags["example"]
+            colouring_data_set.terms["item"],
+            colouring_data_set.terms["example"]
         ))
 
     elif colour_coding == "feature":
@@ -471,6 +471,6 @@ def plot_variable_label_correlations(variable_vector, variable_name,
     axis.set_yticklabels(unique_class_names)
 
     axis.set_xlabel(variable_name)
-    axis.set_ylabel(capitalise_string(colouring_data_set.tags["class"]))
+    axis.set_ylabel(capitalise_string(colouring_data_set.terms["class"]))
 
     return figure, figure_name
