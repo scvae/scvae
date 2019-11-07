@@ -582,7 +582,8 @@ def load_kl_divergences(model, data_set_kind=None, run_id=None,
             else:
                 kl_neurons[:, i] = numpy.full(n_epochs, numpy.nan)
 
-    kl_neurons = kl_neurons.squeeze(axis=0)
+    if kl_neurons.shape[0] == 1:
+        kl_neurons = kl_neurons.squeeze(axis=0)
 
     return kl_neurons
 
