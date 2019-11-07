@@ -54,27 +54,15 @@ class DataSet(object):
                  title=None,
                  specifications=None,
                  values=None,
-                 total_standard_deviations=None,
-                 explained_standard_deviations=None,
-                 preprocessed_values=None,
-                 binarised_values=None,
                  labels=None,
-                 class_names=None,
                  example_names=None,
                  feature_names=None,
                  batch_indices=None,
-                 batch_names=None,
-                 map_features=None,
-                 features_mapped=False,
                  feature_selection=None,
                  example_filter=None,
                  preprocessing_methods=None,
-                 preprocessed=None,
-                 binarise_values=False,
-                 noisy_preprocessing_methods=None,
-                 kind="full",
-                 version="original",
-                 directory=None):
+                 directory=None,
+                 **kwargs):
 
         super().__init__()
 
@@ -162,6 +150,21 @@ class DataSet(object):
         self.excluded_superset_classes = self.specifications.get(
             "excluded superset classes", [])
 
+        # Unpack keyword arguments
+        total_standard_deviations = kwargs.get("total_standard_deviations")
+        explained_standard_deviations = kwargs.get(
+            "explained_standard_deviations")
+        preprocessed_values = kwargs.get("preprocessed_values")
+        binarised_values = kwargs.get("binarised_values")
+        class_names = kwargs.get("class_names")
+        batch_names = kwargs.get("batch_names")
+        features_mapped = kwargs.get("features_mapped", False)
+        preprocessed = kwargs.get("preprocessed")
+        noisy_preprocessing_methods = kwargs.get("noisy_preprocessing_methods")
+        binarise_values = kwargs.get("binarise_values", False)
+        kind = kwargs.get("kind", "full",)
+        version = kwargs.get("version", "original")
+
         # Values and their names as well as labels in data set
         self.values = None
         self.total_standard_deviations = None
@@ -219,6 +222,7 @@ class DataSet(object):
             sorted_superset_class_names)
 
         # Feature mapping
+        map_features = kwargs.get("map_features")
         if map_features is None:
             map_features = defaults["data"]["map_features"]
         self.map_features = map_features
