@@ -4,16 +4,16 @@ import setuptools
 
 import scvae
 
-NAME = scvae.__title__
+NAME = scvae.__name__
 DESCRIPTION = scvae.__description__
 URL = scvae.__url__
 AUTHOR = scvae.__author__
 EMAIL = scvae.__email__
 VERSION = scvae.__version__
 LICENSE = scvae.__license__
-REQUIRED_PYTHON_VERSION = ">=3.6, <3.8"
+PYTHON_VERSION_REQUIREMENT = ">=3.6, <3.8"
 
-REQUIRED_PACKAGES = [
+PACKAGE_REQUIREMENTS = [
     "importlib_resources >= 1.0",
     "loompy >= 2.0",
     "numpy >= 1.16",
@@ -27,6 +27,16 @@ REQUIRED_PACKAGES = [
     "tensorflow == 1.15",
     "tensorflow-probability == 0.7"
 ]
+
+DOCUMENTATION_REQUIREMENTS = [
+    "sphinx>=2.2",
+    # "recommonmark>=0.6",
+    # "m2r>=0.2"
+]
+
+EXTRAS_REQUIREMENTS = {
+    "docs": DOCUMENTATION_REQUIREMENTS
+}
 
 with open("README.md", "r") as readme_file:
     readme = readme_file.read()
@@ -48,8 +58,9 @@ setuptools.setup(
     entry_points={
         "console_scripts": ["scvae=scvae.__main__:main"],
     },
-    python_requires=REQUIRED_PYTHON_VERSION,
-    install_requires=REQUIRED_PACKAGES,
+    python_requires=PYTHON_VERSION_REQUIREMENT,
+    install_requires=PACKAGE_REQUIREMENTS,
+    extras_requieres=EXTRAS_REQUIREMENTS,
     license=LICENSE,
     classifiers=[
         "Programming Language :: Python :: 3",

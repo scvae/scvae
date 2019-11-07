@@ -686,7 +686,7 @@ def _parse_default(default):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog=scvae.__title__,
+        prog=scvae.__name__,
         description=scvae.__description__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
