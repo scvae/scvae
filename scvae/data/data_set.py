@@ -47,7 +47,77 @@ DEFAULT_EXCLUDED_CLASSES = ["No class"]
 GENERIC_CLASS_NAMES = ["Others", "Unknown", "No class", "Remaining"]
 
 
-class DataSet(object):
+class DataSet:
+    """Data set class for working with scVAE.
+
+    To easily handle values, labels, metadata, and so on for data sets,
+    scVAE uses this class. Other data formats will have to be converted
+    to it.
+
+    Arguments:
+        input_file_or_name (str): Path to a data set file or a title for
+            a supported data set (see :ref:`Data sets`).
+        data_format (str, optional): Format used to store data set (see
+            :ref:`Custom data sets`).
+        title (str, optional): Title of data set for use in, e.g.,
+            plots.
+        specifications (dict, optional): Metadata for data set.
+        values (2-d NumPy array, optional): Matrix for (count) values
+            with rows representing examples/cells and columns
+            features/genes.
+        labels (1-d NumPy array, optional): List of labels for
+            examples/cells in the same order as for ``values``.
+        example_names (1-d NumPy array, optional): List of names for
+            examples/cells in the same order as for ``values``.
+        feature_names (1-d NumPy array, optional): List of names for
+            features/genes in the same order as for ``values``.
+        batch_indices (1-d NumPy array, optional): List of batch
+            indices for examples/cells in the same order as for
+            ``values``.
+        feature_selection (list, optional): Method and parameters for
+            feature selection in a list.
+        example_filter (list, optional): Method and parameters for
+            example filtering in a list.
+        preprocessing_methods (list, optional): Ordered list of
+            preprocessing methods applied to (count) values:
+            ``"normalise"`` (each feature/gene), ``"log"``, and
+            ``"exp"``.
+        directory (str, optional): Directory where data set is saved.
+
+    Attributes:
+        name: Short name for data set used in filenames.
+        title: Title of data set for use in, e.g., plots.
+        specifications: Metadata for data set. If a JSON file was
+            provided, this would contain the contents.
+        data_format: Format used to store data set.
+        terms: Dictionary of terms to use for, e.g., ``"example"``
+            (cell), ``"feature"`` (gene), and ``"class"`` (cell type).
+        values: Matrix for (count) values with rows representing
+            examples/cells and columns features/genes.
+        labels: List of labels for examples/cells in the same order as
+            for `values`.
+        example_names: List of names for examples/cells in the same
+            order as for `values`.
+        feature_names: List of names for features/genes in the same
+            order as for `values`.
+        batch_indices: List of batch indices for examples/cells in the
+            same order as for `values`.
+        number_of_examples: The number of examples/cells.
+        number_of_features: The number of features/genes.
+        number_of_classes: The number of classes/cell types.
+        feature_selection_method: The method used for selecting
+            features.
+        feature_selection_parameters: List of parameters for the
+            feature selection method.
+        example_filter_method: The method used for filtering examples.
+        example_filter_parameters: List of parameters for the example
+            filtering method.
+        kind: The kind of data set: ``"full"``, ``"training"``,
+            ``"validation"``, or ``"test"``.
+        version: The version of the data set: ``"original"``,
+            ``"reconstructed"``, or latent (``"z"`` or ``"y"``).
+    """
+
     def __init__(self,
                  input_file_or_name,
                  data_format=None,
@@ -351,6 +421,7 @@ class DataSet(object):
 
     @property
     def number_of_values(self):
+        """Total number of (count) values in matrix."""
         return self.number_of_examples * self.number_of_features
 
     @property
@@ -681,6 +752,7 @@ class DataSet(object):
         self.predicted_superset_label_sorter = None
 
     def load(self):
+        """Load data set."""
 
         sparse_path = self._build_preprocessed_path()
 
@@ -977,6 +1049,22 @@ class DataSet(object):
         self.update(binarised_values=data_dictionary["preprocessed values"])
 
     def split(self, method=None, fraction=None):
+        """Split data set into subsets.
+
+        The data set is split into a training set to train a model, a
+        validation set to validate the model during training, and a
+        test set to evaluate the model after training.
+
+        Arguments:
+            method (str, optional): The method to use: ``"random"`` or
+                ``"sequential"``.
+            fraction (float, optional): The fraction to use for
+                training and, optionally, validation.
+
+        Returns:
+            Training, validation, and test sets.
+
+        """
 
         if method is None:
             method = defaults["data"]["splitting_method"]
@@ -1156,6 +1244,8 @@ class DataSet(object):
         return training_set, validation_set, test_set
 
     def clear(self):
+        """Clear data set."""
+
         self.values = None
         self.total_standard_deviations = None
         self.explained_standard_deviations = None

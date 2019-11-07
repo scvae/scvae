@@ -39,9 +39,13 @@ release = scvae.__version__
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosectionlabel",
+    "sphinx.ext.napoleon"
     # "recommonmark",
     # "m2r"
 ]
+
+autodoc_member_order = "bysource"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -59,6 +63,7 @@ source_suffix = {
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
+default_role = "py:obj"
 
 # -- Options for HTML output -------------------------------------------------
 
