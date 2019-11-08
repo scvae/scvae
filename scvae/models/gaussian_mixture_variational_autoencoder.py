@@ -48,25 +48,20 @@ from scvae.utilities import (
     normalise_string, capitalise_string)
 
 
-class GaussianMixtureVariationalAutoencoder(object):
-    def __init__(self, feature_size, latent_size, hidden_sizes,
+class GaussianMixtureVariationalAutoencoder:
+    def __init__(self, feature_size, latent_size=None, hidden_sizes=None,
                  reconstruction_distribution=None,
                  number_of_reconstruction_classes=None,
                  latent_distribution=None,
                  prior_probabilities_method=None,
                  prior_probabilities=None,
                  number_of_latent_clusters=None,
-                 number_of_monte_carlo_samples=None,
-                 number_of_importance_samples=None,
                  minibatch_normalisation=None,
                  batch_correction=None,
                  number_of_batches=None,
-                 proportion_of_free_nats_for_y_kl_divergence=None,
-                 dropout_keep_probabilities=None,
-                 count_sum=None,
-                 kl_weight=None,
                  number_of_warm_up_epochs=None,
-                 log_directory=None):
+                 log_directory=None,
+                 **kwargs):
 
         # Class setup
         super().__init__()
@@ -148,6 +143,8 @@ class GaussianMixtureVariationalAutoencoder(object):
 
         # Dictionary holding number of samples needed for the Monte Carlo
         # estimator and importance weighting during both train and test time
+        number_of_monte_carlo_samples = kwargs.get(
+            "number_of_monte_carlo_samples")
         if number_of_monte_carlo_samples is None:
             number_of_monte_carlo_samples = defaults["models"][
                 "number_of_samples"]
@@ -156,6 +153,8 @@ class GaussianMixtureVariationalAutoencoder(object):
                 number_of_monte_carlo_samples)
         self.number_of_monte_carlo_samples = number_of_monte_carlo_samples
 
+        number_of_importance_samples = kwargs.get(
+            "number_of_importance_samples")
         if number_of_importance_samples is None:
             number_of_importance_samples = defaults["models"][
                 "number_of_samples"]
@@ -177,10 +176,12 @@ class GaussianMixtureVariationalAutoencoder(object):
             if number_of_batches is None:
                 raise TypeError(
                     "The number of batches for batch correction was not "
-                    "provided"
+                    "provided."
                 )
         self.number_of_batches = number_of_batches
 
+        proportion_of_free_nats_for_y_kl_divergence = kwargs.get(
+            "proportion_of_free_nats_for_y_kl_divergence")
         if proportion_of_free_nats_for_y_kl_divergence is None:
             proportion_of_free_nats_for_y_kl_divergence = defaults["models"][
                 "proportion_of_free_nats_for_y_kl_divergence"]
@@ -188,6 +189,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             proportion_of_free_nats_for_y_kl_divergence)
 
         # Dropout keep probabilities (p) for 3 different kinds of layers
+        dropout_keep_probabilities = kwargs.get("dropout_keep_probabilities")
         if dropout_keep_probabilities is None:
             self.dropout_keep_probabilities = defaults["models"][
                 "dropout_keep_probabilities"]
@@ -216,6 +218,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             if dropout_keep_probabilities and dropout_keep_probabilities != 1:
                 self.dropout_parts.append(str(dropout_keep_probabilities))
 
+        count_sum = kwargs.get("count_sum")
         if count_sum is None:
             count_sum = defaults["models"]["count_sum"]
         self.use_count_sum_as_feature = count_sum
@@ -224,6 +227,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             or "multinomial" in self.reconstruction_distribution_name
         )
 
+        kl_weight = kwargs.get("kl_weight")
         if kl_weight is None:
             kl_weight = defaults["models"]["kl_weight"]
         self.kl_weight_value = kl_weight
@@ -585,10 +589,8 @@ class GaussianMixtureVariationalAutoencoder(object):
         return stopped_early, epochs_with_no_improvement
 
     def train(self, training_set, validation_set=None, number_of_epochs=None,
-              minibatch_size=None, learning_rate=None,
-              intermediate_analyser=None, plotting_interval=None,
-              run_id=None, new_run=False, reset_training=False,
-              analyses_directory=None, temporary_log_directory=None):
+              minibatch_size=None, learning_rate=None, run_id=None,
+              new_run=False, reset_training=False, **kwargs):
 
         if number_of_epochs is None:
             number_of_epochs = defaults["models"]["number_of_epochs"]
@@ -602,6 +604,8 @@ class GaussianMixtureVariationalAutoencoder(object):
             new_run = defaults["models"]["new_run"]
         if reset_training is None:
             reset_training = defaults["models"]["reset_training"]
+
+        analyses_directory = kwargs.get("analyses_directory")
         if analyses_directory is None:
             analyses_directory = defaults["analyses"]["directory"]
 
@@ -647,6 +651,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             epoch_start = 0
 
         # Log directories
+        temporary_log_directory = kwargs.get("temporary_log_directory")
         if temporary_log_directory:
 
             log_directory = self.log_directory(
@@ -1684,8 +1689,10 @@ class GaussianMixtureVariationalAutoencoder(object):
                 print()
 
                 # Plot latent validation values
+                intermediate_analyser = kwargs.get("intermediate_analyser")
                 if intermediate_analyser:
 
+                    plotting_interval = kwargs.get("plotting_interval")
                     if plotting_interval is None:
                         plot_intermediate_results = (
                             epoch < 10
@@ -2007,10 +2014,9 @@ class GaussianMixtureVariationalAutoencoder(object):
 
             return sample_reconstruction_set, sample_latent_sets
 
-    def evaluate(self, evaluation_set, evaluation_subset_indices=None,
-                 minibatch_size=None, run_id=None,
+    def evaluate(self, evaluation_set, minibatch_size=None, run_id=None,
                  use_early_stopping_model=False, use_best_model=False,
-                 output_versions="all", log_results=True):
+                 **kwargs):
 
         if minibatch_size is None:
             minibatch_size = defaults["models"]["minibatch_size"]
@@ -2023,7 +2029,10 @@ class GaussianMixtureVariationalAutoencoder(object):
         else:
             model_string = "model"
 
-        if output_versions == "all":
+        output_versions = kwargs.get("output_versions")
+        if output_versions is None:
+            output_versions = ["reconstructed", "latent"]
+        elif output_versions == "all":
             output_versions = ["transformed", "reconstructed", "latent"]
         elif not isinstance(output_versions, list):
             output_versions = [output_versions]
@@ -2040,6 +2049,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                     .format(output_versions)
                 )
 
+        evaluation_subset_indices = kwargs.get("evaluation_subset_indices")
         if evaluation_subset_indices is None:
             evaluation_subset_indices = set()
 
@@ -2137,6 +2147,7 @@ class GaussianMixtureVariationalAutoencoder(object):
 
         checkpoint = tf.train.get_checkpoint_state(log_directory)
 
+        log_results = kwargs.get("log_results", True)
         if log_results:
             eval_summary_directory = os.path.join(log_directory, "evaluation")
             if os.path.exists(eval_summary_directory):
@@ -2440,7 +2451,6 @@ class GaussianMixtureVariationalAutoencoder(object):
 
                 eval_summary_writer.add_summary(
                     summary, global_step=epoch)
-                    # summary, global_step=epoch + 1)
                 eval_summary_writer.flush()
 
             evaluating_duration = time() - evaluating_time_start

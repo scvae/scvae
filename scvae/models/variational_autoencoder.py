@@ -49,21 +49,12 @@ class VariationalAutoencoder:
                  reconstruction_distribution=None,
                  number_of_reconstruction_classes=None,
                  latent_distribution=None,
-                 parameterise_latent_posterior=None,
-                 number_of_latent_clusters=None,
-                 analytical_kl_term=None,
-                 number_of_monte_carlo_samples=None,
-                 number_of_importance_samples=None,
-                 inference_architecture=None,
-                 generative_architecture=None,
                  minibatch_normalisation=None,
                  batch_correction=None,
                  number_of_batches=None,
-                 dropout_keep_probabilities=None,
-                 count_sum=None,
-                 kl_weight=None,
                  number_of_warm_up_epochs=None,
-                 log_directory=None):
+                 log_directory=None,
+                 **kwargs):
 
         # Class setup
         super().__init__()
@@ -109,11 +100,15 @@ class VariationalAutoencoder:
         self.latent_distribution = copy.deepcopy(
             LATENT_DISTRIBUTIONS[latent_distribution]
         )
+
+        parameterise_latent_posterior = kwargs.get(
+            "parameterise_latent_posterior")
         if parameterise_latent_posterior is None:
             parameterise_latent_posterior = defaults["models"][
                 "parameterise_latent_posterior"]
         self.parameterise_latent_posterior = parameterise_latent_posterior
 
+        number_of_latent_clusters = kwargs.get("number_of_latent_clusters")
         if number_of_latent_clusters is None:
             if "mixture" in latent_distribution:
                 number_of_latent_clusters = defaults["models"][
@@ -122,6 +117,7 @@ class VariationalAutoencoder:
                 number_of_latent_clusters = 1
         self.number_of_latent_clusters = number_of_latent_clusters
 
+        analytical_kl_term = kwargs.get("analytical_kl_term")
         if analytical_kl_term is None:
             if self.latent_distribution_name == "gaussian":
                 analytical_kl_term = True
@@ -131,6 +127,8 @@ class VariationalAutoencoder:
 
         # Dictionary holding number of samples needed for the Monte Carlo
         # estimator and importance weighting during both train and test time
+        number_of_monte_carlo_samples = kwargs.get(
+            "number_of_monte_carlo_samples")
         if number_of_monte_carlo_samples is None:
             number_of_monte_carlo_samples = defaults["models"][
                 "number_of_samples"]
@@ -139,6 +137,8 @@ class VariationalAutoencoder:
                 number_of_monte_carlo_samples)
         self.number_of_monte_carlo_samples = number_of_monte_carlo_samples
 
+        number_of_importance_samples = kwargs.get(
+            "number_of_importance_samples")
         if number_of_importance_samples is None:
             number_of_importance_samples = defaults["models"][
                 "number_of_samples"]
@@ -147,10 +147,13 @@ class VariationalAutoencoder:
                 number_of_importance_samples)
         self.number_of_importance_samples = number_of_importance_samples
 
+        inference_architecture = kwargs.get("inference_architecture")
         if inference_architecture is None:
             inference_architecture = defaults["models"][
                 "inference_architecture"]
         self.inference_architecture = inference_architecture.upper()
+
+        generative_architecture = kwargs.get("generative_architecture")
         if generative_architecture is None:
             generative_architecture = defaults["models"][
                 "generative_architecture"]
@@ -169,11 +172,12 @@ class VariationalAutoencoder:
             if number_of_batches is None:
                 raise TypeError(
                     "The number of batches for batch correction was not "
-                    "provided"
+                    "provided."
                 )
         self.number_of_batches = number_of_batches
 
         # Dropout keep probabilities (p) for 3 different kinds of layers
+        dropout_keep_probabilities = kwargs.get("dropout_keep_probabilities")
         if dropout_keep_probabilities is None:
             dropout_keep_probabilities = defaults["models"][
                 "dropout_keep_probabilities"]
@@ -198,6 +202,7 @@ class VariationalAutoencoder:
             if dropout_keep_probabilities and dropout_keep_probabilities != 1:
                 self.dropout_parts.append(str(dropout_keep_probabilities))
 
+        count_sum = kwargs.get("count_sum")
         if count_sum is None:
             count_sum = defaults["models"]["count_sum"]
         self.use_count_sum_as_feature = count_sum
@@ -206,6 +211,7 @@ class VariationalAutoencoder:
             or "multinomial" in self.reconstruction_distribution_name
         )
 
+        kl_weight = kwargs.get("kl_weight")
         if kl_weight is None:
             kl_weight = defaults["models"]["kl_weight"]
         self.kl_weight_value = kl_weight
@@ -558,10 +564,8 @@ class VariationalAutoencoder:
         return stopped_early, epochs_with_no_improvement
 
     def train(self, training_set, validation_set=None, number_of_epochs=None,
-              minibatch_size=None, learning_rate=None,
-              intermediate_analyser=None, plotting_interval=None,
-              run_id=None, new_run=None, reset_training=None,
-              analyses_directory=None, temporary_log_directory=None):
+              minibatch_size=None, learning_rate=None, run_id=None,
+              new_run=None, reset_training=None, **kwargs):
 
         if number_of_epochs is None:
             number_of_epochs = defaults["models"]["number_of_epochs"]
@@ -575,6 +579,8 @@ class VariationalAutoencoder:
             new_run = defaults["models"]["new_run"]
         if reset_training is None:
             reset_training = defaults["models"]["reset_training"]
+
+        analyses_directory = kwargs.get("analyses_directory")
         if analyses_directory is None:
             analyses_directory = defaults["analyses"]["directory"]
 
@@ -620,6 +626,7 @@ class VariationalAutoencoder:
             epoch_start = 0
 
         # Log directories
+        temporary_log_directory = kwargs.get("temporary_log_directory")
         if temporary_log_directory:
 
             log_directory = self.log_directory(
@@ -1364,8 +1371,10 @@ class VariationalAutoencoder:
                 print()
 
                 # Plot latent validation values
+                intermediate_analyser = kwargs.get("intermediate_analyser")
                 if intermediate_analyser:
 
+                    plotting_interval = kwargs.get("plotting_interval")
                     if plotting_interval is None:
                         plot_intermediate_results = (
                             epoch < 10
@@ -1643,11 +1652,9 @@ class VariationalAutoencoder:
 
             return sample_reconstruction_set, sample_latent_sets
 
-    def evaluate(self, evaluation_set, evaluation_subset_indices=None,
-                 minibatch_size=None, run_id=None,
+    def evaluate(self, evaluation_set, minibatch_size=None, run_id=None,
                  use_early_stopping_model=False, use_best_model=False,
-                 use_deterministic_z=False, output_versions="all",
-                 log_results=True):
+                 **kwargs):
 
         if minibatch_size is None:
             minibatch_size = defaults["models"]["minibatch_size"]
@@ -1660,7 +1667,10 @@ class VariationalAutoencoder:
         else:
             model_string = "model"
 
-        if output_versions == "all":
+        output_versions = kwargs.get("output_versions")
+        if output_versions is None:
+            output_versions = ["reconstructed", "latent"]
+        elif output_versions == "all":
             output_versions = ["transformed", "reconstructed", "latent"]
         elif not isinstance(output_versions, list):
             output_versions = [output_versions]
@@ -1677,6 +1687,7 @@ class VariationalAutoencoder:
                         output_versions)
                 )
 
+        evaluation_subset_indices = kwargs.get("evaluation_subset_indices")
         if evaluation_subset_indices is None:
             evaluation_subset_indices = set()
 
@@ -1736,6 +1747,7 @@ class VariationalAutoencoder:
 
         checkpoint = tf.train.get_checkpoint_state(log_directory)
 
+        log_results = kwargs.get("log_results", True)
         if log_results:
             eval_summary_directory = os.path.join(log_directory, "evaluation")
             if os.path.exists(eval_summary_directory):
@@ -1791,6 +1803,7 @@ class VariationalAutoencoder:
                     dtype=numpy.float32
                 )
 
+            use_deterministic_z = kwargs.get("use_deterministic_z", False)
             if use_deterministic_z:
                 number_of_iw_samples = 1
                 number_of_mc_samples = 1

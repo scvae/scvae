@@ -478,7 +478,8 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
             minibatch_size=minibatch_size,
             run_id=run_id,
             use_best_model=use_best_model,
-            use_early_stopping_model=use_early_stopping_model
+            use_early_stopping_model=use_early_stopping_model,
+            output_versions="all"
         )
         print()
 
