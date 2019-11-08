@@ -427,14 +427,9 @@ class DataSet:
     @property
     def class_probabilities(self):
 
-        if self.label_superset:
-            labels = self.superset_labels
-            class_names = self.superset_class_names
-            excluded_classes = self.excluded_superset_classes
-        else:
-            labels = self.labels
-            class_names = self.class_names
-            excluded_classes = self.excluded_classes
+        labels = self.labels
+        class_names = self.class_names
+        excluded_classes = self.excluded_classes
 
         class_probabilities = {class_name: 0 for class_name in class_names}
 

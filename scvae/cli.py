@@ -641,9 +641,11 @@ def _setup_model(data_set, model_type=None,
         )
 
     elif normalise_string(model_type) == "gmvae":
+        prior_probabilities_method_for_model = prior_probabilities_method
         if prior_probabilities_method == "uniform":
             prior_probabilities = None
         elif prior_probabilities_method == "infer":
+            prior_probabilities_method_for_model = "custom"
             prior_probabilities = data_set.class_probabilities
         else:
             prior_probabilities = None
@@ -654,7 +656,7 @@ def _setup_model(data_set, model_type=None,
             hidden_sizes=hidden_sizes,
             number_of_monte_carlo_samples=number_of_monte_carlo_samples,
             number_of_importance_samples=number_of_importance_samples,
-            prior_probabilities_method=prior_probabilities_method,
+            prior_probabilities_method=prior_probabilities_method_for_model,
             prior_probabilities=prior_probabilities,
             latent_distribution=latent_distribution,
             number_of_latent_clusters=number_of_classes,

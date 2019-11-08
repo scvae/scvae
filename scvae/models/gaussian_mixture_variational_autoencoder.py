@@ -126,10 +126,9 @@ class GaussianMixtureVariationalAutoencoder(object):
                 "prior_probabilities_method"]
         if prior_probabilities_method in ["uniform", "learn"]:
             prior_probabilities = None
-        elif prior_probabilities_method == "infer":
+        elif prior_probabilities_method == "custom":
             if prior_probabilities is None:
-                raise TypeError(
-                    "No prior probabilities supplied for `infer` method.")
+                raise TypeError("No custom prior probabilities")
             elif isinstance(prior_probabilities, dict):
                 prior_probabilities = list(prior_probabilities.values())
         else:
@@ -144,7 +143,7 @@ class GaussianMixtureVariationalAutoencoder(object):
                 and len(self.prior_probabilities) != self.n_clusters):
             raise ValueError(
                 "The number of provided prior probabilities has to be the "
-                "as the number of latent clusters."
+                "same as the number of latent clusters."
             )
 
         # Dictionary holding number of samples needed for the Monte Carlo
@@ -2620,7 +2619,7 @@ class GaussianMixtureVariationalAutoencoder(object):
             # p(y) = Cat(pi)
             # Shape: (1, K), so first minibatch dimension can be broadcast to y
             with tf.variable_scope("P"):
-                if self.prior_probabilities_method == "infer":
+                if self.prior_probabilities_method == "custom":
                     p_y_probabilities = tf.constant(self.prior_probabilities)
                     p_y_logits = tf.log(p_y_probabilities)
                 elif self.prior_probabilities_method == "learn":
