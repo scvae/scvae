@@ -33,7 +33,7 @@
 			"VAE": "gaussian",
 			"GMVAE": "gaussian mixture"
 		},
-		"number_of_classes": "infer",
+		"number_of_classes": 1,
 		"parameterise_latent_posterior": false,
 		"inference_architecture": "MLP",
 		"generative_architecture": "MLP",

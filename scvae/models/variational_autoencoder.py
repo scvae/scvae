@@ -116,10 +116,8 @@ class VariationalAutoencoder:
 
         if number_of_latent_clusters is None:
             if "mixture" in latent_distribution:
-                raise ValueError(
-                    "For a mixture latent distribution, "
-                    "the number of latent clusters has to be set."
-                )
+                number_of_latent_clusters = defaults["models"][
+                    "number_of_classes"]
             else:
                 number_of_latent_clusters = 1
         self.number_of_latent_clusters = number_of_latent_clusters
@@ -135,7 +133,7 @@ class VariationalAutoencoder:
         # estimator and importance weighting during both train and test time
         if number_of_monte_carlo_samples is None:
             number_of_monte_carlo_samples = defaults["models"][
-                "number of samples"]
+                "number_of_samples"]
         else:
             number_of_monte_carlo_samples = parse_numbers_of_samples(
                 number_of_monte_carlo_samples)
@@ -143,7 +141,7 @@ class VariationalAutoencoder:
 
         if number_of_importance_samples is None:
             number_of_importance_samples = defaults["models"][
-                "number of samples"]
+                "number_of_samples"]
         else:
             number_of_importance_samples = parse_numbers_of_samples(
                 number_of_importance_samples)
