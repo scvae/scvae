@@ -58,8 +58,8 @@ DEFAULT_CUTOFFS = range(1, 10)
 def analyse_data(data_sets,
                  decomposition_methods=None,
                  highlight_feature_indices=None,
-                 included_analyses=None, analysis_level=None,
-                 export_options=None, analyses_directory=None):
+                 analyses_directory=None,
+                 **kwargs):
 
     if analyses_directory is None:
         analyses_directory = defaults["analyses"]["directory"]
@@ -68,12 +68,16 @@ def analyse_data(data_sets,
     if not os.path.exists(analyses_directory):
         os.makedirs(analyses_directory)
 
+    included_analyses = kwargs.get("included_analyses")
     if included_analyses is None:
         included_analyses = defaults["analyses"]["included_analyses"]
     included_analyses = _parse_analyses(included_analyses)
 
+    analysis_level = kwargs.get("analysis_level")
     if analysis_level is None:
         analysis_level = defaults["analyses"]["analysis_level"]
+
+    export_options = kwargs.get("export_options")
 
     if not isinstance(data_sets, list):
         data_sets = [data_sets]
@@ -283,9 +287,7 @@ def analyse_data(data_sets,
             print()
 
 
-def analyse_model(model, run_id=None,
-                  included_analyses=None, analysis_level=None,
-                  export_options=None, analyses_directory="results"):
+def analyse_model(model, run_id=None, analyses_directory=None, **kwargs):
 
     if run_id is None:
         run_id = defaults["models"]["run_id"]
@@ -308,12 +310,16 @@ def analyse_model(model, run_id=None,
     if not os.path.exists(analyses_directory):
         os.makedirs(analyses_directory)
 
+    included_analyses = kwargs.get("included_analyses")
     if included_analyses is None:
         included_analyses = defaults["analyses"]["included_analyses"]
     included_analyses = _parse_analyses(included_analyses)
 
+    analysis_level = kwargs.get("analysis_level")
     if analysis_level is None:
         analysis_level = defaults["analyses"]["analysis_level"]
+
+    export_options = kwargs.get("export_options")
 
     if "learning_curves" in included_analyses:
 
@@ -690,11 +696,9 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                     latent_evaluation_sets, model, run_id=None,
                     sample_reconstruction_set=None,
                     decomposition_methods=None,
-                    evaluation_subset_indices=None,
                     highlight_feature_indices=None,
                     early_stopping=False, best_model=False,
-                    included_analyses=None, analysis_level=None,
-                    export_options=None, analyses_directory=None):
+                    analyses_directory=None, **kwargs):
 
     if early_stopping and best_model:
         raise ValueError(
@@ -707,16 +711,21 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
     if run_id:
         run_id = check_run_id(run_id)
 
+    evaluation_subset_indices = kwargs.get(evaluation_subset_indices)
     if evaluation_subset_indices is None:
         evaluation_subset_indices = indices_for_evaluation_subset(
             evaluation_set)
 
+    included_analyses = kwargs.get("included_analyses")
     if included_analyses is None:
         included_analyses = defaults["analyses"]["included_analyses"]
     included_analyses = _parse_analyses(included_analyses)
 
+    analysis_level = kwargs.get("analysis_level")
     if analysis_level is None:
         analysis_level = defaults["analyses"]["analysis_level"]
+
+    export_options = kwargs.get("export_options")
 
     print("Setting up results analyses.")
     setup_time_start = time()
