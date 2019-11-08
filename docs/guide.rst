@@ -25,6 +25,11 @@ Custom data sets
 .. Explain feature mapping.
 .. Explain split indices.
 
+Training a model
+^^^^^^^^^^^^^^^^
+
+.. List likelihood functions.
+
 References
 ----------
 

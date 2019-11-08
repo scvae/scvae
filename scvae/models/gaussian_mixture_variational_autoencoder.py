@@ -49,6 +49,90 @@ from scvae.utilities import (
 
 
 class GaussianMixtureVariationalAutoencoder:
+    """Gaussian-mixture variational auto-encoder class.
+
+    Arguments:
+        feature_size (int): The number of features/genes in the data
+            set to model.
+        latent_size (int): The number of dimensions to use for the
+            latent space.
+        hidden_sizes (list(int)): A list of the number of units in each
+            hidden layer of both the inference (encoder) and the
+            generative (decoder) networks. The number of layers in each
+            network is thus the length of this list.
+            For the inference network, the order of the hidden layers
+            is the same as for the list, while for the generative
+            network, it is the reverse.
+        reconstruction_distribution (str, optional): The name of the
+            reconstruction distribution (or likelihood function; see
+            :ref:`Training a model`)
+        number_of_reconstruction_classes (int, optional): The number of
+            counts to model directly, starting from zero (see
+            :ref:`Training a model`).
+        latent_distribution (str, optional): The name of the
+            latent prior distribution: ``"gaussian_mixture"`` or
+            ``"full_covariance_gaussian_mixture"`` (see
+            :ref:`Training a model`).
+        prior_probabilities_method (str, optional): Method for how to
+            set the mixture coefficients for the latent prior
+            distribution: ``"uniform"`` distribution, ``"custom"``
+            (provide probabilities to ``prior_probabilities``), or
+            ``"learn"`` during training.
+        prior_probabilities (1-d array-like, optional): Prior
+            probabilities required when ``prior_probabilities_method``
+            is ``"custom"``.
+        number_of_latent_clusters (int, optional): The number of latent
+            clusters, which is also the number of components in the
+            Gaussian-mixture model.
+        minibatch_normalisation (bool, optional): If ``True``,
+            normalise each random minibatch of data when training or
+            evaluating the model.
+        batch_correction (bool, optional): If ``True``, and if batches
+            are present in data set to model, perform batch correction.
+        number_of_batches (int, optional): The number of batches in the
+            data set to model. Required, if ``batch_correction`` is
+            ``True``.
+        number_of_warm_up_epochs (int, optional): The number of epochs
+            during the start of training with a linear weight on the KL
+            divergence. This weight is gradually increased linearly
+            from 0 to 1 for this number of epochs.
+        log_directory (str, optional): Directory where model is saved.
+
+    Attributes:
+        feature_size: The number of features/genes which can be
+            modelled.
+        latent_size: The number of dimensions of the latent space.
+        hidden_sizes:  A list of the number of units in each hidden
+            layer of both the inference (encoder) and the generative
+            (decoder) networks. The number of layers in each network is
+            thus the length of this list. For the inference network,
+            the order of the hidden layers is the same as for the list,
+            while for the generative network, it is the reverse.
+        reconstruction_distribution: An instance of the reconstruction
+            distribution (or likelihood function) class used by the
+            model.
+        number_of_reconstruction_classes: The number of counts modelled
+            directly, starting from zero.
+        latent_distribution: An instance of the latent prior
+            distribution class used by the model.
+        prior_probabilities_method: Method for how the mixture
+            coefficients for the latent prior distribution are set:
+            ``"uniform"`` distribution, ``"custom"`` (given by
+            ``prior_probabilities``), or ``"learn"`` during training.
+        prior_probabilities: Prior probabilities when
+            ``prior_probabilities_method`` is ``"custom"``.
+        minibatch_normalisation: If ``True``, normalise each random
+            minibatch of data when training or evaluating the model.
+        batch_correction: If ``True``, and if batches are present in
+            data set to model, perform batch correction.
+        number_of_batches: The number of batches in the data set to
+            model, when ``batch_correction`` is ``True``.
+        number_of_warm_up_epochs: The number of epochs during the start
+            of training with a linear weight on the KL divergence. This
+            weight is gradually increased linearly from 0 to 1 for this
+            number of epochs.
+    """
+
     def __init__(self, feature_size, latent_size=None, hidden_sizes=None,
                  reconstruction_distribution=None,
                  number_of_reconstruction_classes=None,
@@ -356,6 +440,7 @@ class GaussianMixtureVariationalAutoencoder:
 
     @property
     def name(self):
+        """Short name for model used in filenames."""
 
         latent_parts = [normalise_string(self.latent_distribution_name)]
 
@@ -418,6 +503,7 @@ class GaussianMixtureVariationalAutoencoder:
 
     @property
     def description(self):
+        """Description of model."""
 
         description_parts = ["Model setup:"]
 
@@ -507,6 +593,7 @@ class GaussianMixtureVariationalAutoencoder:
 
     @property
     def parameters(self):
+        """Trainable parameters in the model."""
 
         with self.graph.as_default():
             parameters = tf.trainable_variables()
@@ -527,6 +614,7 @@ class GaussianMixtureVariationalAutoencoder:
 
     @property
     def number_of_latent_clusters(self):
+        """The number of latent clusters used in the model."""
         return self.n_clusters
 
     def log_directory(self, base=None, run_id=None,
@@ -591,6 +679,25 @@ class GaussianMixtureVariationalAutoencoder:
     def train(self, training_set, validation_set=None, number_of_epochs=None,
               minibatch_size=None, learning_rate=None, run_id=None,
               new_run=False, reset_training=False, **kwargs):
+        """Train model.
+
+        Arguments:
+            training_set (DataSet): Data set used to train model.
+            validation_set (DataSet, optional): Data set used to
+                validate model during training, if given.
+            number_of_epochs (int, optional): The number of epochs to
+                train the model.
+            minibatch_size (int, optional): The size of the random
+                minibatches used at each step of training.
+            learning_rate (float, optional): The learning rate used at
+                each step of training.
+            run_id (str, optional): ID used to identify a certain run
+                of the model.
+            new_run (bool, optional): If ``True``, train a model anew
+                as a separate run with an automatically generated ID.
+            reset_training (bool, optional): If ``True``, reset model
+                by removing saved parameters for the model.
+        """
 
         if number_of_epochs is None:
             number_of_epochs = defaults["models"]["number_of_epochs"]
@@ -1824,6 +1931,27 @@ class GaussianMixtureVariationalAutoencoder:
 
     def sample(self, sample_size=None, minibatch_size=None, run_id=None,
                use_early_stopping_model=False, use_best_model=False):
+        """Sample from trained model.
+
+        Arguments:
+            sample_size (int, optional): The number of samples to draw
+                from the model.
+            minibatch_size (int, optional): The size of the random
+                minibatches used at each step of training.
+            run_id (str, optional): ID used to identify a certain run
+                of the model.
+            use_early_stopping_model (bool, optional): If ``True``, use
+                model parameters, when early stopping triggered during
+                training. Defaults to ``False``.
+            use_best_model (bool, optional): If ``True``, use model
+                parameters, which resulted in the best performance on
+                validation set during training. Defaults to ``False``.
+
+        Returns:
+            A data set of generated examples/cells as well as a
+            dictionary of data sets of samples for the two latent
+            variables.
+        """
 
         if sample_size is None:
             sample_size = defaults["models"]["sample_size"]
@@ -2017,6 +2145,25 @@ class GaussianMixtureVariationalAutoencoder:
     def evaluate(self, evaluation_set, minibatch_size=None, run_id=None,
                  use_early_stopping_model=False, use_best_model=False,
                  **kwargs):
+        """Evaluate trained model
+
+        Arguments:
+            evaluation_set (DataSet): Data set used to evaluate model.
+            minibatch_size (int, optional): The size of the random
+                minibatches used at each step of training.
+            run_id (str, optional): ID used to identify a certain run
+                of the model.
+            use_early_stopping_model (bool, optional): If ``True``, use
+                model parameters, when early stopping triggered during
+                training. Defaults to ``False``.
+            use_best_model (bool, optional): If ``True``, use model
+                parameters, which resulted in the best performance on
+                validation set during training. Defaults to ``False``.
+
+        Returns:
+            A data set of reconstructed examples/cells as well as a
+            dictionary of data sets of the two latent variables.
+        """
 
         if minibatch_size is None:
             minibatch_size = defaults["models"]["minibatch_size"]
