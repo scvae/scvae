@@ -1,8 +1,6 @@
 Programming Interface
 =====================
 
-:ref:`modindex`
-
 Data module
 -----------
 
@@ -20,3 +18,8 @@ Analyses module
 
 .. automodule:: scvae.analyses
    :members:
+
+Defaults for optional arguments
+-------------------------------
+
+.. literalinclude:: /../scvae/defaults.json
