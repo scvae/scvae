@@ -29,9 +29,7 @@ PACKAGE_REQUIREMENTS = [
 ]
 
 DOCUMENTATION_REQUIREMENTS = [
-    "sphinx>=2.2",
-    # "recommonmark>=0.6",
-    # "m2r>=0.2"
+    "sphinx >= 2.2"
 ]
 
 EXTRAS_REQUIREMENTS = {
