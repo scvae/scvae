@@ -355,16 +355,19 @@ def split_data_set(data_dictionary, method=None, fraction=None):
 
     random_state = numpy.random.RandomState(42)
 
-    if method == "random":
+    if method in ["random", "sequential"]:
 
         n_training_validation = int(fraction * n)
         n_training = int(fraction * n_training_validation)
 
-        shuffled_indices = random_state.permutation(n)
+        if method == "random":
+            indices = random_state.permutation(n)
+        else:
+            indices = numpy.arange(n)
 
-        training_indices = shuffled_indices[:n_training]
-        validation_indices = shuffled_indices[n_training:n_training_validation]
-        test_indices = shuffled_indices[n_training_validation:]
+        training_indices = indices[:n_training]
+        validation_indices = indices[n_training:n_training_validation]
+        test_indices = indices[n_training_validation:]
 
     elif method == "indices":
 
