@@ -58,6 +58,22 @@ autodoc_mock_imports = [
     "tensorflow_probability"
 ]
 
+html_theme_options = {
+    "github_user": "scvae",
+    "github_repo": "scvae",
+    "github_type": "star",
+    "description": "Single-cell variational auto-encoders",
+    "show_powered_by": False
+}
+
+html_sidebars = {
+    "**": [
+        "about.html",
+        "navigation.html",
+        "searchbox.html",
+    ]
+}
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 

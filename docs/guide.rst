@@ -3,12 +3,10 @@
 User Guide
 ==========
 
-scVAE is a command-line tool for modelling single-cell transcript counts using variational auto-encoders.
 
-scVAE was developed by Christopher Heje Grønbech and Maximillian Fornitz Vording, and it is being developed further by Christopher. The methods used by scVAE is described and examined in `Grønbech et al. (2018)`_.
 
-Installation
-------------
+Installing scVAE
+----------------
 
 scVAE requires Python 3.6--3.7, which can be installed in `several ways`_, for example, using Miniconda_.
 
@@ -195,12 +193,3 @@ To reproduce the main results from Grønbech *et al* (2018), you can run the fol
 
 		$ scvae train TCGA-RSEM --map-features --feature-selection keep_highest_variances 5000 --split-data-set -m GMVAE -r negative_binomial -l 50 -H 1000 1000 -e 500
 		$ scvae evaluate TCGA-RSEM --map-features --feature-selection keep_highest_variances 5000 --split-data-set -m GMVAE -r negative_binomial -l 50 -H 1000 1000 --decomposition-methods pca tsne
-
-References
-----------
-
-.. _Grønbech et al. (2018):
-
-Christopher Heje Grønbech, Maximillian Fornitz Vording, Pascal Nordgren Timshel, Casper Kaae Sønderby, Tune Hannes Pers, and Ole Winther. "`scVAE: Variational auto-encoders for single-cell gene expression data`_". *bioRxiv*, 2018.
-
-.. _`scVAE: Variational auto-encoders for single-cell gene expression data`: https://www.biorxiv.org/content/10.1101/318295v4
