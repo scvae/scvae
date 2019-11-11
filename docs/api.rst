@@ -19,7 +19,9 @@ Analyses module
 .. automodule:: scvae.analyses
    :members:
 
-Defaults for optional arguments
--------------------------------
+Argument defaults
+-----------------
+
+Below are listed the defaults for some optional arguments:
 
 .. literalinclude:: /../scvae/defaults.json

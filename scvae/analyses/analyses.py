@@ -60,6 +60,17 @@ def analyse_data(data_sets,
                  highlight_feature_indices=None,
                  analyses_directory=None,
                  **kwargs):
+    """Analyse data set and save results and plots.
+
+    Arguments:
+        data_sets (list(DataSet)): List of data sets to analyse.
+        decomposition_methods (str or list(str)): Method(s) used to
+            decompose data set values: ``"PCA"``, ``"SVD"``, ``"ICA"``,
+            and/or ``"t-SNE"``.
+        highlight_feature_indices (int or list(int)): Index or indices
+            to highlight in decompositions.
+        analyses_directory (str, optional): Directory where to save analyses.
+    """
 
     if analyses_directory is None:
         analyses_directory = defaults["analyses"]["directory"]
@@ -288,6 +299,14 @@ def analyse_data(data_sets,
 
 
 def analyse_model(model, run_id=None, analyses_directory=None, **kwargs):
+    """Analyse trained model and save results and plots.
+
+    Arguments:
+        model ((GaussianMixture)VariationalAutoencoder): Model to analyse.
+        run_id (str, optional): ID used to identify a certain run
+            of ``model``.
+        analyses_directory (str, optional): Directory where to save analyses.
+    """
 
     if run_id is None:
         run_id = defaults["models"]["run_id"]
@@ -549,6 +568,36 @@ def analyse_intermediate_results(epoch, learning_curves=None, epoch_start=None,
                                  data_set=None, centroids=None,
                                  model_name=None, run_id=None,
                                  analyses_directory=None):
+    """Analyse reconstructions and latent values.
+
+    Reconstructions and latent values from evaluating a model on a data
+    set are analysed, and results and plots are saved.
+
+    Arguments:
+        evaluation_set (DataSet): Data set used to evaluate ``model``.
+        reconstructed_evaluation_set (DataSet): Reconstructed data set
+            from evaluating ``model`` on ``evaluation_set``.
+        latent_evaluation_sets (dict(str, DataSet)): Dictionary of data
+            sets of the two latent variables.
+        model ((GaussianMixture)VariationalAutoencoder): Model
+            evaluated on ``evaluation_set``.
+        run_id (str, optional): ID used to identify a certain run
+            of ``model``.
+        sample_reconstruction_set (DataSet): Reconstruction data set
+            from sampling ``model``.
+        decomposition_methods (str or list(str)): Method(s) used to
+            decompose data set values: ``"PCA"``, ``"SVD"``, ``"ICA"``,
+            and/or ``"t-SNE"``.
+        highlight_feature_indices (int or list(int)): Index or indices
+            to highlight in decompositions.
+        early_stopping (bool, optional): If ``True``, use parameters
+            for ``model``, when early stopping triggered during
+            training. Defaults to ``False``.
+        best_model (bool, optional): If ``True``, use parameters for
+            ``model``, which resulted in the best performance on
+            validation set during training. Defaults to ``False``.
+        analyses_directory (str, optional): Directory where to save analyses.
+    """
 
     if run_id is None:
         run_id = defaults["models"]["run_id"]
