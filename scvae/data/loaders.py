@@ -120,7 +120,7 @@ def _load_10x_data_set(paths):
 
 
 @_register_loader("h5")
-def _load_10x_data_set(paths):
+def _load_h5_data_set(paths):
 
     data_dictionary = _load_sparse_matrix_in_hdf5_format(
         paths["values"]["full"])
