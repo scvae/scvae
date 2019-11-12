@@ -17,7 +17,6 @@
 # ======================================================================== #
 
 import matplotlib
-import numpy
 import seaborn
 
 STANDARD_PALETTE = seaborn.color_palette("Set2", 8)
