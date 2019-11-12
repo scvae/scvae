@@ -124,6 +124,10 @@ The data set can split into a training, a validation, and a test set using the `
 
 Then, the training set is used to train the model, the validation set is used for early stopping as well as finding the best model parameters, and the test set is used when evaluating the model.
 
+The data set can be split either randomly (``random``) or sequentially (``sequential``) specifying either value using the option ``--splitting-method``::
+
+	$ scvae train 10x-PBMC-PP --split-data-set --splitting-method random
+
 Training a model
 ^^^^^^^^^^^^^^^^
 
@@ -223,14 +227,14 @@ You then save the JSON file in the same directory as the TSV files with a memora
 
 To load and split this data set with scVAE and train a GMVAE model with a Poisson distribution on the training set, you run the following command in the same directory::
 
-   $ scvae train data_set.json -m GMVAE -r poisson
+   $ scvae train data_set.json --split-data-set -m GMVAE -r poisson
 
 (See :ref:`Training a model` for more model options.)
 
 You evaluate this model on the test set using the following command::
 
-   $ scvae evaluate data_set.json -m GMVAE -r poisson
+   $ scvae evaluate data_set.json --split-data-set -m GMVAE -r poisson
 
 The resulting plots are saved in a subfolder called ``"analyses"``. If you want *t*-SNE plots, you use this command instead::
 
-   $ scvae evaluate data_set.json -m GMVAE -r poisson --decomposition-methods tsne
+   $ scvae evaluate data_set.json --split-data-set -m GMVAE -r poisson --decomposition-methods tsne
