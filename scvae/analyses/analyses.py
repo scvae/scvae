@@ -760,7 +760,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
     if run_id:
         run_id = check_run_id(run_id)
 
-    evaluation_subset_indices = kwargs.get(evaluation_subset_indices)
+    evaluation_subset_indices = kwargs.get("evaluation_subset_indices")
     if evaluation_subset_indices is None:
         evaluation_subset_indices = indices_for_evaluation_subset(
             evaluation_set)
