@@ -193,3 +193,39 @@ To reproduce the main results from Grønbech *et al* (2018), you can run the fol
 
 		$ scvae train TCGA-RSEM --map-features --feature-selection keep_highest_variances 5000 --split-data-set -m GMVAE -r negative_binomial -l 50 -H 1000 1000 -e 500
 		$ scvae evaluate TCGA-RSEM --map-features --feature-selection keep_highest_variances 5000 --split-data-set -m GMVAE -r negative_binomial -l 50 -H 1000 1000 --decomposition-methods pca tsne
+
+Tutorial
+--------
+
+Say you have a data set consisting of:
+
+* single-cell transcript counts a file called ``"transcript_counts.tsv.gz"`` with genes as rows and cells as columns, and
+* associated cell types in file called ``"cell_types.tsv"``.
+
+To load these, you make a JSON file with the following contents:
+
+.. code-block:: json
+
+	{
+		"values": "transcript_counts.tsv.gz",
+		"labels": "cell_types.tsv",
+		"format": "matrix_fbe"
+	}
+
+(See :ref:`Custom data sets` for more loading options.)
+
+You then save the JSON file in the same directory as the TSV files with a memorable name like ``"data_set.json"``.
+
+To load and split this data set with scVAE and train a GMVAE model with a Poisson distribution on the training set, you run the following command in the same directory::
+
+   $ scvae train data_set.json -m GMVAE -r poisson
+
+(See :ref:`Training a model` for more model options.)
+
+You evaluate this model on the test set using the following command::
+
+   $ scvae evaluate data_set.json -m GMVAE -r poisson
+
+The resulting plots are saved in a subfolder called ``"analyses"``. If you want *t*-SNE plots, you use this command instead::
+
+   $ scvae evaluate data_set.json -m GMVAE -r poisson --decomposition-methods tsne
