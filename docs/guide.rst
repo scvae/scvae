@@ -67,9 +67,11 @@ The default model can be trained on, for example, the ``10x-PBMC-PP`` data set l
 Custom data sets
 """"""""""""""""
 
-scVAE can read Loom files and read count from a TSV file without further configuration::
+scVAE can read `Loom`_ files, and it can read a dense data matrix from a TSV file or a sparse one from a HDF5 file without further configuration::
 
 	$ scvae train PBMC.loom
+
+.. _Loom: https://loompy.org
 
 The TSV files can be compressed using gzip, but each row should represent a cell or sample and each column a gene (for the reverse case, see below). If a header row and/or a header column are provided, they are used as gene IDs/names and/or cell/sample names, respectively.
 
@@ -77,22 +79,25 @@ For Loom files, scVAE follows `Loompy's conventions`_: each column represent a c
 
 .. _Loompy's conventions: http://linnarssonlab.org/loompy/conventions/index.html
 
+HDF5 files should include a single directory containing arrays for the sparse matrix (with names as for SciPy's CSR/CSC sparse matrix format: "data", "indices", "indptr", "shape"). Arrays for example/cell and feature/gene names are also supported with a varieity of naming conventions: for example, "barcodes", "cells", "samples", "examples" for the former; "genes" and "features" for the latter.
+
 scVAE also supports the following formats (supplied using the ``--format`` option):
 
 * ``10x``: Output format for 10x Genomics's Cell Ranger.
+* ``h5``: Sparse matrix in HDF5 format.
 * ``gtex``: Format for data sets from `GTEx`_.
-* ``loom``: `Loom`_ format.
 * ``matrix_ebf``: (gzip compressed) TSV file with cells/samples/examples as rows and gene/features as columns (examples-by-features).
 * ``matrix_fbe``: (gzip compressed) TSV file with gene/features as rows and cells/samples/examples as columns (features-by-examples).
 
 .. _GTEx: https://gtexportal.org/home/index.html
-.. _Loom: https://loompy.org
 
 The last of these formats can be used to read a TSV file, which is in reverse order of the default case::
 
 	$ scvae train PBMC.tsv.gz --format matrix_fbe
 
-Using the Loom format, included cell types and batch indices can also be imported without further configuration by using the column attributes "ClusterName" and "BatchID", respectively. Cell types for other formats can be imported in TSV format by instead providing a `JSON`_ file with a ``values`` field with the filename for the read counts, a ``labels`` field with the filename the cell types, and ``format`` field with the format.
+Using the Loom format, included cell types and batch indices can also be imported without further configuration by using the column attributes "ClusterName" and "BatchID", respectively.
+
+Cell types for other formats can be imported in TSV format by instead providing a `JSON`_ file with a ``values`` field with the filename for the read counts, a ``labels`` field with the filename the cell types, and ``format`` field with the format.
 
 .. _JSON: https://en.wikipedia.org/wiki/JSON
 
