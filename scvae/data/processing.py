@@ -411,6 +411,9 @@ def split_data_set(data_dictionary, method=None, fraction=None):
         validation_indices = test_validation_indices[:n_validation]
         test_indices = test_validation_indices[n_validation:]
 
+    else:
+        raise ValueError("Splitting method `{}` not found.".format(method))
+
     split_data_dictionary = {
         "training set": {
             "values": data_dictionary["values"][training_indices],
