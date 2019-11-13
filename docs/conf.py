@@ -1,9 +1,13 @@
 import os
 import sys
 
+from sphinx.highlighting import lexers
+
 sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath("."))
 
 import scvae
+from custom_lexers import TerminalLexer
 
 # Project information
 
@@ -62,3 +66,5 @@ html_sidebars = {
         "searchbox.html",
     ]
 }
+
+lexers["terminal"] = TerminalLexer(startinline=True)

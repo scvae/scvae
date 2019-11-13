@@ -1,4 +1,4 @@
-.. highlight:: bash
+.. highlight:: terminal
 
 User Guide
 ==========
