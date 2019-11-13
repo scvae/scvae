@@ -29,6 +29,7 @@ PACKAGE_REQUIREMENTS = [
 ]
 
 DOCUMENTATION_REQUIREMENTS = [
+    "pygments >= 2.4",
     "sphinx >= 2.2"
 ]
 

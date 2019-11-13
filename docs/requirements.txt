@@ -1,3 +1,4 @@
-sphinx >= 2.2
 importlib_resources >= 1.0
 numpy >= 1.16
+pygments >= 2.4
+sphinx >= 2.2
