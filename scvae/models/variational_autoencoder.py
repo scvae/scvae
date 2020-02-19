@@ -1913,6 +1913,12 @@ class VariationalAutoencoder:
             kl_divergence_eval = 0
             reconstruction_error_eval = 0
 
+            if log_results:
+                if "mixture" in self.latent_distribution_name:
+                    kl_divergence_neurons = numpy.zeros(shape=1)
+                else:
+                    kl_divergence_neurons = numpy.zeros(shape=self.latent_size)
+
             if "reconstructed" in output_versions:
                 p_x_mean_eval = numpy.empty(
                     shape=(n_examples_eval, n_features_eval),
@@ -1978,14 +1984,14 @@ class VariationalAutoencoder:
                     kl_divergence_i,
                     reconstruction_error_i,
                     p_x_mean_i, p_x_stddev_i, stddev_of_p_x_mean_i,
-                    q_z_mean_i
+                    q_z_mean_i, kl_divergence_neurons_i
                 ) = session.run(
                     [
                         self.lower_bound,
                         self.kl_divergence,
                         self.reconstruction_error, self.p_x_mean,
                         self.p_x_stddev, self.stddev_of_p_x_given_z_mean,
-                        self.q_z_mean
+                        self.q_z_mean, self.kl_divergence_neurons
                     ],
                     feed_dict=feed_dict_batch
                 )
@@ -1993,6 +1999,10 @@ class VariationalAutoencoder:
                 lower_bound_eval += lower_bound_i
                 kl_divergence_eval += kl_divergence_i
                 reconstruction_error_eval += reconstruction_error_i
+
+                if log_results:
+                    kl_divergence_neurons += numpy.array(
+                        kl_divergence_neurons_i)
 
                 if "reconstructed" in output_versions:
                     # Save Importance weighted Monte Carlo estimates of:
@@ -2023,6 +2033,9 @@ class VariationalAutoencoder:
             lower_bound_eval /= n_examples_eval / minibatch_size
             kl_divergence_eval /= n_examples_eval / minibatch_size
             reconstruction_error_eval /= n_examples_eval / minibatch_size
+
+            if log_results:
+                kl_divergence_neurons /= n_examples_eval / minibatch_size
 
             evaluating_duration = time() - evaluating_time_start
 
@@ -2074,6 +2087,12 @@ class VariationalAutoencoder:
                                 .format(k, l),
                             simple_value=p_z_variances_k_l
                         )
+
+                for l in range(kl_divergence_neurons.size):
+                    summary.value.add(
+                        tag="kl_divergence_neurons/{}".format(l),
+                        simple_value=kl_divergence_neurons[l]
+                    )
 
                 # Write summaries
                 eval_summary_writer.add_summary(summary, global_step=epoch)
