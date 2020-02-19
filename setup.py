@@ -59,7 +59,7 @@ setuptools.setup(
     },
     python_requires=PYTHON_VERSION_REQUIREMENT,
     install_requires=PACKAGE_REQUIREMENTS,
-    extras_requieres=EXTRAS_REQUIREMENTS,
+    extras_require=EXTRAS_REQUIREMENTS,
     license=LICENSE,
     classifiers=[
         "Programming Language :: Python :: 3",
