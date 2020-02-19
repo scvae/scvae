@@ -39,12 +39,12 @@ from scvae.utilities import (
 )
 
 ANALYSIS_GROUPS = {
-    "simple": ["metrics", "images", "learning_curves", "accuracies"],
-    "standard": ["kl_heat_maps", "profile_comparisons", "distributions",
-                 "distances", "decompositions", "latent_space",
-                 "latent_features"],
-    "all": ["heat_maps", "latent_distributions", "latent_correlations",
-            "feature_value_standard_deviations"]
+    "simple": ["metrics", "images", "learning_curves"],
+    "standard": ["profile_comparisons", "distributions",
+                 "decompositions", "latent_space"],
+    "all": ["heat_maps", "distances", "feature_value_standard_deviations",
+            "latent_distributions", "latent_correlations", "latent_features",
+            "kl_heat_maps", "accuracies"]
 }
 ANALYSIS_GROUPS["standard"] += ANALYSIS_GROUPS["simple"]
 ANALYSIS_GROUPS["all"] += ANALYSIS_GROUPS["standard"]
