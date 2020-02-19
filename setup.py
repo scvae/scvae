@@ -24,7 +24,7 @@ PACKAGE_REQUIREMENTS = [
     "scipy >= 1.2",
     "seaborn >= 0.9",
     "tables >= 3.5",
-    "tensorflow == 1.15",
+    "tensorflow >= 1.15.2, < 2",
     "tensorflow-probability == 0.7"
 ]
 
