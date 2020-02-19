@@ -1502,8 +1502,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
 
         latent_features_directory = os.path.join(
             analyses_directory, "latent_features")
-        print(subheading("Latent factors"))
-        print("Plotting latent features.")
+        print(subheading("Latent features"))
 
         kl_divergences = load_kl_divergences(
             model=model,
@@ -1512,9 +1511,29 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             early_stopping=early_stopping,
             best_model=best_model
         )
-        sorted_kl_divergences_indices = kl_divergences.argsort()
-        latent_factor_1 = sorted_kl_divergences_indices[0]
-        latent_factor_2 = sorted_kl_divergences_indices[1]
+
+        if kl_divergences is not None:
+
+            sorted_kl_divergences_indices = kl_divergences.argsort()
+            latent_factor_1 = sorted_kl_divergences_indices[0]
+            latent_factor_2 = sorted_kl_divergences_indices[1]
+
+        else:
+
+            print(
+                "The KL divergences for the evaluated latent features used "
+                "to determine the two primary latent features are not "
+                "available. The two most varying latent features are used "
+                "instead."
+                "\n"
+            )
+
+            latent_variances = latent_evaluation_sets["z"].values.var(axis=0)
+            sorted_latent_variances_indices = latent_variances.argsort()
+            latent_factor_1 = sorted_latent_variances_indices[0]
+            latent_factor_2 = sorted_latent_variances_indices[1]
+
+        print("Plotting latent features.")
 
         latent_features_time_start = time()
         figure, figure_name = figures.plot_values(
