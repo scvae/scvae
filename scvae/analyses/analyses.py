@@ -201,8 +201,9 @@ def analyse_data(data_sets,
         if "distances" in included_analyses:
             subanalyses.analyse_matrices(
                 data_set,
-                name=[data_set.kind],
                 plot_distances=True,
+                name=[data_set.kind],
+                export_options=export_options,
                 analyses_directory=analyses_directory
             )
 
