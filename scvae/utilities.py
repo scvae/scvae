@@ -16,6 +16,9 @@
 #
 # ======================================================================== #
 
+import functools
+import importlib
+import importlib.util
 import os
 import re
 import sys
@@ -212,11 +215,33 @@ def _download_report_hook(block_num, block_size, total_size):
 
 def _bold(string):
     """Convert to bold type."""
-    bold_format = "\033[1m"
-    reset_format = "\033[0m"
+    if output_supports_ansi_escape_codes():
+        bold_format = "\033[1m"
+        reset_format = "\033[0m"
+    else:
+        bold_format = ""
+        reset_format = ""
     return bold_format + string + reset_format
 
 
 def _underline(string, character="-"):
     """Convert string to header marks"""
     return character * len(string)
+
+
+@functools.lru_cache(maxsize=1)
+def output_supports_ansi_escape_codes():
+
+    supports_ansi_escape_codes = False
+    running_in_terminal = os.isatty(0)
+
+    if running_in_terminal:
+        curses_spec = importlib.util.find_spec("_curses")
+        if curses_spec is not None:
+            curses = importlib.import_module("curses")
+            curses.filter()
+            curses.initscr()
+            supports_ansi_escape_codes = curses.has_colors()
+            curses.endwin()
+
+    return supports_ansi_escape_codes
