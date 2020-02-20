@@ -412,6 +412,9 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
         models_directory=models_directory
     )
 
+    if not model.has_been_trained(run_id=run_id):
+        raise Exception("Cannot analyse model when it has not been trained.")
+
     if ("best_model" in model_versions
             and not better_model_exists(model, run_id=run_id)):
         model_versions.remove("best_model")

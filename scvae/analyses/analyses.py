@@ -315,6 +315,9 @@ def analyse_model(model, run_id=None, analyses_directory=None, **kwargs):
     if run_id:
         run_id = check_run_id(run_id)
 
+    if not model.has_been_trained(run_id=run_id):
+        raise Exception("Cannot analyse model when it has not been trained.")
+
     number_of_epochs_trained = load_number_of_epochs_trained(
         model, run_id=run_id)
     epochs_string = "e_" + str(number_of_epochs_trained)

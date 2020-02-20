@@ -574,6 +574,11 @@ class VariationalAutoencoder:
 
         return parameters_string
 
+    def has_been_trained(self, run_id=None):
+        log_directory = self.log_directory(run_id=run_id)
+        checkpoint = tf.train.get_checkpoint_state(log_directory)
+        return bool(checkpoint)
+
     def log_directory(self, base=None, run_id=None,
                       early_stopping=False, best_model=False):
 
