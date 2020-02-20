@@ -1054,7 +1054,8 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                         capitalise_string(set_name), metric_value
                     ))
 
-            print()
+            if clustering_metric_name_printed:
+                print()
 
     # Only print subheading if necessary
     if ("images" in included_analyses
@@ -1344,8 +1345,7 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
                 "    log-ratio heat map plotted and saved ({})."
                 .format(format_duration(heat_maps_duration))
             )
-
-    print()
+        print()
 
     if "distances" in included_analyses:
         print(subheading("Distances"))
@@ -1580,6 +1580,8 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             print(
                 "    Labels against first latent feature plotted ({})."
                 .format(format_duration(latent_features_duration)))
+
+        print()
 
 
 def _build_path_for_analyses_directory(base_directory, model_name,
