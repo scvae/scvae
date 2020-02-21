@@ -65,8 +65,8 @@ def normalise_string(s):
     s = s.lower()
 
     replacements = {
-        "_": [" ", "-", "/"],
-        "": ["(", ")", ",", "$"]
+        '_': [' ', '-', '/'],
+        '': ['(', ')', ',', '$', '<', '>', ':', '"', '/', '\\', '|', '?', '*']
     }
 
     for replacement, characters in replacements.items():
