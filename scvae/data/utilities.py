@@ -19,6 +19,7 @@
 import os
 
 import numpy
+import pandas
 
 from scvae.utilities import normalise_string
 
@@ -179,3 +180,15 @@ def indices_for_evaluation_subset(evaluation_set,
         subset = set(subset)
 
     return subset
+
+
+def save_values(values, name, row_names=None, column_names=None,
+                directory=None):
+
+    safe_name = "-".join([normalise_string(part) for part in name.split("-")])
+    filename = "{}.tsv.gz".format(safe_name)
+    path = os.path.join(directory, filename)
+
+    table = pandas.DataFrame(
+        data=values, index=row_names, columns=column_names)
+    table.to_csv(path, sep="\t")

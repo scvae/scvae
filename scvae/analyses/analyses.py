@@ -26,7 +26,7 @@ import numpy
 from scvae.analyses import figures, images, metrics, subanalyses
 from scvae.analyses.decomposition import decompose
 from scvae.analyses.figures.utilities import _axis_label_for_symbol
-from scvae.data.utilities import indices_for_evaluation_subset
+from scvae.data.utilities import indices_for_evaluation_subset, save_values
 from scvae.defaults import defaults
 from scvae.models.utilities import (
     load_number_of_epochs_trained, load_learning_curves, load_accuracies,
@@ -39,7 +39,7 @@ from scvae.utilities import (
 )
 
 ANALYSIS_GROUPS = {
-    "simple": ["metrics", "images", "learning_curves"],
+    "simple": ["metrics", "images", "learning_curves", "latent_values"],
     "standard": ["profile_comparisons", "distributions",
                  "decompositions", "latent_space"],
     "all": ["heat_maps", "distances", "feature_value_standard_deviations",
@@ -1359,6 +1359,22 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             plot_distances=True,
             analyses_directory=analyses_directory
         )
+
+    if "latent_values" in included_analyses and "VAE" in model.type:
+        print(subheading("Latent values"))
+        print("Saving latent values.")
+        for set_name, latent_evaluation_set in latent_evaluation_sets.items():
+            saving_time_start = time()
+            save_values(
+                values=latent_evaluation_set.values,
+                name="latent_values-{}".format(set_name),
+                row_names=latent_evaluation_set.example_names,
+                column_names=latent_evaluation_set.feature_names,
+                directory=analyses_directory)
+            saving_duration = time() - saving_time_start
+            print("    Latent values for {} set saved ({}).".format(
+                latent_evaluation_set.version,
+                format_duration(saving_duration)))
 
     if "latent_space" in included_analyses and "VAE" in model.type:
         print(subheading("Latent space"))
