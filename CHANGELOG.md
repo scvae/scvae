@@ -1,5 +1,14 @@
 # Release History
 
+## 2.1.1 (2020-02-24) ##
+
+* Requires TensorFlow 1.15.2 because of a security vulnerability.
+* Export of latent values as compressed TSV files.
+* Make folder names and filenames more safe on Windows.
+* Regrouped analyses, so fewer analyses are performed by default. All available analyses can be performed using ``--included-analyses all``.
+* Fix loading of KL divergences when evaluating VAE models.
+* Fix crash during model analyses, if the model did not exist.
+
 ## 2.1.0 (2019-11-12) ##
 
 * Requires Python 3.6 or 3.7 as well as TensorFlow 1.15.
