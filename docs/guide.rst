@@ -184,11 +184,11 @@ The command ``evaluate`` is used to evaluate a model on a data set::
 
 Note the model has to have been trained already on the same data set.
 
-The model is specified in the same way as when training the model, and the model will be evaluated at the last epoch to which it was trained. If withheld data were used, the model will also be evaluated at the early-stopping epoch and epoch with the most optimal marginal log-likelihood lower bound (if available). A number of analyses are conducted of the models and results, and these saved in the subdirectory ``analyses/``. This can be changed using the option ``--analyses-directory`` (or ``-A``).
+The model is specified in the same way as when training the model, and the model will be evaluated at the last epoch to which it was trained. If withheld data were used, the model will also be evaluated at the early-stopping epoch and epoch with the most optimal marginal log-likelihood lower bound (if available). A number of analyses are conducted of the models and results, and these saved in the subdirectory ``analyses/``. This can be changed using the option ``--analyses-directory`` (or ``-A``). If you want the tool to perform all available analyses, you can use this option and argument: ``--included-analyses all``.
 
 Cells can be clustered and cell types can be predicted using the option ``--prediction-method``. Currently only *k*-means clustering (``kmeans``) is supported. The GMVAE clusters cells and predict cell types using its built-in density-based clustering by default.
 
-To visualise the data sets or latent spaces thereof, these are decomposed using a decomposition method. By default, this method is PCA. This can be changed using the option ``--decomposition-methods``, and as the name implies, multiple methods can be specified: PCA (``pca``), ICA (``ica``), SVD (``svd``), and *t*-SNE (``tsne``).
+To visualise the data sets or latent spaces thereof, these are decomposed using a decomposition method. By default, this method is PCA. This can be changed using the option ``--decomposition-methods``, and as the name implies, multiple methods can be specified: PCA (``pca``), ICA (``ica``), SVD (``svd``), and *t*-SNE (``tsne``). The latent values are also saved to a compressed TSV file in the same directory.
 
 The GMVAE model trained in the previous section is evaluated with PCA and *t*-SNE decomposition methods like this::
 
