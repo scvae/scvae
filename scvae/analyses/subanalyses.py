@@ -28,8 +28,10 @@ from scvae.analyses.figures import style
 from scvae.analyses.figures.utilities import _axis_label_for_symbol
 from scvae.analyses.decomposition import (
     decompose,
-    DECOMPOSITION_METHOD_NAMES
+    DECOMPOSITION_METHOD_NAMES,
+    DECOMPOSITION_METHOD_LABEL
 )
+from scvae.data.utilities import save_values
 from scvae.defaults import defaults
 from scvae.utilities import (
     format_duration,
@@ -701,12 +703,46 @@ def analyse_decompositions(data_sets, other_data_sets=None, centroids=None,
 
             if other_data_set:
                 plot_values_decomposed = other_values_decomposed
+                example_names = other_data_set.example_names
             else:
                 plot_values_decomposed = values_decomposed
+                example_names = data_set.example_names
 
             if plot_values_decomposed is None:
                 print("No values to plot.\n")
                 return
+
+            if decomposition_method:
+
+                table_name_parts = [
+                    name, normalise_string(decomposition_method)]
+                if sampled_values_decomposed is not None:
+                    table_name_parts.append("samples")
+                table_name = "-".join(table_name_parts)
+
+                feature_names = [
+                    "{}{}".format(
+                        DECOMPOSITION_METHOD_LABEL[decomposition_method],
+                        coordinate
+                    )
+                    for coordinate in [1, 2]
+                ]
+
+                print("Saving decomposed {}.".format(title))
+                saving_time_start = time()
+
+                save_values(
+                    values=plot_values_decomposed,
+                    name=table_name,
+                    row_names=example_names,
+                    column_names=feature_names,
+                    directory=decompositions_directory)
+
+                saving_duration = time() - saving_time_start
+                print("Decomposed {} saved ({}).".format(
+                    title,
+                    format_duration(saving_duration)))
+                print()
 
             print("Plotting {}{}.".format(
                 "decomposed " if decomposition_method else "",
