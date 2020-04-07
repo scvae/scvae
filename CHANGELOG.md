@@ -1,4 +1,10 @@
-# Release History
+# Release History #
+
+## 2.1.2 (2020-04-07) ##
+
+* Export of decomposition of data sets and latent values as compressed TSV files.
+* Export of predictions as compressed TSV files.
+* Fix potential crash during *t*-SNE decomposition.
 
 ## 2.1.1 (2020-02-24) ##
 
