@@ -90,7 +90,7 @@ def decompose(values, other_value_sets={}, centroids={}, method=None,
 
     values_decomposed = model.fit_transform(values)
 
-    if other_value_sets and method != "t_sne":
+    if other_value_sets and method != "t-SNE":
         other_value_sets_decomposed = {}
         for other_set_name, other_values in other_value_sets.items():
             if other_values is not None:
