@@ -191,4 +191,8 @@ def save_values(values, name, row_names=None, column_names=None,
 
     table = pandas.DataFrame(
         data=values, index=row_names, columns=column_names)
+
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
     table.to_csv(path, sep="\t")
