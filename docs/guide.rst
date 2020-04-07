@@ -188,7 +188,9 @@ The model is specified in the same way as when training the model, and the model
 
 Cells can be clustered and cell types can be predicted using the option ``--prediction-method``. Currently only *k*-means clustering (``kmeans``) is supported. The GMVAE clusters cells and predict cell types using its built-in density-based clustering by default.
 
-To visualise the data sets or latent spaces thereof, these are decomposed using a decomposition method. By default, this method is PCA. This can be changed using the option ``--decomposition-methods``, and as the name implies, multiple methods can be specified: PCA (``pca``), ICA (``ica``), SVD (``svd``), and *t*-SNE (``tsne``). The latent values are also saved to a compressed TSV file in the same directory.
+To visualise the data sets or latent spaces thereof, these are decomposed using a decomposition method. By default, this method is PCA. This can be changed using the option ``--decomposition-methods``, and as the name implies, multiple methods can be specified: PCA (``pca``), ICA (``ica``), SVD (``svd``), and *t*-SNE (``tsne``).
+
+Decompositions of the data sets and of the latent values as well as predictions and the latent values themselves are also saved to compressed TSV files in the same directory.
 
 The GMVAE model trained in the previous section is evaluated with PCA and *t*-SNE decomposition methods like this::
 
