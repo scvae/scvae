@@ -1140,3 +1140,59 @@ def analyse_centroid_probabilities(centroids, name=None,
     plot_duration = time() - plot_time_start
     print("Centroid probabilities plotted and saved ({}).".format(
         format_duration(plot_duration)))
+
+
+def analyse_predictions(evaluation_set, analyses_directory=None):
+
+    if analyses_directory is None:
+        analyses_directory = defaults["analyses"]["directory"]
+
+    print("Saving predictions.")
+
+    predictions_directory = os.path.join(analyses_directory, "predictions")
+
+    table_name = "predictions"
+
+    if evaluation_set.prediction_specifications:
+        table_name += "-" + (
+            evaluation_set.prediction_specifications.name)
+    else:
+        table_name += "-unknown_prediction_method"
+
+    if evaluation_set.has_predicted_cluster_ids:
+        saving_time_start = time()
+        save_values(
+            values=evaluation_set.predicted_cluster_ids,
+            name="{}-predicted_cluster_ids".format(table_name),
+            row_names=evaluation_set.example_names,
+            column_names=["Cluster ID"],
+            directory=predictions_directory)
+        saving_duration = time() - saving_time_start
+        print("    Predicted cluster IDs saved ({}).".format(
+            format_duration(saving_duration)))
+
+    if evaluation_set.has_predicted_labels:
+        saving_time_start = time()
+        save_values(
+            values=evaluation_set.predicted_labels,
+            name="{}-predicted_labels".format(table_name),
+            row_names=evaluation_set.example_names,
+            column_names=[evaluation_set.terms["class"].capitalize()],
+            directory=predictions_directory)
+        saving_duration = time() - saving_time_start
+        print("    Predicted labels saved ({}).".format(
+            format_duration(saving_duration)))
+
+    if evaluation_set.has_predicted_superset_labels:
+        saving_time_start = time()
+        save_values(
+            values=evaluation_set.predicted_superset_labels,
+            name="{}-predicted_superset_labels".format(table_name),
+            row_names=evaluation_set.example_names,
+            column_names=[evaluation_set.terms["class"].capitalize()],
+            directory=predictions_directory)
+        saving_duration = time() - saving_time_start
+        print("    Predicted superset labels saved ({}).".format(
+            format_duration(saving_duration)))
+
+    print()

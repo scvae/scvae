@@ -39,7 +39,8 @@ from scvae.utilities import (
 )
 
 ANALYSIS_GROUPS = {
-    "simple": ["metrics", "images", "learning_curves", "latent_values"],
+    "simple": ["metrics", "images", "learning_curves", "latent_values",
+               "predictions"],
     "standard": ["profile_comparisons", "distributions",
                  "decompositions", "latent_space"],
     "all": ["heat_maps", "distances", "feature_value_standard_deviations",
@@ -1359,6 +1360,11 @@ def analyse_results(evaluation_set, reconstructed_evaluation_set,
             plot_distances=True,
             analyses_directory=analyses_directory
         )
+
+    if "predictions" in included_analyses and evaluation_set.has_predictions:
+        print(subheading("Predictions"))
+        subanalyses.analyse_predictions(
+            evaluation_set, analyses_directory=analyses_directory)
 
     if "latent_values" in included_analyses and "VAE" in model.type:
         print(subheading("Latent values"))
