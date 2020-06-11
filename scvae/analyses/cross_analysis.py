@@ -120,12 +120,16 @@ LIKELIHOOD_DISRIBUTION_ORDER = [
 FACTOR_ANALYSIS_MODEL_TYPE = "VAE(G, g: LFM)"
 FACTOR_ANALYSIS_MODEL_TYPE_ALIAS = "FA"
 
-BASELINE_METHOD_TYPE = "Factor Analysis + k-means"
-BASELINE_METHOD_TYPE_ALIAS = "LFA-kM"
+BASELINE_METHOD_TYPE_ALIASES = {
+    "Factor Analysis + k-means": "LFA-kM",
+    "scVI + k-means": "scVI-kM",
+    "scvis + k-means": "scvis-kM"
+}
 
 OTHER_METHOD_NAMES = {
     "k-means": ["k_means", "kmeans"],
     "Seurat": ["seurat"],
+    "scVI": ["scvi"],
     "Factor Analysis": ["factor_analysis"]
 }
 OTHER_METHOD_SPECIFICATIONS = {
@@ -877,7 +881,9 @@ def cross_analyse(analyses_directory,
                         mode = filter_values[0]
                 model_filter_fields[model_type][filter_name] = mode
 
-        optimised_metric_names = ["ELBO", "ENRE", "KL_z", "KL_y"]
+        optimised_metric_names = ["ELBO", "ENRE", "KL_z"]
+        if common_comparison_fields.get("type") != "VAE(G)":
+            optimised_metric_names.append("KL_y")
         optimised_metric_symbols = {
             "ELBO": "$\\mathcal{L}$",
             "ENRE": "$\\log p(x|z)$",
@@ -1473,8 +1479,7 @@ def _metrics_for_other_methods(data_set_directory,
                     if method != other_method:
                         method = " + ".join([other_method, method])
 
-                    if method == BASELINE_METHOD_TYPE:
-                        method = BASELINE_METHOD_TYPE_ALIAS
+                    method = BASELINE_METHOD_TYPE_ALIASES.get(method, method)
 
                     for metric_name, metric_set in (
                             clustering_metric_values.items()):
@@ -1507,6 +1512,18 @@ def _metrics_for_other_methods(data_set_directory,
                                     method].setdefault(metric_name, [])
                                 other_method_metrics[set_name][method][
                                     metric_name].append(float(metric_value))
+
+                    evaluation = prediction.get("evaluation")
+
+                    if evaluation:
+                        for set_name in other_method_metrics:
+                            other_method_metrics[set_name].setdefault(
+                                method, {})
+                            other_method_metrics[set_name][method].setdefault(
+                                "ELBO", [])
+                            other_method_metrics[set_name][method][
+                                "ELBO"].append(-float(
+                                    evaluation["lower_bound"][-1]))
 
     return other_method_metrics
 

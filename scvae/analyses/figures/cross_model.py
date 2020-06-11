@@ -255,7 +255,7 @@ def plot_model_metric_sets(metrics_sets, x_key, y_key,
             "*",  # star
         ]
 
-    figure = pyplot.figure()
+    figure = pyplot.figure(figsize=(9, 6))
     axis = figure.add_subplot(1, 1, 1)
     seaborn.despine()
 
@@ -349,19 +349,21 @@ def plot_model_metric_sets(metrics_sets, x_key, y_key,
     baseline_line_styles = [
         "dashed",
         "dotted",
-        "dashdotted"
+        "dashdot",
+        "solid"
     ]
+    legend_outside = False
 
     if other_method_metrics:
         for method_name, metric_values in other_method_metrics.items():
 
+            x_values = metric_values.get(x_key, None)
             y_values = metric_values.get(y_key, None)
 
             if not y_values:
                 continue
 
             y = numpy.array(y_values)
-
             y_mean = y.mean()
 
             if y.shape[0] > 1:
@@ -369,26 +371,50 @@ def plot_model_metric_sets(metrics_sets, x_key, y_key,
             else:
                 y_sd = None
 
-            line_style = baseline_line_styles.pop(0)
+            if x_values:
+                legend_outside = True
 
-            axis.axhline(
-                y=y_mean,
-                color=style.STANDARD_PALETTE[-1],
-                linestyle=line_style,
-                label=method_name,
-                zorder=-1
-            )
+                x = numpy.array(x_values)
+                x_mean = x.mean()
 
-            if y_sd is not None:
-                axis.axhspan(
-                    ymin=y_mean - y_sd,
-                    ymax=y_mean + y_sd,
-                    facecolor=style.STANDARD_PALETTE[-1],
-                    alpha=0.1,
-                    edgecolor=None,
-                    label=method_name,
-                    zorder=-2
+                if x.shape[0] > 1:
+                    x_sd = x.std(ddof=1)
+                else:
+                    x_sd = None
+
+                axis.errorbar(
+                    x=x_mean,
+                    y=y_mean,
+                    yerr=y_sd,
+                    xerr=x_sd,
+                    ecolor=style.STANDARD_PALETTE[-1],
+                    color=style.STANDARD_PALETTE[-1],
+                    capsize=2,
+                    linestyle="none",
+                    label=method_name
                 )
+
+            else:
+                line_style = baseline_line_styles.pop(0)
+
+                axis.axhline(
+                    y=y_mean,
+                    color=style.STANDARD_PALETTE[-1],
+                    linestyle=line_style,
+                    label=method_name,
+                    zorder=-1
+                )
+
+                if y_sd is not None:
+                    axis.axhspan(
+                        ymin=y_mean - y_sd,
+                        ymax=y_mean + y_sd,
+                        facecolor=style.STANDARD_PALETTE[-1],
+                        alpha=0.1,
+                        edgecolor=None,
+                        label=method_name,
+                        zorder=-2
+                    )
 
     if len(metrics_sets) > 1:
 
@@ -414,6 +440,17 @@ def plot_model_metric_sets(metrics_sets, x_key, y_key,
                 else [len(order), l[0]]
         ))
 
-        axis.legend(handles, labels, loc="best")
+        if legend_outside:
+            legend_keywords = {
+                "loc": 'center left',
+                "bbox_to_anchor": (1.05, 0, .3, 1),
+                "ncol": 1,
+                # "mode": "expand",
+                "borderaxespad": 0
+            }
+        else:
+            legend_keywords = {"loc": "best"}
+
+        axis.legend(handles, labels, **legend_keywords)
 
     return figure, figure_name
