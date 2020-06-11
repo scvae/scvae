@@ -702,12 +702,6 @@ def _load_sparse_matrix_in_hdf5_format(path, example_names_key=None,
     table.pop("indptr")
     table.pop("shape")
 
-    n_examples, n_features = values.shape
-    n = {
-        "example": n_examples,
-        "feature": n_features
-    }
-
     def _find_list_of_names(list_name_guesses, kind):
         if list_name_guesses is None:
             list_name_guesses = LIST_NAME_GUESSES[kind]
@@ -720,11 +714,35 @@ def _load_sparse_matrix_in_hdf5_format(path, example_names_key=None,
                     list_of_names = table[table_key]
             if list_of_names is not None:
                 break
-        list_of_names = numpy.array(
-            ["{} {}".format(kind, i + 1) for i in range(n[kind])])
+        return list_of_names
 
     example_names = _find_list_of_names(example_names_key, kind="example")
     feature_names = _find_list_of_names(feature_names_key, kind="feature")
+
+    n_rows, n_columns = values.shape
+
+    n_examples_match_n_columns = (
+        example_names is not None and len(example_names) == n_columns)
+    n_features_match_n_rows = (
+        feature_names is not None and len(feature_names) == n_rows)
+
+    if (n_examples_match_n_columns and n_features_match_n_rows
+            or n_examples_match_n_columns and feature_names is None
+            or n_features_match_n_rows and example_names is None):
+        values = values.T
+        n_examples = n_columns
+        n_features = n_rows
+    else:
+        n_examples = n_rows
+        n_features = n_columns
+
+    if example_names is None:
+        example_names = numpy.array(
+            ["{} {}".format("example", i + 1) for i in range(n_examples)])
+
+    if feature_names is None:
+        feature_names = numpy.array(
+            ["{} {}".format("feature", i + 1) for i in range(n_features)])
 
     data_dictionary = {
         "values": values,

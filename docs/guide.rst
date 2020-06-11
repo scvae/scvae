@@ -79,12 +79,11 @@ For Loom files, scVAE follows `Loompy's conventions`_: each column represent a c
 
 .. _Loompy's conventions: http://linnarssonlab.org/loompy/conventions/index.html
 
-HDF5 files should include a single directory containing arrays for the sparse matrix (with names as for SciPy's CSR/CSC sparse matrix format: ``data``, ``indices``, ``indptr``, ``shape``). Arrays for example/cell and feature/gene names are also supported with a varieity of naming conventions: for example, ``barcodes``, ``cells``, ``samples``, ``examples`` for the former; ``genes`` and ``features`` for the latter.
+HDF5 files should include a single directory containing arrays for the sparse matrix (with names as for SciPy's CSR/CSC sparse matrix format: ``data``, ``indices``, ``indptr``, ``shape``). Arrays for example/cell and feature/gene names are also supported with a varieity of naming conventions: for example, ``barcodes``, ``cells``, ``samples``, ``examples`` for the former; ``genes`` and ``features`` for the latter. If either name array or both are present, scVAE will try to orient the matrix to match their dimensions.
 
 scVAE also supports the following formats (supplied using the ``--format`` option):
 
 * ``10x``: Output format for 10x Genomics's Cell Ranger.
-* ``h5``: Sparse matrix in HDF5 format.
 * ``gtex``: Format for data sets from `GTEx`_.
 * ``matrix_ebf``: (gzip compressed) TSV file with cells/samples/examples as rows and gene/features as columns (examples-by-features).
 * ``matrix_fbe``: (gzip compressed) TSV file with gene/features as rows and cells/samples/examples as columns (features-by-examples).
