@@ -256,7 +256,10 @@ def plot_profile_comparison(observed_series, expected_series,
         )
         seaborn.despine()
 
-        axis.set_yscale(y_scale, nonposy="clip")
+        y_scale_arguments = {}
+        if y_scale == "log":
+            y_scale_arguments["nonposy"] = "clip"
+        axis.set_yscale(y_scale, **y_scale_arguments)
         axis.set_ylabel(y_label)
 
         axis.set_xscale(x_scale)
