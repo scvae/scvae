@@ -1,19 +1,13 @@
 #!/usr/bin/env python3
 
 import setuptools
+from pathlib import Path
 
-import scvae
+here = Path(__file__).resolve().parent
 
-NAME = scvae.__name__
-DESCRIPTION = scvae.__description__
-URL = scvae.__url__
-AUTHOR = scvae.__author__
-EMAIL = scvae.__email__
-VERSION = scvae.__version__
-LICENSE = scvae.__license__
-PYTHON_VERSION_REQUIREMENT = ">=3.6, <3.8"
+python_version_requirement = ">=3.6, <3.8"
 
-PACKAGE_REQUIREMENTS = [
+package_requirements = [
     "importlib_resources >= 1.0",
     "loompy >= 2.0",
     "numpy >= 1.16",
@@ -28,39 +22,44 @@ PACKAGE_REQUIREMENTS = [
     "tensorflow-probability == 0.7"
 ]
 
-DOCUMENTATION_REQUIREMENTS = [
+documentation_requirements = [
     "pygments >= 2.4",
     "sphinx >= 2.2"
 ]
 
-EXTRAS_REQUIREMENTS = {
-    "docs": DOCUMENTATION_REQUIREMENTS
+extras_requirements = {
+    "docs": documentation_requirements
 }
 
-with open("README.md", "r") as readme_file:
+about = {}
+
+with here.joinpath("scvae", "__init__.py").open(mode="r") as init_file:
+    exec(init_file.read(), about)
+
+with here.joinpath("README.md").open(mode="r") as readme_file:
     readme = readme_file.read()
 
-with open("CHANGELOG.md", "r") as changelog_file:
+with here.joinpath("CHANGELOG.md").open(mode="r") as changelog_file:
     changelog = changelog_file.read()
 
 setuptools.setup(
-    name=NAME,
-    version=VERSION,
-    author=AUTHOR,
-    author_email=EMAIL,
-    description=DESCRIPTION,
+    name=about["__name__"],
+    version=about["__version__"],
+    author=about["__author__"],
+    author_email=about["__email__"],
+    description=about["__description__"],
     long_description="\n\n".join([readme, changelog]),
     long_description_content_type="text/markdown",
-    url=URL,
+    url=about["__url__"],
     packages=setuptools.find_packages(),
     include_package_data=True,
     entry_points={
         "console_scripts": ["scvae=scvae.__main__:main"],
     },
-    python_requires=PYTHON_VERSION_REQUIREMENT,
-    install_requires=PACKAGE_REQUIREMENTS,
-    extras_require=EXTRAS_REQUIREMENTS,
-    license=LICENSE,
+    python_requires=python_version_requirement,
+    install_requires=package_requirements,
+    extras_require=extras_requirements,
+    license=about["__license__"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",
