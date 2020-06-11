@@ -413,7 +413,12 @@ def evaluate(data_set_file_or_name, data_format=None, data_directory=None,
     )
 
     if not model.has_been_trained(run_id=run_id):
-        raise Exception("Cannot analyse model when it has not been trained.")
+        raise Exception(
+            "Model not found. Either it has not been trained or "
+            "scVAE is looking in the wrong directory. "
+            "The model directory resulting from the model specification is: "
+            "\"{}\"".format(model.log_directory())
+        )
 
     if ("best_model" in model_versions
             and not better_model_exists(model, run_id=run_id)):
