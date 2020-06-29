@@ -3,7 +3,7 @@
 User Guide
 ==========
 
-scVAE model count data, primarily single-cell gene transcript counts, using variational auto-encoders (:ref:`Kingma and Welling, 2013 <kingma2013>`; :ref:`Rezende et al., 2014 <rezende2014>`).
+scVAE model count data, primarily single-cell gene transcript counts, using variational auto-encoders (:ref:`Kingma and Welling, 2014 <kingma2014>`; :ref:`Rezende et al., 2014 <rezende2014>`).
 
 Installing scVAE
 ----------------
@@ -44,7 +44,7 @@ Several data sets are already included in scVAE:
 * ``Macosko-MRC``: `GSE63472`_.
 * ``10x-MBC``: `1.3 Million Brain Cells from E18 Mice`_ from `10x Genomics`_.
    * ``10x-MBC-20k``: 20 |_| 000 sampled cells.
-* ``10x-PBMC-PP``: Nine data sets of `purified PBMC populations`_ from 10x Genomics as specified in Grønbech et al. (2018).
+* ``10x-PBMC-PP``: Nine data sets of `purified PBMC populations`_ from 10x Genomics as specified in :ref:`Grønbech et al. (2020) <groenbech2020>`.
 * ``10x-PBMC-68k``: `Fresh 68k PBMCs (Donor A)`_ from 10x Genomics.
 * ``TCGA-RSEM``: `"transcript expression RNAseq - TOIL RSEM expected_count"`_ data set from the `TCGA Pan-Cancer (PANCAN)`_ cohort.
 
@@ -154,19 +154,19 @@ The default model can be changed by using the following options:
    * ``bernoulli``,
    * ``gaussian``, and
    * ``log_normal``.
-* ``-k``: The threshold for modelling low counts using discrete probabilities and high counts using a shifted likelihood function (denoted by :math:`k_\text{max}` in Grønbech et al., 2018). This turns the likelihood function into a corresponding piecewise categorical likehood function.
+* ``-k``: The threshold for modelling low counts using discrete probabilities and high counts using a shifted likelihood function (denoted by :math:`k_\text{max}` in :ref:`Grønbech et al., 2020 <groenbech2020>`). This turns the likelihood function into a corresponding piecewise categorical likehood function.
 * ``-q``: The latent prior distribution. For the VAE model, this can only be a normal isotropic Gaussian distribution (``gaussian``) or one with unit variance (``unit_variance_gaussian``). For the GMVAE model, this can either be a Gaussian-mixture model with a diagonal covariance matrix (``gaussian_mixture``) or a full covariance matrix (``full_covariance_gaussian_mixture``). Note that a full covariance matrix should only be used for simpler GMVAE models.
 * ``--prior-probabilites-method``: Method for how to set the mixture coefficients for the latent prior distribution of the GMVAE model. They can be fixed to either uniform values (``uniform``) or inferred values from labelled data (``infer``), or they can be learnt by the model (``learn``).
 * ``-l``: The dimension of the latent variable.
 * ``-H``: The number of hidden units in each layer separated by spaces. For example, ``-H 200 100`` will make both the inference (encoder) and the generative (decoder) networks two-layered with the first inference layer and the last generative layer consisting of 200 hidden units and the last inference layer and the first generative layer consisting of 100 hidden units.
 * ``-K``: The number of components for the GMVAE (if possible, this is inferred from labelled data, but it can be overridden using this option).
-* ``-w``: The number of epochs during the start of training with a linear weight on the KL divergence (the warm-up optimisation scheme described in Grønbech et al., 2018). This weight is gradually increased linearly from 0 to 1 for this number of epochs.
+* ``-w``: The number of epochs during the start of training with a linear weight on the KL divergence (the warm-up optimisation scheme described in :ref:`Grønbech et al., 2020 <groenbech2020>`). This weight is gradually increased linearly from 0 to 1 for this number of epochs.
 * ``--batch-correction``: Perform batch correction if batch indices are available in data set (currently only possible with Loom data sets).
 
 The training procedure can be changed using the following options (only applicable to the ``train`` command):
 
 * ``-e``: The number of epochs to train the model.
-* ``--learning-rate``: The learning rate of the model. The model is optimised using the Adam optimisation algorithm (:ref:`Kingma and Ba, 2014 <kingma2014>`).
+* ``--learning-rate``: The learning rate of the model. The model is optimised using the Adam optimisation algorithm (:ref:`Kingma and Ba, 2015 <kingma2015>`).
 
 A GMVAE model with a negative binomial likelihood function, a 100-dimensional latent variable, two hidden layers of each 100 units, and 200 epochs using the warm-up scheme is trained for 500 epochs on the ``10x-PBMC-PP`` data set like this::
 
@@ -198,7 +198,7 @@ The GMVAE model trained in the previous section is evaluated with PCA and *t*-SN
 Examples
 ^^^^^^^^
 
-To reproduce the main results from Grønbech et al. (2018), you can run the following commands:
+To reproduce the main results from :ref:`Grønbech et al. (2020) <groenbech2020>`, you can run the following commands:
 
 * Combined PBMC data set from 10x Genomics::
 
