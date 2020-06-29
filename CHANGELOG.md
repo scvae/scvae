@@ -1,5 +1,10 @@
 # Release History #
 
+## 2.1.3 (2020-06-29) ##
+
+* Fix loading cell and gene names for H5 data sets.
+* Report expected model directory path when scVAE cannot find a model during evaluation for easier troubleshooting.
+
 ## 2.1.2 (2020-04-07) ##
 
 * Export of decomposition of data sets and latent values as compressed TSV files.
