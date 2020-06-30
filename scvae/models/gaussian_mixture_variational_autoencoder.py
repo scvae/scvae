@@ -1122,7 +1122,9 @@ class GaussianMixtureVariationalAutoencoder:
                             minibatch_loss))
 
                         if numpy.isnan(minibatch_loss):
-                            raise ArithmeticError("The loss became NaN.")
+                            raise ArithmeticError(
+                                "Aborting. The ELBO for the last batch became "
+                                "indefinite.")
 
                 print()
 
@@ -1277,6 +1279,11 @@ class GaussianMixtureVariationalAutoencoder:
                 if "full-covariance" in self.latent_distribution_name:
                     q_z_covariances /= n_examples_train / minibatch_size
                     p_z_covariances /= n_examples_train / minibatch_size
+
+                if numpy.isnan(lower_bound_train):
+                    raise ArithmeticError(
+                        "Aborting. The ELBO for the training set became "
+                        "indefinite.")
 
                 learning_curves["training"]["lower_bound"].append(
                     lower_bound_train)
@@ -1559,6 +1566,11 @@ class GaussianMixtureVariationalAutoencoder:
                     if "full-covariance" in self.latent_distribution_name:
                         q_z_covariances /= n_examples_valid / minibatch_size
                         p_z_covariances /= n_examples_valid / minibatch_size
+
+                    if numpy.isnan(lower_bound_valid):
+                        raise ArithmeticError(
+                            "Aborting. The ELBO for the validation set became "
+                            "indefinite.")
 
                     learning_curves["validation"]["lower_bound"].append(
                         lower_bound_valid)
