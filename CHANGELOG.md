@@ -1,5 +1,9 @@
 # Release History #
 
+## 2.1.4 (2020-06-30) ##
+
+* Better handling of indefinite losses during training.
+
 ## 2.1.3 (2020-06-29) ##
 
 * Fix loading cell and gene names for H5 data sets.
