@@ -353,7 +353,7 @@ class DataSet:
         self.kind = kind
 
         # Split indices for training, validation, and test sets
-        self.split_indices = None
+        self.split_indices = self.specifications.get("split indices")
 
         # Version of data set (original, reconstructed)
         self.version = version
@@ -769,6 +769,10 @@ class DataSet:
                 paths=original_paths,
                 data_format=self.data_format
             )
+            if ("split indices" in self.specifications
+                    and "split indices" not in data_dictionary):
+                data_dictionary["split indices"] = self.specifications[
+                    "split indices"]
             loading_duration = time() - loading_time_start
 
             print()
@@ -1127,7 +1131,7 @@ class DataSet:
                 print("Saving split data sets.")
                 internal_io.save_data_dictionary(
                     data_dictionary=split_data_dictionary,
-                    parse=sparse_path
+                    path=sparse_path
                 )
                 print()
 
@@ -1300,8 +1304,7 @@ class DataSet:
         if splitting_method:
             filename_parts.append("split")
 
-            if (splitting_method == "indices" and
-                    len(split_indices) == 3 or not splitting_fraction):
+            if splitting_method == "indices":
                 filename_parts.append(splitting_method)
             else:
                 filename_parts.append("{}_{}".format(

@@ -79,8 +79,7 @@ def build_directory_path(base_directory, data_set, splitting_method=None,
         if splitting_method == "default":
             splitting_method = data_set.default_splitting_method
 
-        if (splitting_method == "indices" and len(data_set.split_indices) == 3
-                or not splitting_fraction):
+        if splitting_method == "indices":
             splitting_directory_parts.append(splitting_method)
         else:
             splitting_directory_parts.append(

@@ -163,8 +163,11 @@ def _load_split_indices(tables_file, group):
     split_indices = {}
 
     for array in tables_file.iter_nodes(group, "Array"):
-        start, stop = array.read()
-        split_indices[array.title] = slice(start, stop)
+        value = _load_array_or_other_type(array)
+        if not isinstance(value, list):
+            start, stop = value
+            value = slice(start, stop)
+        split_indices[array.title] = value
 
     return split_indices
 
@@ -231,10 +234,11 @@ def _save_split_indices(split_indices, title, group, tables_file):
     name = normalise_string(title)
     group = tables_file.create_group(group, name, title)
 
-    for subset_name, subset_slice in split_indices.items():
-        subset_slice_array = numpy.array(
-            [subset_slice.start, subset_slice.stop])
-        _save_array(subset_slice_array, subset_name, group, tables_file)
+    for subset_name, subset_indices in split_indices.items():
+        if isinstance(subset_indices, slice):
+            subset_indices = numpy.array(
+                [subset_indices.start, subset_indices.stop])
+        _save_array(subset_indices, subset_name, group, tables_file)
 
 
 def _save_feature_mapping(feature_mapping, title, group, tables_file):
