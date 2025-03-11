@@ -79,6 +79,9 @@ target/
 #Ipython Notebook
 .ipynb_checkpoints
 
+# pyenv
+.python-version
+
 # TeX
 # ———
 
@@ -278,3 +281,5 @@ Icon?
 # Sublime Text
 *.do*
 
+# Nova
+.nova/
