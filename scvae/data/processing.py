@@ -515,4 +515,8 @@ def _binarise(values):
 
 @_register_preprocessor("bernoulli_sample")
 def _bernoulli_sample(values):
-    return numpy.random.binomial(1, values)
+    if scipy.sparse.issparse(values):
+        values.data = numpy.random.binomial(1, values.data)
+    else:
+        values = numpy.random.binomial(1, values)
+    return values
