@@ -795,6 +795,14 @@ def main():
             help="methods for preprocessing data (applied in order)"
         )
         subparser.add_argument(
+            "--noisy-preprocessing-methods", "--np",
+            metavar="METHOD",
+            nargs="+",
+            default=_parse_default(
+                defaults["data"]["noisy_preprocessing_methods"]),
+            help="methods for noisily preprocessing data (applied in order)"
+        )
+        subparser.add_argument(
             "--split-data-set",
             action="store_true",
             default=_parse_default(defaults["data"]["split_data_set"]),
