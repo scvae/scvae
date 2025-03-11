@@ -27,6 +27,7 @@ import numpy
 import pandas
 import scipy
 import tables
+import tensorflow
 
 from scvae.utilities import normalise_string
 
@@ -530,6 +531,49 @@ def _load_binarised_mnist_data_set(paths):
     data_dictionary = {
         "values": values,
         "labels": None,
+        "example names": example_names,
+        "feature names": feature_names,
+        "split indices": split_indices
+    }
+
+    return data_dictionary
+
+
+@_register_loader("mnist_keras")
+def _load_mnist_data_set(paths):
+
+    (training_samples, training_labels), (test_samples, test_labels) = (
+        tensorflow.keras.datasets.mnist.load_data())
+
+    def preprocess(samples):
+        return samples.reshape(samples.shape[0], -1) / 255
+
+    training_samples = preprocess(training_samples)
+    test_samples = preprocess(test_samples)
+
+    values = {"training": training_samples, "test": test_samples}
+    labels = {"training": training_labels, "test": test_labels}
+
+    m_training = values["training"].shape[0]
+    m_test = values["test"].shape[0]
+    m = m_training + m_test
+
+    split_indices = {
+        "training": slice(0, m_training),
+        "test": slice(m_training, m)
+    }
+
+    values = numpy.concatenate((values["training"], values["test"]))
+    labels = numpy.concatenate((labels["training"], labels["test"]))
+
+    n = values.shape[1]
+
+    example_names = numpy.array(["image {}".format(i + 1) for i in range(m)])
+    feature_names = numpy.array(["pixel {}".format(j + 1) for j in range(n)])
+
+    data_dictionary = {
+        "values": values,
+        "labels": labels,
         "example names": example_names,
         "feature names": feature_names,
         "split indices": split_indices

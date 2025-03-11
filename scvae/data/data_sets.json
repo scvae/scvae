@@ -293,6 +293,13 @@
 		"feature dimensions": [28, 28]
 	},
 
+	"mnist_keras": {
+		"URLs": {},
+		"format": "mnist",
+		"example type": "images",
+		"feature dimensions": [28, 28]
+	},
+
 	"development": {
 		"URLs": {},
 		"format": "development",
