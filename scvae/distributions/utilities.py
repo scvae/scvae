@@ -31,7 +31,9 @@ DISTRIBUTIONS = {
     "gaussian": {
         "parameters": {
             "mu": {
-                "support": [-np.inf, np.inf],
+                "support": [
+                    np.finfo(dtype=np.float32).min / 2,
+                    np.finfo(dtype=np.float32).max / 2],
                 "activation function": tf.identity,
                 "initial value": tf.zeros
             },
@@ -50,19 +52,23 @@ DISTRIBUTIONS = {
     "softplus gaussian": {
         "parameters": {
             "mean": {
-                "support": [-np.inf, np.inf],
+                "support": [
+                    np.finfo(dtype=np.float32).min / 2,
+                    np.finfo(dtype=np.float32).max / 2],
                 "activation function": tf.identity,
                 "initial value": tf.zeros
             },
-            "variance": {
-                "support": [0, np.inf],
-                "activation function": tf.nn.softplus,
-                "initial value": tf.ones
+            "softplus_scale": {
+                "support": [
+                    np.finfo(dtype=np.float32).min / 2,
+                    np.finfo(dtype=np.float32).max / 2],
+                "activation function": tf.identity,
+                "initial value": tf.zeros
             }
         },
         "class": lambda theta: tfp.distributions.Normal(
             loc=theta["mean"],
-            scale=tf.sqrt(theta["variance"])
+            scale=tf.sqrt(tf.nn.softplus(theta["softplus_scale"]))
         )
     },
 
