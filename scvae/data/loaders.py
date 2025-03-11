@@ -346,11 +346,12 @@ def _load_loom_data_set(paths):
         n_examples, n_features = values.shape
 
         if "ClusterName" in data_file.ca:
-            labels = data_file.ca["ClusterName"].flatten()
+            labels = data_file.ca["ClusterName"].flatten().astype("U")
         elif "ClusterID" in data_file.ca:
             cluster_ids = data_file.ca["ClusterID"].flatten()
             if "CellTypes" in data_file.attrs:
-                class_names = numpy.array(data_file.attrs["CellTypes"])
+                class_names = numpy.array(
+                    data_file.attrs["CellTypes"].astype("U"))
                 class_name_from_class_id = numpy.vectorize(
                     lambda class_id: class_names[int(class_id)]
                 )
@@ -361,7 +362,7 @@ def _load_loom_data_set(paths):
         if "CellID" in data_file.ca:
             example_names = data_file.ca["CellID"].flatten().astype("U")
         elif "Cell" in data_file.ca:
-            example_names = data_file.ca["Cell"].flatten()
+            example_names = data_file.ca["Cell"].flatten().astype("U")
         else:
             example_names = numpy.array([
                 "Cell {}".format(j + 1) for j in range(n_examples)])
